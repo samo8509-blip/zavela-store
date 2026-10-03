@@ -1,0 +1,8 @@
+{
+  "name": "Zavela Store - Tienda Online Colombia",
+  "description": "Zavela Store: Descubre algo nuevo. Tienda online oficial en Colombia con pago contra entrega en efectivo, garantía directa de 30 días y rastreo de envíos en tiempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,190 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="kitOrangeBg" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </radialGradient>
+    <linearGradient id="orangeCase" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b00" />
+      <stop offset="60%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#c2410c" />
+    </linearGradient>
+    <linearGradient id="blackCaseTray" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a2e36" />
+      <stop offset="50%" stop-color="#16181d" />
+      <stop offset="100%" stop-color="#0a0b0d" />
+    </linearGradient>
+    <linearGradient id="chromeSteel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="35%" stop-color="#f1f5f9" />
+      <stop offset="70%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+    <filter id="caseShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="24" stdDeviation="24" flood-color="#0f172a" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#kitOrangeBg)" />
+
+  <!-- Main Hard Case Container -->
+  <g transform="translate(130, 40)" filter="url(#caseShadow)">
+    <!-- Top Lid (Orange Molded Case with 12 Chrome Vanadium Wrenches) -->
+    <g transform="translate(0, 0)">
+      <path d="M 50 0 L 690 0 Q 740 0 740 50 L 740 400 L 0 400 L 0 50 Q 0 0 50 0 Z" fill="url(#orangeCase)" stroke="#9a3412" stroke-width="4" />
+      <!-- Handle -->
+      <path d="M 280 0 L 280 -40 Q 280 -55 300 -55 L 440 -55 Q 460 -55 460 -40 L 460 0 Z" fill="url(#orangeCase)" stroke="#9a3412" stroke-width="4" />
+      <rect x="310" y="-40" width="120" height="25" rx="12" fill="#ffffff" fill-opacity="0.9" />
+
+      <!-- Molded Tool Grooves for 12 Combination Wrenches -->
+      <rect x="25" y="40" width="690" height="340" rx="16" fill="#c2410c" stroke="#9a3412" stroke-width="2" />
+
+      <!-- 12 Chrome Vanadium Combination Wrenches (Ascending/Organized) -->
+      <!-- Wrench 1 (19mm) -->
+      <g transform="translate(45, 60)">
+        <circle cx="20" cy="300" r="18" fill="none" stroke="url(#chromeSteel)" stroke-width="10" />
+        <rect x="15" y="30" width="10" height="270" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 35 10 L 28 35 L 12 35 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 2 (17mm) -->
+      <g transform="translate(105, 80)">
+        <circle cx="18" cy="270" r="16" fill="none" stroke="url(#chromeSteel)" stroke-width="9" />
+        <rect x="13" y="30" width="10" height="240" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 31 10 L 25 32 L 11 32 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 3 (15mm) -->
+      <g transform="translate(160, 100)">
+        <circle cx="16" cy="245" r="15" fill="none" stroke="url(#chromeSteel)" stroke-width="8" />
+        <rect x="12" y="28" width="8" height="215" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 27 10 L 22 30 L 10 30 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 4 (14mm) -->
+      <g transform="translate(210, 120)">
+        <circle cx="15" cy="220" r="14" fill="none" stroke="url(#chromeSteel)" stroke-width="8" />
+        <rect x="11" y="26" width="8" height="195" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 25 10 L 20 28 L 10 28 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 5 (13mm) -->
+      <g transform="translate(255, 140)">
+        <circle cx="14" cy="195" r="13" fill="none" stroke="url(#chromeSteel)" stroke-width="7" />
+        <rect x="11" y="25" width="6" height="170" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 23 10 L 18 26 L 10 26 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 6 (11mm) -->
+      <g transform="translate(295, 160)">
+        <circle cx="13" cy="170" r="12" fill="none" stroke="url(#chromeSteel)" stroke-width="7" />
+        <rect x="10" y="24" width="6" height="145" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 21 10 L 17 24 L 9 24 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 7 (10mm) -->
+      <g transform="translate(335, 170)">
+        <circle cx="12" cy="155" r="11" fill="none" stroke="url(#chromeSteel)" stroke-width="6" />
+        <rect x="9" y="22" width="6" height="130" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 4 10 L 20 10 L 16 23 L 8 23 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 8 (8mm) -->
+      <g transform="translate(375, 160)">
+        <circle cx="12" cy="165" r="11" fill="none" stroke="url(#chromeSteel)" stroke-width="6" />
+        <rect x="9" y="22" width="6" height="140" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 4 10 L 20 10 L 16 23 L 8 23 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 9 (12mm) -->
+      <g transform="translate(420, 140)">
+        <circle cx="13" cy="190" r="12" fill="none" stroke="url(#chromeSteel)" stroke-width="7" />
+        <rect x="10" y="24" width="6" height="165" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 21 10 L 17 25 L 9 25 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 10 (14mm) -->
+      <g transform="translate(465, 120)">
+        <circle cx="15" cy="220" r="14" fill="none" stroke="url(#chromeSteel)" stroke-width="8" />
+        <rect x="11" y="26" width="8" height="195" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 25 10 L 20 28 L 10 28 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 11 (16mm) -->
+      <g transform="translate(515, 95)">
+        <circle cx="17" cy="255" r="15" fill="none" stroke="url(#chromeSteel)" stroke-width="9" />
+        <rect x="12" y="28" width="10" height="225" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 29 10 L 23 30 L 11 30 Z" fill="url(#chromeSteel)" />
+      </g>
+      <!-- Wrench 12 (18mm) -->
+      <g transform="translate(570, 70)">
+        <circle cx="19" cy="290" r="17" fill="none" stroke="url(#chromeSteel)" stroke-width="10" />
+        <rect x="14" y="30" width="10" height="260" fill="url(#chromeSteel)" rx="2" />
+        <path d="M 5 10 L 33 10 L 26 34 L 12 34 Z" fill="url(#chromeSteel)" />
+      </g>
+    </g>
+
+    <!-- Bottom Tray (Black Molded Heavy Duty Tray: Sockets, Rachet, Extension Bar) -->
+    <g transform="translate(0, 420)">
+      <path d="M 0 0 L 740 0 L 740 380 Q 740 440 690 440 L 50 440 Q 0 440 0 380 Z" fill="url(#blackCaseTray)" stroke="#334155" stroke-width="4" />
+      <!-- Orange Latches -->
+      <rect x="80" y="430" width="70" height="40" rx="8" fill="url(#orangeCase)" stroke="#9a3412" stroke-width="2" />
+      <rect x="590" y="430" width="70" height="40" rx="8" fill="url(#orangeCase)" stroke="#9a3412" stroke-width="2" />
+
+      <!-- Row 1: Large Heavy Sockets (Copas Grandes) -->
+      <g transform="translate(40, 30)">
+        <rect x="0" y="0" width="55" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="70" y="0" width="50" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="135" y="0" width="48" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="198" y="0" width="45" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="258" y="0" width="42" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="315" y="0" width="40" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="370" y="0" width="38" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="423" y="0" width="36" height="50" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+      </g>
+
+      <!-- Row 2: Standard Metric Sockets (Copas Medianas y Pequeñas) -->
+      <g transform="translate(40, 100)">
+        <rect x="0" y="0" width="40" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="50" y="0" width="38" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="98" y="0" width="36" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="144" y="0" width="34" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="188" y="0" width="32" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="230" y="0" width="30" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="270" y="0" width="28" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="308" y="0" width="26" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="344" y="0" width="24" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="378" y="0" width="22" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="410" y="0" width="20" height="42" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+      </g>
+
+      <!-- Rachet Wrench (Llave Chicharra / Rachet con Mango Ergonómico) -->
+      <g transform="translate(180, 180)">
+        <!-- Rachet Head & Selector -->
+        <circle cx="380" cy="25" r="28" fill="url(#chromeSteel)" stroke="#1e293b" stroke-width="2" />
+        <circle cx="380" cy="25" r="14" fill="#1e293b" />
+        <rect x="375" y="10" width="10" height="15" rx="2" fill="#ef4444" />
+        <!-- Chrome Steel Shaft -->
+        <rect x="120" y="18" width="250" height="14" fill="url(#chromeSteel)" rx="4" stroke="#1e293b" />
+        <!-- Bi-material Ergonomic Handle (Black & Orange) -->
+        <rect x="0" y="8" width="130" height="34" rx="17" fill="#0f172a" stroke="url(#orangeCase)" stroke-width="4" />
+        <rect x="25" y="14" width="80" height="22" rx="10" fill="url(#orangeCase)" />
+      </g>
+
+      <!-- Sliding T-Bar Extension & Spark Plug Sockets -->
+      <g transform="translate(40, 270)">
+        <!-- Deep Spark Plug Sockets (Left) -->
+        <rect x="0" y="0" width="110" height="32" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+        <rect x="0" y="45" width="110" height="32" rx="4" fill="url(#chromeSteel)" stroke="#1e293b" />
+
+        <!-- T-Bar (Center) -->
+        <rect x="140" y="25" width="380" height="14" fill="url(#chromeSteel)" rx="4" stroke="#1e293b" />
+        <rect x="360" y="5" width="28" height="50" fill="url(#chromeSteel)" rx="4" stroke="#1e293b" />
+
+        <!-- Universal Joint Cardan (Right) -->
+        <rect x="540" y="30" width="90" height="30" rx="6" fill="url(#chromeSteel)" stroke="#1e293b" />
+      </g>
+    </g>
+  </g>
+
+  <!-- Top Feature Badges -->
+  <g transform="translate(60, 40)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#0f172a" stroke="#ea580c" stroke-width="2" />
+    <text x="120" y="28" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="#ea580c" text-anchor="middle" letter-spacing="1">CHROME VANADIUM STEEL</text>
+  </g>
+
+  <g transform="translate(700, 40)">
+    <rect x="0" y="0" width="240" height="46" rx="23" fill="#0f172a" stroke="#38bdf8" stroke-width="2" />
+    <text x="120" y="28" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="#38bdf8" text-anchor="middle" letter-spacing="1">37 PIEZAS + MALETÍN RÍGIDO</text>
+  </g>
+</svg>

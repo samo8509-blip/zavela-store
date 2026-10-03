@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* Ajuste de notificación de compra reciente solo para celulares */
+@media (max-width: 768px) {
+  /* Si deseas moverlo a la parte superior */
+  .social-proof-toast, 
+  .notification-recent-purchase, 
+  [class*="compra-reciente"] {
+    bottom: auto !important;
+    top: 90px !important; /* Lo ubica debajo del encabezado sin tapar el producto */
+    left: 10px !important;
+    right: 10px !important;
+    max-width: 90% !important;
+    margin: 0 auto !important;
+    transform: scale(0.9); /* Reduce ligeramente el tamaño en celular */
+    z-index: 99 !important;
+  }
+}

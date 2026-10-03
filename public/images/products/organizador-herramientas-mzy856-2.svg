@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="darkBg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#181a20" />
+      <stop offset="50%" stop-color="#0f1115" />
+      <stop offset="100%" stop-color="#050608" />
+    </radialGradient>
+    <linearGradient id="goldText" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#a16207" />
+    </linearGradient>
+    <linearGradient id="circleGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#ca8a04" />
+      <stop offset="100%" stop-color="#854d0e" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="1000" fill="url(#darkBg)" />
+
+  <!-- Main Headline Banner -->
+  <g transform="translate(500, 100)">
+    <text x="0" y="0" font-family="Arial Black, sans-serif" font-weight="900" font-size="52" fill="#ffffff" text-anchor="middle" letter-spacing="2">DISEÑADO PARA</text>
+    <text x="0" y="65" font-family="Arial Black, sans-serif" font-weight="900" font-size="64" fill="url(#goldText)" text-anchor="middle" letter-spacing="3">MÁXIMO RENDIMIENTO</text>
+  </g>
+
+  <!-- Central Graphic Illustration: Metal Rack with Power Tools -->
+  <g transform="translate(300, 240)">
+    <!-- Metal Rack Body -->
+    <rect x="0" y="40" width="400" height="240" rx="8" fill="#1e293b" stroke="#475569" stroke-width="4" />
+    <line x1="0" y1="120" x2="400" y2="120" stroke="#475569" stroke-width="4" />
+    <line x1="0" y1="200" x2="400" y2="200" stroke="#475569" stroke-width="4" />
+    <!-- Circular Saw on Top -->
+    <circle cx="100" cy="15" r="45" fill="#334155" stroke="#facc15" stroke-width="4" />
+    <!-- 4 Hanging Drills -->
+    <g transform="translate(20, 220)">
+      <rect x="15" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="105" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="195" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="285" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+    </g>
+  </g>
+
+  <!-- Left Feature Column -->
+  <!-- Feature 1: Estructura 100% Metálica -->
+  <g transform="translate(60, 270)">
+    <circle cx="45" cy="45" r="40" fill="#0f172a" stroke="url(#circleGold)" stroke-width="4" />
+    <path d="M 45 25 L 65 35 L 65 55 Q 45 70 45 70 Q 25 55 25 35 Z" fill="url(#goldText)" />
+    <text x="105" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">ESTRUCTURA</text>
+    <text x="105" y="60" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">100% METÁLICA</text>
+    <text x="105" y="84" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Alta resistencia y durabilidad</text>
+  </g>
+
+  <!-- Feature 2: Diseño de 3 Niveles -->
+  <g transform="translate(60, 420)">
+    <circle cx="45" cy="45" r="40" fill="#0f172a" stroke="url(#circleGold)" stroke-width="4" />
+    <polygon points="45,25 65,35 45,45 25,35" fill="url(#goldText)" />
+    <polygon points="45,40 65,50 45,60 25,50" fill="url(#goldText)" />
+    <polygon points="45,55 65,65 45,75 25,65" fill="url(#goldText)" />
+    <text x="105" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">DISEÑO DE</text>
+    <text x="105" y="60" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">3 NIVELES</text>
+    <text x="105" y="84" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Más espacio en menos área</text>
+  </g>
+
+  <!-- Feature 3: Soporta hasta 50 Libras -->
+  <g transform="translate(60, 570)">
+    <circle cx="45" cy="45" r="40" fill="#0f172a" stroke="url(#circleGold)" stroke-width="4" />
+    <text x="45" y="44" font-family="Arial Black, sans-serif" font-weight="900" font-size="22" fill="url(#goldText)" text-anchor="middle">50</text>
+    <text x="45" y="62" font-family="Arial, sans-serif" font-weight="bold" font-size="12" fill="url(#goldText)" text-anchor="middle">LBS</text>
+    <text x="105" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">SOPORTA HASTA</text>
+    <text x="105" y="60" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">50 LIBRAS</text>
+    <text x="105" y="84" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Estabilidad garantizada</text>
+  </g>
+
+  <!-- Feature 4: Ranuras Laterales -->
+  <g transform="translate(60, 720)">
+    <circle cx="45" cy="45" r="40" fill="#0f172a" stroke="url(#circleGold)" stroke-width="4" />
+    <rect x="36" y="25" width="6" height="40" fill="url(#goldText)" rx="2" />
+    <rect x="48" y="25" width="6" height="40" fill="url(#goldText)" rx="2" />
+    <text x="105" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">RANURAS</text>
+    <text x="105" y="60" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">LATERALES</text>
+    <text x="105" y="84" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Para destornilladores y alicates</text>
+  </g>
+
+  <!-- Bottom Gold Badge Banner -->
+  <g transform="translate(150, 870)">
+    <rect x="0" y="0" width="700" height="90" rx="16" fill="#141a29" stroke="url(#circleGold)" stroke-width="3" />
+    <!-- Seal -->
+    <circle cx="100" cy="45" r="35" fill="url(#circleGold)" />
+    <circle cx="100" cy="45" r="28" fill="#0f172a" />
+    <text x="100" y="42" font-family="Arial Black, sans-serif" font-weight="900" font-size="11" fill="url(#goldText)" text-anchor="middle">CALIDAD</text>
+    <text x="100" y="55" font-family="Arial Black, sans-serif" font-weight="bold" font-size="9" fill="#ffffff" text-anchor="middle">PROFESIONAL</text>
+    <!-- Label -->
+    <text x="420" y="35" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="url(#goldText)" letter-spacing="3" text-anchor="middle">★ IDEAL PARA ★</text>
+    <text x="420" y="68" font-family="Arial Black, sans-serif" font-weight="900" font-size="28" fill="#ffffff" letter-spacing="2" text-anchor="middle">GARAJE Y TALLER</text>
+  </g>
+</svg>

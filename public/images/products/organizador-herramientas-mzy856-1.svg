@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="orgBg" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </radialGradient>
+    <linearGradient id="metalBlack" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="yellowTool" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#facc15" />
+      <stop offset="100%" stop-color="#ca8a04" />
+    </linearGradient>
+    <filter id="orgShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="25" stdDeviation="25" flood-color="#0f172a" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#orgBg)" />
+
+  <!-- Title Header -->
+  <g transform="translate(500, 90)">
+    <text x="0" y="0" font-family="Arial Black, sans-serif" font-weight="900" font-size="54" fill="#0f172a" text-anchor="middle">Organizador</text>
+    <text x="0" y="42" font-family="Arial, sans-serif" font-weight="bold" font-size="28" fill="#475569" text-anchor="middle" letter-spacing="4">MZY-856</text>
+  </g>
+
+  <!-- Main 3D Metal Rack Structure -->
+  <g transform="translate(160, 200)" filter="url(#orgShadow)">
+    <!-- Top Shelf Tray -->
+    <polygon points="40,40 640,40 680,80 80,80" fill="url(#metalBlack)" stroke="#475569" stroke-width="3" />
+    <rect x="40" y="40" width="600" height="15" fill="#0f172a" />
+    <rect x="40" y="25" width="20" height="30" fill="#1e293b" />
+    <rect x="620" y="25" width="20" height="30" fill="#1e293b" />
+
+    <!-- Middle Shelf Tray -->
+    <polygon points="40,240 640,240 680,280 80,280" fill="url(#metalBlack)" stroke="#475569" stroke-width="3" />
+    <rect x="40" y="240" width="600" height="15" fill="#0f172a" />
+
+    <!-- Vertical Side Pillars -->
+    <rect x="40" y="25" width="20" height="380" rx="3" fill="#0f172a" stroke="#334155" stroke-width="2" />
+    <rect x="620" y="25" width="20" height="380" rx="3" fill="#0f172a" stroke="#334155" stroke-width="2" />
+
+    <!-- Side Tool Slots (Left: Screwdriver slots & Saw Holder) -->
+    <g transform="translate(-10, 120)">
+      <rect x="0" y="0" width="50" height="12" fill="#1e293b" rx="2" />
+      <circle cx="15" cy="6" r="4" fill="#0f172a" />
+      <circle cx="35" cy="6" r="4" fill="#0f172a" />
+      <!-- Hanging Yellow Hacksaw -->
+      <path d="M 15 10 L 15 180 Q 15 200 35 200 L 45 200 L 45 10 Z" fill="none" stroke="url(#yellowTool)" stroke-width="10" />
+      <line x1="20" y1="20" x2="20" y2="180" stroke="#94a3b8" stroke-width="4" />
+    </g>
+
+    <!-- Side Tool Slots (Right: Pliers / Screwdrivers Rack) -->
+    <g transform="translate(640, 60)">
+      <rect x="0" y="0" width="50" height="12" fill="#1e293b" rx="2" />
+      <!-- Screwdrivers standing upright -->
+      <rect x="8" y="-45" width="10" height="45" rx="3" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="2" />
+      <rect x="22" y="-55" width="10" height="55" rx="3" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="2" />
+      <rect x="36" y="-40" width="10" height="40" rx="3" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="2" />
+    </g>
+
+    <!-- Items on Top Shelf: Paint Roller, Pliers, Putty Knife -->
+    <g transform="translate(100, -10)">
+      <!-- Paint Roller -->
+      <path d="M 380 40 L 480 40 L 480 15 L 430 15 L 430 -30 L 420 -30 L 420 15" fill="none" stroke="#64748b" stroke-width="5" />
+      <rect x="420" y="20" width="90" height="35" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2" />
+      <!-- Small Hand Tools on Top Shelf -->
+      <rect x="180" y="30" width="100" height="16" rx="4" fill="#0f172a" />
+      <rect x="200" y="25" width="60" height="10" fill="url(#yellowTool)" rx="2" />
+    </g>
+
+    <!-- Items on Middle Shelf: Gloves, Tape Measure -->
+    <g transform="translate(100, 200)">
+      <!-- Work Gloves -->
+      <ellipse cx="220" cy="40" rx="45" ry="25" fill="#64748b" />
+      <ellipse cx="235" cy="35" rx="40" ry="20" fill="#334155" />
+      <!-- Tape Measure -->
+      <circle cx="360" cy="35" r="28" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="3" />
+      <circle cx="360" cy="35" r="16" fill="#1e293b" />
+    </g>
+
+    <!-- Bottom Drill Hanging Rack Slots -->
+    <rect x="40" y="370" width="600" height="18" fill="url(#metalBlack)" stroke="#475569" stroke-width="2" />
+
+    <!-- 3 Hanging Cordless Power Drills (Inverted Slots) -->
+    <!-- Drill 1 -->
+    <g transform="translate(130, 380)">
+      <rect x="0" y="0" width="55" height="14" rx="4" fill="url(#metalBlack)" />
+      <!-- Battery top -->
+      <rect x="-10" y="10" width="75" height="30" rx="6" fill="#0f172a" stroke="url(#yellowTool)" stroke-width="2" />
+      <!-- Drill Handle -->
+      <rect x="8" y="40" width="38" height="90" rx="8" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="3" />
+      <!-- Drill Head & Chuck hanging down -->
+      <polygon points="-5,130 60,130 45,190 10,190" fill="#0f172a" />
+      <rect x="15" y="190" width="25" height="35" fill="#94a3b8" />
+    </g>
+
+    <!-- Drill 2 -->
+    <g transform="translate(290, 380)">
+      <rect x="0" y="0" width="55" height="14" rx="4" fill="url(#metalBlack)" />
+      <rect x="-10" y="10" width="75" height="30" rx="6" fill="#0f172a" stroke="url(#yellowTool)" stroke-width="2" />
+      <rect x="8" y="40" width="38" height="90" rx="8" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="3" />
+      <polygon points="-5,130 60,130 45,190 10,190" fill="#0f172a" />
+      <rect x="15" y="190" width="25" height="35" fill="#94a3b8" />
+    </g>
+
+    <!-- Drill 3 -->
+    <g transform="translate(450, 380)">
+      <rect x="0" y="0" width="55" height="14" rx="4" fill="url(#metalBlack)" />
+      <rect x="-10" y="10" width="75" height="30" rx="6" fill="#0f172a" stroke="url(#yellowTool)" stroke-width="2" />
+      <rect x="8" y="40" width="38" height="90" rx="8" fill="url(#yellowTool)" stroke="#0f172a" stroke-width="3" />
+      <polygon points="-5,130 60,130 45,190 10,190" fill="#0f172a" />
+      <rect x="15" y="190" width="25" height="35" fill="#94a3b8" />
+    </g>
+  </g>
+
+  <!-- Bottom Badges -->
+  <g transform="translate(100, 880)">
+    <rect x="0" y="0" width="240" height="55" rx="14" fill="#0f172a" stroke="#facc15" stroke-width="2" />
+    <text x="120" y="34" font-family="Arial, sans-serif" font-weight="900" font-size="14" fill="#facc15" text-anchor="middle">SOPORTA HASTA 50 LBS</text>
+  </g>
+
+  <g transform="translate(380, 880)">
+    <rect x="0" y="0" width="240" height="55" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2" />
+    <text x="120" y="34" font-family="Arial, sans-serif" font-weight="900" font-size="14" fill="#38bdf8" text-anchor="middle">4 RANURAS TALADROS</text>
+  </g>
+
+  <g transform="translate(660, 880)">
+    <rect x="0" y="0" width="240" height="55" rx="14" fill="#0f172a" stroke="#4ade80" stroke-width="2" />
+    <text x="120" y="34" font-family="Arial, sans-serif" font-weight="900" font-size="14" fill="#4ade80" text-anchor="middle">ESTRUCTURA 100% METAL</text>
+  </g>
+</svg>

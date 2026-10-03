@@ -1,0 +1,1527 @@
+{
+  "categories": [
+    {
+      "id": "cat-amor-amistad",
+      "name": "💖 Amor y Amistad",
+      "slug": "amor-y-amistad",
+      "active": true,
+      "icon": "Heart",
+      "description": "Especial Amor y Amistad en Colombia: Joyería de pareja, rosas preservadas LED, proyectores galaxia, relojes dúo y regalos inolvidables con pago contra entrega.",
+      "order": 0,
+      "subcategories": [
+        {
+          "id": "sub-amor-1",
+          "name": "Detalles y Rosas LED",
+          "slug": "detalles-rosas",
+          "active": true
+        },
+        {
+          "id": "sub-amor-2",
+          "name": "Joyería & Pulseras de Pareja",
+          "slug": "joyeria-parejas",
+          "active": true
+        },
+        {
+          "id": "sub-amor-3",
+          "name": "Relojes & Accesorios Dúo",
+          "slug": "relojes-duo",
+          "active": true
+        },
+        {
+          "id": "sub-amor-4",
+          "name": "Cuidado y Relajación Romántica",
+          "slug": "cuidado-relajacion",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-halloween",
+      "name": "🎃 Halloween & Disfraces",
+      "slug": "halloween-disfraces",
+      "active": true,
+      "icon": "Ghost",
+      "description": "Especial Halloween y Noche de Brujas: Disfraces impactantes, máscaras LED de neón, calderos de niebla RGB, proyectores de terror y disfraces para mascotas con pago contra entrega.",
+      "order": 1,
+      "subcategories": [
+        {
+          "id": "sub-halo-1",
+          "name": "Disfraces para Adultos y Niños",
+          "slug": "disfraces-adultos-ninos",
+          "active": true
+        },
+        {
+          "id": "sub-halo-2",
+          "name": "Máscaras LED y Neón",
+          "slug": "mascaras-led-neon",
+          "active": true
+        },
+        {
+          "id": "sub-halo-3",
+          "name": "Decoración Terror & Calderos Niebla",
+          "slug": "decoracion-terror-niebla",
+          "active": true
+        },
+        {
+          "id": "sub-halo-4",
+          "name": "Disfraces para Mascotas",
+          "slug": "disfraces-mascotas",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-navidad",
+      "name": "🎄 Artículos Navideños y Diciembre",
+      "slug": "navidad-diciembre",
+      "active": true,
+      "icon": "Gift",
+      "description": "Luces navideñas inteligentes, árboles nevados, proyectores láser 3D, guirnaldas y decoración especial para celebrar la mejor época del año con pago contra entrega.",
+      "order": 2,
+      "subcategories": [
+        {
+          "id": "sub-nav-1",
+          "name": "Luces y Proyectores LED",
+          "slug": "luces-proyectores",
+          "active": true
+        },
+        {
+          "id": "sub-nav-2",
+          "name": "Árboles y Coronas",
+          "slug": "arboles-coronas",
+          "active": true
+        },
+        {
+          "id": "sub-nav-3",
+          "name": "Inflables y Decoración Exterior",
+          "slug": "inflables-exterior",
+          "active": true
+        },
+        {
+          "id": "sub-nav-4",
+          "name": "Regalos Navideños",
+          "slug": "regalos-navidenos",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-1",
+      "name": "Belleza y Cuidado Personal",
+      "slug": "belleza-cuidado",
+      "active": true,
+      "icon": "Sparkles",
+      "description": "Perfumería fina de mujer y hombre, combos exclusivos de fragancias, cuidado capilar y bienestar personal con pago contra entrega.",
+      "order": 3,
+      "subcategories": [
+        {
+          "id": "sub-perfumeria",
+          "name": "💎 Perfumería & Fragancias",
+          "slug": "perfumeria-fragancias",
+          "active": true
+        },
+        {
+          "id": "sub-perfumes-mujer",
+          "name": "🌸 Perfumes de Mujer",
+          "slug": "perfumes-mujer",
+          "active": true
+        },
+        {
+          "id": "sub-perfumes-hombre",
+          "name": "🔥 Perfumes de Hombre",
+          "slug": "perfumes-hombre",
+          "active": true
+        },
+        {
+          "id": "sub-perfumes-combos",
+          "name": "🎁 Perfumes en Combo & Dúos",
+          "slug": "perfumes-combos",
+          "active": true
+        },
+        {
+          "id": "sub-1",
+          "name": "Cuidado Capilar",
+          "slug": "cuidado-capilar",
+          "active": true
+        },
+        {
+          "id": "sub-2",
+          "name": "Cuidado Facial",
+          "slug": "cuidado-facial",
+          "active": true
+        },
+        {
+          "id": "sub-3",
+          "name": "Aparatos de Belleza",
+          "slug": "aparatos-belleza",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-2",
+      "name": "Hogar y Cocina",
+      "slug": "hogar-cocina",
+      "active": true,
+      "icon": "Home",
+      "description": "Soluciones inteligentes, electrodomésticos portátiles y decoración para el hogar.",
+      "order": 4,
+      "subcategories": [
+        {
+          "id": "sub-4",
+          "name": "Cocina Práctica",
+          "slug": "cocina-practica",
+          "active": true
+        },
+        {
+          "id": "sub-5",
+          "name": "Iluminación y Ambiente",
+          "slug": "iluminacion-ambiente",
+          "active": true
+        },
+        {
+          "id": "sub-6",
+          "name": "Organización",
+          "slug": "organizacion",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-3",
+      "name": "Tecnología y Gadgets",
+      "slug": "tecnologia",
+      "active": true,
+      "icon": "Smartphone",
+      "description": "Smartwatches, audio inalámbrico y accesorios de última tecnología.",
+      "order": 5,
+      "subcategories": [
+        {
+          "id": "sub-7",
+          "name": "Smartwatches",
+          "slug": "smartwatches",
+          "active": true
+        },
+        {
+          "id": "sub-8",
+          "name": "Audio Bluetooth",
+          "slug": "audio-bluetooth",
+          "active": true
+        },
+        {
+          "id": "sub-9",
+          "name": "Accesorios Móviles",
+          "slug": "accesorios-moviles",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-4",
+      "name": "Salud y Fitness",
+      "slug": "salud-fitness",
+      "active": true,
+      "icon": "Activity",
+      "description": "Equipos de masaje, terapia muscular y accesorios de entrenamiento.",
+      "order": 6,
+      "subcategories": [
+        {
+          "id": "sub-10",
+          "name": "Masajeadores",
+          "slug": "masajeadores",
+          "active": true
+        },
+        {
+          "id": "sub-11",
+          "name": "Postura y Soporte",
+          "slug": "postura-soporte",
+          "active": true
+        }
+      ]
+    },
+    {
+      "id": "cat-5",
+      "name": "Moda y Accesorios",
+      "slug": "moda-accesorios",
+      "active": true,
+      "icon": "ShoppingBag",
+      "description": "Bolsos, billeteras y accesorios de alta tendencia.",
+      "order": 7,
+      "subcategories": [
+        {
+          "id": "sub-12",
+          "name": "Billeteras y Tarjeteros",
+          "slug": "billeteras",
+          "active": true
+        },
+        {
+          "id": "sub-13",
+          "name": "Lentes y Relojes",
+          "slug": "lentes-relojes",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "id": "GdY5ZMjnTXsc2SH2YWVM",
+      "title": "One million oneprive 212 vipblack",
+      "slug": "one-million-oneprive-212-vipblack",
+      "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
+      "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
+      "price": 170000,
+      "costPrice": 138000,
+      "compareAtPrice": 189000,
+      "discountPercentage": 10,
+      "marginAmount": 32000,
+      "marginPercentage": 23.2,
+      "stock": 25,
+      "active": true,
+      "featured": true,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/aa3318fe-fac3-47e6-8c97-aedfe14a41de.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/ef6bbdc5-4deb-4edb-b1fb-d484784c684a.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/bb5d59b5-d6dd-42ba-b25a-03db8e17b4c7.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/f30dd63a-395c-4ef2-8be3-ed4e3dadee60.jpg"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
+      "tags": [
+        "tendencia",
+        "calidad",
+        "contraentrega"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-1",
+      "categoryName": "Belleza y Cuidado Personal",
+      "subcategoryId": "",
+      "subcategoryName": "",
+      "variants": [],
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "createdAt": "2026-08-28T20:26:48.571Z",
+      "updatedAt": "2026-08-28T20:49:44.918Z"
+    },
+    {
+      "id": "ZLIZ3gPA2mAEM0kqDdkR",
+      "title": "Bright cristal chance tendrá 2 perfumes",
+      "slug": "bright-cristal-chance-tendr--2-perfumes",
+      "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
+      "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
+      "price": 145000,
+      "costPrice": 105000,
+      "compareAtPrice": 165000,
+      "discountPercentage": 12,
+      "marginAmount": 40000,
+      "marginPercentage": 38.1,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/7db6d421-8473-4748-991c-f6c467858f97.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/cbeb596e-42f0-455c-97a0-00d4bdd46f1b.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/827c1846-3eec-4f0f-8d26-a4f2deab287d.jpg"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
+      "tags": [
+        "tendencia",
+        "calidad",
+        "contraentrega"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-amor-amistad",
+      "categoryName": "💖 Amor y Amistad",
+      "subcategoryId": "",
+      "subcategoryName": "",
+      "variants": [],
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "createdAt": "2026-08-28T20:33:35.092Z",
+      "updatedAt": "2026-08-28T20:33:35.092Z"
+    },
+    {
+      "id": "u67sAYAnWY8MPgRaq9JM",
+      "title": "Creed Silvereros 2 perfumeros",
+      "slug": "creed-silvereros-2-perfumeros",
+      "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
+      "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
+      "price": 140000,
+      "costPrice": 90000,
+      "compareAtPrice": 155000,
+      "discountPercentage": 10,
+      "marginAmount": 50000,
+      "marginPercentage": 55.6,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/950eb27f-3fc8-46d5-9c13-d3b4d8afcae6.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/8fc1a12e-5ced-4b21-87e7-4616dea7aefb.jpg",
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/bbfd12a0-5949-48ac-9da1-d5a1ca096ec3.jpg"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
+      "tags": [
+        "tendencia",
+        "calidad",
+        "contraentrega"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-1",
+      "categoryName": "Belleza y Cuidado Personal",
+      "subcategoryId": "",
+      "subcategoryName": "",
+      "variants": [],
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "createdAt": "2026-08-28T20:23:19.631Z",
+      "updatedAt": "2026-08-28T20:49:55.313Z"
+    },
+    {
+      "id": "prod-dewalt-2421",
+      "title": "Taladro 2421 Dewalt Con Herramientas",
+      "slug": "taladro-2421-dewalt-con-herramientas",
+      "description": "Potente taladro percutor inalámbrico Dewalt modelo 2421 acompañado de kit completo con 24 accesorios y herramientas de uso rudo. Ideal para bricolaje, proyectos del hogar, carpintería y reparaciones.\n\n🔹 Motor de alto torque con control de velocidad reversible.\n🔹 2 Baterías de litio de larga duración con cargador rápido.\n🔹 Maletín rígido de transporte con brocas, puntas y dados incluidos.\n🔹 Diseño ergonómico de agarre antideslizante para trabajos continuos.",
+      "shortDescription": "🔧 El kit definitivo para amantes del bricolaje y proyectos en casa",
+      "price": 174000,
+      "costPrice": 115000,
+      "compareAtPrice": 220000,
+      "discountPercentage": 21,
+      "marginAmount": 59000,
+      "marginPercentage": 33.9,
+      "stock": 35,
+      "active": true,
+      "featured": true,
+      "images": [
+        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=800&q=80"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
+      "tags": [
+        "herramientas",
+        "bricolaje",
+        "dewalt",
+        "hogar",
+        "regalo",
+        "contraentrega"
+      ],
+      "weightKg": 2.2,
+      "categoryId": "cat-2",
+      "categoryName": "Hogar y Herramientas",
+      "subcategoryId": "sub-4",
+      "subcategoryName": "Bricolaje y Herramientas",
+      "variants": [],
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Dewalt / Zavela Store",
+      "createdAt": "2026-09-26T15:00:49.717Z",
+      "updatedAt": "2026-09-26T15:00:49.717Z",
+      "dropi_product_id": ""
+    },
+    {
+      "id": "prod-bolso-perla-rochy",
+      "title": "Bolso Perla Blanco Artesanal Rochy",
+      "slug": "bolso-perla-blanco-artesanal-rochy",
+      "description": "Edición de lujo tejida 100% a mano con cuentas perladas de alto brillo. Incluye placa metálica en láser de autenticidad Rochy con código QR personalizado y cadena de hombro reforzada.\n\n🔹 Tejido artesanal minucioso de 18 horas de confección.\n🔹 Placa grabada en láser con código QR de verificación.\n🔹 Cierre de seguridad imantado y forro interno satinado.\n🔹 El regalo ideal para ocasiones especiales, bodas, aniversarios y veladas elegantes.",
+      "shortDescription": "💎 Edición de lujo tejida a mano con placa de autenticidad Rochy",
+      "price": 185000,
+      "costPrice": 120000,
+      "compareAtPrice": 240000,
+      "discountPercentage": 23,
+      "marginAmount": 65000,
+      "marginPercentage": 35.1,
+      "stock": 20,
+      "active": true,
+      "featured": true,
+      "images": [
+        "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&w=800&q=80"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store y certificado de autenticidad.",
+      "tags": [
+        "moda",
+        "bolsos",
+        "cuentas",
+        "artesanal",
+        "regalo",
+        "lujo",
+        "contraentrega"
+      ],
+      "weightKg": 0.7,
+      "categoryId": "cat-5",
+      "categoryName": "Moda y Accesorios",
+      "subcategoryId": "sub-12",
+      "subcategoryName": "Bolsos de Mano",
+      "variants": [],
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Rochy / Zavela Store",
+      "createdAt": "2026-09-26T15:00:49.717Z",
+      "updatedAt": "2026-09-26T15:00:49.717Z",
+      "dropi_product_id": ""
+    }
+  ],
+  "orders": [],
+  "customers": [],
+  "settings": {
+    "id": "set-1",
+    "storeName": "Zavela Store",
+    "slogan": "Descubre algo nuevo cada día",
+    "currency": "COP",
+    "logoType": "vector",
+    "primaryColor": "#06b6d4",
+    "secondaryColor": "#4f46e5",
+    "accentColor": "#ec4899",
+    "glowEnabled": true,
+    "whatsappNumber": "573008784427",
+    "whatsappAdvisorName": "Sofía - Asesora Experta en Regalos y Compras",
+    "whatsappMessage": "¡Hola Sofía! Quiero asesoría para encontrar el regalo ideal en Zavela Store Colombia.",
+    "whatsappDefaultMessage": "¡Hola Sofía! Quiero asesoría para encontrar el regalo ideal en Zavela Store Colombia.",
+    "whatsappFloatingEnabled": true,
+    "contactEmail": "contacto@zavelastore.com",
+    "contactPhone": "+57 315 789 4512",
+    "instagramUrl": "https://instagram.com/zavelastore.co",
+    "tiktokUrl": "https://tiktok.com/@zavelastore",
+    "facebookUrl": "https://facebook.com/zavelastore.colombia",
+    "businessAddress": "Calle 100 # 19A - 40, Edificio Titanium, Bogotá D.C., Colombia",
+    "businessHours": "Lunes a Sábado: 8:00 AM - 7:00 PM | Domingos: 9:00 AM - 2:00 PM",
+    "whatsappSettings": {
+      "enabled": true,
+      "phoneNumber": "573008784427",
+      "advisorName": "Sofía - Asesora Experta en Regalos y Compras",
+      "defaultMessage": "¡Hola Sofía! Quiero asesoría para encontrar el regalo ideal en Zavela Store Colombia.",
+      "orderConfirmationTemplate": "Hola Sofía, quiero confirmar mi pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirmas el despacho?",
+      "supportHoursNotice": "Lunes a Sábado: 8:00 AM - 8:00 PM | Envíos a toda Colombia con Pago Contra Entrega"
+    },
+    "aiAgentSettings": {
+      "enabled": true,
+      "agentName": "Sofía",
+      "agentRole": "Asesora de Ventas y Asistente de Compras Inteligente",
+      "personalityTone": "friendly_colombian",
+      "welcomeMessage": "¡Hola! 👋 Qué alegría saludarte. Soy Sofía, tu asesora experta en regalos y compras de Zavela Store Colombia. Mi misión es ser tu Personal Shopper y ayudarte a encontrar el detalle perfecto según la persona y la ocasión. 🎁✨\n\nCuéntame:\n1️⃣ ¿Para quién es el regalo?\n2️⃣ ¿Qué le gusta hacer a esa persona o cuáles son sus pasatiempos?\n3️⃣ ¿Cuál es la ocasión especial?",
+      "customPromptInstructions": "Eres Sofía, la asesora de ventas y asistente de compras inteligente de Zavela Store Colombia.\nTu objetivo principal es brindar una atención cálida, humana y altamente personalizada, ayudando a los clientes a encontrar el producto ideal o el regalo perfecto para sus seres queridos.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n1. CONTEXTO DE ENTRADA Y VARIABLES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n- [NOMBRE_CLIENTE]: Nombre del usuario autenticado (o \"Invitado\" si no inició sesión).\n- [PRODUCTOS_VISTOS]: Lista de productos que el usuario vio recientemente en la tienda.\n- [HISTORIAL_COMPRAS]: Si tiene compras previas registradas.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n2. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n• CLIENTE REGISTRADO ([NOMBRE_CLIENTE] disponible):\n  - Saluda inmediatamente por su nombre con un tono muy cálido, alegre y cercano.\n  - Si existen [PRODUCTOS_VISTOS]: Menciona sutilmente los productos vistos.\n  - Si NO tiene productos vistos: Pregunta en qué puedes asesorarlo hoy.\n• CLIENTE INVITADO (Sin sesión iniciada):\n  - \"¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?\"\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n3. MODO ASESOR DE REGALOS (METODOLOGÍA CONSULTIVA)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n1. PERFILAMIENTO BREVE (máximo 2 preguntas a la vez).\n2. RECOMENDACIÓN PRECISA (1 a 3 productos del catálogo con nombre exacto y precio).\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n4. BENEFICIOS CLAVE Y CIERRE DE VENTA\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n- Envíos a toda Colombia.\n- Opción de Pago Contra Entrega en efectivo al recibir.\n- Facilita confirmación o enlace de compra.",
+      "recommendationMode": "all_catalog",
+      "maxProductsToSuggest": 3,
+      "enableDirectWhatsAppHandoff": true,
+      "suggestQuickQuestions": [
+        "🎁 Ayúdame a elegir un regalo especial",
+        "🔧 Regalos para amantes del bricolaje y herramientas",
+        "🌸 Perfumes y fragancias para regalar",
+        "🚚 ¿Cómo funciona el Pago Contra Entrega en Colombia?",
+        "🛍️ Quiero tomar mi pedido por chat"
+      ]
+    },
+    "tidioChatEnabled": false,
+    "tidioScriptUrl": "",
+    "tidioPublicKey": "",
+    "chatWidgetMode": "both",
+    "whatsappCloudApi": {
+      "enabled": true,
+      "webhookCallbackUrl": "",
+      "webhookVerifyToken": "novora_meta_webhook_2026",
+      "phoneNumberId": "",
+      "wabaId": "",
+      "accessToken": "",
+      "autoReplyWithAI": true,
+      "metaApiVersion": "v20.0"
+    },
+    "defaultProfitMarginPercentage": 80,
+    "defaultMarginPercentage": 80,
+    "defaultFixedMargin": 30000,
+    "freeShippingThreshold": 120000,
+    "flatShippingRate": 12000,
+    "defaultShippingCost": 12000,
+    "enableWhatsappNotifications": true,
+    "colombiaCodEnabled": true,
+    "maintenanceMode": false,
+    "maintenanceTitle": "Estamos mejorando tu experiencia de compra",
+    "maintenanceMessage": "Estamos mejorando tu experiencia de compra. Volvemos muy pronto con nuevas ofertas exclusivas.",
+    "maintenanceBypassToken": "zavela_test_i4wl2",
+    "maintenanceNotifyLeads": [
+      {
+        "id": "lead-1791063271700-4z3a",
+        "contact": "3008784427",
+        "type": "whatsapp",
+        "name": "Cliente VIP",
+        "createdAt": "2026-10-03T21:34:31.700Z"
+      }
+    ],
+    "headerTicker": {
+      "enabled": true,
+      "speedSeconds": 5,
+      "backgroundColor": "#0f172a",
+      "textColor": "#ffffff",
+      "items": [
+        {
+          "id": "tick-amor",
+          "text": "💖 ESPECIAL AMOR Y AMISTAD: Rosas eternas LED, joyería dúo y regalos con pago contra entrega",
+          "highlightText": "ESPECIAL AMOR Y AMISTAD",
+          "active": true
+        },
+        {
+          "id": "tick-halo",
+          "text": "🎃 TEMPORADA HALLOWEEN: Disfraces virales, máscaras neón LED y generadores de niebla",
+          "highlightText": "TEMPORADA HALLOWEEN",
+          "active": true
+        },
+        {
+          "id": "tick-1",
+          "text": "🚚 PAGO CONTRA ENTREGA en toda Colombia • Paga solo al recibir tu pedido",
+          "highlightText": "PAGO CONTRA ENTREGA",
+          "active": true
+        },
+        {
+          "id": "tick-2",
+          "text": "⚡ ENVÍO GRATIS por compras superiores a $120.000 COP",
+          "highlightText": "ENVÍO GRATIS",
+          "active": true
+        },
+        {
+          "id": "tick-3",
+          "text": "🛡️ Garantía oficial de 30 días en todos los productos Zavela",
+          "highlightText": "Garantía oficial",
+          "active": true
+        },
+        {
+          "id": "tick-4",
+          "text": "📦 Despachos rápidos el mismo día con Servientrega, Coordinadora y Envía",
+          "highlightText": "Despachos rápidos",
+          "active": true
+        }
+      ]
+    },
+    "headerButtons": {
+      "showTrackingBtn": true,
+      "showCartBtn": true,
+      "showWhatsAppBtn": true,
+      "searchPlaceholder": "Buscar productos en Zavela Store...",
+      "customButtons": [
+        {
+          "id": "hbtn-1",
+          "label": "🔥 Ofertas Flash",
+          "url": "#ofertas",
+          "active": true,
+          "openInNewTab": false
+        },
+        {
+          "id": "hbtn-2",
+          "label": "📦 Rastrear Pedido",
+          "url": "#rastreo",
+          "active": true,
+          "openInNewTab": false
+        }
+      ]
+    },
+    "heroBanners": [
+      {
+        "id": "ban-perfume-1",
+        "title": "💎 Alta Perfumería & Fragancias Exclusivas Zavela",
+        "subtitle": "Fragancias de alta fijación con estuche de lujo, calidad premium garantizada y Pago Contra Entrega en toda Colombia.",
+        "badge": "💎 ALTA PERFUMERÍA • 100% GARANTIZADO",
+        "badgeText": "💎 ALTA PERFUMERÍA • 100% GARANTIZADO",
+        "ctaText": "Ver Fragancias en Stock",
+        "ctaLink": "#productos",
+        "imageUrl": "https://images.unsplash.com/photo-1541643600914-78b084683601?w=1600&auto=format&fit=crop&q=80",
+        "active": true,
+        "order": 1
+      },
+      {
+        "id": "ban-perfume-2",
+        "title": "🚚 Pide Hoy y Paga en Efectivo al Recibir",
+        "subtitle": "Envíos rápidos a las principales ciudades de Colombia con Servientrega, Coordinadora y Envía.",
+        "badge": "🇨🇴 PAGO CONTRA ENTREGA",
+        "badgeText": "🇨🇴 PAGO CONTRA ENTREGA",
+        "ctaText": "Pedir con Envío Rápido",
+        "ctaLink": "#productos",
+        "imageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600&auto=format&fit=crop&q=80",
+        "active": true,
+        "order": 2
+      }
+    ],
+    "homeSections": [
+      {
+        "id": "sec-1",
+        "key": "hero_banners",
+        "title": "Carrusel de Banners Principales",
+        "subtitle": "Hero visual con llamadas a la acción",
+        "enabled": true,
+        "order": 1
+      },
+      {
+        "id": "sec-2",
+        "key": "trust_badges",
+        "title": "Garantías y Confianza",
+        "subtitle": "Badges de contra entrega, garantía y soporte",
+        "enabled": true,
+        "order": 2
+      },
+      {
+        "id": "sec-3",
+        "key": "categories",
+        "title": "Explorador de Categorías",
+        "subtitle": "Tarjetas con iconos interactivos",
+        "enabled": true,
+        "order": 3
+      },
+      {
+        "id": "sec-4",
+        "key": "featured_products",
+        "title": "Catálogo de Productos",
+        "subtitle": "Filtros rápidos y tarjetas de producto",
+        "enabled": true,
+        "order": 4
+      },
+      {
+        "id": "sec-5",
+        "key": "blog_posts",
+        "title": "Guías y Consejos Zavela",
+        "subtitle": "Artículos de interés para clientes",
+        "enabled": true,
+        "order": 5
+      }
+    ],
+    "trustBadges": [
+      {
+        "id": "badge-1",
+        "icon": "Truck",
+        "title": "Pago Contra Entrega",
+        "description": "Pagas en efectivo o transferencia solo cuando recibes el producto en tu puerta.",
+        "active": true,
+        "order": 1
+      },
+      {
+        "id": "badge-2",
+        "icon": "ShieldCheck",
+        "title": "Garantía de 30 Días",
+        "description": "Garantía directa de cambio o reembolso por defectos de fabricación.",
+        "active": true,
+        "order": 2
+      },
+      {
+        "id": "badge-3",
+        "icon": "PackageCheck",
+        "title": "Despacho Rápido",
+        "description": "Envíos en 2 a 4 días hábiles a nivel nacional con guía rastreable.",
+        "active": true,
+        "order": 3
+      },
+      {
+        "id": "badge-4",
+        "icon": "Headphones",
+        "title": "Atención Personalizada",
+        "description": "Soporte vía WhatsApp para resolver cualquier duda sobre tu pedido.",
+        "active": true,
+        "order": 4
+      }
+    ],
+    "blogPosts": [
+      {
+        "id": "post-1",
+        "title": "Cómo cuidar y alargar la vida útil de tu cepillo secador 3 en 1",
+        "slug": "cuidar-cepillo-secador-3-en-1",
+        "excerpt": "Aprende los mejores trucos para limpiar las cerdas y optimizar la emisión de iones negativos.",
+        "content": "El cepillo secador 3 en 1 se ha convertido en el aliado esencial de miles de colombianas. Para mantener su potencia máxima, retira siempre los cabellos acumulados luego de cada uso y limpia la entrada de aire una vez al mes.",
+        "coverImage": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&auto=format&fit=crop&q=80",
+        "author": "Equipo Zavela",
+        "publishedAt": "2026-08-25T14:24:49.105Z",
+        "readTimeMinutes": 3,
+        "tags": [
+          "Belleza",
+          "Cabello",
+          "Guías"
+        ],
+        "published": true
+      },
+      {
+        "id": "post-2",
+        "title": "Beneficios de tener un humidificador ultrasónico en tu habitación",
+        "slug": "beneficios-humidificador-ultrasonico",
+        "excerpt": "Descubre cómo la aromaterapia y la humidificación mejoran la calidad de tu descanso nocturno.",
+        "content": "Los humidificadores de ambiente no solo añaden un toque estético con su luz lunar 3D, sino que ayudan a mantener las vías respiratorias hidratadas y distribuyen aceites esenciales relajantes.",
+        "coverImage": "https://images.unsplash.com/photo-1517991104123-1d56a6e81ed9?w=800&auto=format&fit=crop&q=80",
+        "author": "Equipo Zavela",
+        "publishedAt": "2026-08-26T14:24:49.105Z",
+        "readTimeMinutes": 4,
+        "tags": [
+          "Hogar",
+          "Bienestar",
+          "Aromaterapia"
+        ],
+        "published": true
+      }
+    ],
+    "legalPolicies": [
+      {
+        "id": "pol-1",
+        "type": "terms",
+        "title": "Términos y Condiciones de Compra",
+        "slug": "terminos-y-condiciones",
+        "content": "En Zavela Store todos los pedidos se procesan con modalidad de Pago Contra Entrega o métodos electrónicos autorizados. Al realizar un pedido, el comprador se compromete a tener los fondos listos al momento de la entrega por la transportadora.",
+        "lastUpdated": "2026-08-28T14:24:49.105Z",
+        "active": true
+      },
+      {
+        "id": "pol-2",
+        "type": "privacy",
+        "title": "Política de Privacidad y Tratamiento de Datos",
+        "slug": "politica-de-privacidad",
+        "content": "Zavela Store protege sus datos conforme a la Ley 1581 de 2012 de Colombia. La información de contacto y envío únicamente se utiliza para la coordinación logística del despacho.",
+        "lastUpdated": "2026-08-28T14:24:49.105Z",
+        "active": true
+      },
+      {
+        "id": "pol-3",
+        "type": "shipping",
+        "title": "Política de Envíos y Tiempos de Entrega",
+        "slug": "politica-de-envios",
+        "content": "Los envíos se realizan desde nuestras bodegas en Bogotá, Medellín y Cali a través de Servientrega, Coordinadora, Envía e Interrapidísimo. El tiempo promedio de entrega es de 2 a 4 días hábiles en ciudades principales.",
+        "lastUpdated": "2026-08-28T14:24:49.105Z",
+        "active": true
+      },
+      {
+        "id": "pol-4",
+        "type": "warranty",
+        "title": "Política de Garantías y Devoluciones",
+        "slug": "politica-de-garantias",
+        "content": "Ofrecemos 30 días de garantía directa por defectos de fabricación. Si el producto presenta fallas técnicas, gestionamos el cambio inmediato sin costo adicional de flete.",
+        "lastUpdated": "2026-08-28T14:24:49.105Z",
+        "active": true
+      }
+    ],
+    "footerSettings": {
+      "companyName": "Zavela Store S.A.S.",
+      "nit": "901.784.321-4",
+      "bioText": "Tu tienda en línea de confianza en Colombia. Descubre productos de alta calidad y tendencia con entrega rápida a todo el país y pago contra entrega seguro.",
+      "copyrightNotice": "© 2026 Zavela Store. Todos los derechos reservados.",
+      "showPaymentBadges": true,
+      "carriers": [
+        {
+          "id": "c-1",
+          "name": "Servientrega",
+          "code": "servientrega",
+          "active": true,
+          "trackingUrlTemplate": "https://servientrega.com/tracking/{GUIDE}"
+        },
+        {
+          "id": "c-2",
+          "name": "Coordinadora",
+          "code": "coordinadora",
+          "active": true,
+          "trackingUrlTemplate": "https://coordinadora.com/rastreo/{GUIDE}"
+        },
+        {
+          "id": "c-3",
+          "name": "Envía",
+          "code": "envia",
+          "active": true,
+          "trackingUrlTemplate": "https://envia.co/rastreo/{GUIDE}"
+        },
+        {
+          "id": "c-4",
+          "name": "Interrapidísimo",
+          "code": "interrapidisimo",
+          "active": true,
+          "trackingUrlTemplate": "https://interrapidisimo.com/rastreo/{GUIDE}"
+        },
+        {
+          "id": "c-5",
+          "name": "TCC",
+          "code": "tcc",
+          "active": true,
+          "trackingUrlTemplate": "https://tcc.com.co/rastreo/{GUIDE}"
+        }
+      ]
+    },
+    "globalTexts": {
+      "welcomeBannerText": "¡Bienvenido a Zavela Store Colombia! Disfruta de pago contra entrega en todos los productos.",
+      "codNoticeText": "Paga con tranquilidad en tu puerta: en efectivo o transferencia al recibir.",
+      "freeShippingNotice": "¡Envío Gratis por compras superiores a $120.000 COP!",
+      "emptyCartText": "Tu carrito de compras está vacío. ¡Explora nuestro catálogo y añade tus favoritos!",
+      "whatsappOrderTemplate": "Hola Zavela Store, realicé el pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirman el despacho?",
+      "checkoutNotice": "Al pulsar confirmar pedido, autorizas el despacho a tu dirección con pago contra entrega.",
+      "orderSuccessSubtitle": "Hemos recibido tu pedido con éxito. Nuestro equipo de bodega está alistando tu paquete."
+    },
+    "themeStyles": {
+      "borderRadius": "md",
+      "glowIntensity": "normal",
+      "fontFamily": "sans",
+      "darkThemeIntensity": "midnight"
+    },
+    "luckyWheel": {
+      "enabled": false,
+      "title": "🎉 ¡Gira la Ruleta y Gana tu Descuento!",
+      "subtitle": "Desbloquea entre 5% y 15% OFF de regalo en tu producto favorito con Pago Contra Entrega.",
+      "badgeText": "🎁 Premio Exclusivo Zavela",
+      "callToActionText": "🎯 Girar Ruleta de Descuentos",
+      "inactivitySeconds": 40,
+      "minVisitedProducts": 2,
+      "couponExpiryMinutes": 15,
+      "spinDurationSeconds": 4.5,
+      "enableExitIntent": true,
+      "enableInactivityTrigger": true,
+      "enableVisitedThresholdTrigger": true,
+      "enableFloatingBadge": true,
+      "activeSeason": "default",
+      "seasonName": "Estándar",
+      "seasonTagline": "Descuentos exclusivos y sorpresas todo el año",
+      "seasonAccentColor": "#f59e0b",
+      "seasonBadgeEmoji": "🎁",
+      "segments": [
+        {
+          "id": "seg-1",
+          "label": "10% OFF",
+          "percentage": 10,
+          "color": "#0284c7",
+          "textColor": "#ffffff",
+          "couponPrefix": "RULETA10"
+        },
+        {
+          "id": "seg-2",
+          "label": "5% OFF",
+          "percentage": 5,
+          "color": "#0f172a",
+          "textColor": "#f8fafc",
+          "couponPrefix": "SUERTE5"
+        },
+        {
+          "id": "seg-3",
+          "label": "15% OFF",
+          "percentage": 15,
+          "color": "#f59e0b",
+          "textColor": "#0f172a",
+          "couponPrefix": "PREMIO15"
+        },
+        {
+          "id": "seg-4",
+          "label": "8% OFF",
+          "percentage": 8,
+          "color": "#10b981",
+          "textColor": "#ffffff",
+          "couponPrefix": "LUCKY8"
+        },
+        {
+          "id": "seg-5",
+          "label": "12% OFF",
+          "percentage": 12,
+          "color": "#6366f1",
+          "textColor": "#ffffff",
+          "couponPrefix": "ZAVELA12"
+        },
+        {
+          "id": "seg-6",
+          "label": "10% EXTRA",
+          "percentage": 10,
+          "color": "#ec4899",
+          "textColor": "#ffffff",
+          "couponPrefix": "SUPER10"
+        }
+      ]
+    },
+    "gamificationGame": {
+      "enabled": false,
+      "activeSeason": "standard",
+      "seasonName": "Estándar (Todo el Año)",
+      "gameTitle": "🎯 ¡Desafío Flash: Atrapa tu Descuento!",
+      "gameSubtitle": "Mueve la canasta, esquiva las ráfagas de viento y atrapa los cupones que caen para desbloquear hasta 15% OFF exclusivo.",
+      "badgeEmoji": "🌪️",
+      "accentColor": "#f59e0b",
+      "minDiscountPercentage": 5,
+      "maxDiscountPercentage": 15,
+      "tiers": {
+        "bronze": {
+          "minScore": 1,
+          "discountPercentage": 5,
+          "label": "Nivel Bronce 🥉",
+          "couponPrefix": "FLASH5"
+        },
+        "silver": {
+          "minScore": 16,
+          "discountPercentage": 10,
+          "label": "Nivel Plata 🥈",
+          "couponPrefix": "PRO10"
+        },
+        "gold": {
+          "minScore": 30,
+          "discountPercentage": 15,
+          "label": "Nivel Oro 🥇",
+          "couponPrefix": "VIP15"
+        }
+      },
+      "gameDurationSeconds": 15,
+      "windEnabled": true,
+      "windChangeIntervalSeconds": 2.5,
+      "basketSpeed": 1,
+      "couponExpiryMinutes": 10,
+      "enableGyroscope": true,
+      "gyroSensitivity": 1.2,
+      "gyroDeadzone": 5,
+      "difficultyLevel": "hard",
+      "missPenaltyPoints": 1,
+      "includeObstacles": true,
+      "inactivitySeconds": 35,
+      "minVisitedProducts": 2,
+      "enableExitIntent": true,
+      "enableInactivityTrigger": true,
+      "enableVisitedThresholdTrigger": true,
+      "enableFloatingBadge": true
+    },
+    "exclusivityPage": {
+      "enabled": true,
+      "navTitle": "EXCLUSIVIDAD (Bolsos & Placas)",
+      "heroBadge": "💎 EDICIÓN LIMITADA 2026 • DISEÑO POR ROCHY",
+      "heroTitle": "Colección Exclusiva de Bolsos de Cuentas & Placas de Identidad",
+      "heroSubtitle": "Piezas artesanales únicas con placa metálica grabada en láser y código QR personalizado.",
+      "heroCtaText": "Ver Modelos Disponibles",
+      "heroBannerImage": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=80",
+      "platesShowcaseTitle": "Showcase de Placas de Autenticidad (Rochy - Identidad Visual)",
+      "platesShowcaseSubtitle": "Grabado láser de alta precisión en metal pulido con código QR personalizable",
+      "craftsmanshipGuaranteeText": "Cada bolso es confeccionado a mano en Colombia en un proceso de 18 horas de tejido continuo. Respaldado con garantía directa de 30 días y certificado de autenticidad.",
+      "plates": [
+        {
+          "id": "plate-round-black",
+          "shape": "round",
+          "name": "Placa Circular Negro Mate",
+          "dimensions": "3 cm Ø",
+          "finish": "black_matte",
+          "finishLabel": "Negro Mate Premium",
+          "brandText": "Rochy",
+          "sloganText": "IDENTIDAD VISUAL",
+          "qrPosition": "center",
+          "qrUrl": "https://zavelastore.com/autenticidad/rochy-001",
+          "active": true,
+          "description": "Acabado en aluminio anodizado negro mate con grabado láser de alta precisión y micro-código QR central."
+        },
+        {
+          "id": "plate-round-gold",
+          "shape": "round",
+          "name": "Placa Circular Dorado Espejo",
+          "dimensions": "3 cm Ø",
+          "finish": "gold_engraved",
+          "finishLabel": "Dorado Grabado 24K",
+          "brandText": "Rochy",
+          "sloganText": "IDENTIDAD VISUAL",
+          "qrPosition": "center",
+          "qrUrl": "https://zavelastore.com/autenticidad/rochy-002",
+          "active": true,
+          "description": "Chapa de latón pulido con baño dorado brillante, relieve en bajo relieve y QR de autenticidad."
+        },
+        {
+          "id": "plate-rect-black",
+          "shape": "rectangular",
+          "name": "Placa Rectangular Negro Mate",
+          "dimensions": "3 cm x 1.5 cm",
+          "finish": "black_matte",
+          "finishLabel": "Negro Mate Minimalista",
+          "brandText": "Rochy",
+          "sloganText": "IDENTIDAD VISUAL",
+          "qrPosition": "side",
+          "qrUrl": "https://zavelastore.com/autenticidad/rochy-003",
+          "active": true,
+          "description": "Perfil rectangular elegante con logo cursivo Rochy, leyenda lateral y micro-código QR lateral."
+        },
+        {
+          "id": "plate-rect-gold",
+          "shape": "rectangular",
+          "name": "Placa Rectangular Dorado Relieve",
+          "dimensions": "3 cm x 1.5 cm",
+          "finish": "gold_engraved",
+          "finishLabel": "Oro Cepillado Clásico",
+          "brandText": "Rochy",
+          "sloganText": "IDENTIDAD VISUAL",
+          "qrPosition": "side",
+          "qrUrl": "https://zavelastore.com/autenticidad/rochy-004",
+          "active": true,
+          "description": "Acabado dorado satín cepillado con bordes pulidos a mano y código QR de validación de autor."
+        },
+        {
+          "id": "plate-rect-silver",
+          "shape": "rectangular",
+          "name": "Placa Rectangular Plata Platino",
+          "dimensions": "3 cm x 1.5 cm",
+          "finish": "silver_chrome",
+          "finishLabel": "Plata Espejo Platino",
+          "brandText": "Rochy",
+          "sloganText": "IDENTIDAD VISUAL",
+          "qrPosition": "side",
+          "qrUrl": "https://zavelastore.com/autenticidad/rochy-005",
+          "active": true,
+          "description": "Acero inoxidable grado quirúrgico con pulido espejo de alta refracción luminosa."
+        }
+      ],
+      "curatedProducts": [
+        {
+          "id": "bag-pearl-white",
+          "title": "Bolso Perla Blanco Artesanal",
+          "slug": "bolso-perla-blanco-artesanal",
+          "subtitle": "Tejido a mano con cuentas nacaradas de alto brillo y herrajes reforzados",
+          "description": "Una obra de arte contemporánea. Diseñado meticulosamente cuenta por cuenta con perlas sintéticas de alta densidad refractaria que proyectan un brillo satinado único. Cada pieza incluye placa metálica grabada en láser con la firma de Rochy y su código QR de autenticidad numerado.",
+          "priceCOP": 159900,
+          "compareAtPriceCOP": 210000,
+          "material": "Cuentas Nacaradas Acrílicas HD + Hilo Poliamida Reforzado",
+          "color": "Blanco Perla Satinado",
+          "dimensions": "22 cm (ancho) x 16 cm (alto) x 7 cm (profundidad)",
+          "craftsmanTag": "💎 Hecho a Mano en Colombia • Diseño por Rochy",
+          "images": [
+            "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=900&q=80"
+          ],
+          "stock": 14,
+          "active": true,
+          "featured": true,
+          "defaultPlateShape": "round",
+          "defaultPlateFinish": "gold_engraved",
+          "rating": 4.9,
+          "reviewCount": 48,
+          "freeShipping": true,
+          "cashOnDelivery": true,
+          "tags": [
+            "bolso de cuentas",
+            "perlas",
+            "artesanal",
+            "exclusivo",
+            "rochy",
+            "edicion limitada"
+          ]
+        },
+        {
+          "id": "bag-obsidian-black",
+          "title": "Bolso Obsidiana Negro Artesanal",
+          "slug": "bolso-obsidiana-negro-artesanal",
+          "subtitle": "Elegancia nocturna con cuentas facetadas en negro azabache brillante",
+          "description": "El clásico indiscutible de las noches de gala. Construido con más de 1.400 cuentas facetadas que atrapan la luz en múltiples ángulos. Su forro interior suave protege tus pertenencias mientras la placa metálica grabada con láser en tono negro mate u oro certifica su autenticidad.",
+          "priceCOP": 169900,
+          "compareAtPriceCOP": 225000,
+          "material": "Cristales Facetados Azabache + Forro de Satín",
+          "color": "Negro Obsidiana Intenso",
+          "dimensions": "24 cm (ancho) x 17 cm (alto) x 8 cm (profundidad)",
+          "craftsmanTag": "💎 Hecho a Mano en Colombia • Diseño por Rochy",
+          "images": [
+            "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80"
+          ],
+          "stock": 9,
+          "active": true,
+          "featured": true,
+          "defaultPlateShape": "rectangular",
+          "defaultPlateFinish": "black_matte",
+          "rating": 5,
+          "reviewCount": 36,
+          "freeShipping": true,
+          "cashOnDelivery": true,
+          "tags": [
+            "bolso obsidiana",
+            "negro gala",
+            "cuentas",
+            "artesanal",
+            "rochy"
+          ]
+        },
+        {
+          "id": "bag-champagne-gold",
+          "title": "Bolso Oro Champán Deluxe",
+          "slug": "bolso-oro-champan-deluxe",
+          "subtitle": "Tonalidad cálida y resplandeciente para celebraciones y eventos especiales",
+          "description": "Creado para destacar en cualquier reunión. El tono oro champán suave combina con cualquier vestimenta formal o casual chic. Cuenta con asa rígida de cuentas y correa larga desmontable en cadena metálica dorada.",
+          "priceCOP": 179900,
+          "compareAtPriceCOP": 235000,
+          "material": "Cuentas Ámbar y Perlas Doradas con Núcleo Reforzado",
+          "color": "Oro Champán Resplandeciente",
+          "dimensions": "23 cm (ancho) x 18 cm (alto) x 7.5 cm (profundidad)",
+          "craftsmanTag": "💎 Hecho a Mano en Colombia • Diseño por Rochy",
+          "images": [
+            "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=80"
+          ],
+          "stock": 7,
+          "active": true,
+          "featured": true,
+          "defaultPlateShape": "round",
+          "defaultPlateFinish": "gold_engraved",
+          "rating": 4.8,
+          "reviewCount": 29,
+          "freeShipping": true,
+          "cashOnDelivery": true,
+          "tags": [
+            "oro champan",
+            "fiesta",
+            "bolso lujo",
+            "cuentas",
+            "rochy"
+          ]
+        },
+        {
+          "id": "bag-ruby-gala",
+          "title": "Bolso Rubí Gala Artesanal",
+          "slug": "bolso-rubi-gala-artesanal",
+          "subtitle": "Pasión y distinción con cuentas cristalizadas color carmesí profundo",
+          "description": "Edición extremadamente limitada de 25 unidades. La combinación de cuentas color rubí brillante con la placa metálica grabada en láser produce un contraste magnético y sofisticado.",
+          "priceCOP": 185000,
+          "compareAtPriceCOP": 245000,
+          "material": "Cristal Rubí Facetado de Alta Claridad + Herrajes Zamak",
+          "color": "Rojo Rubí Carmesí",
+          "dimensions": "21 cm (ancho) x 15 cm (alto) x 6.5 cm (profundidad)",
+          "craftsmanTag": "💎 Hecho a Mano en Colombia • Diseño por Rochy",
+          "images": [
+            "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=900&q=80",
+            "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&w=900&q=80"
+          ],
+          "stock": 5,
+          "active": true,
+          "featured": false,
+          "defaultPlateShape": "rectangular",
+          "defaultPlateFinish": "gold_engraved",
+          "rating": 4.9,
+          "reviewCount": 19,
+          "freeShipping": true,
+          "cashOnDelivery": true,
+          "tags": [
+            "rubi gala",
+            "rojo",
+            "cuentas",
+            "edicion de coleccionista",
+            "rochy"
+          ]
+        }
+      ]
+    },
+    "customSubpages": [
+      {
+        "id": "subpage-exclusividad",
+        "slug": "exclusividad-bolsos-placas",
+        "title": "Colección Exclusiva: Bolsos & Placas Rochy",
+        "navLabel": "EXCLUSIVIDAD (Bolsos & Placas)",
+        "showInNav": true,
+        "active": true,
+        "tagline": "Artesanía colombiana con grabado láser y tecnología QR",
+        "heroBadge": "💎 EDICIÓN LIMITADA 2026 • DISEÑO POR ROCHY",
+        "heroTitle": "Colección Exclusiva de Bolsos de Cuentas & Placas de Identidad",
+        "heroSubtitle": "Piezas artesanales únicas con placa metálica grabada en láser y código QR personalizado.",
+        "heroCtaText": "Ver Modelos Disponibles",
+        "heroImageUrl": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=80",
+        "accentColor": "#0084FF",
+        "categoryFilter": "all",
+        "showPlatesShowcase": true,
+        "showTrustGuarantees": true,
+        "createdAt": "2026-08-30T10:00:00.000Z"
+      }
+    ],
+    "whatsappAlerts": {
+      "enabled": true,
+      "adminPhoneNumber": "+573008784427",
+      "notifyNewSales": true,
+      "notifySecurityAlerts": true,
+      "notifyLowStock": true,
+      "lowStockThreshold": 5
+    }
+  },
+  "logs": [
+    {
+      "id": "log-1791063271709-94hnx",
+      "type": "SETTINGS_UPDATE",
+      "action": "Modo Mantenimiento DESACTIVADO (Tienda Abierta)",
+      "details": "La tienda pública ha sido abierta exitosamente al público general.",
+      "status": "success",
+      "createdAt": "2026-10-03T21:34:31.709Z"
+    },
+    {
+      "id": "log-1791063271700-5b3bv",
+      "type": "SYSTEM",
+      "action": "Interesado Registrado en Mantenimiento",
+      "details": "Nuevo cliente interesado en reapertura (whatsapp): 3008784427",
+      "status": "info",
+      "createdAt": "2026-10-03T21:34:31.700Z"
+    },
+    {
+      "id": "log-1791063271689-qlqeg",
+      "type": "SETTINGS_UPDATE",
+      "action": "Modo Mantenimiento ACTIVADO",
+      "details": "La tienda pública está cerrada para clientes. Solo accesible mediante sesión admin o enlace con token de bypass.",
+      "status": "info",
+      "createdAt": "2026-10-03T21:34:31.689Z"
+    },
+    {
+      "id": "log-1790355495748-dbmy0",
+      "type": "WHATSAPP_ALERT",
+      "action": "Canal Privado Copiloto: Alerta de Ciberseguridad: Fuerza bruta en contraseñas",
+      "details": "Alerta de Ciberseguridad: Fuerza bruta en contraseñas -> +573008784427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-09-25T16:58:15.748Z"
+    },
+    {
+      "id": "log-1790355492324-vtgfv",
+      "type": "WHATSAPP_ALERT",
+      "action": "Canal Privado Copiloto: Nueva Orden por Aprobar #NV-1842",
+      "details": "Nueva Orden por Aprobar #NV-1842 -> +573008784427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-09-25T16:58:12.324Z"
+    },
+    {
+      "id": "log-1790354598128-z13i8",
+      "type": "WHATSAPP_ALERT",
+      "action": "Alerta WhatsApp: Quiebre de Stock: Reloj de Lujo Minimalista Cuero Café",
+      "details": "Quiebre de Stock: Reloj de Lujo Minimalista Cuero Café -> +57 300 878 4427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-09-25T16:43:18.128Z"
+    },
+    {
+      "id": "log-1790354594543-xqitc",
+      "type": "WHATSAPP_ALERT",
+      "action": "Alerta WhatsApp: Alerta de Ciberseguridad: admin@zavelastore.co / +573008784427",
+      "details": "Alerta de Ciberseguridad: admin@zavelastore.co / +573008784427 -> +57 300 878 4427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-09-25T16:43:14.543Z"
+    },
+    {
+      "id": "log-1790354591410-4onpc",
+      "type": "WHATSAPP_ALERT",
+      "action": "Alerta WhatsApp: Nueva Venta #NV-4763",
+      "details": "Nueva Venta #NV-4763 -> +57 300 878 4427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-09-25T16:43:11.410Z"
+    },
+    {
+      "id": "log-1787935706243-xyu98",
+      "type": "SETTINGS_UPDATE",
+      "action": "Ajustes de Tienda Actualizados",
+      "details": "Configuraciones globales y número de WhatsApp actualizados correctamente.",
+      "status": "success",
+      "createdAt": "2026-08-28T16:48:26.243Z"
+    },
+    {
+      "id": "log-1787935700095-7b519",
+      "type": "SETTINGS_UPDATE",
+      "action": "Ajustes de Tienda Actualizados",
+      "details": "Configuraciones globales y número de WhatsApp actualizados correctamente.",
+      "status": "success",
+      "createdAt": "2026-08-28T16:48:20.095Z"
+    },
+    {
+      "id": "log-1787935680685-5gsnz",
+      "type": "SETTINGS_UPDATE",
+      "action": "Ajustes de Tienda Actualizados",
+      "details": "Configuraciones globales y número de WhatsApp actualizados correctamente.",
+      "status": "success",
+      "createdAt": "2026-08-28T16:48:00.685Z"
+    },
+    {
+      "id": "log-1787935669880-ycbl7",
+      "type": "SETTINGS_UPDATE",
+      "action": "Ajustes de Tienda Actualizados",
+      "details": "Configuraciones globales actualizadas correctamente.",
+      "status": "success",
+      "createdAt": "2026-08-28T16:47:49.880Z"
+    },
+    {
+      "id": "log-1",
+      "type": "STATUS_UPDATE",
+      "orderId": "ord-1001",
+      "action": "Guía de Despacho Asignada",
+      "details": "Pedido NV-1001 en camino. Guía Servientrega SER-9281746201 asignada.",
+      "status": "success",
+      "createdAt": "2026-08-27T14:24:49.105Z"
+    },
+    {
+      "id": "log-2",
+      "type": "ORDER_CREATED",
+      "orderId": "ord-1002",
+      "action": "Pedido Registrado",
+      "details": "Pedido NV-1002 recibido. En alistamiento de bodega para despacho.",
+      "status": "success",
+      "createdAt": "2026-08-28T10:24:49.105Z"
+    }
+  ],
+  "advisors": [
+    {
+      "id": "AS-001",
+      "name": "Juan (Asesor 1)",
+      "username": "juan",
+      "password": "juan123",
+      "phone": "3101234567",
+      "email": "juan.asesor1@zavelastore.com",
+      "channel": "WhatsApp Directo / Llamadas",
+      "commissionRate": 10,
+      "status": "active",
+      "settlementStatus": "pendiente_liquidacion",
+      "notes": "Asesor principal de ventas directas WhatsApp",
+      "createdAt": "2026-08-18T14:24:49.105Z"
+    },
+    {
+      "id": "AS-002",
+      "name": "Valentina (Asesora 2)",
+      "username": "valentina",
+      "password": "valentina123",
+      "phone": "3209876543",
+      "email": "valentina.ventas@zavelastore.com",
+      "channel": "TikTok Ads & Chat",
+      "commissionRate": 10,
+      "status": "active",
+      "settlementStatus": "al_dia",
+      "notes": "Campañas de video corto TikTok y WhatsApp",
+      "createdAt": "2026-08-20T14:24:49.105Z"
+    },
+    {
+      "id": "AS-003",
+      "name": "Carlos Gómez (Asesor 3)",
+      "username": "carlos",
+      "password": "carlos123",
+      "phone": "3157891234",
+      "email": "carlos.gomez@zavelastore.com",
+      "channel": "Facebook Ads & Messenger",
+      "commissionRate": 10,
+      "status": "active",
+      "settlementStatus": "al_dia",
+      "notes": "Atención campañas Meta Ads y referidos",
+      "createdAt": "2026-08-23T14:24:49.105Z"
+    },
+    {
+      "id": "AS-004",
+      "name": "Daniela Ríos (Asesora 4)",
+      "username": "daniela",
+      "password": "daniela123",
+      "phone": "3184567890",
+      "email": "daniela.rios@zavelastore.com",
+      "channel": "Instagram DM & Reels",
+      "commissionRate": 10,
+      "status": "active",
+      "settlementStatus": "al_dia",
+      "notes": "Cierre de ventas por Instagram y WhatsApp",
+      "createdAt": "2026-08-25T14:24:49.105Z"
+    }
+  ],
+  "advisorSales": [
+    {
+      "id": "DP-001",
+      "orderNumber": "DP-1001",
+      "advisorId": "AS-001",
+      "advisorName": "Juan (Asesor 1)",
+      "advisorChannel": "WhatsApp Directo / Llamadas",
+      "productId": "prod-2240082",
+      "productTitle": "Reloj Smartwatch Ultra",
+      "quantity": 2,
+      "unitPrice": 80000,
+      "totalAmount": 160000,
+      "clientName": "Carlos Pérez",
+      "clientPhone": "3101234567",
+      "clientCity": "Medellín",
+      "clientDepartment": "Antioquia",
+      "clientAddress": "Calle 10 # 40-20 Apto 301",
+      "additionalNotes": "Cliente confirmó despacho contra entrega. Cobrar en efectivo al recibir.",
+      "dropiStatus": "pendiente_bolsa",
+      "paymentMethod": "contra_entrega",
+      "createdAt": "2026-08-28T12:24:49.105Z",
+      "updatedAt": "2026-08-28T14:24:49.105Z"
+    }
+  ],
+  "socialSettings": {
+    "autoPublishOnProductCreate": true,
+    "autoPublishOnProductUpdate": true,
+    "defaultHashtags": [
+      "#ZavelaStore",
+      "#PagoContraEntrega",
+      "#Colombia",
+      "#Tendencia2026",
+      "#EnvioGratis",
+      "#OfertaEspecial",
+      "#ModaYTecnologia"
+    ],
+    "includePrice": true,
+    "includeCodBadge": true,
+    "includeFreeShippingBadge": true,
+    "callToActionText": "📦 ¡Pide hoy y paga al recibir en la puerta de tu casa! Envíos rápidos y seguros a todo el país.",
+    "targetChannels": {
+      "facebook": true,
+      "instagram": true,
+      "tiktok": true
+    },
+    "copyTone": "viral_high_converting",
+    "connections": {
+      "facebook": {
+        "platform": "facebook",
+        "connected": true,
+        "accountName": "Zavela Store Colombia (Página Oficial)",
+        "pageId": "fb_page_109283746192",
+        "accessToken": "EAAG...zavela_meta_token_active",
+        "pixelId": "pixel_9847261520",
+        "status": "connected",
+        "lastSyncAt": "2026-08-28T12:24:49.105Z",
+        "autoPostEnabled": true
+      },
+      "instagram": {
+        "platform": "instagram",
+        "connected": true,
+        "accountName": "@zavelastore.col",
+        "accountId": "ig_biz_9482716039",
+        "accessToken": "IGQV...zavela_ig_graph_token_active",
+        "status": "connected",
+        "lastSyncAt": "2026-08-28T13:24:49.105Z",
+        "autoPostEnabled": true
+      },
+      "tiktok": {
+        "platform": "tiktok",
+        "connected": true,
+        "accountName": "@zavelastore_oficial",
+        "accountId": "tt_shop_5839201948",
+        "appSecret": "tt_sec_8930491823",
+        "status": "connected",
+        "lastSyncAt": "2026-08-28T11:24:49.105Z",
+        "autoPostEnabled": true
+      }
+    }
+  },
+  "socialPosts": [
+    {
+      "id": "soc-post-1",
+      "productId": "prod-amor-102",
+      "productTitle": "Set Pulseras Pareja Amor Infinito Imantadas en Piedra Natural",
+      "productPrice": 36900,
+      "productImageUrl": "https://images.unsplash.com/photo-1611591475102-470e89ec3e65?w=800&auto=format&fit=crop&q=80",
+      "productSlug": "set-pulseras-pareja-amor-infinito-imantadas",
+      "platforms": [
+        "facebook",
+        "instagram",
+        "tiktok"
+      ],
+      "copies": {
+        "facebook": "✨ ¡El detalle perfecto para tu persona favorita! Set de Pulseras Imantadas que se atraen al estar juntos. 🚚 PAGO CONTRA ENTREGA en toda Colombia: recibes en casa y pagas seguro. ¡Últimas unidades con 35% de descuento!",
+        "instagram": "🔒 Conectados sin importar la distancia. 🖤 Set Dúo Amor Infinito con broche magnético de atracción mutua. Pide el tuyo con un clic en el link de la bio o DM. 📦 Pago Contra Entrega.",
+        "tiktok": "POV: Le das esto a tu pareja y no se lo vuelve a quitar 🥺✨ Pulseras imantadas que se unen al tocarse. Envíos contra entrega a toda Colombia 🇨🇴 #AmorYAmistad #RegaloPareja #Colombia #PagoContraEntrega"
+      },
+      "status": "published",
+      "publishedAt": "2026-08-28T09:24:49.105Z",
+      "views": 4890,
+      "clicks": 412,
+      "likes": 685,
+      "shares": 94,
+      "attributedSalesCOP": 553500,
+      "postUrl": "https://instagram.com/p/sample1"
+    },
+    {
+      "id": "soc-post-2",
+      "productId": "prod-amor-105",
+      "productTitle": "Lámpara Proyector Astronauta Galaxia y Nebulosa 360° para Citas y Noches Mágicas",
+      "productPrice": 79900,
+      "productImageUrl": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
+      "productSlug": "lampara-proyector-astronauta-galaxia-360",
+      "platforms": [
+        "facebook",
+        "instagram",
+        "tiktok"
+      ],
+      "copies": {
+        "facebook": "🚀 Transforma tu habitación en un universo infinito. Proyector Astronauta 360° con 8 nebulosas y control remoto. 🎁 Paga al recibir en tu puerta.",
+        "instagram": "Noches mágicas garantizadas 🌌 Proyector Astronauta Galaxia con giro magnético 360°. ¡Envío rápido y pago contra entrega en toda Colombia! 🚀💫",
+        "tiktok": "No puedo creer lo que hace este astronauta en mi cuarto 😱🌌 Proyector Galaxia 360. ¡Pagas al recibir en casa! 🇨🇴 #HabitacionGamer #Tendencia #TikTokMadeMeBuyIt"
+      },
+      "status": "published",
+      "publishedAt": "2026-08-27T14:24:49.105Z",
+      "views": 12450,
+      "clicks": 1120,
+      "likes": 1890,
+      "shares": 340,
+      "attributedSalesCOP": 1598000,
+      "postUrl": "https://tiktok.com/@zavelastore_oficial/video/sample2"
+    }
+  ]
+}

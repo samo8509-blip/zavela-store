@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="drillGlow" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </radialGradient>
+    <linearGradient id="yellowPro" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="40%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#ca8a04" />
+    </linearGradient>
+    <linearGradient id="chromeMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+    <filter id="shadowGlow">
+      <feDropShadow dx="0" dy="15" stdDeviation="20" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="1000" fill="url(#drillGlow)" />
+
+  <!-- Main Hero Graphic -->
+  <g transform="translate(150, 100)" filter="url(#shadowGlow)">
+    <!-- Drill Body -->
+    <path d="M 120 100 L 480 100 Q 540 100 540 170 L 540 240 Q 540 280 480 280 L 320 280 L 370 560 L 250 560 L 190 280 L 120 280 Z" fill="url(#yellowPro)" stroke="#0f172a" stroke-width="8" />
+    
+    <!-- Heavy Duty Chuck Head -->
+    <rect x="0" y="125" width="130" height="130" rx="12" fill="#0f172a" stroke="#475569" stroke-width="4" />
+    <line x1="45" y1="125" x2="45" y2="255" stroke="url(#chromeMetal)" stroke-width="4" />
+    <line x1="85" y1="125" x2="85" y2="255" stroke="url(#chromeMetal)" stroke-width="4" />
+    <polygon points="0,170 -60,190 0,210" fill="url(#chromeMetal)" />
+
+    <!-- Rubber Grip Panels -->
+    <rect x="230" y="130" width="260" height="90" rx="14" fill="#0f172a" />
+    <text x="360" y="190" font-family="Arial Black, sans-serif" font-weight="900" font-size="42" fill="#fde047" text-anchor="middle" letter-spacing="4">DEWALT</text>
+
+    <!-- Handle Texture -->
+    <path d="M 270 290 L 330 290 L 310 540 L 250 540 Z" fill="#0f172a" rx="10" />
+    <line x1="260" y1="340" x2="320" y2="340" stroke="#334155" stroke-width="4" />
+    <line x1="255" y1="390" x2="315" y2="390" stroke="#334155" stroke-width="4" />
+    <line x1="250" y1="440" x2="310" y2="440" stroke="#334155" stroke-width="4" />
+    <line x1="245" y1="490" x2="305" y2="490" stroke="#334155" stroke-width="4" />
+
+    <!-- Red Trigger Switch -->
+    <path d="M 190 310 Q 160 335 190 365 L 230 355 Z" fill="#ef4444" stroke="#0f172a" stroke-width="4" />
+
+    <!-- Base Mounted Battery Pack -->
+    <g transform="translate(190, 560)">
+      <rect x="0" y="0" width="260" height="110" rx="16" fill="url(#yellowPro)" stroke="#0f172a" stroke-width="6" />
+      <rect x="30" y="20" width="200" height="70" rx="10" fill="#0f172a" />
+      <text x="130" y="65" font-family="Arial, sans-serif" font-weight="900" font-size="24" fill="#fde047" text-anchor="middle">48V / XR Li-ion</text>
+    </g>
+  </g>
+
+  <!-- Feature Callout Badges -->
+  <g transform="translate(80, 800)">
+    <rect x="0" y="0" width="260" height="85" rx="16" fill="#141f3d" stroke="#2a3a60" stroke-width="2" />
+    <text x="130" y="36" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#38bdf8" text-anchor="middle">2 BATERÍAS 48V</text>
+    <text x="130" y="62" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8" text-anchor="middle">Autonomía prolongada</text>
+  </g>
+
+  <g transform="translate(370, 800)">
+    <rect x="0" y="0" width="260" height="85" rx="16" fill="#141f3d" stroke="#2a3a60" stroke-width="2" />
+    <text x="130" y="36" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#facc15" text-anchor="middle">TALADRO PERCUTOR</text>
+    <text x="130" y="62" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8" text-anchor="middle">25 Niveles de Torque</text>
+  </g>
+
+  <g transform="translate(660, 800)">
+    <rect x="0" y="0" width="260" height="85" rx="16" fill="#141f3d" stroke="#2a3a60" stroke-width="2" />
+    <text x="130" y="36" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#4ade80" text-anchor="middle">MALETÍN RÍGIDO</text>
+    <text x="130" y="62" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8" text-anchor="middle">24+ Herramientas manuales</text>
+  </g>
+</svg>

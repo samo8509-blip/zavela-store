@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <defs>
+    <radialGradient id="darkBg3" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#181a20" />
+      <stop offset="50%" stop-color="#0f1115" />
+      <stop offset="100%" stop-color="#050608" />
+    </radialGradient>
+    <linearGradient id="goldText3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#eab308" />
+      <stop offset="100%" stop-color="#a16207" />
+    </linearGradient>
+    <linearGradient id="circleGold3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#ca8a04" />
+      <stop offset="100%" stop-color="#854d0e" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1000" fill="url(#darkBg3)" />
+
+  <!-- Headline -->
+  <g transform="translate(500, 100)">
+    <text x="0" y="0" font-family="Arial Black, sans-serif" font-weight="900" font-size="48" fill="#ffffff" text-anchor="middle" letter-spacing="2">ORGANIZA TU ESPACIO</text>
+    <text x="0" y="60" font-family="Arial Black, sans-serif" font-weight="900" font-size="58" fill="url(#goldText3)" text-anchor="middle" letter-spacing="3">CON ESTILO PROFESIONAL</text>
+  </g>
+
+  <!-- Central Graphic Rack -->
+  <g transform="translate(300, 240)">
+    <rect x="0" y="40" width="400" height="240" rx="8" fill="#1e293b" stroke="#475569" stroke-width="4" />
+    <line x1="0" y1="120" x2="400" y2="120" stroke="#475569" stroke-width="4" />
+    <line x1="0" y1="200" x2="400" y2="200" stroke="#475569" stroke-width="4" />
+    <!-- Saws and cables on top -->
+    <circle cx="100" cy="20" r="40" fill="#334155" stroke="#facc15" stroke-width="4" />
+    <circle cx="280" cy="20" r="30" fill="#334155" stroke="#facc15" stroke-width="4" />
+    <!-- 4 Drills Hanging -->
+    <g transform="translate(20, 220)">
+      <rect x="15" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="105" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="195" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+      <rect x="285" y="0" width="45" height="120" rx="6" fill="#facc15" stroke="#000" stroke-width="2" />
+    </g>
+  </g>
+
+  <!-- Left Column Badges -->
+  <g transform="translate(60, 260)">
+    <circle cx="45" cy="45" r="38" fill="#0f172a" stroke="url(#circleGold3)" stroke-width="3" />
+    <text x="105" y="34" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">ESTRUCTURA DE</text>
+    <text x="105" y="58" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">HIERRO RESISTENTE</text>
+    <text x="105" y="80" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Soporta hasta 50 lbs</text>
+  </g>
+
+  <g transform="translate(60, 580)">
+    <circle cx="45" cy="45" r="38" fill="#0f172a" stroke="url(#circleGold3)" stroke-width="3" />
+    <text x="105" y="34" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">4 RANURAS</text>
+    <text x="105" y="58" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">PARA TALADROS</text>
+    <text x="105" y="80" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Acceso rápido</text>
+  </g>
+
+  <!-- Right Column Badges -->
+  <g transform="translate(680, 260)">
+    <circle cx="45" cy="45" r="38" fill="#0f172a" stroke="url(#circleGold3)" stroke-width="3" />
+    <text x="105" y="34" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">DISEÑO DE</text>
+    <text x="105" y="58" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">3 NIVELES</text>
+    <text x="105" y="80" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Mayor capacidad</text>
+  </g>
+
+  <g transform="translate(680, 580)">
+    <circle cx="45" cy="45" r="38" fill="#0f172a" stroke="url(#circleGold3)" stroke-width="3" />
+    <text x="105" y="34" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">LATERALES</text>
+    <text x="105" y="58" font-family="Arial Black, sans-serif" font-weight="900" font-size="19" fill="#ffffff">MULTIFUNCIÓN</text>
+    <text x="105" y="80" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Para destornilladores y alicates</text>
+  </g>
+
+  <!-- Bottom 3-Step Process (1 Instala, 2 Organiza, 3 Optimiza) -->
+  <g transform="translate(70, 870)">
+    <!-- Step 1 -->
+    <g transform="translate(0, 0)">
+      <circle cx="40" cy="45" r="32" fill="url(#goldText3)" />
+      <text x="40" y="56" font-family="Arial Black, sans-serif" font-weight="900" font-size="28" fill="#0f172a" text-anchor="middle">1</text>
+      <text x="85" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">INSTALA</text>
+      <text x="85" y="60" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Fácil y rápido</text>
+    </g>
+
+    <!-- Step 2 -->
+    <g transform="translate(300, 0)">
+      <circle cx="40" cy="45" r="32" fill="url(#goldText3)" />
+      <text x="40" y="56" font-family="Arial Black, sans-serif" font-weight="900" font-size="28" fill="#0f172a" text-anchor="middle">2</text>
+      <text x="85" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">ORGANIZA</text>
+      <text x="85" y="60" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Todo en su lugar</text>
+    </g>
+
+    <!-- Step 3 -->
+    <g transform="translate(600, 0)">
+      <circle cx="40" cy="45" r="32" fill="url(#goldText3)" />
+      <text x="40" y="56" font-family="Arial Black, sans-serif" font-weight="900" font-size="28" fill="#0f172a" text-anchor="middle">3</text>
+      <text x="85" y="36" font-family="Arial Black, sans-serif" font-weight="900" font-size="20" fill="#ffffff">OPTIMIZA</text>
+      <text x="85" y="60" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Tu espacio</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,254 @@
+// Prisma Schema for Dropi E-Commerce Dropshipping Store
+// Configured for PostgreSQL with relational modeling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CUSTOMER
+}
+
+enum OrderStatus {
+  pendiente
+  pago_confirmado
+  enviado_a_dropi
+  recibido_por_dropi
+  procesando
+  enviado
+  entregado
+  cancelado
+  error
+}
+
+enum PaymentMethod {
+  contra_entrega
+  pago_online
+  transferencia
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CASH_ON_DELIVERY
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id            String   @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String
+  phone         String
+  department    String
+  city          String
+  address       String
+  notes         String?
+  totalOrders   Int      @default(0)
+  totalSpent    Float    @default(0)
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  active      Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id                  String           @id @default(uuid())
+  title               String
+  slug                String           @unique
+  description         String
+  shortDescription    String?
+  price               Float            // Precio de venta final
+  costPrice           Float            // Costo del producto en Dropi
+  compareAtPrice      Float?           // Precio anterior tachado
+  discountPercentage  Int              @default(0)
+  marginAmount        Float            @default(0) // Ganancia neta (price - costPrice)
+  marginPercentage    Float            @default(0) // Margen % sobre el costo
+  stock               Int              @default(0)
+  active              Boolean          @default(true)
+  featured            Boolean          @default(false)
+  images              String[]
+  warrantyInfo        String?
+  tags                String[]
+  weightKg            Float            @default(0.5)
+
+  // Dropi Integration Fields
+  dropiProductId      String?          @unique // ID del producto en Dropi
+  dropiSupplierName   String?          // Proveedor en Dropi
+  dropiWarehouseCity  String?          // Bodega de origen en Dropi
+  dropiSyncDate       DateTime?
+  dropiRawData        Json?
+
+  categoryId          String?
+  category            Category?        @relation(fields: [categoryId], references: [id])
+  variants            ProductVariant[]
+  orderItems          OrderItem[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([dropiProductId])
+  @@index([active, featured])
+}
+
+model ProductVariant {
+  id              String      @id @default(uuid())
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name            String      // e.g. "Color: Negro / Talla: L"
+  sku             String?     @unique
+  price           Float
+  costPrice       Float
+  stock           Int         @default(0)
+  dropiVariantId  String?     // ID de variante en Dropi
+  attributes      Json?       // { color: "Negro", size: "L" }
+  orderItems      OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model Order {
+  id                  String        @id @default(uuid())
+  orderNumber         String        @unique // e.g. "DP-1001"
+  
+  // Customer Data Snapshot
+  customerId          String?
+  customer            Customer?     @relation(fields: [customerId], references: [id])
+  customerName        String
+  customerPhone       String
+  customerEmail       String
+  department          String
+  city                String
+  address             String
+  additionalNotes     String?
+
+  // Financial Breakdown
+  subtotal            Float
+  shippingCost        Float         @default(0)
+  total               Float
+  productCostTotal    Float         // Costo total Dropi
+  grossMargin         Float         // Ganancia neta (total - productCostTotal - shippingCost)
+  
+  // Payment
+  paymentMethod       PaymentMethod @default(contra_entrega)
+  paymentStatus       PaymentStatus @default(CASH_ON_DELIVERY)
+  
+  // Status Cycle
+  status              OrderStatus   @default(pendiente)
+  
+  // Dropi Official Integration Data
+  dropiOrderId        String?       @unique // ID devuelto por Dropi API
+  dropiStatus         String?       // Estado crudo reportado por Dropi
+  dropiTrackingNumber String?       // Guía de transporte (Servientrega, Coordinadora, etc.)
+  dropiCarrier        String?       // Transportadora asignada por Dropi
+  dropiGuideUrl       String?       // URL de descarga de la guía
+  dropiResponse       Json?         // Respuesta completa de Dropi API
+  dropiError          String?       // Último error reportado por Dropi
+  dropiRetryCount     Int           @default(0)
+  dropiSubmittedAt    DateTime?
+  dropiAcceptedAt     DateTime?
+  dropiShippedAt      DateTime?
+  dropiDeliveredAt    DateTime?
+  lastDropiSyncAt     DateTime?
+
+  items               OrderItem[]
+  webhookEvents       WebhookEvent[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([orderNumber])
+  @@index([dropiOrderId])
+  @@index([status])
+  @@index([customerPhone])
+}
+
+model OrderItem {
+  id          String          @id @default(uuid())
+  orderId     String
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product         @relation(fields: [productId], references: [id])
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+  title       String
+  variantName String?
+  quantity    Int
+  unitPrice   Float
+  unitCost    Float
+  subtotal    Float
+  createdAt   DateTime        @default(now())
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  source      String   @default("DROPI")
+  eventType   String   // e.g. "order.status_updated", "order.shipped"
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id])
+  dropiOrderId String?
+  payload     Json
+  signature   String?
+  processed   Boolean  @default(false)
+  error       String?
+  receivedAt  DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([dropiOrderId])
+  @@index([processed])
+}
+
+model StoreSetting {
+  id                      String   @id @default(uuid())
+  storeName               String   @default("DropiStore Pro")
+  currency                String   @default("COP")
+  defaultMarginPercentage Float    @default(80)
+  defaultFixedMargin      Float    @default(30000)
+  freeShippingThreshold   Float    @default(150000)
+  flatShippingRate        Float    @default(12000)
+  autoSendOrdersToDropi   Boolean  @default(true)
+  colombiaCodEnabled      Boolean  @default(true)
+  updatedAt               DateTime @updatedAt
+}
+
+model DropiSyncLog {
+  id        String   @id @default(uuid())
+  type      String   // "ORDER_SYNC" | "PRODUCT_IMPORT" | "WEBHOOK" | "API_ERROR" | "RETRY"
+  orderId   String?
+  message   String
+  details   Json?
+  success   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+}
