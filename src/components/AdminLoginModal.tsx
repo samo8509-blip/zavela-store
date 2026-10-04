@@ -99,8 +99,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   defaultRole = 'admin'
 }) => {
   const [role, setRole] = useState<'admin' | 'advisor'>(defaultRole);
-  const [username, setUsername] = useState(ADMIN_USERNAME);
-  const [password, setPassword] = useState(ADMIN_PASSWORD);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,13 +109,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setRole(defaultRole);
-      if (defaultRole === 'admin') {
-        setUsername(ADMIN_USERNAME);
-        setPassword(ADMIN_PASSWORD);
-      } else {
-        setUsername('juan');
-        setPassword('juan123');
-      }
+      setUsername('');
+      setPassword('');
       setError(null);
       setShowPassword(false);
     }
@@ -124,13 +119,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const handleRoleChange = (newRole: 'admin' | 'advisor') => {
     setRole(newRole);
     setError(null);
-    if (newRole === 'admin') {
-      setUsername(ADMIN_USERNAME);
-      setPassword(ADMIN_PASSWORD);
-    } else {
-      setUsername('juan');
-      setPassword('juan123');
-    }
+    setUsername('');
+    setPassword('');
   };
 
   if (!isOpen) return null;
@@ -281,10 +271,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={role === 'admin' ? 'Sergio Martinez' : 'Ej. juan o AS-001'}
+                placeholder={role === 'admin' ? 'Ingresa tu usuario...' : 'Ingresa usuario o ID de asesor...'}
                 autoFocus
                 required
-                className="w-full pl-10 pr-4 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] focus:ring-2 focus:ring-[#48CAE4]/20 rounded-xl text-sm text-white placeholder:text-slate-400 outline-hidden transition-all"
+                autoComplete="off"
+                className="w-full pl-10 pr-4 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] focus:ring-2 focus:ring-[#48CAE4]/20 rounded-xl text-sm text-white placeholder:text-slate-500 outline-hidden transition-all"
               />
             </div>
           </div>
@@ -304,9 +295,10 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="Ingresa tu contraseña..."
                 required
-                className="w-full pl-10 pr-11 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] focus:ring-2 focus:ring-[#48CAE4]/20 rounded-xl text-sm text-white placeholder:text-slate-400 outline-hidden transition-all"
+                autoComplete="new-password"
+                className="w-full pl-10 pr-11 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] focus:ring-2 focus:ring-[#48CAE4]/20 rounded-xl text-sm text-white placeholder:text-slate-500 outline-hidden transition-all"
               />
               <button
                 type="button"
@@ -318,31 +310,6 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Quick Credential Helpers for easy test */}
-          {role === 'advisor' && (
-            <div className="bg-[#0A1128] p-2.5 rounded-xl border border-[#2A3A60] text-[11px] text-slate-300 space-y-1">
-              <span className="text-[10px] font-mono text-[#48CAE4] font-bold block uppercase">
-                ⚡ Accesos de Asesores de prueba:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => { setUsername('juan'); setPassword('juan123'); }}
-                  className="px-2 py-0.5 rounded-md bg-[#141F3D] hover:bg-[#FF5A36] hover:text-white text-[#48CAE4] border border-[#2A3A60] text-[10px] font-mono font-bold cursor-pointer transition-colors"
-                >
-                  Juan (juan / juan123)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setUsername('valentina'); setPassword('valentina123'); }}
-                  className="px-2 py-0.5 rounded-md bg-[#141F3D] hover:bg-[#FF5A36] hover:text-white text-[#48CAE4] border border-[#2A3A60] text-[10px] font-mono font-bold cursor-pointer transition-colors"
-                >
-                  Valentina (valentina / valentina123)
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Remember Session & Shortcut Info */}
           <div className="flex items-center justify-between pt-1 text-xs">
