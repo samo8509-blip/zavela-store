@@ -925,12 +925,16 @@ const DEFAULT_LOGS: SystemLog[] = [
 export const DEFAULT_ADVISORS: Advisor[] = [
   {
     id: 'AS-001',
-    name: 'Juan (Asesor 1)',
-    username: 'juan',
+    name: 'Juan Pérez (Asesor 1)',
+    firstName: 'Juan',
+    lastName: 'Pérez',
+    role: 'advisor',
+    sellerCode: 'VEN-001',
+    username: 'juan.perez',
     password: 'juan123',
     phone: '3101234567',
     email: 'juan.asesor1@zavelastore.com',
-    channel: 'WhatsApp Directo / Llamadas',
+    channel: 'WhatsApp de Ventas',
     commissionRate: 10,
     status: 'active',
     settlementStatus: 'pendiente_liquidacion',
@@ -939,12 +943,16 @@ export const DEFAULT_ADVISORS: Advisor[] = [
   },
   {
     id: 'AS-002',
-    name: 'Valentina (Asesora 2)',
-    username: 'valentina',
+    name: 'Valentina Morales (Asesora 2)',
+    firstName: 'Valentina',
+    lastName: 'Morales',
+    role: 'advisor',
+    sellerCode: 'VEN-002',
+    username: 'valentina.morales',
     password: 'valentina123',
     phone: '3209876543',
     email: 'valentina.ventas@zavelastore.com',
-    channel: 'TikTok Ads & Chat',
+    channel: 'WhatsApp de Ventas',
     commissionRate: 10,
     status: 'active',
     settlementStatus: 'al_dia',
@@ -954,11 +962,15 @@ export const DEFAULT_ADVISORS: Advisor[] = [
   {
     id: 'AS-003',
     name: 'Carlos Gómez (Asesor 3)',
-    username: 'carlos',
+    firstName: 'Carlos',
+    lastName: 'Gómez',
+    role: 'advisor',
+    sellerCode: 'VEN-003',
+    username: 'carlos.gomez',
     password: 'carlos123',
     phone: '3157891234',
     email: 'carlos.gomez@zavelastore.com',
-    channel: 'Facebook Ads & Messenger',
+    channel: 'WhatsApp de Ventas',
     commissionRate: 10,
     status: 'active',
     settlementStatus: 'al_dia',
@@ -968,11 +980,15 @@ export const DEFAULT_ADVISORS: Advisor[] = [
   {
     id: 'AS-004',
     name: 'Daniela Ríos (Asesora 4)',
-    username: 'daniela',
+    firstName: 'Daniela',
+    lastName: 'Ríos',
+    role: 'advisor',
+    sellerCode: 'VEN-004',
+    username: 'daniela.rios',
     password: 'daniela123',
     phone: '3184567890',
     email: 'daniela.rios@zavelastore.com',
-    channel: 'Instagram DM & Reels',
+    channel: 'WhatsApp de Ventas',
     commissionRate: 10,
     status: 'active',
     settlementStatus: 'al_dia',
@@ -1893,25 +1909,52 @@ class DatabaseStore {
   saveAdvisor(advisor: Partial<Advisor>): Advisor {
     if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
     const existingIndex = this.data.advisors.findIndex(a => a.id === advisor.id);
+    const existing = existingIndex >= 0 ? this.data.advisors[existingIndex] : null;
     
-    // Generate clean default username if not specified
-    const generatedUsername = advisor.username?.trim() || 
-      (advisor.name ? advisor.name.toLowerCase().replace(/[^a-z0-9]/g, '') : `asesor${this.data.advisors.length + 1}`);
+    const count = this.data.advisors.length + 1;
+    const role: 'admin' | 'advisor' = advisor.role || existing?.role || 'advisor';
+    const sellerCode = advisor.sellerCode?.trim() || existing?.sellerCode || `VEN-${String(count).padStart(3, '0')}`;
+
+    // Generate clean username from first & last name or name
+    let generatedUsername = advisor.username?.trim();
+    if (!generatedUsername) {
+      if (advisor.firstName && advisor.lastName) {
+        const cleanFirst = advisor.firstName.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        const cleanLast = advisor.lastName.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        generatedUsername = `${cleanFirst}.${cleanLast}`;
+      } else if (advisor.name) {
+        generatedUsername = advisor.name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+      } else if (existing?.username) {
+        generatedUsername = existing.username;
+      } else {
+        generatedUsername = `usuario${count}`;
+      }
+    }
+
+    const fullName = advisor.name?.trim() || 
+      (advisor.firstName || advisor.lastName ? `${advisor.firstName || ''} ${advisor.lastName || ''}`.trim() : '') || 
+      existing?.name || 
+      (role === 'admin' ? 'Nuevo Administrador' : 'Nuevo Asesor');
 
     const updated: Advisor = {
-      id: advisor.id || `AS-${String(this.data.advisors.length + 1).padStart(3, '0')}`,
-      name: advisor.name || 'Nuevo Asesor',
+      ...(existing || {}),
+      id: advisor.id || existing?.id || (role === 'admin' ? `ADM-${String(count).padStart(3, '0')}` : `AS-${String(count).padStart(3, '0')}`),
+      name: fullName,
+      firstName: advisor.firstName !== undefined ? advisor.firstName : (existing?.firstName || ''),
+      lastName: advisor.lastName !== undefined ? advisor.lastName : (existing?.lastName || ''),
+      role,
+      sellerCode,
       username: generatedUsername,
-      password: advisor.password || 'asesor123',
-      phone: advisor.phone || '',
-      email: advisor.email || '',
-      channel: advisor.channel || 'WhatsApp Directo',
-      commissionRate: advisor.commissionRate ?? 10,
-      status: advisor.status || 'active',
-      settlementStatus: advisor.settlementStatus || 'al_dia',
-      lastSettlementDate: advisor.lastSettlementDate,
-      notes: advisor.notes || '',
-      createdAt: advisor.createdAt || new Date().toISOString()
+      password: advisor.password !== undefined && advisor.password.trim() !== '' ? advisor.password.trim() : (existing?.password || 'zavela123'),
+      phone: advisor.phone !== undefined ? advisor.phone : (existing?.phone || ''),
+      email: advisor.email !== undefined ? advisor.email : (existing?.email || ''),
+      channel: advisor.channel || existing?.channel || (role === 'admin' ? 'Administración General' : 'WhatsApp de Ventas'),
+      commissionRate: advisor.commissionRate !== undefined ? advisor.commissionRate : (existing?.commissionRate ?? 0),
+      status: advisor.status || existing?.status || 'active',
+      settlementStatus: advisor.settlementStatus || existing?.settlementStatus || 'al_dia',
+      lastSettlementDate: advisor.lastSettlementDate || existing?.lastSettlementDate,
+      notes: advisor.notes !== undefined ? advisor.notes : (existing?.notes || ''),
+      createdAt: existing?.createdAt || advisor.createdAt || new Date().toISOString()
     };
 
     if (existingIndex >= 0) {
@@ -1932,16 +1975,18 @@ class DatabaseStore {
     const matched = advisors.find(a => {
       const matchUsername = a.username && a.username.toLowerCase() === cleanId;
       const matchId = a.id && a.id.toLowerCase() === cleanId;
+      const matchSellerCode = a.sellerCode && a.sellerCode.toLowerCase() === cleanId;
       const matchName = a.name && a.name.toLowerCase() === cleanId;
       const matchEmail = a.email && a.email.toLowerCase() === cleanId;
-      return (matchUsername || matchId || matchName || matchEmail) && a.password === cleanPass && a.status === 'active';
+      return (matchUsername || matchId || matchSellerCode || matchName || matchEmail) && a.password === cleanPass && a.status === 'active';
     });
 
     return matched || null;
   }
 
   deleteAdvisor(id: string): boolean {
-    if (!this.data.advisors) return false;
+    if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
+    if (id === 'admin-master') return false;
     const idx = this.data.advisors.findIndex(a => a.id === id);
     if (idx >= 0) {
       this.data.advisors.splice(idx, 1);
@@ -1949,6 +1994,19 @@ class DatabaseStore {
       return true;
     }
     return false;
+  }
+
+  deleteAdvisors(ids: string[]): number {
+    if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+    const initialCount = this.data.advisors.length;
+    const cleanIds = ids.filter(id => id !== 'admin-master');
+    this.data.advisors = this.data.advisors.filter(a => !cleanIds.includes(a.id));
+    const deletedCount = initialCount - this.data.advisors.length;
+    if (deletedCount > 0) {
+      this.saveData(this.data);
+    }
+    return deletedCount;
   }
 
   settleAdvisor(id: string, notes?: string): Advisor | null {

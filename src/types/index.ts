@@ -602,14 +602,18 @@ export type SystemLog = AuditLog;
 
 // Subperfiles de Asesores y Bolsa Dropi para el Perfil Principal de Sergio Martínez
 export interface Advisor {
-  id: string; // ej. "AS-001"
-  name: string; // ej. "Juan (Asesor 1)"
-  username?: string; // ej. "juan" o "AS-001"
+  id: string; // ej. "AS-001" o "VEN-001"
+  name: string; // ej. "Juan Pérez"
+  firstName?: string;
+  lastName?: string;
+  role?: 'admin' | 'advisor'; // 'admin' o 'advisor'
+  sellerCode?: string; // ej. "VEN-001", código de vendedor para control del que más vende
+  username?: string; // ej. "juan.perez"
   password?: string; // ej. "juan123"
   phone?: string;
   email?: string;
-  channel: string; // ej. "WhatsApp Directo", "TikTok Ads", "Facebook Ads", "Instagram", "Llamadas"
-  commissionRate?: number; // % o valor
+  channel?: string; // ej. "WhatsApp de Ventas"
+  commissionRate?: number; // % o valor opcional
   status: 'active' | 'inactive';
   settlementStatus: 'al_dia' | 'pendiente_liquidacion' | 'liquidado';
   lastSettlementDate?: string;

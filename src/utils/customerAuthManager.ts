@@ -457,3 +457,23 @@ export function updateCustomerProfile(updates: Partial<CustomerUser>): CustomerU
 
   return updated;
 }
+
+/**
+ * Update password for any registered customer user by admin
+ */
+export async function updateCustomerPassword(customerIdOrEmail: string, newPasswordPlain: string): Promise<boolean> {
+  try {
+    const list = getRegisteredCustomers();
+    const idx = list.findIndex(c => c.id === customerIdOrEmail || c.email.toLowerCase() === customerIdOrEmail.toLowerCase());
+    if (idx >= 0) {
+      const hash = await hashPassword(newPasswordPlain);
+      list[idx].passwordHash = hash;
+      saveRegisteredCustomers(list);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error('Error updating customer password:', e);
+    return false;
+  }
+}

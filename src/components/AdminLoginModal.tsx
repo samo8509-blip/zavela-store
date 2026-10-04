@@ -181,6 +181,22 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           }
         }
 
+        // 4. Si aún no valida, verificar si es un usuario administrador registrado en el sistema
+        if (!isUserValid || !isPassValid) {
+          try {
+            const adminRes = await fetch('/api/admin/advisors/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: cleanUser, password: cleanPass })
+            });
+            const adminJson = await adminRes.json();
+            if (adminJson.success && adminJson.data && (adminJson.data.role === 'admin' || adminJson.data.id?.startsWith('ADM-'))) {
+              isUserValid = true;
+              isPassValid = true;
+            }
+          } catch (e) {}
+        }
+
         if (isUserValid && isPassValid) {
           setAdminAuthenticated(rememberMe);
           setIsLoading(false);

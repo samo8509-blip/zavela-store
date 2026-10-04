@@ -104,6 +104,29 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
     return 'Sin compras registradas';
   });
 
+  // Active sales advisors with phone numbers for fast WhatsApp customer routing
+  const [activeAdvisors, setActiveAdvisors] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/admin/advisors')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.data?.advisors)) {
+          const valid = data.data.advisors.filter((a: any) => a.status === 'active' && a.phone && a.role !== 'admin');
+          setActiveAdvisors(valid);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const formatAdvisorWhatsAppUrl = (adv: any) => {
+    let p = (adv.phone || '').replace(/[^\d]/g, '');
+    if (p.length === 10 && p.startsWith('3')) p = `57${p}`;
+    if (!p) p = cleanPhone;
+    const text = `¡Hola ${adv.name}! Quiero información sobre un producto en Zavela Store Colombia (Código Asesor: ${adv.sellerCode || adv.id}).`;
+    return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+  };
+
   // Calculate Initial Personalized Greeting according to Section 2 of Sofía Guidelines
   const getInitialWelcomeMessage = (): string => {
     if (currentCustomer) {
@@ -467,6 +490,54 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
                     Horario: 8:00 AM - 8:00 PM • Despachos a toda Colombia
                   </span>
                 </div>
+
+                {/* Asesores de Ventas Disponibles para Enrutamiento Rápido */}
+                {activeAdvisors.length > 0 && (
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Asesores de Ventas (Responde Primero):</span>
+                      </span>
+                      <span className="text-[9px] font-mono text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                        En Línea
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {activeAdvisors.map(adv => (
+                        <a
+                          key={adv.id}
+                          href={formatAdvisorWhatsAppUrl(adv)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition-all text-left group"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-extrabold text-xs text-slate-900 group-hover:text-emerald-950 truncate">
+                                {adv.name}
+                              </span>
+                              {adv.sellerCode && (
+                                <span className="text-[9px] font-mono font-bold bg-cyan-100 text-cyan-800 px-1 py-0.2 rounded">
+                                  {adv.sellerCode}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono block">
+                              WhatsApp: +{adv.phone}
+                            </span>
+                          </div>
+
+                          <span className="px-2 py-1 bg-emerald-600 group-hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold shrink-0 flex items-center gap-1 shadow-2xs">
+                            <MessageCircle className="w-3 h-3" />
+                            <span>Chatear</span>
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider block">

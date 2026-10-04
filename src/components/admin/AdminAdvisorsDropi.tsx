@@ -35,7 +35,10 @@ import {
   Eye,
   EyeOff,
   Lock,
-  Share2
+  Share2,
+  CheckSquare,
+  Square,
+  AlertTriangle
 } from 'lucide-react';
 import { Advisor, AdvisorSale, DropiStatus, AdvisorPerformance, Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -75,25 +78,37 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
   const [rawWhatsAppText, setRawWhatsAppText] = useState<string>('');
   const [isParsingText, setIsParsingText] = useState<boolean>(false);
 
-  // Modal State for New Advisor
+  // Modal State for New User / Advisor
   const [isNewAdvisorModalOpen, setIsNewAdvisorModalOpen] = useState<boolean>(false);
-  const [newAdvisorName, setNewAdvisorName] = useState<string>('');
+  const [newAdvisorRole, setNewAdvisorRole] = useState<'advisor' | 'admin'>('advisor');
+  const [newAdvisorFirstName, setNewAdvisorFirstName] = useState<string>('');
+  const [newAdvisorLastName, setNewAdvisorLastName] = useState<string>('');
   const [newAdvisorUsername, setNewAdvisorUsername] = useState<string>('');
   const [newAdvisorPassword, setNewAdvisorPassword] = useState<string>('');
   const [showNewAdvisorPass, setShowNewAdvisorPass] = useState<boolean>(false);
   const [newAdvisorPhone, setNewAdvisorPhone] = useState<string>('');
-  const [newAdvisorChannel, setNewAdvisorChannel] = useState<string>('WhatsApp Directo');
-  const [newAdvisorCommission, setNewAdvisorCommission] = useState<number>(10);
+  const [newAdvisorSellerCode, setNewAdvisorSellerCode] = useState<string>('');
 
-  // Edit Advisor Modal
+  // Multi-Selection State for Batch Deletion
+  const [selectedAdvisorIds, setSelectedAdvisorIds] = useState<string[]>([]);
+  const [isBatchDeleting, setIsBatchDeleting] = useState<boolean>(false);
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState<boolean>(false);
+  const [advisorPendingDelete, setAdvisorPendingDelete] = useState<Advisor | null>(null);
+  const [isDeletingSingleAdvisor, setIsDeletingSingleAdvisor] = useState<boolean>(false);
+
+  // Edit User / Advisor Modal
   const [editingAdvisor, setEditingAdvisor] = useState<Advisor | null>(null);
+  const [editAdvisorRole, setEditAdvisorRole] = useState<'advisor' | 'admin'>('advisor');
+  const [editAdvisorFirstName, setEditAdvisorFirstName] = useState<string>('');
+  const [editAdvisorLastName, setEditAdvisorLastName] = useState<string>('');
   const [editAdvisorName, setEditAdvisorName] = useState<string>('');
   const [editAdvisorUsername, setEditAdvisorUsername] = useState<string>('');
   const [editAdvisorPassword, setEditAdvisorPassword] = useState<string>('');
   const [showEditAdvisorPass, setShowEditAdvisorPass] = useState<boolean>(false);
   const [editAdvisorPhone, setEditAdvisorPhone] = useState<string>('');
-  const [editAdvisorChannel, setEditAdvisorChannel] = useState<string>('WhatsApp Directo');
-  const [editAdvisorCommission, setEditAdvisorCommission] = useState<number>(10);
+  const [editAdvisorSellerCode, setEditAdvisorSellerCode] = useState<string>('');
+  const [editAdvisorStatus, setEditAdvisorStatus] = useState<'active' | 'inactive'>('active');
+  const [isUpdatingAdvisor, setIsUpdatingAdvisor] = useState<boolean>(false);
 
   // Password toggle map
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
@@ -108,11 +123,40 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     return 'adv_' + res;
   };
 
+  // Helper to format clean username as nombre.apellido
+  const formatCleanUsername = (first: string, last: string) => {
+    const f = first.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const l = last.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    if (f && l) return `${f}.${l}`;
+    if (f) return f;
+    return '';
+  };
+
+  // Helper to generate seller code: VEN-001, VEN-002, etc.
+  const generateSellerCode = () => {
+    const nextNum = (advisors?.length || 0) + 1;
+    return `VEN-${String(nextNum).padStart(3, '0')}`;
+  };
+
+  const handleOpenNewUserModal = () => {
+    setNewAdvisorRole('advisor');
+    setNewAdvisorFirstName('');
+    setNewAdvisorLastName('');
+    setNewAdvisorUsername('');
+    setNewAdvisorPassword(generatePassword());
+    setShowNewAdvisorPass(false);
+    setNewAdvisorPhone('');
+    setNewAdvisorSellerCode(generateSellerCode());
+    setIsNewAdvisorModalOpen(true);
+  };
+
   // Helper to copy advisor credentials for WhatsApp
   const handleCopyAdvisorCredentials = (adv: Advisor) => {
-    const pass = adv.password || 'asesor123';
+    const pass = adv.password || 'zavela123';
     const user = adv.username || adv.id.toLowerCase();
-    const text = `👋 *¡Hola ${adv.name}!* Aquí tienes tus credenciales para ingresar a tu *Portal de Asesor en Zavela Store*:\n\n🌐 *Acceso:* Haz clic en "Ingreso" y selecciona "Asesor de Ventas"\n👤 *Usuario:* ${user}\n🔑 *Contraseña:* ${pass}\n💼 *Canal:* ${adv.channel}\n💰 *Comisión:* ${adv.commissionRate || 10}% por venta\n\n¡Ingresa para registrar tus ventas manuales para despacho Dropi!`;
+    const sellerCode = adv.sellerCode || adv.id;
+    const roleLabel = adv.role === 'admin' ? 'Administrador' : 'Asesor de Ventas';
+    const text = `👋 *¡Hola ${adv.name}!* Aquí tienes tus credenciales para ingresar a tu cuenta en *Zavela Store Colombia*:\n\n🌐 *Rol:* ${roleLabel}\n🏷️ *Código de Vendedor:* ${sellerCode}\n👤 *Usuario:* ${user}\n🔑 *Contraseña:* ${pass}\n📱 *WhatsApp de Enrutamiento:* ${adv.phone || 'Configurado'}\n\n¡Ingresa al sistema para gestionar tus ventas y clientes!`;
     
     navigator.clipboard.writeText(text);
     showToast(`📋 Credenciales de ${adv.name} copiadas para enviar por WhatsApp.`);
@@ -368,41 +412,49 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     }
   };
 
-  // Create new advisor
+  // Create new user (Advisor or Admin)
   const handleCreateAdvisor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAdvisorName.trim()) {
-      showToast('Ingresa el nombre del asesor.');
+    if (!newAdvisorFirstName.trim()) {
+      showToast('Por favor ingresa el nombre de la persona.');
       return;
     }
-    const finalUsername = (newAdvisorUsername.trim() || newAdvisorName.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const fullName = `${newAdvisorFirstName.trim()} ${newAdvisorLastName.trim()}`.trim();
+    const finalUsername = (newAdvisorUsername.trim() || formatCleanUsername(newAdvisorFirstName, newAdvisorLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, ''));
     const finalPassword = (newAdvisorPassword.trim() || generatePassword());
+    const finalSellerCode = (newAdvisorSellerCode.trim() || generateSellerCode());
 
     try {
       const res = await fetch('/api/admin/advisors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newAdvisorName.trim(),
+          name: fullName,
+          firstName: newAdvisorFirstName.trim(),
+          lastName: newAdvisorLastName.trim(),
+          role: newAdvisorRole,
+          sellerCode: finalSellerCode,
           username: finalUsername,
           password: finalPassword,
           phone: newAdvisorPhone.trim(),
-          channel: newAdvisorChannel,
-          commissionRate: Number(newAdvisorCommission) || 10,
+          channel: newAdvisorRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas',
           status: 'active'
         })
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`✅ Subperfil creado: Usuario "${finalUsername}" / Clave "${finalPassword}"`);
+        const roleLabel = newAdvisorRole === 'admin' ? 'Administrador' : 'Asesor de Ventas';
+        showToast(`✅ Usuario creado: ${roleLabel} "${fullName}" (Usuario: "${finalUsername}" / Clave: "${finalPassword}" / Código: "${finalSellerCode}")`);
         setIsNewAdvisorModalOpen(false);
-        setNewAdvisorName('');
+        setNewAdvisorFirstName('');
+        setNewAdvisorLastName('');
         setNewAdvisorUsername('');
         setNewAdvisorPassword('');
         setNewAdvisorPhone('');
+        setNewAdvisorSellerCode('');
         loadData();
       } else {
-        showToast(json.message || 'Error al crear asesor.');
+        showToast(json.message || 'Error al crear usuario.');
       }
     } catch (e) {
       console.error(e);
@@ -410,67 +462,147 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     }
   };
 
-  // Open Edit Advisor modal
+  // Open Edit User modal
   const handleOpenEditAdvisor = (adv: Advisor) => {
     setEditingAdvisor(adv);
+    setEditAdvisorRole(adv.role === 'admin' ? 'admin' : 'advisor');
+
+    let fName = adv.firstName || '';
+    let lName = adv.lastName || '';
+    if (!fName && !lName && adv.name) {
+      const parts = adv.name.trim().split(/\s+/);
+      fName = parts[0] || '';
+      lName = parts.slice(1).join(' ') || '';
+    }
+    setEditAdvisorFirstName(fName);
+    setEditAdvisorLastName(lName);
     setEditAdvisorName(adv.name);
     setEditAdvisorUsername(adv.username || adv.id.toLowerCase());
-    setEditAdvisorPassword(adv.password || 'asesor123');
+    setEditAdvisorPassword(adv.password || 'zavela123');
     setEditAdvisorPhone(adv.phone || '');
-    setEditAdvisorChannel(adv.channel || 'WhatsApp Directo');
-    setEditAdvisorCommission(adv.commissionRate || 10);
+    setEditAdvisorSellerCode(adv.sellerCode || adv.id);
+    setEditAdvisorStatus(adv.status || 'active');
     setShowEditAdvisorPass(false);
   };
 
-  // Save Edit Advisor
+  // Save Edit User
   const handleUpdateAdvisor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAdvisor) return;
 
+    const fName = editAdvisorFirstName.trim();
+    const lName = editAdvisorLastName.trim();
+    const fullName = `${fName} ${lName}`.trim() || editAdvisorName.trim() || 'Usuario';
+    const cleanUsername = editAdvisorUsername.trim() || formatCleanUsername(fName, lName) || editingAdvisor.id.toLowerCase();
+    const sellerCode = editAdvisorSellerCode.trim().toUpperCase() || editingAdvisor.sellerCode || editingAdvisor.id;
+
+    setIsUpdatingAdvisor(true);
     try {
       const res = await fetch(`/api/admin/advisors/${editingAdvisor.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: editAdvisorName.trim(),
-          username: editAdvisorUsername.trim(),
-          password: editAdvisorPassword.trim(),
+          ...editingAdvisor,
+          role: editAdvisorRole,
+          firstName: fName,
+          lastName: lName,
+          name: fullName,
+          username: cleanUsername,
+          password: editAdvisorPassword.trim() || editingAdvisor.password || 'zavela123',
           phone: editAdvisorPhone.trim(),
-          channel: editAdvisorChannel,
-          commissionRate: Number(editAdvisorCommission) || 10
+          sellerCode: sellerCode,
+          status: editAdvisorStatus
         })
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`✅ Asesor ${editAdvisorName} actualizado correctamente.`);
+        showToast(`✅ Usuario "${fullName}" modificado exitosamente.`);
         setEditingAdvisor(null);
         loadData();
       } else {
-        showToast(json.message || 'Error al actualizar asesor.');
+        showToast(json.message || 'Error al actualizar usuario.');
       }
     } catch (e) {
       console.error(e);
-      showToast('Error de conexión.');
+      showToast('Error de conexión al actualizar.');
+    } finally {
+      setIsUpdatingAdvisor(false);
     }
   };
 
-  // Delete advisor
-  const handleDeleteAdvisor = async (adv: Advisor) => {
-    if (!confirm(`¿Estás seguro de eliminar al asesor ${adv.name} (${adv.id})? Sus ventas registradas se mantendrán en el histórico.`)) return;
+  // Delete single user / advisor (opens in-app modal instead of blocked window.confirm)
+  const handleDeleteAdvisor = (adv: Advisor) => {
+    setAdvisorPendingDelete(adv);
+  };
+
+  const handleConfirmDeleteSingleAdvisor = async () => {
+    if (!advisorPendingDelete) return;
+    setIsDeletingSingleAdvisor(true);
+    const target = advisorPendingDelete;
 
     try {
-      const res = await fetch(`/api/admin/advisors/${adv.id}`, {
+      const res = await fetch(`/api/admin/advisors/${target.id}`, {
         method: 'DELETE'
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`Asesor ${adv.name} eliminado.`);
+        showToast(`✅ Usuario "${target.name}" eliminado del sistema.`);
+        setSelectedAdvisorIds(prev => prev.filter(id => id !== target.id));
+        setAdvisorPendingDelete(null);
         loadData();
       } else {
-        showToast(json.message || 'Error al eliminar asesor.');
+        showToast(json.message || 'Error al eliminar usuario.');
       }
     } catch (e) {
       console.error(e);
+      showToast('Error de conexión al eliminar usuario.');
+    } finally {
+      setIsDeletingSingleAdvisor(false);
+    }
+  };
+
+  // Multi-Selection Handlers
+  const handleToggleSelectAdvisor = (id: string) => {
+    setSelectedAdvisorIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllAdvisors = () => {
+    if (selectedAdvisorIds.length === advisors.length) {
+      setSelectedAdvisorIds([]);
+    } else {
+      setSelectedAdvisorIds(advisors.map(a => a.id));
+    }
+  };
+
+  const handleDeselectAllAdvisors = () => {
+    setSelectedAdvisorIds([]);
+  };
+
+  const handleExecuteBatchDelete = async () => {
+    if (selectedAdvisorIds.length === 0) return;
+    setIsBatchDeleting(true);
+    try {
+      const res = await fetch('/api/admin/advisors/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedAdvisorIds })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`✅ ${json.count || selectedAdvisorIds.length} usuario(s) eliminado(s) exitosamente.`);
+        setSelectedAdvisorIds([]);
+        setShowBatchDeleteConfirm(false);
+        loadData();
+      } else {
+        showToast(json.message || 'Error al eliminar usuarios en lote.');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error de conexión al eliminar usuarios.');
+    } finally {
+      setIsBatchDeleting(false);
     }
   };
 
@@ -701,10 +833,10 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
             </div>
             <div className="text-xl font-black text-white mt-1 font-mono">{advisors.length} Asesores</div>
             <button 
-              onClick={() => setIsNewAdvisorModalOpen(true)}
+              onClick={handleOpenNewUserModal}
               className="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold mt-1 flex items-center gap-1 cursor-pointer"
             >
-              <Plus className="w-3 h-3" /> Añadir subperfil
+              <Plus className="w-3 h-3" /> Crear Usuario (Admin / Asesor)
             </button>
           </div>
 
@@ -835,11 +967,11 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                 })}
 
                 <button
-                  onClick={() => setIsNewAdvisorModalOpen(true)}
+                  onClick={handleOpenNewUserModal}
                   className="px-3 py-1.5 rounded-xl text-xs font-bold border border-dashed border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500 transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>+ Nuevo Asesor</span>
+                  <span>+ Crear Usuario</span>
                 </button>
               </div>
             </div>
@@ -1153,56 +1285,187 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       {activeTab === 'performance' && (
         <div className="space-y-6">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+            <div className="p-5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h3 className="font-black text-white text-sm">1. REPORTE CONSOLIDADO DE ASESORES & CREDENCIALES (Sergio Martínez)</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Gestión de subperfiles, claves de acceso para subida de ventas, volumen comercializado y comisiones.</p>
+                <h3 className="font-black text-white text-sm">1. GESTIÓN Y REPORTE DE USUARIOS (ADMINISTRADORES & ASESORES)</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Control de subperfiles, claves de acceso, selección múltiple para borrar o modificar datos y ranking de ventas.</p>
               </div>
-              <button
-                onClick={() => {
-                  setNewAdvisorName('');
-                  setNewAdvisorUsername('');
-                  setNewAdvisorPassword(generatePassword());
-                  setNewAdvisorPhone('');
-                  setIsNewAdvisorModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-[0_0_15px_rgba(0,245,255,0.3)]"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Nuevo Asesor / Subperfil</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleSelectAllAdvisors}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer border border-slate-700"
+                  title="Seleccionar todos o deseleccionar usuarios"
+                >
+                  <CheckSquare className="w-4 h-4 text-cyan-400" />
+                  <span>
+                    {selectedAdvisorIds.length === advisors.length && advisors.length > 0 
+                      ? 'Deseleccionar Todos' 
+                      : `Selección Múltiple (${selectedAdvisorIds.length})`}
+                  </span>
+                </button>
+                <button
+                  onClick={handleOpenNewUserModal}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-[0_0_15px_rgba(0,245,255,0.3)]"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Nuevo Usuario (Admin / Asesor)</span>
+                </button>
+              </div>
             </div>
+
+            {/* BARRA FLOTANTE DE ELIMINACIÓN MÚLTIPLE */}
+            {selectedAdvisorIds.length > 0 && (
+              <div className="mx-5 my-4 p-4 bg-gradient-to-r from-rose-950/80 via-slate-900 to-rose-950/80 border border-rose-500/40 rounded-2xl flex items-center justify-between flex-wrap gap-3 animate-in fade-in shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-300 font-black text-sm">
+                    {selectedAdvisorIds.length}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-white flex items-center gap-2">
+                      <span>{selectedAdvisorIds.length} usuario{selectedAdvisorIds.length !== 1 ? 's' : ''} seleccionado{selectedAdvisorIds.length !== 1 ? 's' : ''}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-500/30 text-rose-300 text-[10px] font-mono border border-rose-500/30">
+                        Listo para eliminación múltiple
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Puedes eliminar todos los usuarios seleccionados simultáneamente con un solo clic.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllAdvisors}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Deseleccionar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchDeleteConfirm(true)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar Seleccionados ({selectedAdvisorIds.length})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Banner: Control del Asesor que Más Vende (Ranking por Código de Vendedor) */}
+            {(() => {
+              const sortedBySales = [...performance].sort((a, b) => (b.totalSalesCOP || 0) - (a.totalSalesCOP || 0));
+              const topSeller = sortedBySales[0];
+              const topAdv = topSeller ? advisors.find(a => a.id === topSeller.advisorId) : null;
+              if (!topSeller || topSeller.totalSalesCOP <= 0) return null;
+
+              return (
+                <div className="mx-5 my-4 p-4 rounded-2xl bg-gradient-to-r from-amber-950/50 via-slate-900 to-cyan-950/50 border border-amber-500/30 flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-xl shrink-0">
+                      🏆
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-amber-300 uppercase tracking-wider font-mono">
+                          Control de Ventas: Asesor que más vende en Zavela Store
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px]">
+                          #1 Top Ventas
+                        </span>
+                      </div>
+                      <div className="text-sm font-bold text-white mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>{topSeller.advisorName}</span>
+                        <span className="font-mono text-cyan-400 text-xs">({topAdv?.sellerCode || topSeller.advisorId})</span>
+                        <span className="text-slate-400 text-xs font-normal">
+                          • Total Facturado: <strong className="text-emerald-400 font-bold">{formatCOP(topSeller.totalSalesCOP)}</strong> ({topSeller.unitsSold} unidades comercializadas)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {topAdv?.phone && (
+                    <a
+                      href={`https://wa.me/57${topAdv.phone.replace(/[^\d]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>WhatsApp del Asesor #{topAdv.sellerCode || topSeller.advisorId}</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="bg-slate-900 text-slate-400 font-mono uppercase text-[10px] tracking-wider border-b border-slate-800">
                   <tr>
-                    <th className="p-4">ID Asesor</th>
-                    <th className="p-4">Nombre Asesor</th>
+                    <th className="p-4 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={advisors.length > 0 && selectedAdvisorIds.length === advisors.length}
+                        onChange={handleSelectAllAdvisors}
+                        className="w-4 h-4 rounded text-cyan-500 accent-cyan-500 cursor-pointer"
+                        title={selectedAdvisorIds.length === advisors.length ? 'Deseleccionar todos' : 'Seleccionar todos los usuarios'}
+                      />
+                    </th>
+                    <th className="p-4">Cód. Vendedor</th>
+                    <th className="p-4">Rol</th>
+                    <th className="p-4">Nombre Completo</th>
                     <th className="p-4">Credenciales (Login)</th>
-                    <th className="p-4">Canal</th>
+                    <th className="p-4">WhatsApp Enrutamiento</th>
                     <th className="p-4 font-mono text-center">Unidades</th>
                     <th className="p-4 font-mono">Total Ventas ($)</th>
-                    <th className="p-4 font-mono">Comisión Estimada</th>
                     <th className="p-4">Estado</th>
                     <th className="p-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 font-sans">
-                  {performance.map(p => {
+                  {performance.map((p, pIdx) => {
                     const matchedAdv = advisors.find(a => a.id === p.advisorId);
                     const advUser = matchedAdv?.username || p.advisorId.toLowerCase();
-                    const advPass = matchedAdv?.password || 'asesor123';
+                    const advPass = matchedAdv?.password || 'zavela123';
                     const isPassShown = !!revealedPasswords[p.advisorId];
+                    const sellerCode = matchedAdv?.sellerCode || p.advisorId;
+                    const isTopSeller = pIdx === 0 && p.totalSalesCOP > 0;
+                    const isSelected = selectedAdvisorIds.includes(p.advisorId);
 
                     return (
-                      <tr key={p.advisorId} className="hover:bg-slate-900/50 transition-colors">
-                        <td className="p-4 font-mono font-black text-cyan-400">{p.advisorId}</td>
+                      <tr key={p.advisorId} className={`transition-colors ${isSelected ? 'bg-rose-950/20 hover:bg-rose-950/30' : 'hover:bg-slate-900/50'}`}>
+                        <td className="p-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectAdvisor(p.advisorId)}
+                            className="w-4 h-4 rounded text-rose-500 accent-rose-500 cursor-pointer"
+                            title={`Seleccionar ${p.advisorName}`}
+                          />
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-1.5">
+                            {isTopSeller && <span title="Top #1 en Ventas">🥇</span>}
+                            <span className="font-mono font-black text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2.5 py-1 rounded-lg text-xs tracking-wider">
+                              {sellerCode}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                            matchedAdv?.role === 'admin'
+                              ? 'bg-purple-950/60 text-purple-300 border-purple-500/30'
+                              : 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30'
+                          }`}>
+                            {matchedAdv?.role === 'admin' ? '🛡️ Administrador' : '💼 Asesor de Ventas'}
+                          </span>
+                        </td>
                         <td className="p-4 font-bold text-white text-sm">
                           <div>{p.advisorName}</div>
-                          {matchedAdv?.phone && (
-                            <div className="text-[11px] font-mono text-slate-400 font-normal">{matchedAdv.phone}</div>
-                          )}
+                          <div className="text-[11px] font-mono text-slate-500 font-normal">ID: {p.advisorId}</div>
                         </td>
                         <td className="p-4">
                           <div className="bg-slate-900 p-2 rounded-xl border border-slate-800 space-y-1 min-w-[170px]">
@@ -1237,24 +1500,40 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                             </button>
                           </div>
                         </td>
-                        <td className="p-4 text-slate-300 text-xs">{p.channel}</td>
+                        <td className="p-4">
+                          {matchedAdv?.phone ? (
+                            <a
+                              href={`https://wa.me/57${matchedAdv.phone.replace(/[^\d]/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400 hover:text-emerald-300 hover:underline bg-emerald-950/30 px-2 py-1 rounded-lg border border-emerald-900/40"
+                              title="Probar enrutamiento directo por WhatsApp"
+                            >
+                              <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span>+{matchedAdv.phone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-500 text-xs italic">Sin número</span>
+                          )}
+                        </td>
                         <td className="p-4 font-mono font-bold text-center text-slate-100">
                           <span className="bg-slate-800 px-2 py-0.5 rounded-md">{p.unitsSold} uds</span>
                         </td>
                         <td className="p-4 font-mono font-black text-emerald-400 text-sm">
                           {formatCOP(p.totalSalesCOP)}
                         </td>
-                        <td className="p-4 font-mono text-amber-300 font-semibold">
-                          {formatCOP(p.pendingSettlementAmountCOP)}
-                        </td>
                         <td className="p-4">
-                          {p.settlementStatus === 'pendiente_liquidacion' ? (
+                          {matchedAdv?.status === 'inactive' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap">
+                              Inactivo
+                            </span>
+                          ) : p.settlementStatus === 'pendiente_liquidacion' ? (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 whitespace-nowrap">
                               Pendiente Liquidar
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">
-                              Al Día
+                              Activo
                             </span>
                           )}
                         </td>
@@ -1264,7 +1543,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                               <button
                                 onClick={() => handleOpenEditAdvisor(matchedAdv)}
                                 className="p-1.5 bg-slate-800 hover:bg-cyan-600 hover:text-slate-950 text-slate-300 rounded-lg transition-colors cursor-pointer"
-                                title="Editar Asesor o Cambiar Contraseña"
+                                title="Modificar datos, rol, usuario, contraseña o código"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -1280,7 +1559,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                               <button
                                 onClick={() => handleDeleteAdvisor(matchedAdv)}
                                 className="p-1.5 bg-slate-800 hover:bg-rose-600 hover:text-white text-rose-400 rounded-lg transition-colors cursor-pointer"
-                                title="Eliminar Asesor"
+                                title="Eliminar usuario del sistema"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1511,16 +1790,21 @@ Dirección: Calle 10 # 40-20 Apto 301`}
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: NUEVO ASESOR / SUBPERFIL CON USUARIO Y CONTRASEÑA */}
+      {/* MODAL: NUEVO USUARIO (ADMINISTRADOR O ASESOR DE VENTAS)   */}
       {/* ========================================================= */}
       {isNewAdvisorModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-black text-white text-base flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-cyan-400" />
-                <span>Crear Subperfil de Asesor</span>
-              </h3>
+              <div>
+                <h3 className="font-black text-white text-base flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-cyan-400" />
+                  <span>Crear Usuario del Sistema</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Registra un nuevo Administrador o un Asesor de Ventas con código de vendedor.
+                </p>
+              </div>
               <button
                 onClick={() => setIsNewAdvisorModalOpen(false)}
                 className="text-slate-400 hover:text-white cursor-pointer"
@@ -1529,36 +1813,106 @@ Dirección: Calle 10 # 40-20 Apto 301`}
               </button>
             </div>
 
-            <form onSubmit={handleCreateAdvisor} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Nombre Completo del Asesor *</label>
-                <input
-                  type="text"
-                  value={newAdvisorName}
-                  onChange={e => {
-                    setNewAdvisorName(e.target.value);
-                    if (!newAdvisorUsername) {
-                      setNewAdvisorUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''));
-                    }
-                  }}
-                  placeholder="Ej. Valentina Morales"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  required
-                />
+            <form onSubmit={handleCreateAdvisor} className="space-y-4">
+              {/* Selector de Rol: Administrador vs Asesor de Ventas */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">Rol del Usuario *</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewAdvisorRole('advisor');
+                      if (!newAdvisorSellerCode) setNewAdvisorSellerCode(generateSellerCode());
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      newAdvisorRole === 'advisor'
+                        ? 'bg-cyan-950/60 border-cyan-500 text-white shadow-md shadow-cyan-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">💼</span>
+                      <span className="font-black text-xs text-cyan-300">Asesor de Ventas</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Ventas Dropi, código vendedor y enrutamiento WhatsApp.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewAdvisorRole('admin')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      newAdvisorRole === 'admin'
+                        ? 'bg-purple-950/60 border-purple-500 text-white shadow-md shadow-purple-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🛡️</span>
+                      <span className="font-black text-xs text-purple-300">Administrador</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Acceso total a ajustes, catálogo, seguridad y reportes.
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Nombre y Apellido */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Nombre de la Persona *</label>
+                  <input
+                    type="text"
+                    value={newAdvisorFirstName}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNewAdvisorFirstName(val);
+                      // Auto-generar usuario: primernombre.apellido
+                      const autoUser = formatCleanUsername(val, newAdvisorLastName);
+                      if (autoUser) setNewAdvisorUsername(autoUser);
+                    }}
+                    placeholder="Ej. Valentina"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Apellido *</label>
+                  <input
+                    type="text"
+                    value={newAdvisorLastName}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNewAdvisorLastName(val);
+                      // Auto-generar usuario: primernombre.apellido
+                      const autoUser = formatCleanUsername(newAdvisorFirstName, val);
+                      if (autoUser) setNewAdvisorUsername(autoUser);
+                    }}
+                    placeholder="Ej. Morales"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
               </div>
 
               {/* Username & Password */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-cyan-300 flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    Usuario para Ingreso *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-cyan-300 flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      Usuario para Ingreso *
+                    </label>
+                    <span className="text-[9px] text-slate-500 font-mono">1er Nombre y Apellido</span>
+                  </div>
                   <input
                     type="text"
                     value={newAdvisorUsername}
                     onChange={e => setNewAdvisorUsername(e.target.value)}
-                    placeholder="Ej. valentina"
+                    placeholder="Ej. valentina.morales"
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
                     required
                   />
@@ -1599,43 +1953,57 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Teléfono / WhatsApp</label>
+              {/* Teléfono / WhatsApp para Enrutamiento Rápido */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Número de Teléfono / WhatsApp *</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-semibold">Responde de primero</span>
+                </label>
                 <input
                   type="tel"
                   value={newAdvisorPhone}
                   onChange={e => setNewAdvisorPhone(e.target.value)}
                   placeholder="Ej. 3201234567"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  required
                 />
+                <p className="text-[11px] text-slate-400 flex items-start gap-1.5 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-xl">
+                  <span className="text-emerald-400 text-xs">💬</span>
+                  <span>
+                    <strong>Enrutamiento WhatsApp Rápido:</strong> Cuando un cliente pregunte en la tienda por WhatsApp, se enrutará a este número para que el asesor que responda primero atienda al cliente y cierre la venta.
+                  </span>
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Canal Asignado</label>
-                <select
-                  value={newAdvisorChannel}
-                  onChange={e => setNewAdvisorChannel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="WhatsApp Directo">WhatsApp Directo</option>
-                  <option value="TikTok Ads & Chat">TikTok Ads & Chat</option>
-                  <option value="Facebook Ads & Messenger">Facebook Ads & Messenger</option>
-                  <option value="Instagram DM & Reels">Instagram DM & Reels</option>
-                  <option value="Llamadas y Telemercadeo">Llamadas y Telemercadeo</option>
-                  <option value="Referidos y Redes">Referidos y Redes</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">% Comisión Estimada</label>
+              {/* Código de Vendedor Único */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <span className="text-amber-400">🏷️</span>
+                    <span>Código de Vendedor (Control del que más venda) *</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewAdvisorSellerCode(generateSellerCode())}
+                    className="text-[10px] text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    🔄 Auto-generar
+                  </button>
+                </div>
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={newAdvisorCommission}
-                  onChange={e => setNewAdvisorCommission(parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  type="text"
+                  value={newAdvisorSellerCode}
+                  onChange={e => setNewAdvisorSellerCode(e.target.value.toUpperCase())}
+                  placeholder="Ej. VEN-005"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono font-bold tracking-wider"
+                  required
                 />
+                <p className="text-[11px] text-slate-400 leading-tight">
+                  Este código único identifica las ventas de este usuario para llevar el <strong>control y ranking del asesor que más venda</strong> en la tienda.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
@@ -1648,9 +2016,10 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl text-xs transition-colors cursor-pointer"
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
-                  Crear Asesor
+                  <UserPlus className="w-4 h-4" />
+                  <span>Crear {newAdvisorRole === 'admin' ? 'Administrador' : 'Asesor de Ventas'}</span>
                 </button>
               </div>
             </form>
@@ -1659,20 +2028,23 @@ Dirección: Calle 10 # 40-20 Apto 301`}
       )}
 
       {/* ========================================================= */}
-      {/* MODAL: EDITAR ASESOR / CAMBIAR CONTRASEÑA */}
+      {/* MODAL: MODIFICAR USUARIO (ADMINISTRADOR O ASESOR DE VENTAS)*/}
       {/* ========================================================= */}
       {editingAdvisor && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-white text-base flex items-center gap-2">
                   <Edit2 className="w-5 h-5 text-cyan-400" />
-                  <span>Editar Asesor: {editingAdvisor.name}</span>
+                  <span>Modificar Datos de Usuario</span>
                 </h3>
-                <span className="text-[11px] font-mono text-cyan-300">{editingAdvisor.id}</span>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  ID: <span className="font-mono text-cyan-300 font-bold">{editingAdvisor.id}</span> • {editingAdvisor.name}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setEditingAdvisor(null)}
                 className="text-slate-400 hover:text-white cursor-pointer"
               >
@@ -1680,29 +2052,104 @@ Dirección: Calle 10 # 40-20 Apto 301`}
               </button>
             </div>
 
-            <form onSubmit={handleUpdateAdvisor} className="space-y-3.5">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Nombre Completo *</label>
-                <input
-                  type="text"
-                  value={editAdvisorName}
-                  onChange={e => setEditAdvisorName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  required
-                />
+            <form onSubmit={handleUpdateAdvisor} className="space-y-4">
+              {/* Selector de Rol: Administrador o Asesor */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Tipo de Usuario / Rol en el Sistema *</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditAdvisorRole('advisor')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      editAdvisorRole === 'advisor'
+                        ? 'bg-cyan-950/60 border-cyan-400 text-white shadow-md shadow-cyan-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">💼</span>
+                      <span className="font-black text-xs text-cyan-300">Asesor de Ventas</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Ventas Dropi, WhatsApp y código de vendedor.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditAdvisorRole('admin')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      editAdvisorRole === 'admin'
+                        ? 'bg-purple-950/60 border-purple-500 text-white shadow-md shadow-purple-500/10'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🛡️</span>
+                      <span className="font-black text-xs text-purple-300">Administrador</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Control total, inventarios, seguridad y finanzas.
+                    </span>
+                  </button>
+                </div>
               </div>
 
-              {/* Username & Password */}
+              {/* Nombre y Apellido */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Primer Nombre *</label>
+                  <input
+                    type="text"
+                    value={editAdvisorFirstName}
+                    onChange={e => setEditAdvisorFirstName(e.target.value)}
+                    placeholder="Ej. Valentina"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Apellido *</label>
+                  <input
+                    type="text"
+                    value={editAdvisorLastName}
+                    onChange={e => setEditAdvisorLastName(e.target.value)}
+                    placeholder="Ej. Morales"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Usuario para Ingreso & Contraseña */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-950/70 rounded-2xl border border-slate-800">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-cyan-300 flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    Usuario *
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-cyan-300 flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      Usuario para Ingreso *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sug = formatCleanUsername(editAdvisorFirstName, editAdvisorLastName);
+                        if (sug) setEditAdvisorUsername(sug);
+                      }}
+                      className="text-[9px] text-cyan-400 hover:underline cursor-pointer"
+                      title="Sugerir nombre.apellido"
+                    >
+                      Sugerir
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={editAdvisorUsername}
                     onChange={e => setEditAdvisorUsername(e.target.value)}
+                    placeholder="Ej. valentina.morales"
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
                     required
                   />
@@ -1718,7 +2165,7 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                       type="button"
                       onClick={() => setEditAdvisorPassword(generatePassword())}
                       className="text-[10px] text-cyan-400 hover:underline cursor-pointer"
-                      title="Generar nueva contraseña"
+                      title="Generar nueva contraseña aleatoria"
                     >
                       🎲 Generar
                     </button>
@@ -1728,6 +2175,7 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                       type={showEditAdvisorPass ? 'text' : 'password'}
                       value={editAdvisorPassword}
                       onChange={e => setEditAdvisorPassword(e.target.value)}
+                      placeholder="••••••••"
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-2.5 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
                       required
                     />
@@ -1742,42 +2190,80 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                 </div>
               </div>
 
+              {/* Teléfono / WhatsApp para Enrutamiento Rápido */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Teléfono / WhatsApp</label>
+                <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Número de Teléfono / WhatsApp *</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400">Responde de primero</span>
+                </label>
                 <input
                   type="tel"
                   value={editAdvisorPhone}
                   onChange={e => setEditAdvisorPhone(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  placeholder="Ej. 3201234567"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  required
                 />
               </div>
 
+              {/* Código de Vendedor Único */}
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Canal Asignado</label>
-                <select
-                  value={editAdvisorChannel}
-                  onChange={e => setEditAdvisorChannel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="WhatsApp Directo">WhatsApp Directo</option>
-                  <option value="TikTok Ads & Chat">TikTok Ads & Chat</option>
-                  <option value="Facebook Ads & Messenger">Facebook Ads & Messenger</option>
-                  <option value="Instagram DM & Reels">Instagram DM & Reels</option>
-                  <option value="Llamadas y Telemercadeo">Llamadas y Telemercadeo</option>
-                  <option value="Referidos y Redes">Referidos y Redes</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">% Comisión Estimada</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <span className="text-amber-400">🏷️</span>
+                    <span>Código de Vendedor (Control del que más venda) *</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditAdvisorSellerCode(generateSellerCode())}
+                    className="text-[10px] text-cyan-400 hover:underline cursor-pointer"
+                  >
+                    🔄 Auto-generar
+                  </button>
+                </div>
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={editAdvisorCommission}
-                  onChange={e => setEditAdvisorCommission(parseInt(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
+                  type="text"
+                  value={editAdvisorSellerCode}
+                  onChange={e => setEditAdvisorSellerCode(e.target.value.toUpperCase())}
+                  placeholder="Ej. VEN-005"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono font-bold tracking-wider"
+                  required
                 />
+              </div>
+
+              {/* Estado del Usuario */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Estado de Acceso</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditAdvisorStatus('active')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                      editAdvisorStatus === 'active'
+                        ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <span>Activo / Habilitado</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditAdvisorStatus('inactive')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                      editAdvisorStatus === 'inactive'
+                        ? 'bg-rose-950/60 border-rose-500 text-rose-300 shadow-sm'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-rose-400" />
+                    <span>Inactivo / Deshabilitado</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
@@ -1790,12 +2276,124 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl text-xs transition-colors cursor-pointer"
+                  disabled={isUpdatingAdvisor}
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-60"
                 >
-                  Guardar Cambios
+                  <Check className="w-4 h-4" />
+                  <span>{isUpdatingAdvisor ? 'Guardando...' : 'Guardar Modificaciones'}</span>
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: CONFIRMACIÓN DE ELIMINACIÓN MÚLTIPLE DE USUARIOS   */}
+      {/* ========================================================= */}
+      {showBatchDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-black text-white text-base">¿Eliminar Usuarios Seleccionados?</h3>
+                <p className="text-xs text-rose-300">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Estás a punto de eliminar <strong className="text-rose-400 font-bold">{selectedAdvisorIds.length} usuario(s)</strong> del sistema. Sus credenciales de ingreso serán revocadas de inmediato.
+            </p>
+
+            <div className="max-h-40 overflow-y-auto p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+              {selectedAdvisorIds.map(id => {
+                const adv = advisors.find(a => a.id === id);
+                return (
+                  <div key={id} className="flex items-center justify-between text-xs text-slate-300 py-1 border-b border-slate-900 last:border-0">
+                    <span className="font-bold text-white truncate max-w-[200px]">{adv?.name || id}</span>
+                    <span className="font-mono text-[10px] text-amber-400 font-bold">{adv?.sellerCode || id}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                disabled={isBatchDeleting}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBatchDelete}
+                disabled={isBatchDeleting}
+                className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-xl text-xs shadow-lg shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isBatchDeleting ? 'Eliminando...' : `Sí, Eliminar (${selectedAdvisorIds.length})`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: CONFIRMAR ELIMINACIÓN DE USUARIO INDIVIDUAL        */}
+      {/* ========================================================= */}
+      {advisorPendingDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-black text-white text-base">¿Eliminar Usuario?</h3>
+                <p className="text-xs text-rose-300">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-sm">{advisorPendingDelete.name}</span>
+                <span className="font-mono text-xs text-amber-400 font-bold bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
+                  {advisorPendingDelete.sellerCode || advisorPendingDelete.id}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-mono">
+                Usuario: <strong className="text-slate-200">{advisorPendingDelete.username || advisorPendingDelete.id}</strong>
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              ¿Confirmas la eliminación permanente del usuario <strong className="text-white font-bold">{advisorPendingDelete.name}</strong>? Se revocarán sus accesos inmediatamente.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAdvisorPendingDelete(null)}
+                disabled={isDeletingSingleAdvisor}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSingleAdvisor}
+                disabled={isDeletingSingleAdvisor}
+                className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-xl text-xs shadow-lg shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingSingleAdvisor ? 'Eliminando...' : 'Sí, Eliminar Usuario'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

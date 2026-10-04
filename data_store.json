@@ -2029,6 +2029,70 @@
   },
   "logs": [
     {
+      "id": "log-1791080458632-dh1bd",
+      "type": "STATUS_UPDATE",
+      "action": "Inicio de Sesión de Asesor",
+      "details": "El asesor Camila Ospina (AS-005) inició sesión en el portal.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:58.632Z"
+    },
+    {
+      "id": "log-1791080456174-b8eru",
+      "type": "SETTINGS_UPDATE",
+      "action": "Contraseña de Asesor Actualizada",
+      "details": "Se cambió la contraseña del asesor \"Camila Ospina\" (AS-005). Usuario de acceso: camila.ospina.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:56.174Z"
+    },
+    {
+      "id": "log-1791080453350-wxi3l",
+      "type": "STATUS_UPDATE",
+      "action": "Inicio de Sesión de Asesor",
+      "details": "El asesor Andres Castro (ADM-006) inició sesión en el portal.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:53.350Z"
+    },
+    {
+      "id": "log-1791080450406-6auhu",
+      "type": "STATUS_UPDATE",
+      "action": "Inicio de Sesión de Asesor",
+      "details": "El asesor Camila Ospina (AS-005) inició sesión en el portal.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:50.406Z"
+    },
+    {
+      "id": "log-1791080447558-anjh1",
+      "type": "SETTINGS_UPDATE",
+      "action": "Subperfil de Asesor Creado",
+      "details": "Asesor \"Andres Castro\" (ADM-006) registrado con canal Administración General.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:47.558Z"
+    },
+    {
+      "id": "log-1791080444085-5w7tb",
+      "type": "SETTINGS_UPDATE",
+      "action": "Subperfil de Asesor Creado",
+      "details": "Asesor \"Camila Ospina\" (AS-005) registrado con canal WhatsApp de Ventas.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:20:44.085Z"
+    },
+    {
+      "id": "log-1791079512529-ovop7",
+      "type": "SETTINGS_UPDATE",
+      "action": "Clave de Administrador Master Actualizada",
+      "details": "La clave maestra de acceso al panel fue actualizada exitosamente por el administrador.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:05:12.529Z"
+    },
+    {
+      "id": "log-1791079506775-4ury6",
+      "type": "SETTINGS_UPDATE",
+      "action": "Contraseña de Asesor Actualizada",
+      "details": "Se cambió la contraseña del asesor \"Juan (Asesor 1)\" (AS-001). Usuario de acceso: juan.",
+      "status": "success",
+      "createdAt": "2026-10-04T02:05:06.775Z"
+    },
+    {
       "id": "log-1791078655003-xt7kb",
       "type": "SETTINGS_UPDATE",
       "action": "Clave de Administrador Actualizada",
@@ -2228,7 +2292,7 @@
       "id": "AS-001",
       "name": "Juan (Asesor 1)",
       "username": "juan",
-      "password": "juan123",
+      "password": "juanClave2026",
       "phone": "3101234567",
       "email": "juan.asesor1@zavelastore.com",
       "channel": "WhatsApp Directo / Llamadas",
@@ -2279,6 +2343,42 @@
       "settlementStatus": "al_dia",
       "notes": "Cierre de ventas por Instagram y WhatsApp",
       "createdAt": "2026-08-25T14:24:49.105Z"
+    },
+    {
+      "id": "AS-005",
+      "name": "Camila Ospina",
+      "firstName": "Camila",
+      "lastName": "Ospina",
+      "role": "advisor",
+      "sellerCode": "VEN-005",
+      "username": "camila.ospina",
+      "password": "camilaNewPass2026",
+      "phone": "3124455667",
+      "email": "",
+      "channel": "WhatsApp de Ventas",
+      "commissionRate": 0,
+      "status": "active",
+      "settlementStatus": "al_dia",
+      "notes": "",
+      "createdAt": "2026-10-04T02:20:44.084Z"
+    },
+    {
+      "id": "ADM-006",
+      "name": "Andres Castro",
+      "firstName": "Andres",
+      "lastName": "Castro",
+      "role": "admin",
+      "sellerCode": "VEN-006",
+      "username": "andres.castro",
+      "password": "andres123",
+      "phone": "3109988776",
+      "email": "",
+      "channel": "Administración General",
+      "commissionRate": 0,
+      "status": "active",
+      "settlementStatus": "al_dia",
+      "notes": "",
+      "createdAt": "2026-10-04T02:20:47.557Z"
     }
   ],
   "advisorSales": [

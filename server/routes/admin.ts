@@ -578,11 +578,15 @@ router.put('/settings', (req, res) => {
 });
 
 // ==========================================
-// 6.0 SEGURIDAD: CAMBIO DE CONTRASEÑA MASTER
+// 6.0 SEGURIDAD: CAMBIO DE CONTRASEÑA DE USUARIOS (ADMIN / ASESORES)
 // ==========================================
 router.post('/security/password', (req, res) => {
   try {
     const newPassword = req.body?.newPassword || req.body?.adminPassword || req.body?.password;
+    const targetUserId = req.body?.targetUserId || 'admin-master';
+    const targetUserType = req.body?.targetUserType || 'admin';
+    const targetUserName = req.body?.targetUserName || 'Administrador';
+
     if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 4) {
       return res.status(400).json({ 
         success: false, 
@@ -591,22 +595,46 @@ router.post('/security/password', (req, res) => {
     }
 
     const cleanPass = newPassword.trim();
+
+    if (targetUserType === 'advisor' || (targetUserId && targetUserId.startsWith('AS-'))) {
+      const advisorId = targetUserId.startsWith('advisor-') ? targetUserId.replace('advisor-', '') : targetUserId;
+      const adv = db.getAdvisorById(advisorId);
+      if (!adv) {
+        return res.status(404).json({ success: false, message: `No se encontró el asesor con ID ${advisorId}` });
+      }
+
+      const updatedAdv = db.saveAdvisor({ ...adv, password: cleanPass });
+      db.addLog({
+        type: 'SETTINGS_UPDATE',
+        action: 'Contraseña de Asesor Actualizada',
+        details: `Se cambió la contraseña del asesor "${updatedAdv.name}" (${updatedAdv.id}). Usuario de acceso: ${updatedAdv.username || updatedAdv.id}.`,
+        status: 'success'
+      });
+
+      return res.json({ 
+        success: true, 
+        message: `Contraseña de "${updatedAdv.name}" actualizada correctamente.`,
+        data: { success: true, targetUserId: updatedAdv.id, updatedAt: new Date().toISOString() }
+      });
+    }
+
+    // Default: Master Admin
     const updated = db.saveSettings({ adminPassword: cleanPass });
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
-      action: 'Clave de Administrador Actualizada',
+      action: 'Clave de Administrador Master Actualizada',
       details: 'La clave maestra de acceso al panel fue actualizada exitosamente por el administrador.',
       status: 'success'
     });
 
     res.json({ 
       success: true, 
-      message: 'Contraseña actualizada correctamente.',
-      data: { success: true, updatedAt: new Date().toISOString() }
+      message: 'Contraseña del Administrador Master actualizada correctamente.',
+      data: { success: true, targetUserId: 'admin-master', updatedAt: new Date().toISOString() }
     });
   } catch (error: any) {
-    console.error('Error al actualizar contraseña admin:', error);
+    console.error('Error al actualizar contraseña:', error);
     res.status(500).json({ success: false, message: error.message || 'Error al actualizar contraseña' });
   }
 });
@@ -1019,6 +1047,25 @@ router.put('/advisors/:id', (req, res) => {
       status: 'success'
     });
     res.json({ success: true, data: saved });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/advisors/batch-delete', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Lista de IDs requerida' });
+    }
+    const count = db.deleteAdvisors(ids);
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Eliminación Múltiple de Usuarios',
+      details: `Se eliminaron ${count} usuarios del sistema mediante selección múltiple.`,
+      status: 'info'
+    });
+    res.json({ success: true, count, message: `${count} usuario(s) eliminado(s) exitosamente` });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
