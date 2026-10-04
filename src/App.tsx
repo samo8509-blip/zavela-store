@@ -746,7 +746,7 @@ export default function App() {
           onClose={() => setIsAdminLoginOpen(false)}
           onSuccess={() => {
             setIsAdminLoginOpen(false);
-            showToast('¡Bienvenido, Sergio Martínez! Has accedido a la tienda en Modo de Pruebas Privado.');
+            showToast('¡Bienvenido! Has accedido a la tienda en Modo de Pruebas Privado.');
           }}
           onAdvisorSuccess={(adv) => {
             setAuthenticatedAdvisor(adv);
@@ -1593,7 +1593,7 @@ export default function App() {
         onSuccess={() => {
           setIsAdminLoginOpen(false);
           setCurrentView('admin');
-          showToast('¡Bienvenido, Sergio Martínez! Panel Master de Despachos activado.');
+          showToast('¡Bienvenido! Panel Master de Despachos activado.');
         }}
         onAdvisorSuccess={(adv) => {
           setAuthenticatedAdvisor(adv);

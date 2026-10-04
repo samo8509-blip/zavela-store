@@ -41,19 +41,24 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialTab);
 
-  // Sync initialTab when opened
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-      setErrorMsg(null);
-      setSuccessMsg(null);
-    }
-  }, [isOpen, initialTab]);
-
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [isLoginReadOnly, setIsLoginReadOnly] = useState(true);
+
+  // Sync initialTab and ensure inputs remain 100% blank upon opening
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setLoginEmail('');
+      setLoginPassword('');
+      setShowLoginPassword(false);
+      setIsLoginReadOnly(true);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+    }
+  }, [isOpen, initialTab]);
 
   // Register form state
   const [regName, setRegName] = useState('');
@@ -101,25 +106,6 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
       }
     } catch {
       setErrorMsg('Ocurrió un error inesperado al procesar el ingreso. Inténtalo de nuevo.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickDemoLogin = async () => {
-    setLoginEmail('carlos.mendoza@gmail.com');
-    setLoginPassword('Zavela2026!');
-    setIsLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await loginCustomer('carlos.mendoza@gmail.com', 'Zavela2026!');
-      if (res.success && res.user) {
-        setSuccessMsg('¡Ingreso como cliente verificado Carlos Mendoza!');
-        setTimeout(() => {
-          onSuccess(res.user!, '¡Bienvenido Carlos Mendoza!');
-          onClose();
-        }, 500);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -289,7 +275,11 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
 
         {/* TAB 1: INICIAR SESIÓN */}
         {activeTab === 'login' && (
-          <form onSubmit={handleLoginSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleLoginSubmit} className="p-6 space-y-4" autoComplete="off">
+            {/* Hidden dummy fields to prevent aggressive browser password autofill */}
+            <input type="text" name="fake_user_field" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="off" />
+            <input type="password" name="fake_pass_field" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="off" />
+
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Correo Electrónico
@@ -297,11 +287,20 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
               <div className="relative">
                 <input
                   id="customer-login-email"
+                  name="customer_login_email_clean"
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="ejemplo@correo.com"
+                  placeholder="Ingresa tu correo electrónico..."
                   required
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  readOnly={isLoginReadOnly}
+                  onFocus={() => setIsLoginReadOnly(false)}
+                  onClick={() => setIsLoginReadOnly(false)}
+                  data-lpignore="true"
                   className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm bg-slate-50 focus:bg-white text-slate-900 placeholder:text-slate-400 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all"
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -324,11 +323,20 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
               <div className="relative">
                 <input
                   id="customer-login-password"
+                  name="customer_login_password_clean"
                   type={showLoginPassword ? 'text' : 'password'}
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="Tu contraseña personal"
+                  placeholder="Ingresa tu contraseña..."
                   required
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  readOnly={isLoginReadOnly}
+                  onFocus={() => setIsLoginReadOnly(false)}
+                  onClick={() => setIsLoginReadOnly(false)}
+                  data-lpignore="true"
                   className="w-full pl-9 pr-10 py-2.5 text-xs sm:text-sm bg-slate-50 focus:bg-white text-slate-900 placeholder:text-slate-400 rounded-xl border border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all"
                 />
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -353,22 +361,16 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
               <span>{isLoading ? 'Iniciando sesión...' : 'Entrar a mi cuenta'}</span>
             </button>
 
-            {/* Quick Demo Access Helper */}
+            {/* Bottom info link to register */}
             <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={handleQuickDemoLogin}
-                className="text-xs text-slate-500 hover:text-sky-600 font-medium hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>¿Quieres probar rápido? <strong>Ingresar como cliente demo (Carlos Mendoza)</strong></span>
-              </button>
-
               <p className="text-xs text-slate-500 text-center">
                 ¿Aún no tienes cuenta?{' '}
                 <button
                   type="button"
-                  onClick={() => setActiveTab('register')}
+                  onClick={() => {
+                    setActiveTab('register');
+                    setErrorMsg(null);
+                  }}
                   className="text-sky-600 font-bold hover:underline cursor-pointer"
                 >
                   Crear una cuenta gratis
