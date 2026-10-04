@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ZavelaLogo } from './ZavelaLogo.tsx';
 import { Advisor } from '../types/index.ts';
+import { getFirestoreSettings } from '../services/firestoreSettings.ts';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -145,9 +146,40 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
     try {
       if (role === 'admin') {
-        // Validate Master Admin credentials
-        const isUserValid = cleanUser.toLowerCase() === ADMIN_USERNAME.toLowerCase();
-        const isPassValid = cleanPass === ADMIN_PASSWORD;
+        // 1. Obtener clave personalizada en LocalStorage
+        let customPass: string | null = null;
+        let customUser: string | null = null;
+        try {
+          customPass = localStorage.getItem('zavela_admin_password');
+          customUser = localStorage.getItem('zavela_admin_username');
+        } catch {}
+
+        // 2. Verificar inicialmente con credenciales locales o por defecto
+        let isUserValid = cleanUser.toLowerCase() === (customUser || ADMIN_USERNAME).toLowerCase() || cleanUser.toLowerCase() === ADMIN_USERNAME.toLowerCase();
+        let isPassValid = cleanPass === (customPass || ADMIN_PASSWORD) || cleanPass === ADMIN_PASSWORD;
+
+        // 3. Si no coincide con local, consultar Cloud Firestore en tiempo real
+        if (!isUserValid || !isPassValid) {
+          try {
+            const fsSettings = await getFirestoreSettings();
+            if (fsSettings) {
+              if (fsSettings.adminPassword && cleanPass === fsSettings.adminPassword) {
+                isPassValid = true;
+                try {
+                  localStorage.setItem('zavela_admin_password', fsSettings.adminPassword);
+                } catch {}
+              }
+              if (fsSettings.adminUsername && cleanUser.toLowerCase() === fsSettings.adminUsername.toLowerCase()) {
+                isUserValid = true;
+                try {
+                  localStorage.setItem('zavela_admin_username', fsSettings.adminUsername);
+                } catch {}
+              }
+            }
+          } catch (e) {
+            console.warn('Error al verificar credenciales con Firestore:', e);
+          }
+        }
 
         if (isUserValid && isPassValid) {
           setAdminAuthenticated(rememberMe);

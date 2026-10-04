@@ -427,6 +427,10 @@ DIRECTRICES DE CONVERSACIÓN:
   enableWhatsappNotifications: true,
   colombiaCodEnabled: true,
 
+  // Security & Admin Access
+  adminPassword: '@Seramo1985',
+  adminUsername: 'Sergio Martinez',
+
   // Maintenance & Private Testing Mode
   maintenanceMode: false,
   maintenanceTitle: 'Estamos mejorando tu experiencia de compra',

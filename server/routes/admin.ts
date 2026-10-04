@@ -578,6 +578,40 @@ router.put('/settings', (req, res) => {
 });
 
 // ==========================================
+// 6.0 SEGURIDAD: CAMBIO DE CONTRASEÑA MASTER
+// ==========================================
+router.post('/security/password', (req, res) => {
+  try {
+    const newPassword = req.body?.newPassword || req.body?.adminPassword || req.body?.password;
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 4) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'La nueva contraseña debe tener al menos 4 caracteres.' 
+      });
+    }
+
+    const cleanPass = newPassword.trim();
+    const updated = db.saveSettings({ adminPassword: cleanPass });
+
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Clave de Administrador Actualizada',
+      details: 'La clave maestra de acceso al panel fue actualizada exitosamente por el administrador.',
+      status: 'success'
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Contraseña actualizada correctamente.',
+      data: { success: true, updatedAt: new Date().toISOString() }
+    });
+  } catch (error: any) {
+    console.error('Error al actualizar contraseña admin:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al actualizar contraseña' });
+  }
+});
+
+// ==========================================
 // 6.1 MANTENIMIENTO Y PRUEBAS PRIVADAS
 // ==========================================
 router.post('/maintenance/toggle', (req, res) => {

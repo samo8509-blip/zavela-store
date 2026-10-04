@@ -378,6 +378,10 @@ export interface StoreSettings {
   enableWhatsappNotifications?: boolean;
   colombiaCodEnabled?: boolean;
 
+  // Security & Admin Access
+  adminPassword?: string;
+  adminUsername?: string;
+
   // Maintenance & Private Testing Mode
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
