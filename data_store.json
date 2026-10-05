@@ -1062,6 +1062,20 @@
   ],
   "customers": [
     {
+      "id": "cust-1791219139667",
+      "firstName": "Valentina",
+      "lastName": "Rios",
+      "email": "valentina@gmail.com",
+      "phone": "3119876543",
+      "department": "Cundinamarca",
+      "city": "Bogota",
+      "address": "Carrera 7 # 72-10",
+      "notes": "Registrado desde portal web",
+      "totalOrders": 0,
+      "totalSpent": 0,
+      "createdAt": "2026-10-05T16:52:19.667Z"
+    },
+    {
       "id": "cust-1791074237240",
       "firstName": "Sofía",
       "lastName": "Elena Cardona",

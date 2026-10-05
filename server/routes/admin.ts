@@ -557,10 +557,53 @@ router.get('/cpanel-status', async (req, res) => {
 // ==========================================
 // 5. CUSTOMERS CRUD
 // ==========================================
-router.get('/customers', (req, res) => {
+router.get('/customers', async (req, res) => {
   try {
-    const customers = db.getCustomers();
-    res.json({ success: true, data: customers });
+    // 1. Intento de sincronización con la API de clientes en cPanel (MySQL)
+    const remoteCustomers = await cpanelDbService.fetchCustomers();
+    const localCustomers = db.getCustomers();
+
+    if (remoteCustomers && remoteCustomers.length > 0) {
+      // Fusionar clientes de cPanel respetando duplicados por email o teléfono
+      const merged = [...localCustomers];
+      for (const rc of remoteCustomers) {
+        const cleanRcEmail = (rc.email || '').trim().toLowerCase();
+        const cleanRcPhone = (rc.phone || rc.telefono || '').replace(/\D/g, '');
+        const exists = merged.some(m => 
+          (cleanRcEmail && m.email?.trim().toLowerCase() === cleanRcEmail) ||
+          (cleanRcPhone && m.phone?.replace(/\D/g, '') === cleanRcPhone)
+        );
+
+        if (!exists) {
+          merged.push({
+            id: rc.id,
+            firstName: rc.firstName || rc.nombre || rc.name || 'Cliente',
+            lastName: rc.lastName || '',
+            email: rc.email || '',
+            phone: rc.phone || rc.telefono || '',
+            address: rc.address || rc.direccion || '',
+            city: rc.city || rc.ciudad || 'Bogotá D.C.',
+            department: rc.department || rc.departamento || 'Cundinamarca',
+            notes: 'Registrado vía cPanel MySQL',
+            totalOrders: 0,
+            totalSpent: 0,
+            createdAt: rc.createdAt || rc.created_at || new Date().toISOString()
+          });
+        }
+      }
+      return res.json({ success: true, count: merged.length, data: merged });
+    }
+
+    res.json({ success: true, count: localCustomers.length, data: localCustomers });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/cpanel-customers', async (req, res) => {
+  try {
+    const list = await cpanelDbService.fetchCustomers();
+    res.json({ success: true, count: list?.length || 0, data: list || [] });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -569,6 +612,24 @@ router.get('/customers', (req, res) => {
 router.post('/customers', (req, res) => {
   try {
     const saved = db.saveCustomer(req.body);
+
+    // Sincronización transparente con cPanel MySQL
+    cpanelDbService.createCustomer({
+      name: `${saved.firstName} ${saved.lastName || ''}`.trim(),
+      nombre: `${saved.firstName} ${saved.lastName || ''}`.trim(),
+      email: saved.email || '',
+      phone: saved.phone || '',
+      telefono: saved.phone || '',
+      address: saved.address || '',
+      direccion: saved.address || '',
+      city: saved.city || '',
+      ciudad: saved.city || '',
+      department: saved.department || '',
+      departamento: saved.department || ''
+    }).catch(err => {
+      console.warn('[cPanel Customer Sync Warning]:', err);
+    });
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Cliente Creado',

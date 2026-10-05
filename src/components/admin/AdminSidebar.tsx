@@ -153,7 +153,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Totales` : undefined, 
           badgeColor: 'bg-emerald-500 text-slate-950 font-bold' 
         },
-        { key: 'customers', label: 'Directorio de Clientes', icon: Users },
+        { 
+          key: 'customers', 
+          label: 'Clientes / Usuarios Registrados', 
+          icon: Users,
+          badge: 'cPanel MySQL',
+          badgeColor: 'bg-cyan-500 text-slate-950 font-black'
+        },
       ]
     },
     {

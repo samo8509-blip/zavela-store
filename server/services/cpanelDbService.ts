@@ -381,6 +381,150 @@ export class CpanelDbService {
       updatedAt: item.updatedAt || item.fecha_actualizacion || item.created_at || new Date().toISOString()
     };
   }
+
+  /**
+   * 5. POST /api.php?action=clientes
+   * Guarda un nuevo cliente registrado en MySQL vía cPanel.
+   */
+  async createCustomer(customer: {
+    name?: string;
+    nombre?: string;
+    firstName?: string;
+    lastName?: string;
+    email: string;
+    phone?: string;
+    telefono?: string;
+    address?: string;
+    direccion?: string;
+    city?: string;
+    ciudad?: string;
+    department?: string;
+    departamento?: string;
+  }): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=clientes`;
+
+    const fullName = customer.nombre || customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Cliente Zavela';
+    const phone = customer.telefono || customer.phone || '';
+    const address = customer.direccion || customer.address || '';
+    const city = customer.ciudad || customer.city || '';
+    const department = customer.departamento || customer.department || '';
+
+    const payload = {
+      nombre: fullName,
+      name: fullName,
+      email: customer.email,
+      telefono: phone,
+      phone: phone,
+      direccion: address,
+      address: address,
+      ciudad: city,
+      city: city,
+      departamento: department,
+      department: department
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel Customer Sync] HTTP ${response.status} al registrar cliente en cPanel.`);
+        return null;
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch {
+        return { status: 'ok', message: 'Cliente guardado con éxito' };
+      }
+    } catch (err: any) {
+      console.warn(`[cPanel Customer Sync] Error al enviar cliente a cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * 6. GET /api.php?action=clientes
+   * Consulta los clientes registrados en MySQL cPanel.
+   */
+  async fetchCustomers(): Promise<any[] | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=clientes`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(3500)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel Customers Fallback] HTTP ${response.status} al consultar clientes en cPanel.`);
+        return null;
+      }
+
+      const text = await response.text();
+      let raw: any;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        return null;
+      }
+
+      const list = Array.isArray(raw)
+        ? raw
+        : (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw?.clientes) ? raw.clientes : null));
+
+      if (!list) return null;
+
+      return list.map(item => this.normalizeCustomer(item));
+    } catch (err: any) {
+      console.warn(`[cPanel Customers Fallback] Conexión no disponible para clientes en cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * Normaliza los datos de cliente provenientes de cPanel a la estructura estándar
+   */
+  private normalizeCustomer(item: any): any {
+    const name = item.nombre || item.name || 'Cliente Zavela';
+    const nameParts = String(name).trim().split(' ');
+    const firstName = nameParts[0] || name;
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    return {
+      id: String(item.id || `cust-${Date.now()}`),
+      name,
+      nombre: name,
+      firstName,
+      lastName,
+      email: item.email || '',
+      phone: item.telefono || item.phone || '',
+      telefono: item.telefono || item.phone || '',
+      address: item.direccion || item.address || '',
+      direccion: item.direccion || item.address || '',
+      city: item.ciudad || item.city || '',
+      ciudad: item.ciudad || item.city || '',
+      department: item.departamento || item.department || '',
+      departamento: item.departamento || item.department || '',
+      createdAt: item.created_at || item.createdAt || item.fecha || new Date().toISOString(),
+      created_at: item.created_at || item.createdAt || item.fecha || new Date().toISOString()
+    };
+  }
 }
 
 export const cpanelDbService = new CpanelDbService();

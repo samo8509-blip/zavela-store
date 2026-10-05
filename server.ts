@@ -9,6 +9,7 @@ import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
 import whatsappRouter from './server/routes/whatsapp.ts';
 import alertsRouter from './server/routes/alerts.ts';
+import customersRouter from './server/routes/customers.ts';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ async function startServer() {
   app.use('/webhook/whatsapp', whatsappRouter);
   app.use('/webhook', whatsappRouter);
   app.use('/api/alerts', alertsRouter);
+  app.use('/api/customers', customersRouter);
 
   // Vite middleware for development & Static build for production
   if (process.env.NODE_ENV !== 'production') {

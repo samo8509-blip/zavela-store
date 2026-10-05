@@ -315,6 +315,39 @@ export async function registerCustomer(data: CustomerRegistrationData): Promise<
   saveRegisteredCustomers(updatedList);
   saveCurrentCustomer(newUser);
 
+  // Sincronización con la API de cPanel (http://api.zavelastore.com.co/api.php?action=clientes)
+  const cpanelPayload = {
+    nombre: name,
+    name,
+    email,
+    telefono: data.phone.trim(),
+    phone: data.phone.trim(),
+    direccion: data.address.trim(),
+    address: data.address.trim(),
+    ciudad: data.city.trim(),
+    city: data.city.trim(),
+    departamento: data.department || 'Bogotá D.C.',
+    department: data.department || 'Bogotá D.C.'
+  };
+
+  // 1. Sincronización vía backend de la tienda (robusta y sin restricciones de Mixed Content)
+  fetch('/api/customers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cpanelPayload)
+  }).catch(err => {
+    console.warn('[cPanel Customer Sync via backend warning]:', err);
+  });
+
+  // 2. Intento de POST directo a http://api.zavelastore.com.co/api.php?action=clientes
+  fetch('http://api.zavelastore.com.co/api.php?action=clientes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cpanelPayload)
+  }).catch(err => {
+    console.warn('[cPanel Direct Sync warning]:', err);
+  });
+
   return { success: true, user: newUser };
 }
 
