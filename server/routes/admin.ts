@@ -1138,11 +1138,52 @@ router.post('/advisors/login', (req, res) => {
   }
 });
 
-router.get('/advisors', (req, res) => {
+router.get('/advisors', async (req, res) => {
   try {
-    const advisors = db.getAdvisors();
+    const remote = await cpanelDbService.fetchAdvisors();
+    let advisors = db.getAdvisors();
+
+    if (remote && remote.length > 0) {
+      const merged = [...advisors];
+      for (const r of remote) {
+        const cleanPhone = (r.phone || r.telefono || '').replace(/\D/g, '');
+        const exists = merged.find(m => m.id === r.id || (cleanPhone && m.phone?.replace(/\D/g, '') === cleanPhone));
+        if (!exists) {
+          merged.push({
+            id: r.id,
+            name: r.name || r.nombre || 'Asesor',
+            username: `asesor_${r.id.toLowerCase()}`,
+            password: 'demo',
+            role: r.role?.toLowerCase().includes('admin') ? 'admin' : 'advisor',
+            status: r.status || (r.activo ? 'active' : 'inactive'),
+            phone: r.phone || r.telefono || '',
+            channel: 'WhatsApp Directo',
+            sellerCode: r.id.substring(0, 8).toUpperCase(),
+            commissionRate: 0.10,
+            settlementStatus: 'al_dia',
+            createdAt: r.created_at || r.createdAt || new Date().toISOString()
+          });
+        } else {
+          // Actualizar datos desde cPanel si cambiaron
+          exists.name = r.name || r.nombre || exists.name;
+          exists.phone = r.phone || r.telefono || exists.phone;
+          exists.status = r.status || (r.activo ? 'active' : 'inactive');
+        }
+      }
+      advisors = merged;
+    }
+
     const performance = db.getAdvisorsPerformance();
     res.json({ success: true, data: { advisors, performance } });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.get('/cpanel-advisors', async (req, res) => {
+  try {
+    const list = await cpanelDbService.fetchAdvisors();
+    res.json({ success: true, count: list?.length || 0, data: list || [] });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1151,6 +1192,22 @@ router.get('/advisors', (req, res) => {
 router.post('/advisors', (req, res) => {
   try {
     const saved = db.saveAdvisor(req.body);
+
+    // Sincronización transparente con MySQL cPanel (POST action=asesores)
+    cpanelDbService.saveAdvisor({
+      id: saved.id,
+      nombre: saved.name,
+      name: saved.name,
+      telefono: saved.phone,
+      whatsapp: saved.phone,
+      phone: saved.phone,
+      rol: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
+      role: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
+      activo: saved.status === 'active' ? 1 : 0
+    }).catch(err => {
+      console.warn('[cPanel Advisor Sync Warning]:', err);
+    });
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Subperfil de Asesor Creado',
@@ -1166,6 +1223,22 @@ router.post('/advisors', (req, res) => {
 router.put('/advisors/:id', (req, res) => {
   try {
     const saved = db.saveAdvisor({ ...req.body, id: req.params.id });
+
+    // Sincronización transparente con MySQL cPanel (POST action=asesores)
+    cpanelDbService.saveAdvisor({
+      id: saved.id,
+      nombre: saved.name,
+      name: saved.name,
+      telefono: saved.phone,
+      whatsapp: saved.phone,
+      phone: saved.phone,
+      rol: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
+      role: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
+      activo: saved.status === 'active' ? 1 : 0
+    }).catch(err => {
+      console.warn('[cPanel Advisor Sync Warning]:', err);
+    });
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Subperfil de Asesor Actualizado',
@@ -1185,6 +1258,12 @@ router.post('/advisors/batch-delete', (req, res) => {
       return res.status(400).json({ success: false, message: 'Lista de IDs requerida' });
     }
     const count = db.deleteAdvisors(ids);
+
+    // Sincronizar eliminación en cPanel
+    for (const id of ids) {
+      cpanelDbService.deleteAdvisor(id).catch(err => console.warn('[cPanel Batch Delete Warning]:', err));
+    }
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Eliminación Múltiple de Usuarios',
@@ -1201,6 +1280,12 @@ router.delete('/advisors/:id', (req, res) => {
   try {
     const deleted = db.deleteAdvisor(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Asesor no encontrado' });
+
+    // Sincronizar eliminación en MySQL cPanel (DELETE action=asesores&id=...)
+    cpanelDbService.deleteAdvisor(req.params.id).catch(err => {
+      console.warn('[cPanel Advisor Delete Warning]:', err);
+    });
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Asesor Eliminado',

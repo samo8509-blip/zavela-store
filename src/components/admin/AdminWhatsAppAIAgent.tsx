@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bot, 
   MessageCircle, 
@@ -28,7 +28,13 @@ import {
   Shield,
   Activity,
   Terminal,
-  AlertCircle
+  AlertCircle,
+  Users,
+  Edit,
+  Database,
+  UserCheck,
+  Search,
+  X
 } from 'lucide-react';
 import { StoreSettings, AIAgentSettings, AIPersonalityTone, WhatsAppConfigSettings, WhatsAppCloudApiSettings, Product } from '../../types/index.ts';
 
@@ -52,10 +58,157 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   products = [],
   onSaveSettings
 }) => {
-  const [activeTab, setActiveTab] = useState<'whatsapp' | 'webhook' | 'ai_agent' | 'simulator' | 'tidio'>('whatsapp');
+  const [activeTab, setActiveTab] = useState<'whatsapp' | 'webhook' | 'ai_agent' | 'simulator' | 'tidio' | 'advisors'>('whatsapp');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedTidioExample, setCopiedTidioExample] = useState(false);
+
+  // cPanel Advisors State (http://api.zavelastore.com.co/api.php?action=asesores)
+  const [cpanelAdvisors, setCpanelAdvisors] = useState<any[]>([]);
+  const [isLoadingAdvisors, setIsLoadingAdvisors] = useState(false);
+  const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
+  const [editingAdvisorItem, setEditingAdvisorItem] = useState<any | null>(null);
+  const [advisorForm, setAdvisorForm] = useState({
+    nombre: '',
+    whatsapp: '',
+    rol: 'Asesor de Ventas',
+    activo: true
+  });
+  const [advisorSearch, setAdvisorSearch] = useState('');
+  const [advisorSyncSuccess, setAdvisorSyncSuccess] = useState<string | null>(null);
+
+  const loadCpanelAdvisors = async () => {
+    setIsLoadingAdvisors(true);
+    let loaded = false;
+
+    // 1. Intento directo a la API de cPanel MySQL
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          setCpanelAdvisors(json);
+          loaded = true;
+        }
+      }
+    } catch {}
+
+    // 2. Intento vía backend (sin problemas de Mixed Content o CORS)
+    if (!loaded) {
+      try {
+        const res = await fetch('/api/advisors');
+        if (res.ok) {
+          const json = await res.json();
+          const list = json?.data?.advisors;
+          if (Array.isArray(list) && list.length > 0) {
+            setCpanelAdvisors(list);
+            loaded = true;
+          }
+        }
+      } catch (err) {
+        console.warn('Error cargando asesores vía backend:', err);
+      }
+    }
+
+    setIsLoadingAdvisors(false);
+  };
+
+  const handleOpenNewAdvisorModal = () => {
+    setEditingAdvisorItem(null);
+    setAdvisorForm({
+      nombre: '',
+      whatsapp: '',
+      rol: 'Asesor de Ventas',
+      activo: true
+    });
+    setIsAdvisorModalOpen(true);
+  };
+
+  const handleOpenEditAdvisorModal = (adv: any) => {
+    setEditingAdvisorItem(adv);
+    setAdvisorForm({
+      nombre: adv.nombre || adv.name || '',
+      whatsapp: adv.telefono || adv.whatsapp || adv.phone || '',
+      rol: adv.rol || adv.role || 'Asesor de Ventas',
+      activo: adv.activo !== undefined ? Boolean(Number(adv.activo)) : (adv.status === 'active')
+    });
+    setIsAdvisorModalOpen(true);
+  };
+
+  const handleSaveAdvisor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!advisorForm.nombre.trim() || !advisorForm.whatsapp.trim()) {
+      alert('Nombre y número de WhatsApp son obligatorios.');
+      return;
+    }
+
+    const payload = {
+      id: editingAdvisorItem?.id,
+      nombre: advisorForm.nombre.trim(),
+      name: advisorForm.nombre.trim(),
+      telefono: advisorForm.whatsapp.trim(),
+      whatsapp: advisorForm.whatsapp.trim(),
+      phone: advisorForm.whatsapp.trim(),
+      rol: advisorForm.rol.trim(),
+      role: advisorForm.rol.trim(),
+      activo: advisorForm.activo ? 1 : 0
+    };
+
+    try {
+      // 1. Guardar vía backend
+      await fetch('/api/advisors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // 2. Guardar directo a cPanel HTTP
+      fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => null);
+
+      setAdvisorSyncSuccess('¡Asesor guardado exitosamente en cPanel MySQL!');
+      setTimeout(() => setAdvisorSyncSuccess(null), 3000);
+      setIsAdvisorModalOpen(false);
+      setEditingAdvisorItem(null);
+      await loadCpanelAdvisors();
+    } catch (err: any) {
+      alert(err?.message || 'Error guardando asesor');
+    }
+  };
+
+  const handleDeleteAdvisor = async (id: string, nombre: string) => {
+    if (!confirm(`¿Estás seguro de eliminar al asesor "${nombre}" de cPanel MySQL?`)) return;
+
+    try {
+      // Direct delete to cPanel (DELETE /action=asesores&id=...)
+      fetch(`http://api.zavelastore.com.co/api.php?action=asesores&id=${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      }).catch(() => null);
+
+      // Backend delete
+      await fetch(`/api/advisors/${id}`, { method: 'DELETE' });
+
+      setCpanelAdvisors(prev => prev.filter(a => a.id !== id));
+      setAdvisorSyncSuccess(`Asesor "${nombre}" eliminado de cPanel correctamente.`);
+      setTimeout(() => setAdvisorSyncSuccess(null), 3000);
+    } catch (err: any) {
+      alert(err?.message || 'Error al eliminar');
+    }
+  };
+
+  // Cargar asesores al inicio y al cambiar a la pestaña de asesores
+  useEffect(() => {
+    loadCpanelAdvisors();
+  }, []);
 
   // WhatsApp State
   const initialWhatsApp = settings.whatsappSettings || {
@@ -520,6 +673,25 @@ DIRECTRICES:
           {tidioChatEnabled && (
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           )}
+        </button>
+
+        <button
+          id="tab-btn-advisors"
+          onClick={() => {
+            setActiveTab('advisors');
+            loadCpanelAdvisors();
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+            activeTab === 'advisors'
+              ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 ring-2 ring-amber-400 font-black'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4 text-amber-600" />
+          <span>6. Asesores WhatsApp</span>
+          <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">
+            cPanel MySQL
+          </span>
         </button>
       </div>
 
@@ -2043,6 +2215,332 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
               </p>
             </div>
           </div>
+
+        </div>
+      )}
+
+      {/* TAB 6: GESTIÓN DE ASESORES DE WHATSAPP (cPanel MySQL) */}
+      {activeTab === 'advisors' && (
+        <div className="space-y-6 animate-fadeIn">
+          
+          {/* Header Card */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <span>Equipo de Asesores de WhatsApp</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-xs font-black font-mono">
+                      {cpanelAdvisors.length} Registrados
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Conectado en tiempo real a la tabla <code className="text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded font-mono font-bold">asesores</code> en MySQL cPanel.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {advisorSyncSuccess && (
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 animate-fadeIn">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{advisorSyncSuccess}</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={loadCpanelAdvisors}
+                disabled={isLoadingAdvisors}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Refrescar desde cPanel"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isLoadingAdvisors ? 'animate-spin' : ''}`} />
+                <span>Refrescar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenNewAdvisorModal}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Agregar Asesor</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                value={advisorSearch}
+                onChange={(e) => setAdvisorSearch(e.target.value)}
+                placeholder="Buscar por nombre o número de WhatsApp..."
+                className="w-full pl-9 pr-9 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              {advisorSearch && (
+                <button
+                  onClick={() => setAdvisorSearch('')}
+                  className="p-1 rounded-full hover:bg-slate-200 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="text-xs text-slate-500 font-medium px-1">
+              Los asesores con estado <strong>Activo</strong> reciben automáticamente conversaciones desde el botón flotante de WhatsApp.
+            </div>
+          </div>
+
+          {/* Advisors Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#0A1128] text-white uppercase tracking-wider text-[11px] font-bold">
+                  <tr>
+                    <th className="px-5 py-3.5">Nombre del Asesor</th>
+                    <th className="px-5 py-3.5">Número de WhatsApp</th>
+                    <th className="px-5 py-3.5">Rol Comercial</th>
+                    <th className="px-5 py-3.5">Estado Activo</th>
+                    <th className="px-5 py-3.5 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {isLoadingAdvisors ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-12 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <RefreshCw className="w-6 h-6 text-amber-500 animate-spin" />
+                          <span className="font-bold text-slate-600">Consultando tabla &quot;asesores&quot; en cPanel MySQL...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : cpanelAdvisors.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-12 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <Users className="w-8 h-8 text-slate-300" />
+                          <p className="font-bold text-slate-700">No hay asesores registrados en cPanel</p>
+                          <p className="text-xs text-slate-400">
+                            Haz clic en &quot;Agregar Asesor&quot; para registrar al primer asesor en la base de datos MySQL.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    cpanelAdvisors
+                      .filter(adv => {
+                        if (!advisorSearch.trim()) return true;
+                        const q = advisorSearch.toLowerCase().trim();
+                        const name = (adv.nombre || adv.name || '').toLowerCase();
+                        const phone = (adv.telefono || adv.whatsapp || adv.phone || '').replace(/\D/g, '');
+                        return name.includes(q) || phone.includes(q.replace(/\D/g, ''));
+                      })
+                      .map((adv) => {
+                        const rawPhone = adv.telefono || adv.whatsapp || adv.phone || '';
+                        const cleanPhone = rawPhone.replace(/\D/g, '');
+                        const validPhone = cleanPhone.startsWith('57') ? cleanPhone : `57${cleanPhone}`;
+                        const isActive = adv.activo !== undefined ? Boolean(Number(adv.activo)) : (adv.status === 'active');
+                        const nombre = adv.nombre || adv.name || 'Asesor';
+
+                        return (
+                          <tr key={adv.id} className="hover:bg-slate-50 transition-colors">
+                            {/* Nombre */}
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center shrink-0 border border-amber-200">
+                                  {nombre[0].toUpperCase()}
+                                </div>
+                                <div>
+                                  <span className="font-black text-slate-900 block leading-tight">
+                                    {nombre}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono">
+                                    ID: {adv.id}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* WhatsApp / Teléfono */}
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-1.5 text-slate-800 font-mono font-bold">
+                                <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>{rawPhone || 'Sin número'}</span>
+                              </div>
+                            </td>
+
+                            {/* Rol */}
+                            <td className="px-5 py-3.5">
+                              <span className="inline-block px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[11px] font-bold">
+                                {adv.rol || adv.role || 'Asesor de Ventas'}
+                              </span>
+                            </td>
+
+                            {/* Estado Activo */}
+                            <td className="px-5 py-3.5">
+                              {isActive ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span>Activo (En Línea)</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-bold">
+                                  <span>Inactivo</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Acciones */}
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                {cleanPhone && (
+                                  <a
+                                    href={`https://wa.me/${validPhone}?text=${encodeURIComponent(`Hola ${nombre}, mensaje de prueba desde el panel administrativo Zavela Store.`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                                    title={`Probar chat con ${nombre}`}
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                  </a>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditAdvisorModal(adv)}
+                                  className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                                  title="Editar asesor"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAdvisor(adv.id, nombre)}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                                  title="Eliminar asesor de cPanel"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* MODAL: AGREGAR O EDITAR ASESOR */}
+          {isAdvisorModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8 animate-fadeIn border border-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-base text-slate-900">
+                        {editingAdvisorItem ? 'Editar Asesor en cPanel' : 'Registrar Nuevo Asesor'}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Persistencia directa en MySQL (action=asesores)
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsAdvisorModalOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveAdvisor} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Nombre Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      value={advisorForm.nombre}
+                      onChange={(e) => setAdvisorForm({ ...advisorForm, nombre: e.target.value })}
+                      placeholder="Ej. Santiago Morales"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Número de WhatsApp (con o sin indicativo) *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={advisorForm.whatsapp}
+                      onChange={(e) => setAdvisorForm({ ...advisorForm, whatsapp: e.target.value })}
+                      placeholder="Ej. 3008784427 o 573008784427"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      El botón flotante dirigirá los chats de soporte a este número.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Rol / Especialidad *</label>
+                    <input
+                      type="text"
+                      required
+                      value={advisorForm.rol}
+                      onChange={(e) => setAdvisorForm({ ...advisorForm, rol: e.target.value })}
+                      placeholder="Ej. Asesor de Ventas, Personal Shopper, Soporte"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <input
+                      type="checkbox"
+                      id="checkbox-advisor-activo"
+                      checked={advisorForm.activo}
+                      onChange={(e) => setAdvisorForm({ ...advisorForm, activo: e.target.checked })}
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <label htmlFor="checkbox-advisor-activo" className="font-bold text-slate-800 cursor-pointer">
+                      Asesor Activo (Visible en botón flotante de la tienda)
+                    </label>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsAdvisorModalOpen(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{editingAdvisorItem ? 'Actualizar en cPanel' : 'Guardar en cPanel'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
         </div>
       )}

@@ -104,26 +104,99 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
     return 'Sin compras registradas';
   });
 
-  // Active sales advisors with phone numbers for fast WhatsApp customer routing
+  // Active sales advisors from cPanel MySQL with local fallback
   const [activeAdvisors, setActiveAdvisors] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/admin/advisors')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && Array.isArray(data.data?.advisors)) {
-          const valid = data.data.advisors.filter((a: any) => a.status === 'active' && a.phone && a.role !== 'admin');
-          setActiveAdvisors(valid);
+    let isMounted = true;
+
+    const loadAdvisors = async () => {
+      let loaded = false;
+
+      // 1. Consulta directa a la API de cPanel MySQL
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+          headers: { 'Accept': 'application/json' },
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length > 0) {
+            const active = list
+              .filter((a: any) => (a.activo === 1 || a.activo === true || a.status === 'active') && (a.telefono || a.phone || a.whatsapp))
+              .map((a: any) => ({
+                id: a.id,
+                name: a.nombre || a.name || 'Asesor Zavela',
+                phone: a.telefono || a.phone || a.whatsapp,
+                role: a.rol || a.role || 'Asesor de Ventas',
+                sellerCode: a.id ? a.id.slice(-6).toUpperCase() : 'ZV-ADV'
+              }));
+
+            if (isMounted && active.length > 0) {
+              setActiveAdvisors(active);
+              loaded = true;
+            }
+          }
         }
-      })
-      .catch(() => {});
-  }, []);
+      } catch {}
+
+      // 2. Consulta al backend de la tienda (evita bloqueos HTTP vs HTTPS)
+      if (!loaded) {
+        try {
+          const res = await fetch('/api/advisors');
+          if (res.ok) {
+            const json = await res.json();
+            const list = json?.data?.activeAdvisors || json?.data?.advisors;
+            if (Array.isArray(list) && list.length > 0) {
+              const active = list
+                .filter((a: any) => (a.activo === 1 || a.activo === true || a.status === 'active') && (a.phone || a.telefono || a.whatsapp))
+                .map((a: any) => ({
+                  id: a.id,
+                  name: a.nombre || a.name || 'Asesor Zavela',
+                  phone: a.telefono || a.phone || a.whatsapp,
+                  role: a.rol || a.role || 'Asesor de Ventas',
+                  sellerCode: a.sellerCode || (a.id ? a.id.slice(-6).toUpperCase() : 'ZV-ADV')
+                }));
+
+              if (isMounted && active.length > 0) {
+                setActiveAdvisors(active);
+                loaded = true;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 3. Fallback a asesor local predeterminado
+      if (!loaded && isMounted) {
+        setActiveAdvisors([
+          {
+            id: 'adv-default',
+            name: advisorName || 'Sofía - Asesora Oficial',
+            phone: cleanPhone || '573008784427',
+            role: 'Atención al Cliente & Ventas',
+            sellerCode: 'OFICIAL'
+          }
+        ]);
+      }
+    };
+
+    loadAdvisors();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cleanPhone, advisorName]);
 
   const formatAdvisorWhatsAppUrl = (adv: any) => {
-    let p = (adv.phone || '').replace(/[^\d]/g, '');
+    let p = (adv.phone || adv.telefono || adv.whatsapp || '').replace(/[^\d]/g, '');
     if (p.length === 10 && p.startsWith('3')) p = `57${p}`;
     if (!p) p = cleanPhone;
-    const text = `¡Hola ${adv.name}! Quiero información sobre un producto en Zavela Store Colombia (Código Asesor: ${adv.sellerCode || adv.id}).`;
+    const text = `¡Hola ${adv.name}! Quiero información sobre un producto en Zavela Store Colombia (Asesor: ${adv.name}).`;
     return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
   };
 

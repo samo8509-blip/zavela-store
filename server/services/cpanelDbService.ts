@@ -525,6 +525,181 @@ export class CpanelDbService {
       created_at: item.created_at || item.createdAt || item.fecha || new Date().toISOString()
     };
   }
+
+  /**
+   * 7. GET /api.php?action=asesores
+   * Consulta la lista de asesores registrados en MySQL cPanel.
+   */
+  async fetchAdvisors(): Promise<any[] | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=asesores`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(3500)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel Advisors Fallback] HTTP ${response.status} al consultar asesores en cPanel.`);
+        return null;
+      }
+
+      const text = await response.text();
+      let raw: any;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        return null;
+      }
+
+      const list = Array.isArray(raw)
+        ? raw
+        : (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw?.asesores) ? raw.asesores : null));
+
+      if (!list) return null;
+
+      return list.map(item => this.normalizeAdvisor(item));
+    } catch (err: any) {
+      console.warn(`[cPanel Advisors Fallback] Conexión no disponible para asesores en cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * 8. POST /api.php?action=asesores
+   * Registra o actualiza un asesor en MySQL cPanel.
+   */
+  async saveAdvisor(advisor: {
+    id?: string;
+    nombre?: string;
+    name?: string;
+    telefono?: string;
+    phone?: string;
+    whatsapp?: string;
+    rol?: string;
+    role?: string;
+    activo?: boolean | number;
+    status?: string;
+  }): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=asesores`;
+
+    const nombre = advisor.nombre || advisor.name || 'Asesor Zavela';
+    const telefono = advisor.telefono || advisor.whatsapp || advisor.phone || '';
+    const rol = advisor.rol || advisor.role || 'Asesor de Ventas';
+    const activo = advisor.activo !== undefined 
+      ? (advisor.activo ? 1 : 0) 
+      : (advisor.status === 'inactive' ? 0 : 1);
+
+    const payload: any = {
+      nombre,
+      name: nombre,
+      telefono,
+      whatsapp: telefono,
+      phone: telefono,
+      rol,
+      role: rol,
+      activo
+    };
+
+    if (advisor.id) {
+      payload.id = advisor.id;
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel Advisor Save] HTTP ${response.status} al guardar asesor en cPanel.`);
+        return null;
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch {
+        return { status: 'ok', message: 'Asesor guardado con éxito' };
+      }
+    } catch (err: any) {
+      console.warn(`[cPanel Advisor Save] Error al guardar asesor en cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * 9. DELETE /api.php?action=asesores&id=...
+   * Elimina un asesor en MySQL cPanel.
+   */
+  async deleteAdvisor(id: string): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=asesores&id=${encodeURIComponent(id)}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel Advisor Delete] HTTP ${response.status} al eliminar asesor en cPanel.`);
+        return null;
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch {
+        return { status: 'ok', message: 'Asesor eliminado' };
+      }
+    } catch (err: any) {
+      console.warn(`[cPanel Advisor Delete] Error al eliminar asesor en cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * Normaliza los datos de un asesor proveniente de cPanel MySQL
+   */
+  private normalizeAdvisor(item: any): any {
+    const nombre = item.nombre || item.name || 'Asesor Zavela';
+    const telefono = item.telefono || item.whatsapp || item.phone || '';
+    const rol = item.rol || item.role || 'Asesor de Ventas';
+    const activo = item.activo !== undefined ? Boolean(Number(item.activo)) : true;
+
+    return {
+      id: String(item.id || `ase-${Date.now()}`),
+      name: nombre,
+      nombre,
+      phone: telefono,
+      telefono,
+      whatsapp: telefono,
+      role: rol,
+      rol,
+      status: activo ? 'active' : 'inactive',
+      activo: activo ? 1 : 0,
+      channel: 'WhatsApp Directo',
+      createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+      created_at: item.created_at || item.createdAt || new Date().toISOString()
+    };
+  }
 }
 
 export const cpanelDbService = new CpanelDbService();
