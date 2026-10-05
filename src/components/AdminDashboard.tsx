@@ -12,7 +12,8 @@ import {
   Sparkles,
   Shuffle,
   ShieldAlert,
-  Power
+  Power,
+  Trash2
 } from 'lucide-react';
 import { 
   Product, 
@@ -40,7 +41,8 @@ import { AdminCommerceMindAI } from './admin/AdminCommerceMindAI.tsx';
 import { AdminCopilotPrivateAlerts } from './admin/AdminCopilotPrivateAlerts.tsx';
 import { AdminDailySummaryModal } from './admin/AdminDailySummaryModal.tsx';
 import { AssistantVoiceSelector } from './admin/AssistantVoiceSelector.tsx';
-import { generateDailyTrafficReport } from '../utils/mockDailyTrafficGenerator.ts';
+import { generateDailyTrafficReport, clearSimulatedTraffic } from '../utils/mockDailyTrafficGenerator.ts';
+import { clearAllTestCustomers } from '../utils/customerAuthManager.ts';
 import { AdminHeaderTicker } from './admin/AdminHeaderTicker.tsx';
 import { AdminBrandIdentity } from './admin/AdminBrandIdentity.tsx';
 import { AdminWhatsAppAIAgent } from './admin/AdminWhatsAppAIAgent.tsx';
@@ -149,6 +151,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsDailySummaryOpen(true);
     setDailySummaryInitialStep('summary');
     showToast('🎲 ¡Nuevas ventas y tráfico del día simulados con éxito!');
+  };
+
+  const handleCleanAllInternalTests = async () => {
+    if (!confirm('¿Deseas borrar y detener todas las pruebas internas (ventas simuladas, clientes de prueba y tráfico simulado)?')) return;
+    try {
+      await fetch('/api/admin/clean-tests', { method: 'POST' });
+      await fetch('/api/admin/orders/clear-all', { method: 'POST' });
+      await fetch('/api/admin/customers/clear-all', { method: 'POST' });
+      clearSimulatedTraffic();
+      clearAllTestCustomers();
+      await fetchAdminData();
+      showToast('🧹 ¡Pruebas internas, ventas simuladas y clientes de prueba eliminados con éxito!');
+    } catch (err: any) {
+      showToast('Error al limpiar pruebas: ' + (err?.message || err));
+    }
   };
 
   const fetchAdminData = async () => {
@@ -398,6 +415,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <AssistantVoiceSelector theme="light" className="hidden xl:inline-flex" />
+
+            <button
+              type="button"
+              onClick={handleCleanAllInternalTests}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 shadow-2xs transition-all cursor-pointer active:scale-95"
+              title="Borrar y detener ventas de prueba, simulaciones y clientes registrados de prueba"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span className="hidden lg:inline">Limpiar Pruebas</span>
+            </button>
 
             <button
               type="button"

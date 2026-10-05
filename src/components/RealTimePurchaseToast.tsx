@@ -27,38 +27,29 @@ export const RealTimePurchaseToast: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // Las simulaciones automáticas de ventas están desactivadas para operar en producción real
   useEffect(() => {
-    if (isDismissed) return;
+    // Escuchar únicamente eventos de compras reales completadas en la sesión actual
+    const handleRealPurchase = (e: any) => {
+      if (isDismissed || !e.detail) return;
+      const order = e.detail;
+      setCurrentNotification({
+        customerName: order.customerName ? `${order.customerName.split(' ')[0]} ${order.customerName.split(' ')[1]?.[0] || ''}.` : 'Cliente Zavela',
+        city: order.city || 'Colombia',
+        department: order.department || '',
+        productName: order.items?.[0]?.title || 'Producto Zavela',
+        timeAgo: 'hace un momento',
+        price: order.total || 0
+      });
+      setIsVisible(true);
+      setTimeout(() => setIsVisible(false), 6500);
+    };
 
-    // Initial popup after 4 seconds
-    const initialTimeout = setTimeout(() => {
-      showRandomNotification();
-    }, 4000);
-
-    // Periodic loop every 18 to 26 seconds
-    const interval = setInterval(() => {
-      if (!isDismissed) {
-        showRandomNotification();
-      }
-    }, 22000);
-
+    window.addEventListener('zavela_real_order_placed', handleRealPurchase);
     return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(interval);
+      window.removeEventListener('zavela_real_order_placed', handleRealPurchase);
     };
   }, [isDismissed]);
-
-  const showRandomNotification = () => {
-    const randomIdx = Math.floor(Math.random() * PURCHASE_POOL.length);
-    const item = PURCHASE_POOL[randomIdx];
-    setCurrentNotification(item);
-    setIsVisible(true);
-
-    // Hide after 6.5 seconds
-    setTimeout(() => {
-      setIsVisible(false);
-    }, 6500);
-  };
 
   if (!currentNotification || !isVisible || isDismissed) return null;
 

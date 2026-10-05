@@ -22,8 +22,18 @@ router.get('/', async (req, res) => {
       });
     }
 
-    // 2. Fallback a clientes en memoria local
-    const local = db.getCustomers().map(c => ({
+    // 2. Fallback a clientes en memoria local (excluyendo pruebas internas)
+    const local = db.getCustomers()
+      .filter(c => {
+        const id = String(c.id || '');
+        const email = String(c.email || '').toLowerCase();
+        const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase();
+        if (id.startsWith('cust-1791074237240') || id.startsWith('cust-1791219139667')) return false;
+        if (email === 'valentina@gmail.com' || email === 'carlos@gmail.com') return false;
+        if (name.includes('prueba') || name.includes('test')) return false;
+        return true;
+      })
+      .map(c => ({
       id: c.id,
       nombre: `${c.firstName} ${c.lastName || ''}`.trim(),
       name: `${c.firstName} ${c.lastName || ''}`.trim(),
@@ -49,6 +59,19 @@ router.get('/', async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err?.message || 'Error consultando clientes' });
+  }
+});
+
+/**
+ * DELETE /api/customers/clear-all
+ * Elimina todos los clientes registrados de prueba
+ */
+router.delete('/clear-all', (req, res) => {
+  try {
+    db.clearAllCustomers();
+    res.json({ success: true, message: 'Clientes de prueba eliminados correctamente' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Error eliminando clientes' });
   }
 });
 

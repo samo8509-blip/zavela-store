@@ -1509,6 +1509,95 @@ class DatabaseStore {
     return false;
   }
 
+  clearAllCustomers(): boolean {
+    this.data.customers = [];
+    this.saveData(this.data);
+    return true;
+  }
+
+  // Clear all internal test records: simulated orders, test clients, and simulated sales
+  cleanTestRecords(): { deletedOrders: number; deletedCustomers: number } {
+    const isTestOrder = (o: Order) => {
+      const id = String(o.id || '');
+      const name = String(o.customerName || '').toLowerCase().trim();
+      const notes = String(o.additionalNotes || '').toLowerCase();
+      const phone = String(o.customerPhone || '').replace(/\D/g, '');
+
+      return (
+        id.startsWith('ord-sim-') ||
+        id.startsWith('ord-test-') ||
+        id.startsWith('test-') ||
+        id === 'ord_6ac3d1d6de62c' ||
+        id === 'ord_6ac3d1d181bbb' ||
+        id === 'ord_6ac3d1cb38ede' ||
+        name.includes('prueba') ||
+        name.includes('test') ||
+        name === 'juan perez' ||
+        name === '' ||
+        notes.includes('venta simulada') ||
+        notes.includes('simulado') ||
+        notes.includes('flete:') ||
+        (phone === '3008784427' && name.includes('prueba'))
+      );
+    };
+
+    const isTestCustomer = (c: Customer) => {
+      const id = String(c.id || '');
+      const name = `${c.firstName || ''} ${c.lastName || ''}`.toLowerCase().trim();
+      const email = String(c.email || '').toLowerCase().trim();
+      const phone = String(c.phone || '').replace(/\D/g, '');
+
+      return (
+        id.startsWith('cust-1791074237240') ||
+        id.startsWith('cust-1791219139667') ||
+        id === 'usr_6ac3d5c3ab451' ||
+        id === 'usr_6ac3d5127c43c' ||
+        name.includes('prueba') ||
+        name.includes('test') ||
+        name.includes('carlos gomez') ||
+        name.includes('valentina rios') ||
+        name.includes('camila fernanda ospina') ||
+        name.includes('juan carlos morales') ||
+        name.includes('daniela sofía valencia') ||
+        name.includes('andrés felipe barreto') ||
+        name.includes('valentina gómez pardo') ||
+        name.includes('santiago alejandro rincón') ||
+        name.includes('mariana restrepo duque') ||
+        name.includes('mateo esteban silva') ||
+        name.includes('isabella castro méndez') ||
+        name.includes('nicolás david pineda') ||
+        name.includes('laura jimena torres') ||
+        name.includes('gabriel eduardo rojas') ||
+        name.includes('paola andrea guerrero') ||
+        name.includes('david leonardo lozano') ||
+        name.includes('sofía elena cardona') ||
+        email.includes('test') ||
+        email.includes('@zavelastore.co') ||
+        email === 'valentina@gmail.com' ||
+        email === 'carlos@gmail.com' ||
+        phone === '3001234567' ||
+        phone === '3119876543'
+      );
+    };
+
+    const prevOrdersCount = this.data.orders.length;
+    const prevCustCount = this.data.customers.length;
+
+    this.data.orders = this.data.orders.filter(o => !isTestOrder(o));
+    this.data.customers = this.data.customers.filter(c => !isTestCustomer(c));
+
+    // Reset advisor sales if all orders were cleared
+    if (this.data.orders.length === 0) {
+      this.data.advisorSales = [];
+    }
+
+    this.saveData(this.data);
+    return {
+      deletedOrders: prevOrdersCount - this.data.orders.length,
+      deletedCustomers: prevCustCount - this.data.customers.length
+    };
+  }
+
   // Settings
   getSettings(): StoreSettings {
     return this.data.settings;

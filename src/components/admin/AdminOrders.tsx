@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Truck, 
@@ -41,6 +41,128 @@ import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
 import { getDaneCode, COLOMBIA_DEPARTMENTS } from '../../data/colombiaGeo.ts';
 import { SalesSimulatorModal } from './SalesSimulatorModal.tsx';
+
+/**
+ * Parsea de forma segura los items del pedido soportando:
+ * 1. String JSON directo desde base de datos MySQL (cPanel)
+ * 2. Array de items previo
+ * 3. Fallback seguro si viene nulo o indefinido
+ */
+export const parseOrderItems = (rawItems: any): OrderItem[] => {
+  let list: any[] = [];
+  if (typeof rawItems === 'string') {
+    try {
+      const parsed = JSON.parse(rawItems);
+      list = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+    } catch {
+      list = [];
+    }
+  } else if (Array.isArray(rawItems)) {
+    list = rawItems;
+  } else if (rawItems && typeof rawItems === 'object') {
+    list = [rawItems];
+  }
+
+  return list.map((it: any, idx: number) => {
+    const title = String(it?.title || it?.productTitle || it?.nombre || it?.name || 'Producto Registrado Zavela');
+    const unitPrice = Number(it?.unitPrice || it?.precio || it?.price) || 0;
+    const quantity = Number(it?.quantity || it?.cantidad) || 1;
+    const subtotal = Number(it?.subtotal || it?.total) || (unitPrice * quantity);
+    const unitCost = Number(it?.unitCost || it?.costPrice || it?.costo) || Math.round(unitPrice * 0.5);
+
+    return {
+      id: String(it?.id || `item-${idx}`),
+      productId: String(it?.productId || it?.product_id || it?.id || 'prod-custom'),
+      title,
+      variantId: it?.variantId || it?.variant_id,
+      variantName: it?.variantName || it?.variant_name,
+      quantity,
+      unitPrice,
+      unitCost,
+      subtotal,
+      image: it?.image || it?.imagen,
+      dropi_product_id: it?.dropi_product_id || it?.dropiProductId
+    } as OrderItem;
+  });
+};
+
+/**
+ * Normaliza un pedido para soportar tanto el formato devuelto por MySQL (cliente_nombre, estado, items JSON)
+ * como el formato interno previo sin romper la aplicación.
+ */
+export const normalizeOrderSafe = (order: any): Order => {
+  if (!order) {
+    return {
+      id: 'ord-unknown',
+      orderNumber: 'ZV-0000',
+      customerName: 'Cliente Zavela',
+      customerPhone: '',
+      department: 'Bogotá D.C.',
+      city: 'Bogotá D.C.',
+      address: '',
+      subtotal: 0,
+      shippingCost: 0,
+      total: 0,
+      status: 'pendiente',
+      paymentMethod: 'contra_entrega',
+      paymentStatus: 'CASH_ON_DELIVERY',
+      items: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    } as Order;
+  }
+
+  const items = parseOrderItems(order.items);
+  const statusRaw = String(order.status || order.estado || 'pendiente').toLowerCase().trim();
+  const validStatus: OrderStatus = 
+    statusRaw.includes('aprobado') ? 'APROBADO_DROPI' :
+    statusRaw.includes('error') ? 'ERROR_DROPI' :
+    statusRaw.includes('revis') ? 'PENDIENTE_REVISION' :
+    statusRaw.includes('entrega') ? 'entregado' :
+    statusRaw.includes('envia') ? 'enviado' :
+    statusRaw.includes('cancel') ? 'CANCELADO' :
+    statusRaw.includes('proces') ? 'procesando' :
+    statusRaw.includes('pago') ? 'pago_confirmado' : 'pendiente';
+
+  const customerName = String(order.customerName || order.cliente_nombre || order.nombre_cliente || order.cliente || 'Cliente Zavela');
+  const customerPhone = String(order.customerPhone || order.cliente_telefono || order.telefono_cliente || order.telefono || '');
+  const customerEmail = String(order.customerEmail || order.cliente_email || order.email_cliente || order.email || '');
+  const department = String(order.department || order.cliente_departamento || order.departamento || 'Bogotá D.C.');
+  const city = String(order.city || order.cliente_ciudad || order.ciudad || 'Bogotá D.C.');
+  const address = String(order.address || order.cliente_direccion || order.direccion || '');
+  const orderNumber = String(order.orderNumber || order.order_number || order.numero_pedido || order.id || `ZV-${order.id || ''}`);
+  const total = Number(order.total || order.monto_total || order.total_amount) || 0;
+  const subtotal = Number(order.subtotal) || total;
+  const shippingCost = Number(order.shippingCost || order.costo_envio || order.flete) || 0;
+  const paymentMethod = String(order.paymentMethod || order.metodo_pago || order.medio_pago || 'contra_entrega');
+  const trackingNumber = order.trackingNumber || order.dropi_guia || order.guia || order.numero_guia || '';
+  const carrier = order.carrier || order.transportadora || 'Servientrega';
+  const createdAt = order.createdAt || order.created_at || order.fecha || new Date().toISOString();
+  const updatedAt = order.updatedAt || order.updated_at || createdAt;
+
+  return {
+    ...order,
+    id: String(order.id || orderNumber),
+    orderNumber,
+    customerName,
+    customerPhone,
+    customerEmail,
+    department,
+    city,
+    address,
+    status: validStatus,
+    paymentMethod: paymentMethod as any,
+    paymentStatus: (order.paymentStatus || 'CASH_ON_DELIVERY') as any,
+    trackingNumber,
+    carrier,
+    total,
+    subtotal,
+    shippingCost,
+    items,
+    createdAt,
+    updatedAt
+  } as Order;
+};
 
 interface AdminOrdersProps {
   orders: Order[];
@@ -151,7 +273,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
     // Pre-populate product IDs map
     const initialMap: Record<string, string> = {};
-    (order.items || []).forEach(item => {
+    const safeOrderItems = parseOrderItems(order.items);
+    safeOrderItems.forEach(item => {
       const matchedProd = findProductForItem(item);
       const prodId = item.productId || matchedProd.id;
       const val = item.dropi_product_id ?? matchedProd.dropi_product_id ?? '';
@@ -170,7 +293,8 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
     try {
       // Build items with updated dropi_product_id
-      const resolvedItems = (dropiModalOrder.items || []).map(item => {
+      const safeModalItems = parseOrderItems(dropiModalOrder.items);
+      const resolvedItems = safeModalItems.map(item => {
         const matchedProd = findProductForItem(item);
         const prodId = item.productId || matchedProd.id;
         const mappedDropiId = dropiProductIdsMap[prodId] || item.dropi_product_id || matchedProd.dropi_product_id || '';
@@ -221,21 +345,42 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
   };
 
   // Helper to find real product matching an order item
-  const findProductForItem = (item: OrderItem): Product => {
-    const directMatch = products.find(p => p.id === item.productId || p.slug === item.productId);
+  const findProductForItem = (item?: OrderItem | any): Product => {
+    if (!item) {
+      return {
+        id: 'prod-custom',
+        title: 'Producto Zavela',
+        slug: 'producto',
+        description: 'Producto registrado en el pedido contra entrega.',
+        price: 0,
+        costPrice: 0,
+        stock: 50,
+        active: true,
+        images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'],
+        tags: ['contraentrega'],
+        categoryName: 'General',
+        variants: []
+      };
+    }
+
+    const itemProdId = String(item.productId || item.product_id || item.id || '');
+    const directMatch = products.find(p => p.id === itemProdId || p.slug === itemProdId);
     if (directMatch) return directMatch;
 
-    const titleMatch = products.find(p => p.title.toLowerCase().trim() === item.title.toLowerCase().trim());
-    if (titleMatch) return titleMatch;
+    const itemTitle = String(item.title || item.productTitle || item.nombre || item.name || '').toLowerCase().trim();
+    if (itemTitle) {
+      const titleMatch = products.find(p => (p.title || '').toLowerCase().trim() === itemTitle);
+      if (titleMatch) return titleMatch;
+    }
 
     // Synthesize fallback product object for inspection
     return {
-      id: item.productId || 'prod-custom',
-      title: item.title,
+      id: itemProdId || 'prod-custom',
+      title: item.title || item.productTitle || item.nombre || 'Producto Zavela',
       slug: 'producto',
       description: 'Producto registrado en el pedido contra entrega.',
-      price: item.unitPrice || item.subtotal || 0,
-      costPrice: item.unitCost || Math.round((item.unitPrice || item.subtotal || 0) * 0.5),
+      price: Number(item.unitPrice || item.subtotal || item.precio) || 0,
+      costPrice: Number(item.unitCost || item.costPrice || item.costo) || Math.round((Number(item.unitPrice || item.subtotal || item.precio) || 0) * 0.5),
       stock: 50,
       active: true,
       images: item.image ? [item.image] : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'],
@@ -243,9 +388,9 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
       categoryName: 'General',
       variants: item.variantName ? [{
         id: item.variantId || 'var-1',
-        productId: item.productId,
+        productId: itemProdId,
         name: item.variantName,
-        price: item.unitPrice,
+        price: Number(item.unitPrice || item.precio) || 0,
         stock: 50
       }] : []
     };
@@ -421,6 +566,10 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     setIsClearing(true);
     setShowClearConfirmModal(false);
     try {
+      await fetch('/api/admin/clean-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
       const res = await fetch('/api/admin/orders/clear-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -441,46 +590,66 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const filteredOrders = orders.filter((o) => {
-    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-    
-    // Date filter
-    if (dateFilter === 'today') {
-      if (new Date(o.createdAt) < startOfToday) return false;
-    } else if (dateFilter === 'month') {
-      if (new Date(o.createdAt) < startOfMonth) return false;
-    }
+  // Normalización segura de la lista de pedidos entrantes
+  const safeOrdersList = useMemo(() => {
+    if (!Array.isArray(orders)) return [];
+    return orders.map(o => normalizeOrderSafe(o));
+  }, [orders]);
 
-    if (!search) return true;
-    const q = search.toLowerCase();
-    
-    // Check if any product title matches search
-    const hasMatchingProduct = o.items?.some(it => 
-      it.title.toLowerCase().includes(q) || 
-      it.variantName?.toLowerCase().includes(q) ||
-      it.productId?.toLowerCase().includes(q)
-    );
+  const filteredOrders = useMemo(() => {
+    return safeOrdersList.filter((o) => {
+      const orderStatus = String(o.status || (o as any).estado || '').toLowerCase().trim();
+      if (statusFilter !== 'all' && orderStatus !== statusFilter.toLowerCase().trim()) return false;
+      
+      // Date filter
+      const orderDateStr = o.createdAt || (o as any).created_at || (o as any).fecha;
+      if (orderDateStr) {
+        const orderDate = new Date(orderDateStr);
+        if (!isNaN(orderDate.getTime())) {
+          if (dateFilter === 'today' && orderDate < startOfToday) return false;
+          if (dateFilter === 'month' && orderDate < startOfMonth) return false;
+        }
+      }
 
-    return (
-      o.orderNumber.toLowerCase().includes(q) ||
-      o.customerName?.toLowerCase().includes(q) ||
-      o.customerPhone?.includes(q) ||
-      o.trackingNumber?.toLowerCase().includes(q) ||
-      o.carrier?.toLowerCase().includes(q) ||
-      o.city?.toLowerCase().includes(q) ||
-      hasMatchingProduct
-    );
-  });
+      if (!search.trim()) return true;
+      const q = (search || '').toLowerCase().trim();
+      
+      // Check if any product title matches search
+      const orderItems = parseOrderItems(o.items);
+      const hasMatchingProduct = orderItems.some(it => 
+        String(it?.title || '').toLowerCase().includes(q) || 
+        String(it?.variantName || '').toLowerCase().includes(q) ||
+        String(it?.productId || '').toLowerCase().includes(q)
+      );
+
+      return (
+        String(o.orderNumber || (o as any).numero_pedido || (o as any).order_number || '').toLowerCase().includes(q) ||
+        String(o.customerName || (o as any).cliente_nombre || (o as any).nombre_cliente || (o as any).cliente || '').toLowerCase().includes(q) ||
+        String(o.customerPhone || (o as any).cliente_telefono || (o as any).telefono || '').includes(q) ||
+        String(o.customerEmail || (o as any).cliente_email || (o as any).email || '').toLowerCase().includes(q) ||
+        String(o.trackingNumber || (o as any).dropi_guia || (o as any).guia || '').toLowerCase().includes(q) ||
+        String(o.carrier || (o as any).transportadora || '').toLowerCase().includes(q) ||
+        String(o.city || (o as any).cliente_ciudad || (o as any).ciudad || '').toLowerCase().includes(q) ||
+        String(o.department || (o as any).cliente_departamento || (o as any).departamento || '').toLowerCase().includes(q) ||
+        String(o.address || (o as any).cliente_direccion || (o as any).direccion || '').toLowerCase().includes(q) ||
+        String(o.paymentMethod || (o as any).metodo_pago || '').toLowerCase().includes(q) ||
+        hasMatchingProduct
+      );
+    });
+  }, [safeOrdersList, statusFilter, dateFilter, search, startOfToday, startOfMonth]);
 
   const totalFilteredSales = filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const totalFilteredCost = filteredOrders.reduce((sum, o) => sum + (o.productCostTotal || 0), 0);
   const totalFilteredProfit = totalFilteredSales - totalFilteredCost;
 
-  const pendingDropiCount = orders.filter(o => 
-    o.status === 'PENDIENTE_REVISION' || 
-    o.status === 'pendiente' || 
-    (!o.dropi_order_id && o.status !== 'APROBADO_DROPI' && o.status !== 'CANCELADO' && o.status !== 'cancelado')
-  ).length;
+  const pendingDropiCount = safeOrdersList.filter(o => {
+    const st = String(o.status || (o as any).estado || '').toLowerCase().trim();
+    return (
+      st === 'pendiente_revision' || 
+      st === 'pendiente' || 
+      (!o.dropi_order_id && st !== 'aprobado_dropi' && st !== 'cancelado')
+    );
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -544,10 +713,10 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
             onClick={() => setShowClearConfirmModal(true)}
             disabled={isSimulating || isClearing}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
-            title="Borrar todas las ventas registradas"
+            title="Borrar todas las ventas registradas y simulaciones"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-            <span>Borrar Todo</span>
+            <span>Borrar Ventas / Pruebas</span>
           </button>
 
           <button

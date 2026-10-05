@@ -218,6 +218,18 @@ export function generateDailyTrafficReport(catalogProducts: Product[] = []): Sim
 }
 
 /**
+ * Clears stored simulated traffic reports and memory from localStorage
+ */
+export function clearSimulatedTraffic(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY_SIMULATED_TRAFFIC);
+    localStorage.removeItem('cm_report_memory_v1');
+  } catch (e) {
+    console.warn('Error clearing simulated traffic from localStorage:', e);
+  }
+}
+
+/**
  * Retrieves the stored simulated traffic report or generates a new one
  */
 export function getOrGenerateDailyTrafficReport(catalogProducts: Product[] = []): SimulatedDailyTrafficReport {

@@ -257,7 +257,25 @@ export class CpanelDbService {
         return null;
       }
 
-      return list.map(item => this.normalizeOrder(item));
+      const KNOWN_TEST_ORDER_IDS = new Set(['ord_6ac3d1d6de62c', 'ord_6ac3d1d181bbb', 'ord_6ac3d1cb38ede']);
+
+      return list
+        .filter((item: any) => {
+          if (!item) return false;
+          const id = String(item.id || '');
+          const customerName = String(item.cliente_nombre || item.customerName || item.cliente || '').trim().toLowerCase();
+          const phone = String(item.cliente_telefono || item.customerPhone || '').replace(/\D/g, '');
+          
+          // Excluir pruebas internas, simulaciones y órdenes de prueba
+          if (KNOWN_TEST_ORDER_IDS.has(id)) return false;
+          if (id.startsWith('ord-sim-') || id.startsWith('ord-test-') || id.startsWith('test-')) return false;
+          if (customerName === 'prueba nombre' || customerName === 'juan perez' || customerName === '') return false;
+          if (customerName.includes('prueba') || customerName.includes('test')) return false;
+          if (phone === '3008784427' && customerName.includes('prueba')) return false;
+
+          return true;
+        })
+        .map(item => this.normalizeOrder(item));
     } catch (err: any) {
       console.warn(`[cPanel DB Fallback] Conexión no disponible para consultar pedidos en cPanel (${err?.message || err}).`);
       return null;
@@ -490,7 +508,27 @@ export class CpanelDbService {
 
       if (!list) return null;
 
-      return list.map(item => this.normalizeCustomer(item));
+      const KNOWN_TEST_CUSTOMER_IDS = new Set(['usr_6ac3d5c3ab451', 'usr_6ac3d5127c43c']);
+
+      return list
+        .filter((item: any) => {
+          if (!item) return false;
+          const id = String(item.id || '');
+          const email = String(item.email || '').trim().toLowerCase();
+          const name = String(item.nombre || item.name || '').trim().toLowerCase();
+          const phone = String(item.telefono || item.phone || '').replace(/\D/g, '');
+
+          // Excluir clientes registrados por pruebas internas
+          if (KNOWN_TEST_CUSTOMER_IDS.has(id)) return false;
+          if (email === 'valentina@gmail.com' || email === 'carlos@gmail.com') return false;
+          if (name.includes('prueba') || name.includes('test')) return false;
+          if (email.includes('test') || email.includes('@zavelastore.co')) return false;
+          if (phone === '3119876543' && name.includes('valentina')) return false;
+          if (phone === '3001234567' && name.includes('carlos')) return false;
+
+          return true;
+        })
+        .map(item => this.normalizeCustomer(item));
     } catch (err: any) {
       console.warn(`[cPanel Customers Fallback] Conexión no disponible para clientes en cPanel (${err?.message || err}).`);
       return null;

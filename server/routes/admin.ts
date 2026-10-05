@@ -889,10 +889,40 @@ router.post('/orders/clear-all', (req, res) => {
     db.addLog({
       type: 'STATUS_UPDATE',
       action: 'Ventas Reiniciadas',
-      details: 'Se eliminaron todas las ventas y pedidos del sistema.',
+      details: 'Se eliminaron todas las ventas, pedidos y simulaciones del sistema.',
       status: 'info'
     });
-    res.json({ success: true, message: 'Todas las ventas han sido borradas correctamente.' });
+    res.json({ success: true, message: 'Todas las ventas y simulaciones han sido borradas correctamente.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/clean-tests - Clear test orders, simulated sales, and test customers
+router.post('/clean-tests', (req, res) => {
+  try {
+    const result = db.cleanTestRecords();
+    db.addLog({
+      type: 'STATUS_UPDATE',
+      action: 'Limpieza de Pruebas Internas',
+      details: `Se borraron ${result.deletedOrders} ventas de prueba y ${result.deletedCustomers} clientes simulados. La tienda quedó lista y limpia para producción.`,
+      status: 'info'
+    });
+    res.json({
+      success: true,
+      message: `Pruebas internas y simulaciones borradas con éxito (${result.deletedOrders} pedidos y ${result.deletedCustomers} clientes removidos).`,
+      data: result
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/customers/clear-all - Delete all test customers
+router.post('/customers/clear-all', (req, res) => {
+  try {
+    db.clearAllCustomers();
+    res.json({ success: true, message: 'Todos los clientes de prueba han sido eliminados correctamente.' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

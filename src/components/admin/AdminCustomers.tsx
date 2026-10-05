@@ -15,9 +15,11 @@ import {
   AlertTriangle,
   ExternalLink,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 import { Customer } from '../../types/index.ts';
+import { clearAllTestCustomers } from '../../utils/customerAuthManager.ts';
 
 export interface CpanelCustomerItem {
   id: string;
@@ -42,6 +44,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [dataSource, setDataSource] = useState<'cpanel_direct' | 'cpanel_backend' | 'local_fallback'>('cpanel_backend');
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
@@ -56,6 +59,22 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
     ciudad: 'Bogotá D.C.',
     departamento: 'Cundinamarca'
   });
+
+  // Helper para identificar y excluir clientes creados durante pruebas internas
+  const isTestCustomerItem = (item: any) => {
+    const id = String(item?.id || '');
+    const email = String(item?.email || '').toLowerCase().trim();
+    const name = String(item?.nombre || item?.name || '').toLowerCase().trim();
+    const phone = String(item?.telefono || item?.phone || '').replace(/\D/g, '');
+    if (id === 'usr_6ac3d5c3ab451' || id === 'usr_6ac3d5127c43c') return true;
+    if (id.startsWith('cust-seed-') || id.startsWith('cust-1791074237240') || id.startsWith('cust-1791219139667')) return true;
+    if (email === 'valentina@gmail.com' || email === 'carlos@gmail.com' || email === 'carlos.mendoza@gmail.com') return true;
+    if (email.includes('@zavelastore.co') || email.includes('test')) return true;
+    if (name.includes('prueba') || name.includes('test')) return true;
+    if (phone === '3119876543' && name.includes('valentina')) return true;
+    if (phone === '3001234567' && name.includes('carlos')) return true;
+    return false;
+  };
 
   /**
    * Carga los clientes desde la API de cPanel (http://api.zavelastore.com.co/api.php?action=clientes)
@@ -87,7 +106,8 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
         } catch {}
 
         if (Array.isArray(json)) {
-          setCpanelCustomers(json.map(normalizeCpanelItem));
+          const cleanList = json.filter(item => !isTestCustomerItem(item)).map(normalizeCpanelItem);
+          setCpanelCustomers(cleanList);
           setDataSource('cpanel_direct');
           setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
           loaded = true;
@@ -103,8 +123,9 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
         const res = await fetch('/api/admin/cpanel-customers');
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            setCpanelCustomers(json.data.map(normalizeCpanelItem));
+          if (json.success && Array.isArray(json.data)) {
+            const cleanList = json.data.filter((item: any) => !isTestCustomerItem(item)).map(normalizeCpanelItem);
+            setCpanelCustomers(cleanList);
             setDataSource('cpanel_backend');
             setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
             loaded = true;
@@ -118,22 +139,43 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
     // Intento 3: Fallback a clientes de la base local
     if (!loaded) {
       if (customers && customers.length > 0) {
-        const fallbackList: CpanelCustomerItem[] = customers.map(c => ({
-          id: c.id,
-          nombre: `${c.firstName} ${c.lastName || ''}`.trim(),
-          email: c.email || '',
-          telefono: c.phone || '',
-          direccion: c.address || '',
-          ciudad: c.city || 'Bogotá D.C.',
-          created_at: c.createdAt || new Date().toISOString()
-        }));
+        const fallbackList: CpanelCustomerItem[] = customers
+          .filter(c => !isTestCustomerItem(c))
+          .map(c => ({
+            id: c.id,
+            nombre: `${c.firstName} ${c.lastName || ''}`.trim(),
+            email: c.email || '',
+            telefono: c.phone || '',
+            direccion: c.address || '',
+            ciudad: c.city || 'Bogotá D.C.',
+            created_at: c.createdAt || new Date().toISOString()
+          }));
         setCpanelCustomers(fallbackList);
         setDataSource('local_fallback');
+      } else {
+        setCpanelCustomers([]);
       }
     }
 
     setIsLoading(false);
     setIsRefreshing(false);
+  };
+
+  const handleClearTestCustomers = async () => {
+    if (!confirm('¿Deseas eliminar permanentemente los clientes y registros de pruebas internas?')) return;
+    setIsClearing(true);
+    try {
+      await fetch('/api/admin/clean-tests', { method: 'POST' });
+      await fetch('/api/admin/customers/clear-all', { method: 'POST' });
+      clearAllTestCustomers();
+      setCpanelCustomers([]);
+      onRefresh?.();
+      alert('¡Clientes de prueba y registros internos eliminados correctamente!');
+    } catch (err: any) {
+      alert(err?.message || 'Error al eliminar clientes de prueba');
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   useEffect(() => {
@@ -317,6 +359,18 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
           >
             <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Sincronizar</span>
+          </button>
+
+          {/* Clean Test Records Button */}
+          <button
+            type="button"
+            onClick={handleClearTestCustomers}
+            disabled={isClearing}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs transition-all cursor-pointer disabled:opacity-50"
+            title="Borrar clientes de prueba interna"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span className="hidden sm:inline">Limpiar Pruebas</span>
           </button>
 
           {/* New Customer Button */}

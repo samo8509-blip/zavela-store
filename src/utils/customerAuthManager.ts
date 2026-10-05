@@ -92,36 +92,41 @@ export async function hashPassword(plainText: string): Promise<string> {
   return 'zv_' + Math.abs(hash >>> 0).toString(16) + '_secure';
 }
 
-// Initial demo customer account so users can test immediately with one click if they wish
-const SEED_CUSTOMERS: CustomerUser[] = [
-  {
-    id: 'cust-seed-01',
-    name: 'Carlos Mendoza',
-    firstName: 'Carlos',
-    lastName: 'Mendoza',
-    email: 'carlos.mendoza@gmail.com',
-    phone: '3157894521',
-    department: 'Bogotá D.C.',
-    city: 'Bogotá D.C.',
-    address: 'Calle 127 # 19-45, Apto 502',
-    createdAt: '2026-08-15T10:00:00Z',
-    passwordHash: 'zv_demo_hash_carlos',
-    isVerified: true
+// Initial seed customer list is empty in production so no fake test customers appear
+const SEED_CUSTOMERS: CustomerUser[] = [];
+
+export function clearAllTestCustomers(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY_CUSTOMERS_DB);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_SESSION);
+    localStorage.removeItem(STORAGE_KEY_FAILED_ATTEMPTS);
+  } catch (e) {
+    console.warn('Error clearing test customers from localStorage:', e);
   }
-];
+}
 
 export function getRegisteredCustomers(): CustomerUser[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CUSTOMERS_DB);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY_CUSTOMERS_DB, JSON.stringify(SEED_CUSTOMERS));
-      return SEED_CUSTOMERS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : SEED_CUSTOMERS;
+    const list = Array.isArray(parsed) ? parsed : [];
+    
+    // Filtrar clientes de prueba internos
+    return list.filter((c: any) => {
+      const email = String(c?.email || '').toLowerCase();
+      const name = String(c?.name || '').toLowerCase();
+      const id = String(c?.id || '');
+      if (email === 'valentina@gmail.com' || email === 'carlos@gmail.com' || email === 'carlos.mendoza@gmail.com') return false;
+      if (id.startsWith('cust-seed-') || id.startsWith('cust-1791074237240') || id.startsWith('cust-1791219139667')) return false;
+      if (name.includes('prueba') || name.includes('test')) return false;
+      return true;
+    });
   } catch (e) {
     console.warn('Error reading registered customers:', e);
-    return SEED_CUSTOMERS;
+    return [];
   }
 }
 
