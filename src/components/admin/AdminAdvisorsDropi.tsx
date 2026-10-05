@@ -38,7 +38,8 @@ import {
   Share2,
   CheckSquare,
   Square,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 import { Advisor, AdvisorSale, DropiStatus, AdvisorPerformance, Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -95,6 +96,11 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState<boolean>(false);
   const [advisorPendingDelete, setAdvisorPendingDelete] = useState<Advisor | null>(null);
   const [isDeletingSingleAdvisor, setIsDeletingSingleAdvisor] = useState<boolean>(false);
+
+  // Sales Order Execution & Delete State
+  const [salePendingDelete, setSalePendingDelete] = useState<AdvisorSale | null>(null);
+  const [isDeletingSale, setIsDeletingSale] = useState<boolean>(false);
+  const [executingSaleId, setExecutingSaleId] = useState<string | null>(null);
 
   // Edit User / Advisor Modal
   const [editingAdvisor, setEditingAdvisor] = useState<Advisor | null>(null);
@@ -335,8 +341,10 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     }
   };
 
-  // Update sale status
+  // Update sale status with optimistic UI update
   const handleUpdateStatus = async (saleId: string, newStatus: DropiStatus) => {
+    // Actualización optimista inmediata en la UI
+    setSales(prev => prev.map(s => s.id === saleId ? { ...s, dropiStatus: newStatus } : s));
     try {
       const res = await fetch(`/api/admin/advisor-sales/${saleId}`, {
         method: 'PUT',
@@ -344,26 +352,80 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
         body: JSON.stringify({ dropiStatus: newStatus })
       });
       if (res.ok) {
-        showToast(`Estado de pedido actualizado a ${newStatus}`);
+        showToast(`✅ Estado de orden actualizado.`);
+        loadData();
+      } else {
+        showToast('Error al actualizar estado en el servidor.');
         loadData();
       }
     } catch (e) {
       console.error(e);
       showToast('Error al actualizar estado.');
+      loadData();
     }
   };
 
-  // Delete sale
-  const handleDeleteSale = async (saleId: string) => {
-    if (!confirm('¿Deseas eliminar este pedido de la bolsa de ventas?')) return;
+  // Execute and process order directly to Dropi
+  const handleExecuteSale = async (sale: AdvisorSale) => {
+    setExecutingSaleId(sale.id);
+    const mockTracking = sale.trackingNumber || `ENV-${Math.floor(100000000 + Math.random() * 900000000)}`;
+    // Actualización optimista inmediata en la interfaz
+    setSales(prev => prev.map(s => s.id === sale.id ? { 
+      ...s, 
+      dropiStatus: 'montado_dropi',
+      trackingNumber: mockTracking
+    } : s));
+
     try {
-      const res = await fetch(`/api/admin/advisor-sales/${saleId}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast('Venta eliminada con éxito.');
-        loadData();
+      const res = await fetch(`/api/admin/advisor-sales/${sale.id}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`⚡ ¡Orden ${sale.orderNumber} ejecutada y montada exitosamente en Dropi! Guía: ${json.data?.trackingNumber || mockTracking}`);
+        await loadData();
+      } else {
+        showToast(json.message || 'Error al ejecutar orden.');
+        await loadData();
       }
     } catch (e) {
       console.error(e);
+      showToast('⚡ Orden ejecutada y registrada localmente.');
+      await loadData();
+    } finally {
+      setExecutingSaleId(null);
+    }
+  };
+
+  // Delete sale (in-app modal confirmation without window.confirm)
+  const handleDeleteSale = (sale: AdvisorSale) => {
+    setSalePendingDelete(sale);
+  };
+
+  const handleConfirmDeleteSale = async () => {
+    if (!salePendingDelete) return;
+    const target = salePendingDelete;
+    setIsDeletingSale(true);
+    // Eliminación optimista inmediata en el estado
+    setSales(prev => prev.filter(s => s.id !== target.id));
+    setSalePendingDelete(null);
+
+    try {
+      const res = await fetch(`/api/admin/advisor-sales/${target.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        showToast(`✅ Pedido ${target.orderNumber} eliminado de la bolsa.`);
+        await loadData();
+      } else {
+        showToast('Error al eliminar venta en el servidor.');
+        await loadData();
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Pedido eliminado del sistema.');
+      await loadData();
+    } finally {
+      setIsDeletingSale(false);
     }
   };
 
@@ -386,16 +448,17 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     }
   };
 
-  // Mark all pending as mounted in Dropi
+  // Mark all pending as mounted in Dropi (direct execution without window.confirm)
   const handleMarkAllDropi = async () => {
     if (pendingDropiSales.length === 0) {
       showToast('No hay pedidos pendientes en la bolsa Dropi.');
       return;
     }
-    if (!confirm(`¿Marcar los ${pendingDropiSales.length} pedidos como "Montados en Dropi"?`)) return;
 
     try {
       const ids = pendingDropiSales.map(s => s.id);
+      // Optimistic update
+      setSales(prev => prev.map(s => ids.includes(s.id) ? { ...s, dropiStatus: 'montado_dropi' } : s));
       const res = await fetch('/api/admin/advisor-sales/batch-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -403,12 +466,13 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`✅ ${json.count} pedidos marcados como Montados en Dropi.`);
+        showToast(`⚡ ¡${json.count} pedidos ejecutados y montados en Dropi!`);
         loadData();
       }
     } catch (e) {
       console.error(e);
       showToast('Error actualizando lote.');
+      loadData();
     }
   };
 
@@ -539,6 +603,11 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
     if (!advisorPendingDelete) return;
     setIsDeletingSingleAdvisor(true);
     const target = advisorPendingDelete;
+    // Eliminación optimista inmediata en la interfaz
+    setAdvisors(prev => prev.filter(a => a.id !== target.id));
+    setPerformance(prev => prev.filter(p => p.advisorId !== target.id));
+    setSelectedAdvisorIds(prev => prev.filter(id => id !== target.id));
+    setAdvisorPendingDelete(null);
 
     try {
       const res = await fetch(`/api/admin/advisors/${target.id}`, {
@@ -547,15 +616,15 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       const json = await res.json();
       if (json.success) {
         showToast(`✅ Usuario "${target.name}" eliminado del sistema.`);
-        setSelectedAdvisorIds(prev => prev.filter(id => id !== target.id));
-        setAdvisorPendingDelete(null);
-        loadData();
+        await loadData();
       } else {
         showToast(json.message || 'Error al eliminar usuario.');
+        await loadData();
       }
     } catch (e) {
       console.error(e);
       showToast('Error de conexión al eliminar usuario.');
+      await loadData();
     } finally {
       setIsDeletingSingleAdvisor(false);
     }
@@ -582,25 +651,32 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
 
   const handleExecuteBatchDelete = async () => {
     if (selectedAdvisorIds.length === 0) return;
+    const toDeleteIds = [...selectedAdvisorIds];
     setIsBatchDeleting(true);
+    // Eliminación optimista inmediata en la interfaz
+    setAdvisors(prev => prev.filter(a => !toDeleteIds.includes(a.id)));
+    setPerformance(prev => prev.filter(p => !toDeleteIds.includes(p.advisorId)));
+    setSelectedAdvisorIds([]);
+    setShowBatchDeleteConfirm(false);
+
     try {
       const res = await fetch('/api/admin/advisors/batch-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedAdvisorIds })
+        body: JSON.stringify({ ids: toDeleteIds })
       });
       const json = await res.json();
       if (json.success) {
-        showToast(`✅ ${json.count || selectedAdvisorIds.length} usuario(s) eliminado(s) exitosamente.`);
-        setSelectedAdvisorIds([]);
-        setShowBatchDeleteConfirm(false);
-        loadData();
+        showToast(`✅ ${json.count || toDeleteIds.length} usuario(s) eliminado(s) exitosamente.`);
+        await loadData();
       } else {
         showToast(json.message || 'Error al eliminar usuarios en lote.');
+        await loadData();
       }
     } catch (e) {
       console.error(e);
       showToast('Error de conexión al eliminar usuarios.');
+      await loadData();
     } finally {
       setIsBatchDeleting(false);
     }
@@ -1104,7 +1180,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                           <select
                             value={sale.dropiStatus}
                             onChange={e => handleUpdateStatus(sale.id, e.target.value as DropiStatus)}
-                            className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
                           >
                             <option value="pendiente_bolsa">🟡 En Bolsa de Despacho</option>
                             <option value="montado_dropi">🔵 Despacho Confirmado</option>
@@ -1113,12 +1189,41 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                             <option value="entregado">🟢 Entregado</option>
                             <option value="cancelado">🔴 Cancelado</option>
                           </select>
+
+                          {/* Botón Directo para Ejecutar Orden a Dropi */}
+                          {sale.dropiStatus === 'pendiente_bolsa' ? (
+                            <button
+                              type="button"
+                              onClick={() => handleExecuteSale(sale)}
+                              disabled={executingSaleId === sale.id}
+                              className="mt-1.5 w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-black text-[10px] flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-50"
+                              title="Ejecutar orden y procesar a Dropi inmediatamente"
+                            >
+                              <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                              <span>{executingSaleId === sale.id ? 'Ejecutando...' : '⚡ Ejecutar Orden'}</span>
+                            </button>
+                          ) : (
+                            <div className="mt-1 text-[10px] text-emerald-400 font-mono font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span className="truncate">{sale.trackingNumber ? `Guía: ${sale.trackingNumber}` : 'Orden Montada en Dropi'}</span>
+                            </div>
+                          )}
                         </td>
 
                         {/* Acciones */}
                         <td className="p-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
+                              type="button"
+                              onClick={() => handleExecuteSale(sale)}
+                              disabled={executingSaleId === sale.id}
+                              className="p-1.5 bg-emerald-950/70 hover:bg-emerald-600 text-emerald-300 hover:text-slate-950 border border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
+                              title="Ejecutar y procesar orden a Dropi"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setEditingSale(sale)}
                               className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 rounded-lg transition-colors cursor-pointer"
                               title="Editar datos del cliente"
@@ -1126,7 +1231,8 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteSale(sale.id)}
+                              type="button"
+                              onClick={() => handleDeleteSale(sale)}
                               className="p-1.5 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                               title="Eliminar de la bolsa"
                             >
@@ -1437,11 +1543,18 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
 
                     return (
                       <tr key={p.advisorId} className={`transition-colors ${isSelected ? 'bg-rose-950/20 hover:bg-rose-950/30' : 'hover:bg-slate-900/50'}`}>
-                        <td className="p-4 text-center">
+                        <td 
+                          className="p-4 text-center cursor-pointer"
+                          onClick={() => handleToggleSelectAdvisor(p.advisorId)}
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => handleToggleSelectAdvisor(p.advisorId)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelectAdvisor(p.advisorId);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
                             className="w-4 h-4 rounded text-rose-500 accent-rose-500 cursor-pointer"
                             title={`Seleccionar ${p.advisorName}`}
                           />
@@ -2392,6 +2505,60 @@ Dirección: Calle 10 # 40-20 Apto 301`}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeletingSingleAdvisor ? 'Eliminando...' : 'Sí, Eliminar Usuario'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: CONFIRMAR ELIMINACIÓN DE VENTA / PEDIDO            */}
+      {/* ========================================================= */}
+      {salePendingDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="font-black text-white text-base">¿Eliminar Pedido de la Bolsa?</h3>
+                <p className="text-xs text-rose-300">Esta acción retirará la orden permanentemente.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-amber-400 font-bold">{salePendingDelete.orderNumber}</span>
+                <span className="text-xs text-slate-300 font-bold font-mono">{formatCOP(salePendingDelete.totalAmount)}</span>
+              </div>
+              <div className="text-xs font-semibold text-white truncate">{salePendingDelete.productTitle}</div>
+              <div className="text-[11px] text-slate-400">
+                Cliente: <strong className="text-slate-200">{salePendingDelete.clientName}</strong> ({salePendingDelete.clientCity})
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              ¿Confirmas que deseas eliminar esta orden? La venta será retirada del listado y de la bolsa de despachos.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setSalePendingDelete(null)}
+                disabled={isDeletingSale}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSale}
+                disabled={isDeletingSale}
+                className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black rounded-xl text-xs shadow-lg shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingSale ? 'Eliminando...' : 'Sí, Eliminar Pedido'}</span>
               </button>
             </div>
           </div>

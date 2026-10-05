@@ -2029,6 +2029,30 @@
   },
   "logs": [
     {
+      "id": "log-1791210045208-oinlo",
+      "type": "SETTINGS_UPDATE",
+      "action": "Orden Ejecutada en Dropi",
+      "details": "Pedido \"DP-1002\" (DP-001) ejecutado para despacho Dropi con guía ENV-414884846.",
+      "status": "success",
+      "createdAt": "2026-10-05T14:20:45.208Z"
+    },
+    {
+      "id": "log-1791209848110-mg1sw",
+      "type": "SETTINGS_UPDATE",
+      "action": "Orden Ejecutada en Dropi",
+      "details": "Pedido \"DP-1002\" (DP-001) ejecutado para despacho Dropi con guía ENV-414884846.",
+      "status": "success",
+      "createdAt": "2026-10-05T14:17:28.110Z"
+    },
+    {
+      "id": "log-1791209712648-halgn",
+      "type": "SETTINGS_UPDATE",
+      "action": "Eliminación Múltiple de Usuarios",
+      "details": "Se eliminaron 0 usuarios del sistema mediante selección múltiple.",
+      "status": "info",
+      "createdAt": "2026-10-05T14:15:12.648Z"
+    },
+    {
       "id": "log-1791080458632-dh1bd",
       "type": "STATUS_UPDATE",
       "action": "Inicio de Sesión de Asesor",
@@ -2384,25 +2408,27 @@
   "advisorSales": [
     {
       "id": "DP-001",
-      "orderNumber": "DP-1001",
+      "orderNumber": "DP-1002",
       "advisorId": "AS-001",
       "advisorName": "Juan (Asesor 1)",
       "advisorChannel": "WhatsApp Directo / Llamadas",
-      "productId": "prod-2240082",
-      "productTitle": "Reloj Smartwatch Ultra",
-      "quantity": 2,
-      "unitPrice": 80000,
-      "totalAmount": 160000,
-      "clientName": "Carlos Pérez",
-      "clientPhone": "3101234567",
-      "clientCity": "Medellín",
-      "clientDepartment": "Antioquia",
-      "clientAddress": "Calle 10 # 40-20 Apto 301",
-      "additionalNotes": "Cliente confirmó despacho contra entrega. Cobrar en efectivo al recibir.",
-      "dropiStatus": "pendiente_bolsa",
+      "productId": "prod-custom",
+      "productTitle": "Producto Nacional",
+      "quantity": 1,
+      "unitPrice": 0,
+      "totalAmount": 0,
+      "clientName": "Cliente Particular",
+      "clientPhone": "",
+      "clientCity": "Bogotá D.C.",
+      "clientDepartment": "Cundinamarca",
+      "clientAddress": "",
+      "additionalNotes": "",
+      "dropiStatus": "montado_dropi",
       "paymentMethod": "contra_entrega",
-      "createdAt": "2026-08-28T12:24:49.105Z",
-      "updatedAt": "2026-08-28T14:24:49.105Z"
+      "createdAt": "2026-10-05T14:13:18.208Z",
+      "updatedAt": "2026-10-05T14:20:45.207Z",
+      "dropiOrderId": "DROPI-512126",
+      "trackingNumber": "ENV-414884846"
     }
   ],
   "socialSettings": {

@@ -307,8 +307,12 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
 
   const handleConfirmSingleDelete = async () => {
     if (!userPendingDelete) return;
-    setIsDeletingSingle(true);
     const target = userPendingDelete;
+    setIsDeletingSingle(true);
+    // Inmediata reactividad local en el estado
+    setAdvisors(prev => prev.filter(a => a.id !== target.id));
+    setUserPendingDelete(null);
+    setSelectedUserId('admin-master');
 
     try {
       const res = await fetch(`/api/admin/advisors/${target.id}`, {
@@ -316,17 +320,15 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       });
       const json = await res.json();
       if (json.success) {
-        // Inmediata reactividad local en el estado
-        setAdvisors(prev => prev.filter(a => a.id !== target.id));
         setPassSuccessMsg(`✅ Usuario "${target.name}" eliminado permanentemente del sistema.`);
-        setUserPendingDelete(null);
         await loadSystemUsers();
-        setSelectedUserId('admin-master');
       } else {
         setPassErrorMsg(json.message || 'Error al eliminar usuario.');
+        await loadSystemUsers();
       }
     } catch (e: any) {
       setPassErrorMsg(e?.message || 'Error de conexión al eliminar usuario.');
+      await loadSystemUsers();
     } finally {
       setIsDeletingSingle(false);
     }
@@ -369,30 +371,34 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       return;
     }
 
-    const count = selectedBatchIds.length;
+    const toDelete = [...selectedBatchIds];
+    const count = toDelete.length;
     setIsDeletingBatch(true);
+    // Inmediata reactividad local en el estado
+    setAdvisors(prev => prev.filter(a => !toDelete.includes(a.id)));
+    setSelectedBatchIds([]);
+    setIsConfirmingBatchDelete(false);
+    setIsMultiSelectModalOpen(false);
+
     try {
       const res = await fetch('/api/admin/advisors/batch-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedBatchIds })
+        body: JSON.stringify({ ids: toDelete })
       });
       const json = await res.json();
       if (json.success) {
         const deletedCount = json.count || count;
-        // Inmediata reactividad local en el estado
-        setAdvisors(prev => prev.filter(a => !selectedBatchIds.includes(a.id)));
         setPassSuccessMsg(`✅ ${deletedCount} usuario(s) eliminado(s) exitosamente del sistema.`);
-        setSelectedBatchIds([]);
-        setIsConfirmingBatchDelete(false);
-        setIsMultiSelectModalOpen(false);
-        await loadSystemUsers();
         setSelectedUserId('admin-master');
+        await loadSystemUsers();
       } else {
         setPassErrorMsg(json.message || 'Error en la eliminación múltiple.');
+        await loadSystemUsers();
       }
     } catch (e: any) {
       setPassErrorMsg(e?.message || 'Error de conexión al eliminar usuarios.');
+      await loadSystemUsers();
     } finally {
       setIsDeletingBatch(false);
     }
@@ -1666,7 +1672,11 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => {}} // handled by parent onClick
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleToggleBatchSelect(adv.id);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
                           className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-500"
                         />
                         <div className="min-w-0">

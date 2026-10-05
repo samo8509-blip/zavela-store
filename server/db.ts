@@ -2050,38 +2050,40 @@ class DatabaseStore {
   saveAdvisorSale(sale: Partial<AdvisorSale>): AdvisorSale {
     if (!this.data.advisorSales) this.data.advisorSales = [...DEFAULT_ADVISOR_SALES];
     const existingIndex = this.data.advisorSales.findIndex(s => s.id === sale.id);
+    const existing = existingIndex >= 0 ? this.data.advisorSales[existingIndex] : null;
 
-    const advisor = sale.advisorId ? this.getAdvisorById(sale.advisorId) : undefined;
-    const advisorName = advisor ? advisor.name : (sale.advisorName || 'Asesor General');
-    const advisorId = advisor ? advisor.id : (sale.advisorId || 'AS-001');
+    const advisor = sale.advisorId ? this.getAdvisorById(sale.advisorId) : (existing ? this.getAdvisorById(existing.advisorId) : undefined);
+    const advisorName = advisor ? advisor.name : (sale.advisorName || existing?.advisorName || 'Asesor General');
+    const advisorId = advisor ? advisor.id : (sale.advisorId || existing?.advisorId || 'AS-001');
 
     const count = this.data.advisorSales.length + 1;
-    const unitPrice = Number(sale.unitPrice) || 0;
-    const quantity = Number(sale.quantity) || 1;
-    const totalAmount = Number(sale.totalAmount) || (unitPrice * quantity);
+    const unitPrice = sale.unitPrice !== undefined ? Number(sale.unitPrice) : (existing ? existing.unitPrice : 0);
+    const quantity = sale.quantity !== undefined ? Number(sale.quantity) : (existing ? existing.quantity : 1);
+    const totalAmount = sale.totalAmount !== undefined ? Number(sale.totalAmount) : (existing ? existing.totalAmount : (unitPrice * quantity));
 
     const updatedSale: AdvisorSale = {
-      id: sale.id || `DP-${String(count).padStart(3, '0')}`,
-      orderNumber: sale.orderNumber || `DP-100${count}`,
+      ...(existing || {}),
+      id: sale.id || existing?.id || `DP-${String(count).padStart(3, '0')}`,
+      orderNumber: sale.orderNumber || existing?.orderNumber || `DP-100${count}`,
       advisorId,
       advisorName,
-      advisorChannel: advisor?.channel || sale.advisorChannel || 'WhatsApp Directo',
-      productId: sale.productId || 'prod-custom',
-      productTitle: sale.productTitle || 'Producto Nacional',
+      advisorChannel: advisor?.channel || sale.advisorChannel || existing?.advisorChannel || 'WhatsApp Directo',
+      productId: sale.productId || existing?.productId || 'prod-custom',
+      productTitle: sale.productTitle || existing?.productTitle || 'Producto Nacional',
       quantity,
       unitPrice,
       totalAmount,
-      clientName: sale.clientName || 'Cliente Particular',
-      clientPhone: sale.clientPhone || '',
-      clientCity: sale.clientCity || 'Bogotá D.C.',
-      clientDepartment: sale.clientDepartment || 'Cundinamarca',
-      clientAddress: sale.clientAddress || '',
-      additionalNotes: sale.additionalNotes || '',
-      dropiStatus: sale.dropiStatus || 'pendiente_bolsa',
-      dropiOrderId: sale.dropiOrderId,
-      trackingNumber: sale.trackingNumber,
-      paymentMethod: 'contra_entrega',
-      createdAt: sale.createdAt || new Date().toISOString(),
+      clientName: sale.clientName !== undefined ? sale.clientName : (existing ? existing.clientName : 'Cliente Particular'),
+      clientPhone: sale.clientPhone !== undefined ? sale.clientPhone : (existing ? existing.clientPhone : ''),
+      clientCity: sale.clientCity !== undefined ? sale.clientCity : (existing ? existing.clientCity : 'Bogotá D.C.'),
+      clientDepartment: sale.clientDepartment !== undefined ? sale.clientDepartment : (existing ? existing.clientDepartment : 'Cundinamarca'),
+      clientAddress: sale.clientAddress !== undefined ? sale.clientAddress : (existing ? existing.clientAddress : ''),
+      additionalNotes: sale.additionalNotes !== undefined ? sale.additionalNotes : (existing ? existing.additionalNotes : ''),
+      dropiStatus: sale.dropiStatus || existing?.dropiStatus || 'pendiente_bolsa',
+      dropiOrderId: sale.dropiOrderId !== undefined ? sale.dropiOrderId : existing?.dropiOrderId,
+      trackingNumber: sale.trackingNumber !== undefined ? sale.trackingNumber : existing?.trackingNumber,
+      paymentMethod: sale.paymentMethod || existing?.paymentMethod || 'contra_entrega',
+      createdAt: existing?.createdAt || sale.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -2102,7 +2104,7 @@ class DatabaseStore {
   }
 
   deleteAdvisorSale(id: string): boolean {
-    if (!this.data.advisorSales) return false;
+    if (!this.data.advisorSales) this.data.advisorSales = [...DEFAULT_ADVISOR_SALES];
     const idx = this.data.advisorSales.findIndex(s => s.id === id);
     if (idx >= 0) {
       this.data.advisorSales.splice(idx, 1);
@@ -2110,6 +2112,18 @@ class DatabaseStore {
       return true;
     }
     return false;
+  }
+
+  deleteAdvisorSales(ids: string[]): number {
+    if (!this.data.advisorSales) this.data.advisorSales = [...DEFAULT_ADVISOR_SALES];
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+    const initialCount = this.data.advisorSales.length;
+    this.data.advisorSales = this.data.advisorSales.filter(s => !ids.includes(s.id));
+    const deletedCount = initialCount - this.data.advisorSales.length;
+    if (deletedCount > 0) {
+      this.saveData(this.data);
+    }
+    return deletedCount;
   }
 
   markAdvisorSalesDropiStatus(ids: string[], status: DropiStatus): number {

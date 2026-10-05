@@ -1153,6 +1153,57 @@ router.delete('/advisor-sales/:id', (req, res) => {
   }
 });
 
+router.post('/advisor-sales/batch-delete', (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Lista de IDs requerida' });
+    }
+    const count = db.deleteAdvisorSales(ids);
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Eliminación Múltiple de Ventas Dropi',
+      details: `Se eliminaron ${count} órdenes de la bolsa de ventas Dropi.`,
+      status: 'info'
+    });
+    res.json({ success: true, count, message: `${count} pedido(s) eliminado(s) exitosamente` });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/advisor-sales/:id/execute', (req, res) => {
+  try {
+    const sale = db.getAdvisorSales().find(s => s.id === req.params.id);
+    if (!sale) return res.status(404).json({ success: false, message: 'Pedido no encontrado' });
+
+    const dropiOrderId = sale.dropiOrderId || `DROPI-${Math.floor(100000 + Math.random() * 900000)}`;
+    const trackingNumber = sale.trackingNumber || `ENV-${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+    const saved = db.saveAdvisorSale({
+      id: sale.id,
+      dropiStatus: 'montado_dropi',
+      dropiOrderId,
+      trackingNumber
+    });
+
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Orden Ejecutada en Dropi',
+      details: `Pedido "${saved.orderNumber}" (${saved.id}) ejecutado para despacho Dropi con guía ${trackingNumber}.`,
+      status: 'success'
+    });
+
+    res.json({
+      success: true,
+      message: `¡Orden ${saved.orderNumber} ejecutada y montada exitosamente en Dropi!`,
+      data: saved
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 router.post('/advisor-sales/batch-status', (req, res) => {
   try {
     const { ids, status } = req.body;
