@@ -1,6 +1,6 @@
 import { Product, Order } from '../../src/types/index.ts';
 
-const DEFAULT_CPANEL_API_URL = 'https://host303.latinoamericahosting.com/~zavelast/api.php';
+const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
 
 /**
  * CpanelDbService: Servicio cliente para consumir la API PHP con base de datos MySQL en cPanel
@@ -139,26 +139,32 @@ export class CpanelDbService {
     const baseUrl = this.getApiUrl();
     const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=pedidos`;
 
+    const formattedAddress = [order.address, order.city, order.department].filter(Boolean).join(', ');
+
     const payload = {
       id: order.id,
       orderNumber: order.orderNumber,
       order_number: order.orderNumber,
       numero_pedido: order.orderNumber,
+      cliente_nombre: order.customerName,
+      nombre_cliente: order.customerName,
       customerName: order.customerName,
       customer_name: order.customerName,
-      nombre_cliente: order.customerName,
+      cliente_telefono: order.customerPhone,
+      telefono: order.customerPhone,
       customerPhone: order.customerPhone,
       customer_phone: order.customerPhone,
-      telefono: order.customerPhone,
+      cliente_email: order.customerEmail,
+      email: order.customerEmail,
       customerEmail: order.customerEmail,
       customer_email: order.customerEmail,
-      email: order.customerEmail,
       department: order.department,
       departamento: order.department,
       city: order.city,
       ciudad: order.city,
-      address: order.address,
-      direccion: order.address,
+      cliente_direccion: formattedAddress || order.address,
+      direccion: formattedAddress || order.address,
+      address: formattedAddress || order.address,
       additionalNotes: order.additionalNotes || '',
       notas: order.additionalNotes || '',
       subtotal: order.subtotal || 0,
@@ -169,7 +175,9 @@ export class CpanelDbService {
       metodo_pago: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       status: order.status,
-      estado: order.status,
+      estado: order.status === 'APROBADO_DROPI' ? 'aprobado' : (order.status || 'pendiente'),
+      dropi_order_id: order.dropi_order_id || null,
+      dropi_guia: order.dropi_guia || order.trackingNumber || null,
       carrier: order.carrier || 'Servientrega',
       transportadora: order.carrier || 'Servientrega',
       dane_code: order.dane_code || '',
@@ -331,32 +339,46 @@ export class CpanelDbService {
       }
     }
 
-    const customerName = item.customerName || item.customer_name || item.nombre_cliente || item.cliente || 'Cliente';
+    const customerName = item.cliente_nombre || item.nombre_cliente || item.customerName || item.customer_name || item.cliente || 'Cliente';
     const total = Number(item.total || item.total_amount) || 0;
     const subtotal = Number(item.subtotal) || total;
     const shippingCost = Number(item.shippingCost || item.costo_envio) || 0;
+    const rawStatus = (item.status || item.estado || '').toLowerCase();
+    let status: any = 'PENDIENTE_REVISION';
+    if (rawStatus === 'aprobado' || rawStatus === 'aprobado_dropi') {
+      status = 'APROBADO_DROPI';
+    } else if (rawStatus === 'entregado' || rawStatus === 'completado') {
+      status = 'ENTREGADO';
+    } else if (rawStatus === 'cancelado') {
+      status = 'CANCELADO';
+    } else if (item.status) {
+      status = item.status;
+    }
 
     return {
       id: String(item.id || `ord-${Date.now()}`),
-      orderNumber: item.orderNumber || item.order_number || item.numero_pedido || `NV-${Math.floor(1000 + Math.random() * 9000)}`,
+      orderNumber: item.orderNumber || item.order_number || item.numero_pedido || (item.id ? `ZV-${String(item.id).slice(-4).toUpperCase()}` : `NV-${Math.floor(1000 + Math.random() * 9000)}`),
       customerName,
-      customerPhone: item.customerPhone || item.customer_phone || item.telefono || '',
-      customerEmail: item.customerEmail || item.customer_email || item.email || '',
-      department: item.department || item.departamento || 'Cundinamarca',
-      city: item.city || item.ciudad || 'Bogotá D.C.',
-      address: item.address || item.direccion || '',
+      customerPhone: item.cliente_telefono || item.customerPhone || item.customer_phone || item.telefono || '',
+      customerEmail: item.cliente_email || item.customerEmail || item.customer_email || item.email || '',
+      department: item.cliente_departamento || item.department || item.departamento || 'Cundinamarca',
+      city: item.cliente_ciudad || item.city || item.ciudad || 'Bogotá D.C.',
+      address: item.cliente_direccion || item.address || item.direccion || '',
       additionalNotes: item.additionalNotes || item.notas || '',
       subtotal,
       shippingCost,
       total,
       paymentMethod: item.paymentMethod || item.metodo_pago || 'contra_entrega',
       paymentStatus: item.paymentStatus || (item.paymentMethod === 'contra_entrega' ? 'CASH_ON_DELIVERY' : 'APPROVED'),
-      status: item.status || item.estado || 'PENDIENTE_REVISION',
+      status,
+      dropi_order_id: item.dropi_order_id || item.dropiOrderId || undefined,
+      dropi_guia: item.dropi_guia || item.guia || item.trackingNumber || undefined,
+      trackingNumber: item.trackingNumber || item.dropi_guia || item.guia || undefined,
       carrier: item.carrier || item.transportadora || 'Servientrega',
       dane_code: item.dane_code || item.codigo_dane || '',
       items,
       createdAt: item.createdAt || item.fecha || item.created_at || new Date().toISOString(),
-      updatedAt: item.updatedAt || item.fecha_actualizacion || new Date().toISOString()
+      updatedAt: item.updatedAt || item.fecha_actualizacion || item.created_at || new Date().toISOString()
     };
   }
 }
