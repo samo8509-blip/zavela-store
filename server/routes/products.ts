@@ -1,13 +1,21 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
 // GET /api/products - Get catalog with search, category, sort
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { category, search, featured, sort, minPrice, maxPrice } = req.query;
 
+    // 1. Intento de sincronización con la API PHP de cPanel (MySQL)
+    const remoteProducts = await cpanelDbService.fetchProducts();
+    if (remoteProducts && remoteProducts.length > 0) {
+      db.mergeRemoteProducts(remoteProducts);
+    }
+
+    // 2. Carga y filtrado con fallback transparente a la base de datos local
     let products = db.getProducts({
       categorySlug: category as string,
       search: search as string,

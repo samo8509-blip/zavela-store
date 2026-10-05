@@ -4,6 +4,7 @@ import { Order, OrderItem, PaymentMethod } from '../../src/types/index.ts';
 import { getDaneCode } from '../../src/data/colombiaGeo.ts';
 import { calculateShippingCost } from '../../src/data/shippingRates.ts';
 import { sendSaleNotification, sendLowStockAlert } from '../services/whatsappAlerts.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
@@ -186,6 +187,9 @@ export async function approveOrderForDropi(orderId: string, options?: {
       order.updatedAt = new Date().toISOString();
 
       const savedOrder = db.saveOrder(order);
+      cpanelDbService.createOrder(savedOrder).catch(err => {
+        console.warn('[cPanel DB Sync] Error al sincronizar estado Dropi con cPanel:', err);
+      });
 
       db.addLog({
         type: 'STATUS_UPDATE',
@@ -239,6 +243,9 @@ export async function approveOrderForDropi(orderId: string, options?: {
   order.updatedAt = new Date().toISOString();
 
   const savedOrder = db.saveOrder(order);
+  cpanelDbService.createOrder(savedOrder).catch(err => {
+    console.warn('[cPanel DB Sync] Error al sincronizar estado Dropi con cPanel:', err);
+  });
 
   db.addLog({
     type: 'STATUS_UPDATE',
@@ -451,6 +458,11 @@ router.post('/', async (req, res) => {
 
     // Save to database
     db.saveOrder(newOrder);
+
+    // Persistencia externa en base de datos MySQL en cPanel vía POST /api.php?action=pedidos
+    cpanelDbService.createOrder(newOrder).catch(cpanelErr => {
+      console.warn('[cPanel DB Sync] Error al persistir orden en cPanel (continúa seguro en BD local):', cpanelErr);
+    });
 
     db.addLog({
       type: 'ORDER_CREATED',

@@ -4,6 +4,7 @@ import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSetting
 import { GoogleGenAI } from '@google/genai';
 import { approveOrderForDropi } from './orders.ts';
 import { sendSaleNotification, dispatchWhatsAppAlert } from '../services/whatsappAlerts.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
@@ -147,6 +148,11 @@ router.post('/products', (req, res) => {
 
     const saved = db.saveProduct(newProduct);
 
+    // Sincronizar producto con la base de datos MySQL en cPanel vía POST /api.php?action=productos
+    cpanelDbService.saveProduct(saved).catch(err => {
+      console.warn('[cPanel DB Sync] Error al guardar producto en cPanel:', err);
+    });
+
     // Auto-broadcast to social networks if enabled or requested
     let socialPost = null;
     if (body.publishToSocial !== false) {
@@ -225,6 +231,11 @@ router.put('/products/:id', (req, res) => {
     };
 
     const saved = db.saveProduct(updated);
+
+    // Sincronizar actualización de producto con la base de datos MySQL en cPanel vía POST /api.php?action=productos
+    cpanelDbService.saveProduct(saved).catch(err => {
+      console.warn('[cPanel DB Sync] Error al actualizar producto en cPanel:', err);
+    });
 
     let socialPost = null;
     if (body.publishToSocial === true) {
@@ -315,9 +326,17 @@ router.post('/products/sync-all', (req, res) => {
 // ==========================================
 // 4. ORDERS CRUD
 // ==========================================
-router.get('/orders', (req, res) => {
+router.get('/orders', async (req, res) => {
   try {
     const { status, search } = req.query;
+
+    // 1. Intento de sincronización de pedidos con la API PHP de cPanel (MySQL)
+    const remoteOrders = await cpanelDbService.fetchOrders();
+    if (remoteOrders && remoteOrders.length > 0) {
+      db.mergeRemoteOrders(remoteOrders);
+    }
+
+    // 2. Consulta y filtrado de pedidos con fallback transparente a la base de datos local
     const orders = db.getOrders({
       status: status as OrderStatus,
       search: search as string
@@ -486,6 +505,52 @@ router.delete('/orders/:id', (req, res) => {
     res.json({ success: true, message: 'Pedido eliminado correctamente.' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/admin/cpanel-status - Diagnóstico y verificación de conexión con la API PHP / MySQL en cPanel
+router.get('/cpanel-status', async (req, res) => {
+  const apiUrl = cpanelDbService.getApiUrl();
+  const endpoint = `${apiUrl}${apiUrl.includes('?') ? '&' : '?'}action=productos`;
+  
+  try {
+    const start = Date.now();
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(4000)
+    });
+    const durationMs = Date.now() - start;
+    const isOk = response.ok;
+    const text = await response.text();
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {}
+
+    res.json({
+      success: true,
+      configuredUrl: apiUrl,
+      testEndpoint: endpoint,
+      httpStatus: response.status,
+      latencyMs: durationMs,
+      connected: isOk,
+      fallbackActive: !isOk,
+      message: isOk
+        ? '✅ Conexión exitosa con la API PHP y base de datos MySQL en cPanel.'
+        : `⚠️ cPanel respondió HTTP ${response.status}. El fallback transparente en memoria está activo.`,
+      preview: parsed ? { itemsCount: Array.isArray(parsed) ? parsed.length : (Array.isArray(parsed?.data) ? parsed.data.length : 1) } : text.substring(0, 150)
+    });
+  } catch (err: any) {
+    res.json({
+      success: true,
+      configuredUrl: apiUrl,
+      testEndpoint: endpoint,
+      connected: false,
+      fallbackActive: true,
+      message: `ℹ️ Fallback activo: No se pudo conectar con cPanel (${err?.message || err}). La tienda opera 100% estable en memoria local.`,
+      error: err?.message || 'Error de red / Timeout'
+    });
   }
 });
 

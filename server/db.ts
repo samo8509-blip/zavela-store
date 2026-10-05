@@ -1333,6 +1333,37 @@ class DatabaseStore {
     return this.data.products;
   }
 
+  mergeRemoteProducts(remoteProducts: Product[]): void {
+    if (!remoteProducts || !Array.isArray(remoteProducts) || remoteProducts.length === 0) return;
+    for (const remote of remoteProducts) {
+      const idx = this.data.products.findIndex(p => p.id === remote.id || p.slug === remote.slug);
+      if (idx >= 0) {
+        this.data.products[idx] = {
+          ...this.data.products[idx],
+          ...remote,
+          images: remote.images && remote.images.length > 0 ? remote.images : this.data.products[idx].images
+        };
+      } else {
+        this.data.products.unshift(remote);
+      }
+    }
+  }
+
+  mergeRemoteOrders(remoteOrders: Order[]): void {
+    if (!remoteOrders || !Array.isArray(remoteOrders) || remoteOrders.length === 0) return;
+    for (const remote of remoteOrders) {
+      const idx = this.data.orders.findIndex(o => o.id === remote.id || o.orderNumber === remote.orderNumber);
+      if (idx >= 0) {
+        this.data.orders[idx] = {
+          ...this.data.orders[idx],
+          ...remote
+        };
+      } else {
+        this.data.orders.unshift(remote);
+      }
+    }
+  }
+
   // Orders
   getOrders(filter?: { status?: OrderStatus; search?: string }): Order[] {
     let result = [...this.data.orders];

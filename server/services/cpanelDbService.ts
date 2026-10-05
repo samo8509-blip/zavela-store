@@ -1,0 +1,364 @@
+import { Product, Order } from '../../src/types/index.ts';
+
+const DEFAULT_CPANEL_API_URL = 'https://host303.latinoamericahosting.com/~zavelast/api.php';
+
+/**
+ * CpanelDbService: Servicio cliente para consumir la API PHP con base de datos MySQL en cPanel
+ * Provee persistencia externa y un sistema de fallback transparente hacia la base de datos local en memoria.
+ */
+export class CpanelDbService {
+  /**
+   * Obtiene la URL base configurada para la API de cPanel.
+   */
+  public getApiUrl(): string {
+    const url = process.env.DB_API_URL || DEFAULT_CPANEL_API_URL;
+    return url.trim();
+  }
+
+  /**
+   * 1. GET /api.php?action=productos
+   * Carga el catálogo de productos desde la API PHP en cPanel (MySQL).
+   * Si la API de cPanel no responde o genera error, retorna null de forma transparente
+   * para que la aplicación continúe operando con la base de datos local.
+   */
+  async fetchProducts(): Promise<Product[] | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(3500)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel DB Fallback] HTTP ${response.status} en ${endpoint}. Continuando con catálogo local en memoria.`);
+        return null;
+      }
+
+      const text = await response.text();
+      let raw: any;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        console.warn('[cPanel DB Fallback] Respuesta no es JSON válido desde cPanel. Usando datos locales.');
+        return null;
+      }
+
+      const list = Array.isArray(raw)
+        ? raw
+        : (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw?.productos) ? raw.productos : null));
+
+      if (!list) {
+        console.warn('[cPanel DB Fallback] Estructura de productos no reconocida en respuesta cPanel.');
+        return null;
+      }
+
+      return list.map(item => this.normalizeProduct(item));
+    } catch (err: any) {
+      console.warn(`[cPanel DB Fallback] Conexión no disponible con cPanel (${err?.message || err}). Catálogo local activo.`);
+      return null;
+    }
+  }
+
+  /**
+   * 2. POST /api.php?action=productos
+   * Crea o actualiza un producto en la base de datos MySQL de cPanel.
+   * Envía campos tanto en inglés como en español para máxima compatibilidad con el script PHP.
+   */
+  async saveProduct(product: Product): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos`;
+
+    const payload = {
+      ...product,
+      id: product.id,
+      title: product.title,
+      nombre: product.title,
+      slug: product.slug,
+      description: product.description,
+      descripcion: product.description,
+      shortDescription: product.shortDescription || '',
+      price: product.price,
+      precio: product.price,
+      costPrice: product.costPrice || 0,
+      costo: product.costPrice || 0,
+      stock: product.stock,
+      inventario: product.stock,
+      active: product.active ? 1 : 0,
+      activo: product.active ? 1 : 0,
+      featured: product.featured ? 1 : 0,
+      destacado: product.featured ? 1 : 0,
+      images: product.images,
+      imagen: product.images?.[0] || '',
+      category: product.categoryName || product.categoryId || '',
+      categoria: product.categoryName || product.categoryId || '',
+      categoryId: product.categoryId || '',
+      dropi_product_id: product.dropi_product_id || product.dropiProductId || '',
+      updatedAt: product.updatedAt || new Date().toISOString()
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel DB Sync] HTTP ${response.status} al sincronizar producto en cPanel. Guardado local preservado.`);
+        return null;
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch {
+        return { success: true, message: 'Producto recibido en cPanel' };
+      }
+    } catch (err: any) {
+      console.warn(`[cPanel DB Sync] Error al sincronizar producto "${product.title}" con cPanel (${err?.message || err}). Persistencia local activa.`);
+      return null;
+    }
+  }
+
+  /**
+   * 3. POST /api.php?action=pedidos
+   * Registra la orden de compra junto con los datos del cliente, productos y estado en MySQL vía cPanel.
+   */
+  async createOrder(order: Order): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=pedidos`;
+
+    const payload = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      order_number: order.orderNumber,
+      numero_pedido: order.orderNumber,
+      customerName: order.customerName,
+      customer_name: order.customerName,
+      nombre_cliente: order.customerName,
+      customerPhone: order.customerPhone,
+      customer_phone: order.customerPhone,
+      telefono: order.customerPhone,
+      customerEmail: order.customerEmail,
+      customer_email: order.customerEmail,
+      email: order.customerEmail,
+      department: order.department,
+      departamento: order.department,
+      city: order.city,
+      ciudad: order.city,
+      address: order.address,
+      direccion: order.address,
+      additionalNotes: order.additionalNotes || '',
+      notas: order.additionalNotes || '',
+      subtotal: order.subtotal || 0,
+      shippingCost: order.shippingCost || 0,
+      costo_envio: order.shippingCost || 0,
+      total: order.total || 0,
+      paymentMethod: order.paymentMethod,
+      metodo_pago: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      status: order.status,
+      estado: order.status,
+      carrier: order.carrier || 'Servientrega',
+      transportadora: order.carrier || 'Servientrega',
+      dane_code: order.dane_code || '',
+      codigo_dane: order.dane_code || '',
+      items: order.items || [],
+      productos: order.items || [],
+      createdAt: order.createdAt || new Date().toISOString(),
+      fecha: order.createdAt || new Date().toISOString()
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel DB Sync] HTTP ${response.status} al registrar pedido ${order.orderNumber} en cPanel. Pedido seguro en BD local.`);
+        return null;
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch {
+        return { success: true, message: 'Pedido registrado en cPanel' };
+      }
+    } catch (err: any) {
+      console.warn(`[cPanel DB Sync] Error al enviar pedido ${order.orderNumber} a cPanel (${err?.message || err}). El pedido permanece protegido en memoria.`);
+      return null;
+    }
+  }
+
+  /**
+   * 4. GET /api.php?action=pedidos
+   * Consulta los pedidos en la base de datos MySQL en cPanel para el panel de administración.
+   */
+  async fetchOrders(): Promise<Order[] | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=pedidos`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(3500)
+      });
+
+      if (!response.ok) {
+        console.warn(`[cPanel DB Fallback] HTTP ${response.status} al consultar pedidos en cPanel. Mostrando pedidos locales.`);
+        return null;
+      }
+
+      const text = await response.text();
+      let raw: any;
+      try {
+        raw = JSON.parse(text);
+      } catch {
+        console.warn('[cPanel DB Fallback] Respuesta de pedidos no es JSON válido desde cPanel.');
+        return null;
+      }
+
+      const list = Array.isArray(raw)
+        ? raw
+        : (Array.isArray(raw?.data) ? raw.data : (Array.isArray(raw?.pedidos) ? raw.pedidos : null));
+
+      if (!list) {
+        return null;
+      }
+
+      return list.map(item => this.normalizeOrder(item));
+    } catch (err: any) {
+      console.warn(`[cPanel DB Fallback] Conexión no disponible para consultar pedidos en cPanel (${err?.message || err}).`);
+      return null;
+    }
+  }
+
+  /**
+   * Normaliza los datos de producto provenientes de PHP/MySQL a la interfaz Product
+   */
+  private normalizeProduct(item: any): Product {
+    let images: string[] = [];
+    if (Array.isArray(item.images)) {
+      images = item.images;
+    } else if (typeof item.images === 'string') {
+      try {
+        const parsed = JSON.parse(item.images);
+        images = Array.isArray(parsed) ? parsed : [item.images];
+      } catch {
+        images = item.images.includes(',') ? item.images.split(',').map((s: string) => s.trim()) : [item.images];
+      }
+    } else if (item.imagen) {
+      images = [item.imagen];
+    } else if (item.image) {
+      images = [item.image];
+    }
+
+    if (images.length === 0) {
+      images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+    }
+
+    const price = Number(item.price || item.precio) || 0;
+    const costPrice = Number(item.costPrice || item.costo || item.cost_price) || 0;
+    const title = item.title || item.nombre || 'Producto Zavela';
+    const slug = item.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    return {
+      id: String(item.id || `prod-${Math.random().toString(36).substring(2, 7)}`),
+      title,
+      slug,
+      description: item.description || item.descripcion || '',
+      shortDescription: item.shortDescription || item.descripcion_corta || '',
+      price,
+      costPrice,
+      stock: Number(item.stock !== undefined ? item.stock : (item.inventario !== undefined ? item.inventario : 10)),
+      active: item.active !== undefined ? Boolean(item.active) : (item.activo !== undefined ? Boolean(item.activo) : true),
+      featured: Boolean(item.featured || item.destacado),
+      images,
+      tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',') : []),
+      categoryId: item.categoryId || item.categoria_id || item.category || 'cat-1',
+      categoryName: item.categoryName || item.categoria || 'Catálogo',
+      dropi_product_id: item.dropi_product_id || item.dropiProductId || item.dropi_id,
+      createdAt: item.createdAt || item.fecha_creacion || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.fecha_actualizacion || new Date().toISOString()
+    };
+  }
+
+  /**
+   * Normaliza los datos de pedido provenientes de PHP/MySQL a la interfaz Order
+   */
+  private normalizeOrder(item: any): Order {
+    let items = [];
+    if (Array.isArray(item.items)) {
+      items = item.items;
+    } else if (Array.isArray(item.productos)) {
+      items = item.productos;
+    } else if (typeof item.items === 'string') {
+      try {
+        const parsed = JSON.parse(item.items);
+        items = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        items = [];
+      }
+    } else if (typeof item.productos === 'string') {
+      try {
+        const parsed = JSON.parse(item.productos);
+        items = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        items = [];
+      }
+    }
+
+    const customerName = item.customerName || item.customer_name || item.nombre_cliente || item.cliente || 'Cliente';
+    const total = Number(item.total || item.total_amount) || 0;
+    const subtotal = Number(item.subtotal) || total;
+    const shippingCost = Number(item.shippingCost || item.costo_envio) || 0;
+
+    return {
+      id: String(item.id || `ord-${Date.now()}`),
+      orderNumber: item.orderNumber || item.order_number || item.numero_pedido || `NV-${Math.floor(1000 + Math.random() * 9000)}`,
+      customerName,
+      customerPhone: item.customerPhone || item.customer_phone || item.telefono || '',
+      customerEmail: item.customerEmail || item.customer_email || item.email || '',
+      department: item.department || item.departamento || 'Cundinamarca',
+      city: item.city || item.ciudad || 'Bogotá D.C.',
+      address: item.address || item.direccion || '',
+      additionalNotes: item.additionalNotes || item.notas || '',
+      subtotal,
+      shippingCost,
+      total,
+      paymentMethod: item.paymentMethod || item.metodo_pago || 'contra_entrega',
+      paymentStatus: item.paymentStatus || (item.paymentMethod === 'contra_entrega' ? 'CASH_ON_DELIVERY' : 'APPROVED'),
+      status: item.status || item.estado || 'PENDIENTE_REVISION',
+      carrier: item.carrier || item.transportadora || 'Servientrega',
+      dane_code: item.dane_code || item.codigo_dane || '',
+      items,
+      createdAt: item.createdAt || item.fecha || item.created_at || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.fecha_actualizacion || new Date().toISOString()
+    };
+  }
+}
+
+export const cpanelDbService = new CpanelDbService();
