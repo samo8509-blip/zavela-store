@@ -38,7 +38,7 @@ import {
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { compressImageFile } from '../../utils/imageUtils.ts';
-import { uploadProductImageToStorage } from '../../services/firestoreProducts.ts';
+import { uploadProductImage } from '../../services/cpanelProducts.ts';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 
 export interface AdminProductEditorProps {
@@ -159,8 +159,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   }, []);
 
   const handlePublishToFacebookNow = async () => {
-    if (!product?.id) {
-      alert('Guarda el producto primero para obtener su ID antes de publicarlo individualmente.');
+    if (!title.trim()) {
+      alert('Por favor ingresa un título para el producto antes de publicarlo en Facebook.');
+      return;
+    }
+    if (!price || Number(price) <= 0) {
+      alert('Por favor ingresa un precio válido antes de publicarlo en Facebook.');
       return;
     }
     if (!fbConfig.connected) {
@@ -170,11 +174,45 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     setIsPublishingFbNow(true);
     setFbPublishNowResult(null);
+
+    // Construir el objeto completo del producto directamente desde los datos actuales del formulario
+    const currentProductData: Product = {
+      id: product?.id || `prod-${Date.now()}`,
+      title: title.trim(),
+      slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      description: description || '',
+      shortDescription: shortDescription || '',
+      price: Number(price) || 0,
+      costPrice: Number(costPrice) || 0,
+      compareAtPrice: Number(compareAtPrice) || (Number(price) ? Number(price) + 20000 : 0),
+      discountPercentage: discountPercentage || 0,
+      marginAmount: grossProfitCOP || 0,
+      marginPercentage: marginPercentage || 0,
+      stock: Number(stock) || 0,
+      active: Boolean(active),
+      featured: Boolean(featured),
+      images: images.filter(img => Boolean(img && img.trim())),
+      warrantyInfo: warrantyInfo || '30 días de garantía oficial Zavela Store por defectos de fábrica.',
+      tags: tags || ['tendencia', 'calidad', 'contraentrega'],
+      weightKg: Number(weightKg) || 0.5,
+      categoryId: categoryId || categories[0]?.id || 'cat-general',
+      categoryName: categories.find(c => c.id === categoryId)?.name || categories[0]?.name || 'General',
+      warehouseCity: warehouseCity || 'Bogotá D.C.',
+      brand: brand || 'Zavela Store',
+      dropi_product_id: dropiProductId || '',
+      variants: variants || [],
+      createdAt: product?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
     try {
       const res = await fetch('/api/admin/social/facebook/publish-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: product.id })
+        body: JSON.stringify({
+          productId: currentProductData.id,
+          product: currentProductData
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -275,7 +313,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const uploadedUrls = await Promise.all(
         validFiles.map(async (file) => {
           try {
-            return await uploadProductImageToStorage(file);
+            return await uploadProductImage(file);
           } catch {
             return await compressImageFile(file);
           }
@@ -321,7 +359,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     try {
       let finalUrl = '';
       try {
-        finalUrl = await uploadProductImageToStorage(file);
+        finalUrl = await uploadProductImage(file);
       } catch {
         finalUrl = await compressImageFile(file);
       }
@@ -1643,26 +1681,25 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             <span>{showFbPreview ? 'Ocultar vista previa de post' : '👁️ Ver cómo se publicará en Facebook'}</span>
           </button>
 
-          {isEditing && product?.id && (
-            <button
-              type="button"
-              onClick={handlePublishToFacebookNow}
-              disabled={isPublishingFbNow}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#1877F2] hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
-            >
-              {isPublishingFbNow ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Publicando en Meta...</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-black">f</span>
-                  <span>Publicar en Facebook Ahora</span>
-                </>
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handlePublishToFacebookNow}
+            disabled={isPublishingFbNow}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#1877F2] hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+            title="Publicar en la Fanpage de Facebook utilizando los datos actuales del formulario"
+          >
+            {isPublishingFbNow ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Publicando en Meta...</span>
+              </>
+            ) : (
+              <>
+                <span className="font-black">f</span>
+                <span>Publicar en Facebook Ahora</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Result toast for immediate publication */}

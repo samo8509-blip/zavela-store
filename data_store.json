@@ -265,6 +265,179 @@
   ],
   "products": [
     {
+      "id": "prod-1791305641853",
+      "title": "Producto Test cPanel MySQL",
+      "slug": "producto-test-cpanel-mysql",
+      "description": "",
+      "shortDescription": "",
+      "price": 75000,
+      "costPrice": 0,
+      "compareAtPrice": 101250,
+      "discountPercentage": 26,
+      "marginAmount": 75000,
+      "marginPercentage": 0,
+      "stock": 15,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [
+        "tendencia",
+        "calidad"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-general",
+      "categoryName": "General",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "variants": [],
+      "createdAt": "2026-10-06T16:54:01.854Z",
+      "updatedAt": "2026-10-06T16:54:01.854Z"
+    },
+    {
+      "id": "T5KW7A8J81gxcWQGEpIj",
+      "title": "Lamparas Solares X4 Und Exteriores Calle",
+      "slug": "lamparas-solares-x4-und-exteriores-calle",
+      "description": "ransforma la iluminación de tus espacios exteriores con el Set x4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua. Estas lámparas LED de alta potencia están diseñadas para brindarte la máxima luminosidad y comodidad, con la posibilidad de ajustar los modos de iluminación desde el control remoto incluido. Ideales para cualquier condición climática, son resistentes al agua y se recargan automáticamente con la luz solar, ofreciendo una solución eficiente y sin necesidad de cables.\n¿Qué trae este Kit?\n- 4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua.\n- 4 controles remotos.\n- 8 chazos, 8 tornillos y 8 soportes de montaje con soportes ajustables para cada lámpara.\nBeneficios:\n- Energía solar: Las lámparas se recargan automáticamente con la luz del sol, eliminando la necesidad de cables y enchufes.\n- Control remoto: Ajusta fácilmente la intensidad y los modos de iluminación desde la distancia.\n- Resistente al agua: Ideales para cualquier clima, funcionando perfectamente bajo la lluvia y otras condiciones adversas.\n- Fácil instalación: Todo lo necesario para una instalación rápida y segura en paredes o superficies exteriores está incluido.\nEspecificaciones:\n- Medidas de cada lámpara: Alto 25,5 cm, Ancho 2,5 cm, Largo 11 cm.\n- Material: Plástico ABS resistente, duradero y adecuado para exteriores.\n- Brillo: Alta intensidad para una cobertura amplia de iluminación.\n- Modos de iluminación: 3 modos ajustables para adaptarse a diferentes necesidades de luz.\nOptimiza la seguridad y el confort de tus espacios exteriores con el Set x4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua. ¡Compra tu set hoy mismo y disfruta de la tranquilidad y eficiencia que ofrecen estas lámparas solares!",
+      "shortDescription": "",
+      "price": 180000,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/1840785/1749158736D_NQ_NP_967863-MCO85396177710_062025-O.webp"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "prod-test",
+      "title": "Producto Prueba",
+      "slug": "producto-prueba",
+      "description": "Descripcion de prueba",
+      "shortDescription": "",
+      "price": 45000,
+      "costPrice": 0,
+      "stock": 15,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "prod-1791298191006",
+      "title": "Producto Test Sincronizacion",
+      "slug": "producto-test-sincronizacion",
+      "description": "",
+      "shortDescription": "",
+      "price": 99000,
+      "costPrice": 0,
+      "stock": 10,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "prod-1791239662306",
+      "title": "Llave Inglesa Multif Expandible Giro 180",
+      "slug": "llave-inglesa-multif-expandible-giro-180",
+      "description": "? Tamaño de la llave 3 en 1: el mango único adopta un diseño retráctil, que se puede transformar fácilmente en una llave de 10 pulgadas, 11 pulgadas y 12 pulgadas, lo que te proporciona más opciones.\n? Cabezal ajustable de 180°: permite que la cabeza gire hasta 180° para acceder a sujetadores de difícil acceso.\n? Herramienta de llave de doble propósito: diseño de trinquete para apretar los tornillos más ahorro de mano de obra. El interruptor de encendido/apagado de trinquete permite que la llave se utilice como una llave de trinquete también sea una llave tradicional.\n? Calidad premium: el acero forjado Cr-V al cromo vanadio es fuerte y duradero. Esta herramienta de llave se puede utilizar en reparación de automóviles, reparación del hogar, construcción y otras industrias, y también es popular entre los entusiastas del diseño de bricolaje.\n? Ampliamente utilizado: llave ajustable que se adapta a aproximadamente 1.77 pulgadas/1.772 in apertura de mandíbula con mandíbulas mecanizadas de precisión y tornillo sin fin de ajuste moleteado, acepta una amplia gama de tamaños de sujetadores, perfecto para el mantenimiento y reparación de electrodomésticos.",
+      "shortDescription": "",
+      "price": 109400,
+      "costPrice": 0,
+      "stock": 10,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/1896662/1754875787giphy%20(1).gif"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "M3WZ3glzRWRGXyo0d3kj",
+      "title": "Mascara Disfra De Hallowen De Oso Malo",
+      "slug": "mascara-disfra-de-hallowen-de-oso-malo",
+      "description": "Mascara Disfra De Hallowen De Oso Malo",
+      "shortDescription": "",
+      "price": 78900,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/1327927/1728417526Captura%20de%20Pantalla%202024-10-08%20a%20la(s)%202.54.24%20p.%C2%A0m..png"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "FvLe8wOgTLGgpSu1coSS",
+      "title": "Mini Lamparas Solares Esquineros X4",
+      "slug": "mini-lamparas-solares-esquineros-x4",
+      "description": "El set de Mini Lámparas Solares para Esquineros ofrece iluminación práctica, ecológica y decorativa para tu hogar. Con diseño compacto y moderno, funcionan con energía solar, lo que garantiza ahorro de electricidad y un ambiente más seguro y acogedor.\n\n? Características principales:\n\nPack de 4 lámparas solares.\n\nDiseño ideal para esquinas, pasillos y exteriores.\n\nCarga automática con energía solar durante el día.\n\nEncendido automático al anochecer.\n\nMaterial resistente y duradero para uso exterior.\n\n? Beneficios:\n\nIluminación eficiente sin consumo eléctrico.\n\nFácil instalación, sin cables ni complicaciones.\n\nMejora la seguridad y estética de tu espacio.\n\nPerfectas para jardines, balcones, corredores y entradas.",
+      "shortDescription": "",
+      "price": 85100,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2144701/1777998810images%20-%202026-05-05T113250.777.jpg"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
+      "id": "7LIdeO4JdUIuOn4xHVS4",
+      "title": "Kit 4 Perfumes 1.1 Para Hombre Calidad",
+      "slug": "kit-4-perfumes-1-1-para-hombre-calidad",
+      "description": "EN LA MEJOR CALIDAD 1.1 DEL MERCADO ( SAUVAGE+ BLEU + 212 VIP BLACK + BLCGARI MAN IN BLACK",
+      "shortDescription": "",
+      "price": 232100,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/872256/1716217634mayoristas%20de%20MEN%20CATALOGO%20PART2%20(19).jpg"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
+    },
+    {
       "id": "GdY5ZMjnTXsc2SH2YWVM",
       "title": "One million oneprive 212 vipblack",
       "slug": "one-million-oneprive-212-vipblack",
@@ -380,44 +553,35 @@
       "updatedAt": "2026-08-28T20:49:55.313Z"
     },
     {
-      "id": "prod-dewalt-2421",
+      "id": "3G7h9GAl7uT7PY40WGyu",
       "title": "Taladro 2421 Dewalt Con Herramientas",
       "slug": "taladro-2421-dewalt-con-herramientas",
-      "description": "Potente taladro percutor inalámbrico Dewalt modelo 2421 acompañado de kit completo con 24 accesorios y herramientas de uso rudo. Ideal para bricolaje, proyectos del hogar, carpintería y reparaciones.\n\n🔹 Motor de alto torque con control de velocidad reversible.\n🔹 2 Baterías de litio de larga duración con cargador rápido.\n🔹 Maletín rígido de transporte con brocas, puntas y dados incluidos.\n🔹 Diseño ergonómico de agarre antideslizante para trabajos continuos.",
-      "shortDescription": "🔧 El kit definitivo para amantes del bricolaje y proyectos en casa",
-      "price": 174000,
-      "costPrice": 115000,
+      "description": "Función de:\nAtornillador\nTaladro\nPercutor liviano\nSelector de fuerza/torque de 25 posiciones.\n\nGiro reversible.\nLuz LED frontal.\nBaterías de litio recargables.\nIncluye 2 baterías y cargador rápido.\nHerramientas y accesorios incluidos\nEn el maletín se observan:\nMartillo.\nLlave expansiva.\nPinza universal.\nPinza punta larga.\nDestornilladores.\nJuego de puntas y copas.\nBrocas para metal y madera.\nBrocas tipo pala.\nFlexómetro de 5 metros.\nCinta métrica de 3 metros.\nCutter.\nProbador de voltaje.\nTornillos y chazos.\nMini segueta.\nExtensión para puntas.\nMaletín plástico organizador.",
+      "shortDescription": "",
+      "price": 280000,
+      "costPrice": 0,
       "compareAtPrice": 220000,
       "discountPercentage": 21,
       "marginAmount": 59000,
       "marginPercentage": 33.9,
-      "stock": 35,
+      "stock": 25,
       "active": true,
-      "featured": true,
+      "featured": false,
       "images": [
-        "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=800&q=80"
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2160581/cb048033-738b-45fe-96fc-0d9d0d155cf4.jpg"
       ],
       "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
-      "tags": [
-        "herramientas",
-        "bricolaje",
-        "dewalt",
-        "hogar",
-        "regalo",
-        "contraentrega"
-      ],
+      "tags": [],
       "weightKg": 2.2,
-      "categoryId": "cat-2",
-      "categoryName": "Hogar y Herramientas",
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
       "subcategoryId": "sub-4",
       "subcategoryName": "Bricolaje y Herramientas",
       "variants": [],
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
-      "createdAt": "2026-09-26T15:00:49.717Z",
-      "updatedAt": "2026-09-26T15:00:49.717Z",
-      "dropi_product_id": ""
+      "createdAt": "2026-10-06T16:53:49.222Z",
+      "updatedAt": "2026-10-06T16:53:49.222Z"
     },
     {
       "id": "prod-bolso-perla-rochy",
@@ -1219,6 +1383,14 @@
     }
   },
   "logs": [
+    {
+      "id": "log-1791304847283-7o11x",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID test-direct-1 fue eliminado del inventario.",
+      "status": "info",
+      "createdAt": "2026-10-06T16:40:47.283Z"
+    },
     {
       "id": "log-1791298209381-np6ci",
       "type": "PRODUCT_UPDATE",

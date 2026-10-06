@@ -132,6 +132,113 @@ export class CpanelDbService {
   }
 
   /**
+   * DELETE /api.php?action=productos&id=...
+   * Elimina un producto de la base de datos MySQL en cPanel.
+   */
+  async deleteProduct(id: string): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos&id=${encodeURIComponent(id)}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      return response.ok;
+    } catch (err: any) {
+      console.warn(`[cPanel DB Delete] Error al eliminar producto ${id} en cPanel:`, err.message);
+      return false;
+    }
+  }
+
+  /**
+   * POST /api.php?action=batch_status
+   * Actualiza el estado (activo/pausado) de múltiples productos en MySQL cPanel.
+   */
+  async batchUpdateProductStatus(ids: string[], active: boolean): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=batch_status`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify({
+          ids,
+          active: active ? 1 : 0
+        }),
+        signal: AbortSignal.timeout(4500)
+      });
+      return response.ok;
+    } catch (err: any) {
+      console.warn('[cPanel DB Batch Status] Error al actualizar estado en cPanel:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * POST /api.php?action=batch_delete
+   * Elimina múltiples productos de MySQL cPanel.
+   */
+  async batchDeleteProducts(ids: string[]): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=batch_delete`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        body: JSON.stringify({
+          ids,
+          action: 'delete'
+        }),
+        signal: AbortSignal.timeout(4500)
+      });
+      return response.ok;
+    } catch (err: any) {
+      console.warn('[cPanel DB Batch Delete] Error al eliminar productos en lote en cPanel:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * Verifica el estado de conexión con la API de cPanel MySQL
+   */
+  async checkConnection(): Promise<{ connected: boolean; url: string; message: string }> {
+    const url = this.getApiUrl();
+    try {
+      const endpoint = `${url}${url.includes('?') ? '&' : '?'}action=ping`;
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      return {
+        connected: res.ok,
+        url,
+        message: res.ok ? 'Conexión a MySQL cPanel activa y verificada' : `HTTP ${res.status}`
+      };
+    } catch (e: any) {
+      return {
+        connected: false,
+        url,
+        message: `No se pudo conectar a ${url}: ${e.message}`
+      };
+    }
+  }
+
+  /**
    * 3. POST /api.php?action=pedidos
    * Registra la orden de compra junto con los datos del cliente, productos y estado en MySQL vía cPanel.
    */

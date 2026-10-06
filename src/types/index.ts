@@ -452,6 +452,10 @@ export interface Product {
   dropi_product_id?: string | number;
   dropiProductId?: string | number;
 
+  // Social & Facebook Meta Graph API v26.0
+  publishToFacebook?: boolean;
+  publishToSocial?: boolean;
+
   createdAt?: string;
   updatedAt?: string;
 }

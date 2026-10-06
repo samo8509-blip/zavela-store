@@ -38,13 +38,14 @@ import { formatCOP } from '../../utils/formatters.ts';
 import { ProductCatalogMagazineModal } from './ProductCatalogMagazineModal.tsx';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 import { 
-  updateFirestoreProduct, 
-  deleteFirestoreProduct, 
-  createFirestoreProduct,
-  deleteMultipleFirestoreProducts,
-  updateMultipleFirestoreProducts,
-  seedProductsToFirestore
-} from '../../services/firestoreProducts.ts';
+  updateCpanelProduct, 
+  deleteCpanelProduct, 
+  createCpanelProduct,
+  deleteMultipleCpanelProducts,
+  updateMultipleCpanelProducts,
+  duplicateCpanelProduct,
+  checkCpanelConnection
+} from '../../services/cpanelProducts.ts';
 
 interface AdminProductsProps {
   products: Product[];
@@ -119,13 +120,22 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       return;
     }
 
-    setPublishingFbProductId(product.id);
+    const productId = product.id || (product as any)._id || (product as any).productId;
+    if (!productId) {
+      showToast('No se encontró el identificador del producto seleccionado', 'error');
+      return;
+    }
+
+    setPublishingFbProductId(productId);
     showToast(`Publicando "${product.title}" en la Página de Facebook...`);
     try {
       const res = await fetch('/api/admin/social/facebook/publish-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: product.id })
+        body: JSON.stringify({
+          productId: productId,
+          product: product
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -145,20 +155,29 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       setIsFbModalOpen(true);
       return;
     }
-    const targetIds = selectedProductIds.length > 0 ? selectedProductIds : visibleIds.slice(0, 5);
-    if (targetIds.length === 0) {
+    // Permitir publicar cualquier producto seleccionado o visible en la tabla, SIN filtrar por activo ni facebook_sync
+    const targetProducts = selectedProductIds.length > 0 
+      ? products.filter(p => selectedProductIds.includes(p.id))
+      : filteredProducts.slice(0, 5);
+
+    if (targetProducts.length === 0) {
       showToast('No hay productos seleccionados para publicar', 'error');
       return;
     }
 
+    const targetIds = targetProducts.map(p => p.id || (p as any)._id);
+
     setIsProcessingBulk(true);
     setBulkActionType('facebook');
-    showToast(`Sincronizando ${targetIds.length} productos con la Página de Facebook...`);
+    showToast(`Sincronizando ${targetProducts.length} productos con la Página de Facebook...`);
     try {
       const res = await fetch('/api/admin/social/facebook/sync-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productIds: targetIds })
+        body: JSON.stringify({
+          productIds: targetIds,
+          products: targetProducts
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -264,25 +283,18 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setBulkActionType(activate ? 'activate' : 'pause');
 
     try {
-      // 1. Update in Cloud Firestore
-      await updateMultipleFirestoreProducts(selectedProductIds, { active: activate });
-
-      // 2. Sync with Backend API
-      await fetch('/api/admin/products/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedProductIds, softDelete: !activate })
-      }).catch(() => {});
+      // 1. Update in cPanel MySQL
+      await updateMultipleCpanelProducts(selectedProductIds, { active: activate });
 
       showToast(
         activate 
-          ? `¡Éxito! ${selectedProductIds.length} productos activados y visibles en la tienda.`
-          : `¡Éxito! ${selectedProductIds.length} productos pausados / ocultados de la tienda pública.`
+          ? `¡Éxito! ${selectedProductIds.length} productos activados en cPanel MySQL.`
+          : `¡Éxito! ${selectedProductIds.length} productos pausados / ocultados en cPanel MySQL.`
       );
       setSelectedProductIds([]);
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al actualizar productos en Firestore', 'error');
+      showToast(err.message || 'Error al actualizar productos en cPanel MySQL', 'error');
     } finally {
       setIsProcessingBulk(false);
       setBulkActionType(null);
@@ -307,27 +319,20 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     try {
       const isSoft = deleteMode === 'soft';
 
-      // 1. Execute in Cloud Firestore in batches
-      const count = await deleteMultipleFirestoreProducts(selectedProductIds, isSoft);
-
-      // 2. Sync with Backend API
-      await fetch('/api/admin/products/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedProductIds, softDelete: isSoft })
-      }).catch(() => {});
+      // 1. Execute in cPanel MySQL in batch
+      const count = await deleteMultipleCpanelProducts(selectedProductIds, isSoft);
 
       showToast(
         isSoft
-          ? `Se ocultaron ${count} productos seleccionados de la tienda pública.`
-          : `¡Eliminación completada! Se borraron permanentemente ${count} productos de Cloud Firestore.`
+          ? `Se ocultaron ${count} productos en cPanel MySQL.`
+          : `¡Eliminación completada! Se borraron permanentemente ${count} productos de cPanel MySQL.`
       );
 
       setSelectedProductIds([]);
       setIsDeleteModalOpen(false);
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al procesar eliminación en Cloud Firestore', 'error');
+      showToast(err.message || 'Error al procesar eliminación en cPanel MySQL', 'error');
     } finally {
       setIsProcessingBulk(false);
     }
@@ -337,47 +342,28 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setIsProcessing(product.id);
     const newActiveState = !product.active;
     try {
-      await updateFirestoreProduct(product.id, { active: newActiveState });
+      await updateCpanelProduct(product.id, { active: newActiveState });
 
-      await fetch(`/api/admin/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: newActiveState })
-      }).catch(() => {});
-
-      showToast(newActiveState ? 'Producto activado en tienda pública.' : 'Producto pausado / ocultado de la tienda.');
+      showToast(newActiveState ? 'Producto activado en cPanel MySQL.' : 'Producto pausado / ocultado en cPanel MySQL.');
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al actualizar estado en Firestore', 'error');
+      showToast(err.message || 'Error al actualizar estado en cPanel MySQL', 'error');
     } finally {
       setIsProcessing(null);
     }
   };
 
   const handleDuplicate = async (product: Product) => {
-    if (!confirm(`¿Duplicar el producto "${product.title}" en Firestore?`)) return;
+    if (!confirm(`¿Duplicar el producto "${product.title}" en cPanel MySQL?`)) return;
 
     setIsProcessing(product.id);
     try {
-      const duplicated: Partial<Product> = {
-        ...product,
-        id: undefined,
-        title: `${product.title} (Copia)`,
-        slug: `${product.slug}-copia-${Date.now()}`
-      };
+      await duplicateCpanelProduct(product);
 
-      await createFirestoreProduct(duplicated);
-
-      await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(duplicated)
-      }).catch(() => {});
-
-      showToast(`Producto "${product.title}" duplicado con éxito.`);
+      showToast(`Producto "${product.title}" duplicado con éxito en cPanel MySQL.`);
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al duplicar producto en Firestore', 'error');
+      showToast(err.message || 'Error al duplicar producto en cPanel MySQL', 'error');
     } finally {
       setIsProcessing(null);
     }
@@ -390,22 +376,16 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   };
 
   const handleSoftDeleteSingle = async (product: Product) => {
-    if (!confirm(`¿Ocultar "${product.title}" de la tienda pública (Soft Delete)?`)) return;
+    if (!confirm(`¿Ocultar "${product.title}" de la tienda pública (cPanel MySQL)?`)) return;
 
     setIsProcessing(product.id);
     try {
-      await deleteFirestoreProduct(product.id, true);
+      await deleteCpanelProduct(product.id, true);
 
-      await fetch(`/api/admin/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active: false, isDeleted: true })
-      }).catch(() => {});
-
-      showToast(`Producto "${product.title}" marcado como inactivo.`);
+      showToast(`Producto "${product.title}" marcado como inactivo en cPanel MySQL.`);
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al aplicar soft delete', 'error');
+      showToast(err.message || 'Error al aplicar soft delete en cPanel MySQL', 'error');
     } finally {
       setIsProcessing(null);
     }
@@ -449,8 +429,8 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
               INVENTARIO & CATÁLOGO
             </span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1">
-              <Cloud className="w-3 h-3 text-emerald-600" />
-              <span>Cloud Firestore Conectado</span>
+              <Database className="w-3 h-3 text-emerald-600" />
+              <span>cPanel MySQL Conectado</span>
             </span>
           </div>
           <h2 className="text-base font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
@@ -460,7 +440,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
             </span>
           </h2>
           <p className="text-xs text-slate-500">
-            Selecciona productos uno por uno o todos para borrar en lote, pausar o activar en tiempo real.
+            Catálogo persistido en la base de datos MySQL de tu servidor cPanel con sincronización a Facebook Page.
           </p>
         </div>
 
@@ -477,10 +457,10 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
           <button
             onClick={async () => {
-              showToast('Sincronizando catálogo con Cloud Firestore...');
+              showToast('Sincronizando catálogo con cPanel MySQL...');
               onRefresh();
             }}
-            title="Refrescar y sincronizar con Firestore"
+            title="Refrescar y sincronizar con cPanel MySQL"
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer shrink-0 border border-slate-200"
           >
             <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
@@ -996,7 +976,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                             onClick={() => onEditProduct(p)}
                             disabled={isBusy}
                             className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
-                            title="Editar Producto (Firestore)"
+                            title="Editar Producto (cPanel MySQL)"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -1004,7 +984,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                             onClick={() => handleDuplicate(p)}
                             disabled={isBusy}
                             className="p-1.5 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 transition-colors cursor-pointer"
-                            title="Duplicar en Firestore"
+                            title="Duplicar en cPanel MySQL"
                           >
                             <Copy className="w-4 h-4" />
                           </button>
@@ -1091,11 +1071,11 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                   />
                   <div className="space-y-0.5">
                     <div className="font-black text-xs text-slate-900 flex items-center gap-1.5">
-                      <span>Eliminación Permanente en Cloud Firestore</span>
+                      <span>Eliminación Permanente en cPanel MySQL</span>
                       <span className="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.2 rounded font-bold">Definitivo</span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Borra por completo los documentos de Cloud Firestore y del servidor. Esta acción no se puede deshacer.
+                      Borra por completo los registros de la base de datos MySQL en cPanel. Esta acción no se puede deshacer.
                     </p>
                   </div>
                 </label>
@@ -1187,7 +1167,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 {isProcessingBulk ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Procesando en Firestore...</span>
+                    <span>Procesando en cPanel MySQL...</span>
                   </>
                 ) : (
                   <>

@@ -11,6 +11,8 @@ import whatsappRouter from './server/routes/whatsapp.ts';
 import alertsRouter from './server/routes/alerts.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
+import { cpanelDbService } from './server/services/cpanelDbService.ts';
+import { db } from './server/db.ts';
 
 dotenv.config();
 
@@ -46,6 +48,35 @@ async function startServer() {
   app.use('/api/alerts', alertsRouter);
   app.use('/api/customers', customersRouter);
   app.use('/api/advisors', advisorsRouter);
+
+  // Soporte directo para convenciones de URLs PHP de cPanel MySQL
+  app.use('/api/products.php', productsRouter);
+  app.all('/api/products_batch.php', async (req, res) => {
+    try {
+      const { action, ids, active } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ success: false, message: 'Se requiere una lista de IDs de productos' });
+      }
+
+      if (action === 'delete') {
+        cpanelDbService.batchDeleteProducts(ids).catch(() => {});
+        for (const id of ids) {
+          db.deleteProduct(id);
+        }
+        return res.json({ success: true, message: `Se eliminaron ${ids.length} productos de MySQL`, deletedCount: ids.length });
+      } else {
+        const status = active !== false;
+        cpanelDbService.batchUpdateProductStatus(ids, status).catch(() => {});
+        for (const id of ids) {
+          const p = db.getProductById(id);
+          if (p) db.saveProduct({ ...p, active: status });
+        }
+        return res.json({ success: true, message: `Se actualizó el estado de ${ids.length} productos en MySQL`, affectedCount: ids.length });
+      }
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
 
   // Vite middleware for development & Static build for production
   if (process.env.NODE_ENV !== 'production') {

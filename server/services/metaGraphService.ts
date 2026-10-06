@@ -283,23 +283,36 @@ export class MetaGraphService {
     }
 
     try {
-      // 1. Consultar metadatos de la página
-      const pageEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}?fields=id,name,category,link,verification_status,picture{url}&access_token=${encodeURIComponent(accessToken)}`;
-      const pageRes = await fetch(pageEndpoint);
+      // 1. Consultar metadatos de la página con timeout de 4 segundos
+      const pageEndpoint = `${this.apiBase}/${encodeURIComponent(pageId.trim())}?fields=id,name,category,link,verification_status,picture{url}&access_token=${encodeURIComponent(accessToken.trim())}`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+      const pageRes = await fetch(pageEndpoint, {
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeoutId));
+
       const pageData = await pageRes.json();
 
       if (pageData?.error) {
         let hint = '';
         if (pageData.error.code === 190) {
-          hint = 'Token expirado o inválido (Error 190). Por favor genera un nuevo Page Access Token permanente.';
+          if (String(pageData.error.message).includes('decrypted')) {
+            hint = 'El token ingresado no pudo ser descifrado por Meta. Copia el token completo de inicio a fin desde Meta Developers (sin omitir caracteres).';
+          } else {
+            hint = 'Token expirado o inválido (Error 190). Por favor genera un nuevo Page Access Token permanente en Meta Developers o Meta Business Suite.';
+          }
         } else if (pageData.error.code === 100) {
           hint = 'El Page ID no existe o el token no tiene acceso a esta página.';
+        } else if (pageData.error.code === 200 || pageData.error.code === 10) {
+          hint = 'Permisos insuficientes. El token debe incluir los permisos pages_manage_posts y pages_read_engagement.';
         }
 
         return {
           connected: false,
           validToken: false,
-          message: `Error al validar con Meta Graph API: ${pageData.error.message}`,
+          message: `Error de validación Meta Graph API: ${pageData.error.message}`,
           error: hint || pageData.error.message
         };
       }
@@ -321,11 +334,12 @@ export class MetaGraphService {
         message: `✅ Conexión establecida con éxito con la página oficial "${pageName}" (ID: ${pageId}).`
       };
     } catch (err: any) {
+      const isAbort = err.name === 'AbortError' || String(err.message).includes('aborted');
       return {
         connected: false,
         validToken: false,
-        message: `No se pudo conectar a los servidores de Meta Graph API: ${err.message}`,
-        error: err.message
+        message: isAbort ? 'Tiempo de espera agotado al conectar con Meta Graph API (más de 4s).' : `No se pudo conectar a los servidores de Meta Graph API: ${err.message}`,
+        error: isAbort ? 'Los servidores de Facebook tardaron demasiado en responder. La configuración se guardará de todas formas.' : err.message
       };
     }
   }

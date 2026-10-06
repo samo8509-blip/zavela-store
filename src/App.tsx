@@ -57,7 +57,7 @@ import { useProductTracker } from './hooks/useProductTracker.ts';
 import { useLuckyWheelTrigger } from './hooks/useLuckyWheelTrigger.ts';
 import { useGamificationConfig } from './hooks/useGamificationConfig.ts';
 import { ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
-import { subscribeToFirestoreProducts, getFirestoreProducts } from './services/firestoreProducts.ts';
+import { getCpanelProducts } from './services/cpanelProducts.ts';
 import { subscribeToFirestoreSettings, getFirestoreSettings, saveFirestoreSettings } from './services/firestoreSettings.ts';
 import { ExclusividadZavela } from './components/ExclusividadZavela.tsx';
 import { CustomSubpageView } from './components/CustomSubpageView.tsx';
@@ -259,16 +259,16 @@ export default function App() {
   // Fetch Initial Store Data and Setup Firestore Real-time Listener
   const loadStoreData = async () => {
     try {
-      const [firestoreProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
-        getFirestoreProducts(true).catch(() => null),
+      const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
+        getCpanelProducts(true).catch(() => null),
         fetch('/api/products/categories').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/settings').then(r => r.json()).catch(() => ({ success: false })),
         getFirestoreSettings().catch(() => null),
         fetch('/api/orders').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
-      if (firestoreProds !== null && Array.isArray(firestoreProds)) {
-        setProducts(firestoreProds);
+      if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+        setProducts(cpanelProds);
       } else {
         const prodRes = await fetch('/api/products').then(r => r.json()).catch(() => ({ success: false }));
         if (prodRes.success && Array.isArray(prodRes.data)) {
@@ -295,20 +295,6 @@ export default function App() {
   useEffect(() => {
     loadStoreData();
 
-    // Suscripción en tiempo real a Cloud Firestore para la vista pública (solo productos activos)
-    const unsubscribeProducts = subscribeToFirestoreProducts(
-      (firestoreActiveProducts) => {
-        if (Array.isArray(firestoreActiveProducts)) {
-          setProducts(firestoreActiveProducts);
-          setIsLoadingProducts(false);
-        }
-      },
-      (error) => {
-        console.warn('Firestore realtime listener falló:', error);
-      },
-      true // onlyActive: true para la tienda pública de clientes
-    );
-
     // Suscripción en tiempo real a configuraciones de la tienda (WhatsApp y AI Agent)
     const unsubscribeSettings = subscribeToFirestoreSettings(
       (firestoreUpdatedSettings) => {
@@ -322,7 +308,6 @@ export default function App() {
     );
 
     return () => {
-      unsubscribeProducts();
       unsubscribeSettings();
     };
   }, []);

@@ -264,7 +264,11 @@ router.put('/products/:id', async (req, res) => {
       socialPost = db.publishSocialPost({ productId: saved.id });
     }
 
-    if (body.publishToFacebook === true) {
+    const fbConfig = metaGraphService.getFacebookConfig();
+    const shouldPublishToFb = body.publishToFacebook === true || 
+      (body.publishToFacebook !== false && body.publishToFacebook !== 'false' && fbConfig.connected && fbConfig.autoPostEnabled);
+
+    if (shouldPublishToFb) {
       try {
         console.log(`[Facebook Sync v26.0] Publicando actualización de "${saved.title}" en Facebook Page...`);
         facebookSync = await metaGraphService.publishProductToFacebook(saved);
@@ -293,6 +297,10 @@ router.put('/products/:id', async (req, res) => {
 router.delete('/products/:id', (req, res) => {
   try {
     const deleted = db.deleteProduct(req.params.id);
+    cpanelDbService.deleteProduct(req.params.id).catch(err => {
+      console.warn('[cPanel Product Delete Sync Warning]:', err.message);
+    });
+
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
@@ -300,7 +308,7 @@ router.delete('/products/:id', (req, res) => {
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: 'Producto Eliminado',
-      details: `Producto con ID ${req.params.id} fue eliminado del inventario.`,
+      details: `Producto con ID ${req.params.id} fue eliminado del inventario (sincronizado con cPanel MySQL).`,
       status: 'info'
     });
 
@@ -315,6 +323,13 @@ router.post('/products/bulk-delete', (req, res) => {
     const { ids, softDelete } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, message: 'Se requiere una lista de IDs de productos' });
+    }
+
+    // Sincronizar en cPanel MySQL
+    if (softDelete) {
+      cpanelDbService.batchUpdateProductStatus(ids, false).catch(err => console.warn('[cPanel Batch Soft Delete]:', err));
+    } else {
+      cpanelDbService.batchDeleteProducts(ids).catch(err => console.warn('[cPanel Batch Delete]:', err));
     }
 
     let count = 0;
@@ -2000,17 +2015,68 @@ router.post('/social/facebook/test-post', async (req, res) => {
 // POST /api/admin/social/facebook/publish-product - Publicar producto específico en la Página de Facebook
 router.post('/social/facebook/publish-product', async (req, res) => {
   try {
-    const { productId, customCaption } = req.body;
-    if (!productId) {
-      return res.status(400).json({ success: false, message: 'El ID del producto es requerido' });
+    const { productId, product: productPayload, customCaption } = req.body;
+
+    let targetProduct: Product | undefined;
+
+    // 1. Si el cliente envió el objeto completo del producto directamente (desde el formulario o tabla)
+    if (productPayload && typeof productPayload === 'object' && productPayload.title) {
+      targetProduct = {
+        id: productPayload.id || productId || `prod-${Date.now()}`,
+        title: productPayload.title,
+        slug: productPayload.slug || (productPayload.title ? productPayload.title.toLowerCase().replace(/[^a-z0-9]/g, '-') : `prod-${Date.now()}`),
+        description: productPayload.description || '',
+        shortDescription: productPayload.shortDescription || '',
+        price: Number(productPayload.price) || 0,
+        costPrice: Number(productPayload.costPrice) || 0,
+        compareAtPrice: Number(productPayload.compareAtPrice) || (Number(productPayload.price) ? Number(productPayload.price) + 20000 : 0),
+        discountPercentage: Number(productPayload.discountPercentage) || 0,
+        marginAmount: Number(productPayload.marginAmount) || 0,
+        marginPercentage: Number(productPayload.marginPercentage) || 0,
+        stock: Number(productPayload.stock) || 0,
+        active: productPayload.active !== false,
+        featured: Boolean(productPayload.featured),
+        images: Array.isArray(productPayload.images) && productPayload.images.length > 0
+          ? productPayload.images
+          : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+        warrantyInfo: productPayload.warrantyInfo || '30 días de garantía oficial Zavela Store.',
+        tags: Array.isArray(productPayload.tags) ? productPayload.tags : ['tendencia', 'calidad'],
+        weightKg: Number(productPayload.weightKg) || 0.5,
+        categoryId: productPayload.categoryId || 'cat-general',
+        categoryName: productPayload.categoryName || 'General',
+        warehouseCity: productPayload.warehouseCity || 'Bogotá D.C.',
+        brand: productPayload.brand || 'Zavela Store',
+        dropi_product_id: productPayload.dropi_product_id || '',
+        variants: Array.isArray(productPayload.variants) ? productPayload.variants : [],
+        createdAt: productPayload.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Guardar o actualizar en db local para consistencia en futuras consultas
+      try {
+        db.saveProduct(targetProduct);
+      } catch (e) {
+        console.warn('[Social FB Sync] No se pudo guardar en local DB:', e);
+      }
+    } else if (productId) {
+      // 2. Buscar por ID en la base de datos local
+      targetProduct = db.getProductById(productId);
+
+      // Búsqueda alternativa por slug o match parcial si no coincide directamente
+      if (!targetProduct) {
+        const all = db.getProducts();
+        targetProduct = all.find(p => p.id === productId || p.slug === productId);
+      }
     }
 
-    const product = db.getProductById(productId);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+    if (!targetProduct) {
+      return res.status(404).json({
+        success: false,
+        message: `Producto no encontrado en el sistema. Asegúrate de enviar los datos del producto o guardarlo previamente.`
+      });
     }
 
-    const result = await metaGraphService.publishProductToFacebook(product, { customCaption });
+    const result = await metaGraphService.publishProductToFacebook(targetProduct, { customCaption });
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -2020,14 +2086,59 @@ router.post('/social/facebook/publish-product', async (req, res) => {
 // POST /api/admin/social/facebook/sync-all - Publicar catálogo completo o seleccionados en Facebook
 router.post('/social/facebook/sync-all', async (req, res) => {
   try {
-    const { productIds } = req.body;
-    const allProducts = db.getProducts({ onlyActive: true });
-    const targetProducts = Array.isArray(productIds) && productIds.length > 0
-      ? allProducts.filter(p => productIds.includes(p.id))
-      : allProducts.slice(0, 5); // Lote de hasta 5 para evitar rate limit de Meta
+    const { productIds, products: productsPayload } = req.body;
+
+    let targetProducts: Product[] = [];
+
+    // 1. Si el cliente envió una lista de productos completos directamente (desde la tabla del catálogo)
+    if (Array.isArray(productsPayload) && productsPayload.length > 0) {
+      targetProducts = productsPayload.map((p: any) => ({
+        id: p.id || `prod-${Date.now()}`,
+        title: p.title || 'Producto Zavela Store',
+        slug: p.slug || (p.title ? p.title.toLowerCase().replace(/[^a-z0-9]/g, '-') : `prod-${Date.now()}`),
+        description: p.description || '',
+        shortDescription: p.shortDescription || '',
+        price: Number(p.price) || 0,
+        costPrice: Number(p.costPrice) || 0,
+        compareAtPrice: Number(p.compareAtPrice) || (Number(p.price) ? Number(p.price) + 20000 : 0),
+        discountPercentage: Number(p.discountPercentage) || 0,
+        marginAmount: Number(p.marginAmount) || 0,
+        marginPercentage: Number(p.marginPercentage) || 0,
+        stock: Number(p.stock) || 0,
+        active: p.active !== false,
+        featured: Boolean(p.featured),
+        images: Array.isArray(p.images) && p.images.length > 0 ? p.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+        warrantyInfo: p.warrantyInfo || '30 días de garantía oficial.',
+        tags: Array.isArray(p.tags) ? p.tags : ['tendencia'],
+        weightKg: Number(p.weightKg) || 0.5,
+        categoryId: p.categoryId || 'cat-general',
+        categoryName: p.categoryName || 'General',
+        warehouseCity: p.warehouseCity || 'Bogotá D.C.',
+        brand: p.brand || 'Zavela Store',
+        dropi_product_id: p.dropi_product_id || '',
+        variants: Array.isArray(p.variants) ? p.variants : [],
+        createdAt: p.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      // Sincronizar en DB local
+      targetProducts.forEach(prod => {
+        try {
+          db.saveProduct(prod);
+        } catch {}
+      });
+    } else {
+      // 2. Si solo envió IDs o no envió lista, obtener del catálogo local (sin filtrar por activos para permitir cualquier producto seleccionado)
+      const allProducts = db.getProducts();
+      if (Array.isArray(productIds) && productIds.length > 0) {
+        targetProducts = allProducts.filter(p => productIds.includes(p.id) || productIds.includes(p.slug));
+      } else {
+        targetProducts = allProducts.slice(0, 5);
+      }
+    }
 
     if (targetProducts.length === 0) {
-      return res.status(400).json({ success: false, message: 'No hay productos activos para sincronizar' });
+      return res.status(400).json({ success: false, message: 'No hay productos disponibles para sincronizar con Facebook' });
     }
 
     const results = [];
@@ -2038,7 +2149,7 @@ router.post('/social/facebook/sync-all', async (req, res) => {
         title: prod.title,
         ...resPub
       });
-      // Breve pausa para respetar rate limit
+      // Breve pausa para respetar rate limit de Meta
       await new Promise(r => setTimeout(r, 600));
     }
 

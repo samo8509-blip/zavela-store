@@ -22,7 +22,7 @@ import { CartItem, CheckoutFormData, Order, ActiveDiscountCoupon } from '../type
 import { COLOMBIA_DEPARTMENTS, getDaneCode } from '../data/colombiaGeo.ts';
 import { calculateShippingCost, SHIPPING_ZONES, ShippingCalculationResult } from '../data/shippingRates.ts';
 import { formatCOP } from '../utils/formatters.ts';
-import { decrementFirestoreProductStock } from '../services/firestoreProducts.ts';
+import { decrementCpanelProductStock } from '../services/cpanelProducts.ts';
 import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 
 interface CheckoutModalProps {
@@ -236,17 +236,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
-      // Descontar inventario atómicamente en Cloud Firestore en tiempo real
+      // Descontar inventario en cPanel MySQL
       try {
-        await decrementFirestoreProductStock(
-          cartItems.map(item => ({
-            productId: item.product.id,
-            variantId: item.variant?.id,
-            quantity: item.quantity
-          }))
-        );
+        for (const item of cartItems) {
+          await decrementCpanelProductStock(item.product.id, item.quantity);
+        }
       } catch (stockErr) {
-        console.warn('Advertencia al sincronizar deducción de inventario en Firestore:', stockErr);
+        console.warn('Advertencia al sincronizar deducción de inventario en cPanel MySQL:', stockErr);
       }
 
       // Notificar al sistema de alertas de WhatsApp en frontend

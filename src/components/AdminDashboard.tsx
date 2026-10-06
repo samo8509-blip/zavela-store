@@ -25,11 +25,9 @@ import {
   AdminStats 
 } from '../types/index.ts';
 import { 
-  createFirestoreProduct, 
-  updateFirestoreProduct,
-  getFirestoreProducts,
-  subscribeToFirestoreProducts
-} from '../services/firestoreProducts.ts';
+  getCpanelProducts,
+  saveCpanelProduct
+} from '../services/cpanelProducts.ts';
 import { 
   getFirestoreSettings, 
   saveFirestoreSettings 
@@ -172,23 +170,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchAdminData = async () => {
     try {
-      // 1. Cargar datos del backend y Firestore en paralelo
-      const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, firestoreProds, firestoreSet] = await Promise.all([
+      // 1. Cargar datos del backend y cPanel MySQL en paralelo
+      const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
         fetch('/api/admin/metrics').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/products').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/orders').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/customers').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/categories').then(r => r.json()).catch(() => ({ success: false })),
         fetch('/api/admin/settings').then(r => r.json()).catch(() => ({ success: false })),
-        getFirestoreProducts(false).catch(() => null),
+        getCpanelProducts(false).catch(() => null),
         getFirestoreSettings().catch(() => null)
       ]);
 
       if (statsRes.success) setStats(statsRes.data);
       
-      // Priorizar datos reales de Firestore
-      if (firestoreProds !== null && Array.isArray(firestoreProds)) {
-        setProducts(firestoreProds);
+      // Priorizar datos de cPanel MySQL
+      if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+        setProducts(cpanelProds);
       } else if (productsRes.success && Array.isArray(productsRes.data)) {
         setProducts(productsRes.data);
       }
@@ -215,23 +213,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     fetchAdminData();
-
-    // Suscribirse a cambios en Firestore en tiempo real para el catálogo
-    const unsubscribeProducts = subscribeToFirestoreProducts(
-      (firestoreProds) => {
-        if (Array.isArray(firestoreProds)) {
-          setProducts(firestoreProds);
-        }
-      },
-      (error) => {
-        console.warn('Firestore admin realtime listener warning:', error);
-      },
-      false // false = mostrar todos (activos e inactivos) en el panel de administración
-    );
-
-    return () => {
-      unsubscribeProducts();
-    };
   }, []);
 
   const handleSaveSettings = async (updatedSettings: Partial<StoreSettings>) => {
@@ -258,37 +239,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     try {
       const isEdit = Boolean(productData.id);
 
-      // 1. Guardar o Actualizar directamente en Cloud Firestore
-      if (isEdit && productData.id) {
-        await updateFirestoreProduct(productData.id, productData);
-      } else {
-        await createFirestoreProduct(productData);
+      // 1. Guardar o Actualizar directamente en cPanel MySQL
+      const savedProductResult = await saveCpanelProduct(productData);
+
+      const finalProductId = savedProductResult?.id || productData.id || `prod-${Date.now()}`;
+      const completeSavedProduct = {
+        ...productData,
+        ...savedProductResult,
+        id: finalProductId,
+        publishToFacebook: productData.publishToFacebook !== false
+      };
+
+      // 2. Si el toggle 'Publicar en Facebook al Guardar' está activo, asegurar publicación inmediata tras confirmación de MySQL
+      let fbSyncResult: any = null;
+
+      if (productData.publishToFacebook !== false) {
+        try {
+          const fbRes = await fetch('/api/admin/social/facebook/publish-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              productId: finalProductId,
+              product: completeSavedProduct
+            })
+          });
+          const fbData = await fbRes.json().catch(() => null);
+          if (fbData && (fbData.success || fbData.postId)) {
+            fbSyncResult = fbData;
+          }
+        } catch (e) {
+          console.warn('[Facebook Auto-Publish Error]:', e);
+        }
       }
-
-      // 2. Sincronizar con API backend
-      const url = isEdit ? `/api/admin/products/${productData.id}` : '/api/admin/products';
-      const method = isEdit ? 'PUT' : 'POST';
-
-      const backendRes = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productData)
-      }).catch(() => null);
-
-      const backendData = backendRes ? await backendRes.json().catch(() => null) : null;
 
       await fetchAdminData();
       setEditingProduct(undefined);
 
-      if (backendData?.facebookSync?.success) {
-        showToast(`✅ ${isEdit ? 'Producto modificado' : 'Producto creado'} y publicado en Facebook (ID: ${backendData.facebookSync.postId})`);
-      } else if (backendData?.facebookSync && !backendData.facebookSync.success) {
-        showToast(`⚠️ Guardado en tienda, pero Facebook reportó: ${backendData.facebookSync.message}`);
+      if (fbSyncResult?.success) {
+        showToast(`✅ ${isEdit ? 'Producto modificado' : 'Producto creado'} y publicado en Facebook (ID: ${fbSyncResult.postId})`);
+      } else if (fbSyncResult && !fbSyncResult.success) {
+        showToast(`⚠️ Guardado en cPanel MySQL, pero Facebook reportó: ${fbSyncResult.message}`);
       } else {
-        showToast(isEdit ? 'Producto modificado en Firestore exitosamente.' : 'Producto creado y persistido en Firestore.');
+        showToast(isEdit ? 'Producto modificado en cPanel MySQL exitosamente.' : 'Producto creado y persistido en cPanel MySQL.');
       }
     } catch (err: any) {
-      alert(err.message || 'Error al guardar producto en Firestore');
+      alert(err.message || 'Error al guardar producto en cPanel MySQL');
       throw err;
     }
   };
