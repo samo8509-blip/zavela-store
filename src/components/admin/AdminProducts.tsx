@@ -134,7 +134,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: productId,
-          product: product
+          id: productId,
+          product: product,
+          ...product
         })
       });
       const data = await res.json();

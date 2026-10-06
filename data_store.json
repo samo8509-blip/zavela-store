@@ -265,6 +265,74 @@
   ],
   "products": [
     {
+      "id": "prod-nuevo",
+      "title": "Producto Zavela Store Colombia",
+      "slug": "producto-zavela-store-colombia",
+      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
+      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
+      "price": 89900,
+      "costPrice": 45000,
+      "compareAtPrice": 109900,
+      "discountPercentage": 20,
+      "marginAmount": 44900,
+      "marginPercentage": 100,
+      "stock": 20,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [
+        "tendencia",
+        "calidad",
+        "contraentrega"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-general",
+      "categoryName": "General",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "variants": [],
+      "createdAt": "2026-10-06T17:11:59.487Z",
+      "updatedAt": "2026-10-06T17:11:59.487Z"
+    },
+    {
+      "id": "prod-1791306714834",
+      "title": "Lampara Solar LED",
+      "slug": "lampara-solar-led",
+      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
+      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
+      "price": 89900,
+      "costPrice": 45000,
+      "compareAtPrice": 109900,
+      "discountPercentage": 20,
+      "marginAmount": 44900,
+      "marginPercentage": 100,
+      "stock": 20,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [
+        "tendencia",
+        "calidad",
+        "contraentrega"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-general",
+      "categoryName": "General",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "variants": [],
+      "createdAt": "2026-10-06T17:11:54.834Z",
+      "updatedAt": "2026-10-06T17:11:54.834Z"
+    },
+    {
       "id": "prod-1791305641853",
       "title": "Producto Test cPanel MySQL",
       "slug": "producto-test-cpanel-mysql",
@@ -315,7 +383,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-test",
@@ -335,7 +407,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791298191006",
@@ -355,7 +431,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791239662306",
@@ -375,7 +455,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "M3WZ3glzRWRGXyo0d3kj",
@@ -395,7 +479,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "FvLe8wOgTLGgpSu1coSS",
@@ -415,7 +503,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "7LIdeO4JdUIuOn4xHVS4",
@@ -435,7 +527,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "GdY5ZMjnTXsc2SH2YWVM",
@@ -581,7 +677,8 @@
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z"
+      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "dropi_product_id": ""
     },
     {
       "id": "prod-bolso-perla-rochy",
@@ -1869,7 +1966,7 @@
         "platform": "facebook",
         "connected": true,
         "accountName": "Zavela Store Colombia (Página Oficial)",
-        "pageId": "fb_page_109283746192",
+        "pageId": "1256955457511976",
         "accessToken": "EAAG...zavela_meta_token_active",
         "pixelId": "pixel_9847261520",
         "status": "connected",

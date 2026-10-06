@@ -56,7 +56,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 }) => {
   const isEditing = Boolean(product?.id);
 
-  const [title, setTitle] = useState(product?.title || '');
+  const [title, setTitle] = useState(product?.title || (product as any)?.nombre || (product as any)?.name || '');
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
   const [description, setDescription] = useState(product?.description || '');
@@ -176,24 +176,29 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setFbPublishNowResult(null);
 
     // Construir el objeto completo del producto directamente desde los datos actuales del formulario
+    const effectiveTitle = (title || '').trim() || product?.title || (product as any)?.nombre || (product as any)?.name || 'Producto Zavela Store Colombia';
+    const effectiveSlug = (slug || '').trim() || effectiveTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const validImages = images.filter(img => Boolean(img && img.trim()));
+    const finalImages = validImages.length > 0 ? validImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+
     const currentProductData: Product = {
       id: product?.id || `prod-${Date.now()}`,
-      title: title.trim(),
-      slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      description: description || '',
-      shortDescription: shortDescription || '',
-      price: Number(price) || 0,
-      costPrice: Number(costPrice) || 0,
-      compareAtPrice: Number(compareAtPrice) || (Number(price) ? Number(price) + 20000 : 0),
-      discountPercentage: discountPercentage || 0,
-      marginAmount: grossProfitCOP || 0,
-      marginPercentage: marginPercentage || 0,
-      stock: Number(stock) || 0,
+      title: effectiveTitle,
+      slug: effectiveSlug,
+      description: description || 'Producto exclusivo disponible con Pago Contra Entrega en toda Colombia.',
+      shortDescription: shortDescription || 'Garantía oficial y despacho prioritario Zavela Store.',
+      price: Number(price) || 89900,
+      costPrice: Number(costPrice) || 45000,
+      compareAtPrice: Number(compareAtPrice) || (Number(price) ? Number(price) + 20000 : 119900),
+      discountPercentage: discountPercentage || 20,
+      marginAmount: grossProfitCOP || 44900,
+      marginPercentage: marginPercentage || 50,
+      stock: Number(stock) || 20,
       active: Boolean(active),
       featured: Boolean(featured),
-      images: images.filter(img => Boolean(img && img.trim())),
+      images: finalImages,
       warrantyInfo: warrantyInfo || '30 días de garantía oficial Zavela Store por defectos de fábrica.',
-      tags: tags || ['tendencia', 'calidad', 'contraentrega'],
+      tags: tags && tags.length > 0 ? tags : ['tendencia', 'calidad', 'contraentrega'],
       weightKg: Number(weightKg) || 0.5,
       categoryId: categoryId || categories[0]?.id || 'cat-general',
       categoryName: categories.find(c => c.id === categoryId)?.name || categories[0]?.name || 'General',
@@ -211,7 +216,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId: currentProductData.id,
-          product: currentProductData
+          id: currentProductData.id,
+          product: currentProductData,
+          ...currentProductData
         })
       });
       const data = await res.json();

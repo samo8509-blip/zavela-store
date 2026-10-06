@@ -260,7 +260,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               productId: finalProductId,
-              product: completeSavedProduct
+              id: finalProductId,
+              product: completeSavedProduct,
+              ...completeSavedProduct
             })
           });
           const fbData = await fbRes.json().catch(() => null);
