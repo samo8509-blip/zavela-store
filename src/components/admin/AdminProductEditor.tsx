@@ -210,6 +210,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       updatedAt: new Date().toISOString()
     };
 
+    const localToken = localStorage.getItem('zavela_facebook_accessToken') || undefined;
+    const localPageId = localStorage.getItem('zavela_facebook_pageId') || undefined;
+
     try {
       const res = await fetch('/api/admin/social/facebook/publish-product', {
         method: 'POST',
@@ -217,6 +220,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         body: JSON.stringify({
           productId: currentProductData.id,
           id: currentProductData.id,
+          accessToken: localToken,
+          pageId: localPageId,
           product: currentProductData,
           ...currentProductData
         })
@@ -233,6 +238,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           success: false,
           message: `❌ Error de Facebook: ${data.message || 'Verifica permisos del token permanente'}`
         });
+        if (data.isMissingToken || data.errorCode === 190 || data.message?.includes('Token')) {
+          setIsFbModalOpen(true);
+        }
       }
     } catch (err: any) {
       setFbPublishNowResult({

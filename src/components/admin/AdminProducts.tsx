@@ -128,6 +128,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
     setPublishingFbProductId(productId);
     showToast(`Publicando "${product.title}" en la Página de Facebook...`);
+    const localToken = localStorage.getItem('zavela_facebook_accessToken') || undefined;
+    const localPageId = localStorage.getItem('zavela_facebook_pageId') || undefined;
+
     try {
       const res = await fetch('/api/admin/social/facebook/publish-product', {
         method: 'POST',
@@ -135,6 +138,8 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         body: JSON.stringify({
           productId: productId,
           id: productId,
+          accessToken: localToken,
+          pageId: localPageId,
           product: product,
           ...product
         })
@@ -144,6 +149,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         showToast(`✅ "${product.title}" publicado con éxito en Facebook (ID: ${data.postId})`);
       } else {
         showToast(`❌ Error de Facebook: ${data.message || 'Verifica permisos del token'}`, 'error');
+        if (data.isMissingToken || data.errorCode === 190 || data.message?.includes('Token')) {
+          setIsFbModalOpen(true);
+        }
       }
     } catch (err: any) {
       showToast(`Error de red al publicar en Facebook: ${err.message}`, 'error');
@@ -153,10 +161,6 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   };
 
   const handleBulkPublishToFacebook = async () => {
-    if (!fbConfig.connected) {
-      setIsFbModalOpen(true);
-      return;
-    }
     // Permitir publicar cualquier producto seleccionado o visible en la tabla, SIN filtrar por activo ni facebook_sync
     const targetProducts = selectedProductIds.length > 0 
       ? products.filter(p => selectedProductIds.includes(p.id))
@@ -168,6 +172,8 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     }
 
     const targetIds = targetProducts.map(p => p.id || (p as any)._id);
+    const localToken = localStorage.getItem('zavela_facebook_accessToken') || undefined;
+    const localPageId = localStorage.getItem('zavela_facebook_pageId') || undefined;
 
     setIsProcessingBulk(true);
     setBulkActionType('facebook');
@@ -178,7 +184,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productIds: targetIds,
-          products: targetProducts
+          products: targetProducts,
+          accessToken: localToken,
+          pageId: localPageId
         })
       });
       const data = await res.json();
@@ -186,6 +194,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         showToast(`✅ Sincronizados ${data.syncedCount} productos en tu Página de Facebook`);
       } else {
         showToast(`Error al sincronizar con Facebook: ${data.message}`, 'error');
+        if (data.isMissingToken || data.errorCode === 190 || data.message?.includes('Token')) {
+          setIsFbModalOpen(true);
+        }
       }
     } catch (err: any) {
       showToast(`Error de conexión con Facebook: ${err.message}`, 'error');

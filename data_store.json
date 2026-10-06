@@ -265,13 +265,37 @@
   ],
   "products": [
     {
+      "id": "9lqDy6BspF8Bn852tEK1",
+      "title": "Rebanador De Aguacate",
+      "slug": "rebanador-de-aguacate",
+      "description": "-Excelente cortador de vegetales Frutas y aguacates, 3 en 1 ligero y fácil de manejar, corte el aguacate con precisión, pero no corte la mano, cortar en rodajas limpias y precisas, aguacates, kiwis, melones, etc.\n-Ideal para un corte seguro y aprovechar todo el aguacate sin duda, es esencial en tu cocina, el mejor,cortador de aguacate, rebanador de aguacate, no puede faltar en su cocina ya sea ama de casa o un gran chef.\n-El cortador de aguacate es una herramienta, que retira la semilla fácilmente con su centro y corta la pulpa aprovechando todo su contenido, sin desperdiciar nada, como lo harías con una cuchara.\n- muchas herramientas de cocina son muy peligrosas, pero el cortador de aguacate 3 en 1 es seguro ya que no corta los dedos.\nCaracteristicas:\n* Hecho de plástico de grado alimenticio ecológico.\n* Rebanar tus aguacates forma segura y rápida\n* No sólo se usa para aguacate sino también para frutas y verduras.",
+      "shortDescription": "",
+      "price": 65000,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/719684/1710799082descarga.jpeg"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
+      "dropi_product_id": "",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
+    },
+    {
       "id": "prod-nuevo",
       "title": "Producto Zavela Store Colombia",
       "slug": "producto-zavela-store-colombia",
       "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
-      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
+      "shortDescription": "",
       "price": 89900,
-      "costPrice": 45000,
+      "costPrice": 0,
       "compareAtPrice": 109900,
       "discountPercentage": 20,
       "marginAmount": 44900,
@@ -283,29 +307,25 @@
         "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
       ],
       "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [
-        "tendencia",
-        "calidad",
-        "contraentrega"
-      ],
+      "tags": [],
       "weightKg": 0.5,
-      "categoryId": "cat-general",
-      "categoryName": "General",
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela Store",
-      "dropi_product_id": "",
       "variants": [],
-      "createdAt": "2026-10-06T17:11:59.487Z",
-      "updatedAt": "2026-10-06T17:11:59.487Z"
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
+      "dropi_product_id": ""
     },
     {
       "id": "prod-1791306714834",
       "title": "Lampara Solar LED",
       "slug": "lampara-solar-led",
       "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
-      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
+      "shortDescription": "",
       "price": 89900,
-      "costPrice": 45000,
+      "costPrice": 0,
       "compareAtPrice": 109900,
       "discountPercentage": 20,
       "marginAmount": 44900,
@@ -317,20 +337,16 @@
         "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
       ],
       "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [
-        "tendencia",
-        "calidad",
-        "contraentrega"
-      ],
+      "tags": [],
       "weightKg": 0.5,
-      "categoryId": "cat-general",
-      "categoryName": "General",
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela Store",
-      "dropi_product_id": "",
       "variants": [],
-      "createdAt": "2026-10-06T17:11:54.834Z",
-      "updatedAt": "2026-10-06T17:11:54.834Z"
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
+      "dropi_product_id": ""
     },
     {
       "id": "prod-1791305641853",
@@ -351,43 +367,46 @@
         "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
       ],
       "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [
-        "tendencia",
-        "calidad"
-      ],
+      "tags": [],
       "weightKg": 0.5,
-      "categoryId": "cat-general",
-      "categoryName": "General",
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela Store",
-      "dropi_product_id": "",
       "variants": [],
-      "createdAt": "2026-10-06T16:54:01.854Z",
-      "updatedAt": "2026-10-06T16:54:01.854Z"
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
+      "dropi_product_id": ""
     },
     {
       "id": "T5KW7A8J81gxcWQGEpIj",
       "title": "Lamparas Solares X4 Und Exteriores Calle",
       "slug": "lamparas-solares-x4-und-exteriores-calle",
       "description": "ransforma la iluminación de tus espacios exteriores con el Set x4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua. Estas lámparas LED de alta potencia están diseñadas para brindarte la máxima luminosidad y comodidad, con la posibilidad de ajustar los modos de iluminación desde el control remoto incluido. Ideales para cualquier condición climática, son resistentes al agua y se recargan automáticamente con la luz solar, ofreciendo una solución eficiente y sin necesidad de cables.\n¿Qué trae este Kit?\n- 4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua.\n- 4 controles remotos.\n- 8 chazos, 8 tornillos y 8 soportes de montaje con soportes ajustables para cada lámpara.\nBeneficios:\n- Energía solar: Las lámparas se recargan automáticamente con la luz del sol, eliminando la necesidad de cables y enchufes.\n- Control remoto: Ajusta fácilmente la intensidad y los modos de iluminación desde la distancia.\n- Resistente al agua: Ideales para cualquier clima, funcionando perfectamente bajo la lluvia y otras condiciones adversas.\n- Fácil instalación: Todo lo necesario para una instalación rápida y segura en paredes o superficies exteriores está incluido.\nEspecificaciones:\n- Medidas de cada lámpara: Alto 25,5 cm, Ancho 2,5 cm, Largo 11 cm.\n- Material: Plástico ABS resistente, duradero y adecuado para exteriores.\n- Brillo: Alta intensidad para una cobertura amplia de iluminación.\n- Modos de iluminación: 3 modos ajustables para adaptarse a diferentes necesidades de luz.\nOptimiza la seguridad y el confort de tus espacios exteriores con el Set x4 Lámparas Solares para Exterior con Control Remoto y Resistencia al Agua. ¡Compra tu set hoy mismo y disfruta de la tranquilidad y eficiencia que ofrecen estas lámparas solares!",
-      "shortDescription": "",
+      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
       "price": 180000,
-      "costPrice": 0,
+      "costPrice": 45000,
+      "compareAtPrice": 200000,
+      "discountPercentage": 20,
+      "marginAmount": 135000,
+      "marginPercentage": 300,
       "stock": 25,
       "active": true,
       "featured": false,
       "images": [
         "https://d39ru7awumhhs2.cloudfront.net/colombia/products/1840785/1749158736D_NQ_NP_967863-MCO85396177710_062025-O.webp"
       ],
+      "warrantyInfo": "30 días de garantía oficial",
       "tags": [],
+      "weightKg": 0.5,
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
-      "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": "",
+      "variants": [],
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:28.613Z"
     },
     {
       "id": "prod-test",
@@ -406,12 +425,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "prod-1791298191006",
@@ -430,12 +449,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "prod-1791239662306",
@@ -454,12 +473,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "M3WZ3glzRWRGXyo0d3kj",
@@ -478,12 +497,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "FvLe8wOgTLGgpSu1coSS",
@@ -502,12 +521,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "7LIdeO4JdUIuOn4xHVS4",
@@ -526,12 +545,12 @@
       "tags": [],
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
-      "dropi_product_id": "",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropi_product_id": ""
     },
     {
       "id": "GdY5ZMjnTXsc2SH2YWVM",
@@ -676,8 +695,8 @@
       "variants": [],
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
-      "createdAt": "2026-10-06T16:53:49.222Z",
-      "updatedAt": "2026-10-06T16:53:49.222Z",
+      "createdAt": "2026-10-06T19:20:16.184Z",
+      "updatedAt": "2026-10-06T19:20:16.184Z",
       "dropi_product_id": ""
     },
     {
@@ -1964,10 +1983,10 @@
     "connections": {
       "facebook": {
         "platform": "facebook",
-        "connected": true,
+        "connected": false,
         "accountName": "Zavela Store Colombia (Página Oficial)",
         "pageId": "1256955457511976",
-        "accessToken": "EAAG...zavela_meta_token_active",
+        "accessToken": "",
         "pixelId": "pixel_9847261520",
         "status": "connected",
         "lastSyncAt": "2026-08-28T12:24:49.105Z",

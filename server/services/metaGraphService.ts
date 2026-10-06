@@ -26,6 +26,16 @@ export interface MetaConnectionCheckResult {
   error?: string;
 }
 
+export function isPlaceholderToken(token?: string | null): boolean {
+  if (!token) return true;
+  const t = token.trim();
+  if (t.length < 30) return true;
+  if (t.includes('...')) return true;
+  if (t === 'EAAG...zavela_meta_token_active') return true;
+  if (t.startsWith('EAAG...')) return true;
+  return false;
+}
+
 export class MetaGraphService {
   private readonly apiBase = 'https://graph.facebook.com/v26.0';
 
@@ -38,9 +48,11 @@ export class MetaGraphService {
     const rawPageId = fbConn?.pageId || '';
     // Si contiene el placeholder 'fb_page_109283746192', mapear al ID real de la página 1256955457511976
     const effectivePageId = (!rawPageId || rawPageId.startsWith('fb_page_')) ? '1256955457511976' : rawPageId;
+    const isRealToken = !isPlaceholderToken(fbConn?.accessToken);
 
     return {
-      connected: Boolean(fbConn?.connected && effectivePageId && fbConn?.accessToken),
+      connected: Boolean(fbConn?.connected && effectivePageId && isRealToken),
+      hasPlaceholderToken: isPlaceholderToken(fbConn?.accessToken),
       pageId: effectivePageId,
       accessToken: fbConn?.accessToken || '',
       accountName: fbConn?.accountName || 'Zavela Store Colombia (Página Oficial)',
@@ -125,11 +137,12 @@ export class MetaGraphService {
     const pageId = options?.pageId || config.pageId;
     const accessToken = options?.accessToken || config.accessToken;
 
-    if (!pageId || !accessToken) {
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
       return {
         success: false,
-        message: 'No se ha configurado el Page ID o el Page Access Token permanente de Facebook. Ve a Configurar Facebook en el panel.',
-        technicalDetails: 'Faltan credenciales de Facebook en settings.connections.facebook (pageId o accessToken).'
+        errorCode: 190,
+        message: 'Debes ingresar tu Page Access Token permanente de Meta for Developers.',
+        technicalDetails: 'El token de Facebook actual no está configurado o es una plantilla de prueba ("EAAG..."). Haz clic en "Gestionar Conexión", pega tu Page Access Token permanente generado en Meta for Developers y presiona "Guardar Cambios".'
       };
     }
 
@@ -241,8 +254,11 @@ export class MetaGraphService {
         console.error('[MetaGraphService v26.0 Error]:', metaError);
 
         let troubleshooting = '';
-        if (metaError.code === 190) {
-          troubleshooting = 'El Token de Acceso de Página ha expirado o no es válido. Debes generar un Page Access Token permanente (System User o Extended Page Token) en Meta Developers.';
+        let displayMessage = `Error de Facebook Meta Graph API (${metaError.code}): ${metaError.message}`;
+
+        if (metaError.code === 190 || metaError.message?.toLowerCase().includes('postcard')) {
+          displayMessage = 'El Token de Facebook es inválido o ha expirado. Ve a "Gestionar Conexión" y pega tu Page Access Token permanente de Meta Developers.';
+          troubleshooting = 'Token expirado o inválido (Error 190). Ve a Meta Developers > Graph API Explorer, selecciona tu Fanpage, copia el Page Access Token permanente y guárdalo en "Gestionar Conexión".';
         } else if (metaError.code === 200 || metaError.code === 10) {
           troubleshooting = 'Permisos insuficientes en Facebook. Tu Page Access Token requiere los permisos: pages_manage_posts, pages_read_engagement y pages_show_list.';
         } else if (metaError.code === 100) {
@@ -254,7 +270,7 @@ export class MetaGraphService {
           errorCode: metaError.code,
           errorSubcode: metaError.error_subcode,
           errorType: metaError.type,
-          message: `Error de Facebook Meta Graph API (${metaError.code}): ${metaError.message}`,
+          message: displayMessage,
           technicalDetails: troubleshooting || metaError.message
         };
       }

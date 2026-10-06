@@ -5,7 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { approveOrderForDropi } from './orders.ts';
 import { sendSaleNotification, dispatchWhatsAppAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
-import { metaGraphService } from '../services/metaGraphService.ts';
+import { metaGraphService, isPlaceholderToken } from '../services/metaGraphService.ts';
 
 const router = Router();
 
@@ -2222,7 +2222,36 @@ router.post('/social/facebook/publish-product', async (req, res) => {
       }
     }
 
-    const result = await metaGraphService.publishProductToFacebook(targetProduct, { customCaption });
+    const clientAccessToken = rawBody.accessToken || req.headers['x-facebook-access-token'];
+    const clientPageId = rawBody.pageId;
+
+    if (clientAccessToken && !isPlaceholderToken(clientAccessToken)) {
+      try {
+        const currentSettings = db.getSocialMarketingSettings();
+        db.saveSocialMarketingSettings({
+          connections: {
+            ...currentSettings.connections,
+            facebook: {
+              ...currentSettings.connections.facebook,
+              platform: 'facebook',
+              accessToken: String(clientAccessToken).trim(),
+              pageId: clientPageId ? String(clientPageId).trim() : (currentSettings.connections.facebook?.pageId || '1256955457511976'),
+              connected: true,
+              status: 'connected',
+              lastSyncAt: new Date().toISOString()
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('Could not persist client facebook token:', err);
+      }
+    }
+
+    const result = await metaGraphService.publishProductToFacebook(targetProduct, {
+      customCaption,
+      accessToken: clientAccessToken,
+      pageId: clientPageId
+    });
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -2232,7 +2261,29 @@ router.post('/social/facebook/publish-product', async (req, res) => {
 // POST /api/admin/social/facebook/sync-all - Publicar catálogo completo o seleccionados en Facebook
 router.post('/social/facebook/sync-all', async (req, res) => {
   try {
-    const { productIds, products: productsPayload } = req.body;
+    const { productIds, products: productsPayload, accessToken: clientAccessToken, pageId: clientPageId } = req.body;
+
+    if (clientAccessToken && !isPlaceholderToken(clientAccessToken)) {
+      try {
+        const currentSettings = db.getSocialMarketingSettings();
+        db.saveSocialMarketingSettings({
+          connections: {
+            ...currentSettings.connections,
+            facebook: {
+              ...currentSettings.connections.facebook,
+              platform: 'facebook',
+              accessToken: String(clientAccessToken).trim(),
+              pageId: clientPageId ? String(clientPageId).trim() : (currentSettings.connections.facebook?.pageId || '1256955457511976'),
+              connected: true,
+              status: 'connected',
+              lastSyncAt: new Date().toISOString()
+            }
+          }
+        });
+      } catch (err) {
+        console.warn('Could not persist client facebook token in sync-all:', err);
+      }
+    }
 
     let targetProducts: Product[] = [];
 
@@ -2297,7 +2348,10 @@ router.post('/social/facebook/sync-all', async (req, res) => {
 
     const results = [];
     for (const prod of targetProducts) {
-      const resPub = await metaGraphService.publishProductToFacebook(prod);
+      const resPub = await metaGraphService.publishProductToFacebook(prod, {
+        accessToken: clientAccessToken,
+        pageId: clientPageId
+      });
       results.push({
         productId: prod.id,
         title: prod.title,
@@ -2308,6 +2362,18 @@ router.post('/social/facebook/sync-all', async (req, res) => {
     }
 
     const successCount = results.filter(r => r.success).length;
+
+    if (successCount === 0 && results.length > 0) {
+      const firstError = results.find(r => !r.success);
+      return res.json({
+        success: false,
+        syncedCount: 0,
+        totalCount: targetProducts.length,
+        message: firstError?.message || 'Error al publicar productos en Facebook',
+        technicalDetails: firstError?.technicalDetails,
+        results
+      });
+    }
 
     res.json({
       success: true,

@@ -255,12 +255,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (productData.publishToFacebook !== false) {
         try {
+          const localToken = localStorage.getItem('zavela_facebook_accessToken') || undefined;
+          const localPageId = localStorage.getItem('zavela_facebook_pageId') || undefined;
+
           const fbRes = await fetch('/api/admin/social/facebook/publish-product', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               productId: finalProductId,
               id: finalProductId,
+              accessToken: localToken,
+              pageId: localPageId,
               product: completeSavedProduct,
               ...completeSavedProduct
             })

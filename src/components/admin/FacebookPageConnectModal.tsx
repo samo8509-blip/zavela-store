@@ -93,6 +93,16 @@ export const FacebookPageConnectModal: React.FC<FacebookPageConnectModalProps> =
       if (localToken && (!currentToken || currentToken.startsWith('EAAG...'))) currentToken = localToken;
       if (localName) currentName = localName;
 
+      // Asegurar el ID real de la página de Facebook
+      if (!currentId || currentId.startsWith('fb_page_')) {
+        currentId = '1256955457511976';
+      }
+
+      // Si el token es la plantilla con puntos suspensivos ("EAAG..."), vaciarlo para que el usuario ingrese su token real
+      if (currentToken && (currentToken.includes('...') || currentToken.startsWith('EAAG...'))) {
+        currentToken = '';
+      }
+
       setPageId(currentId);
       setAccessToken(currentToken);
       setAccountName(currentName);
