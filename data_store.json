@@ -1220,6 +1220,30 @@
   },
   "logs": [
     {
+      "id": "log-1791298209381-np6ci",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-1791298191006 fue eliminado del inventario.",
+      "status": "info",
+      "createdAt": "2026-10-06T14:50:09.381Z"
+    },
+    {
+      "id": "log-1791298191021-hjip6",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Creado",
+      "details": "Producto creado: \"Producto Test Sincronizacion\" con stock de 10 unidades.",
+      "status": "success",
+      "createdAt": "2026-10-06T14:49:51.021Z"
+    },
+    {
+      "id": "log-1791298191021-6d52t",
+      "type": "PRODUCT_UPDATE",
+      "action": "Publicación en Redes Sociales",
+      "details": "Producto \"Producto Test Sincronizacion\" publicado en [facebook, instagram, tiktok]. Generando visualizaciones y tráfico de ventas.",
+      "status": "success",
+      "createdAt": "2026-10-06T14:49:51.021Z"
+    },
+    {
       "id": "log-1791222582866-zkkru",
       "type": "STATUS_UPDATE",
       "action": "Limpieza de Pruebas Internas",
@@ -1622,7 +1646,30 @@
       "createdAt": "2026-10-05T17:05:15.545Z"
     }
   ],
-  "advisorSales": [],
+  "advisorSales": [
+    {
+      "id": "DP-001",
+      "orderNumber": "DP-1001",
+      "advisorId": "AS-001",
+      "advisorName": "Juan (Asesor 1)",
+      "advisorChannel": "WhatsApp Directo / Llamadas",
+      "productId": "prod-2240082",
+      "productTitle": "Reloj Smartwatch Ultra",
+      "quantity": 2,
+      "unitPrice": 80000,
+      "totalAmount": 160000,
+      "clientName": "Carlos Pérez",
+      "clientPhone": "3101234567",
+      "clientCity": "Medellín",
+      "clientDepartment": "Antioquia",
+      "clientAddress": "Calle 10 # 40-20 Apto 301",
+      "additionalNotes": "Cliente confirmó despacho contra entrega. Cobrar en efectivo al recibir.",
+      "dropiStatus": "pendiente_bolsa",
+      "paymentMethod": "contra_entrega",
+      "createdAt": "2026-10-06T12:18:39.004Z",
+      "updatedAt": "2026-10-06T14:18:39.004Z"
+    }
+  ],
   "socialSettings": {
     "autoPublishOnProductCreate": true,
     "autoPublishOnProductUpdate": true,
@@ -1680,6 +1727,32 @@
     }
   },
   "socialPosts": [
+    {
+      "id": "soc-post-1791298191020",
+      "productId": "prod-1791298191006",
+      "productTitle": "Producto Test Sincronizacion",
+      "productPrice": 99000,
+      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      "productSlug": "producto-test-sincronizacion",
+      "platforms": [
+        "facebook",
+        "instagram",
+        "tiktok"
+      ],
+      "copies": {
+        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto Test Sincronizacion\n\n🏷️ PRECIO ESPECIAL: $ 99.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
+        "instagram": "✨ Presentamos: Producto Test Sincronizacion ✨\n\n💰 Precio: $ 99.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
+        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto Test Sincronizacion por solo $ 99.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
+      },
+      "status": "published",
+      "publishedAt": "2026-10-06T14:49:51.020Z",
+      "views": 4341,
+      "clicks": 336,
+      "likes": 371,
+      "shares": 65,
+      "attributedSalesCOP": 1287000,
+      "postUrl": "https://instagram.com/p/zavela_producto-t"
+    },
     {
       "id": "soc-post-1",
       "productId": "prod-amor-102",

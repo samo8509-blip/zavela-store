@@ -5,6 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import { approveOrderForDropi } from './orders.ts';
 import { sendSaleNotification, dispatchWhatsAppAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
+import { metaGraphService } from '../services/metaGraphService.ts';
 
 const router = Router();
 
@@ -104,7 +105,7 @@ router.get('/products', (req, res) => {
   }
 });
 
-router.post('/products', (req, res) => {
+router.post('/products', async (req, res) => {
   try {
     const body = req.body;
     const costPrice = Number(body.costPrice) || 0;
@@ -153,26 +154,45 @@ router.post('/products', (req, res) => {
       console.warn('[cPanel DB Sync] Error al guardar producto en cPanel:', err);
     });
 
-    // Auto-broadcast to social networks if enabled or requested
+    // Auto-broadcast a redes sociales y publicación directa en Facebook Meta Graph API v26.0
     let socialPost = null;
+    let facebookSync = null;
+
     if (body.publishToSocial !== false) {
       socialPost = db.autoBroadcastProduct(saved);
+    }
+
+    const fbConfig = metaGraphService.getFacebookConfig();
+    const shouldPublishToFb = body.publishToFacebook === true || 
+      (body.publishToFacebook !== false && fbConfig.connected && fbConfig.autoPostEnabled);
+
+    if (shouldPublishToFb) {
+      try {
+        console.log(`[Facebook Auto-Post v26.0] Publicando "${saved.title}" en Facebook Page...`);
+        facebookSync = await metaGraphService.publishProductToFacebook(saved);
+      } catch (fbErr: any) {
+        console.error('[Facebook Auto-Post Error]:', fbErr);
+        facebookSync = {
+          success: false,
+          message: `Fallo al publicar en Facebook: ${fbErr.message}`
+        };
+      }
     }
 
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: 'Producto Creado',
-      details: `Producto creado: "${saved.title}" con stock de ${saved.stock} unidades.${socialPost ? ' Publicado automáticamente en redes sociales.' : ''}`,
+      details: `Producto creado: "${saved.title}" con stock de ${saved.stock} unidades.${facebookSync?.success ? ` Publicado automáticamente en Facebook Page (ID ${facebookSync.postId}).` : ''}`,
       status: 'success'
     });
 
-    res.status(201).json({ success: true, data: saved, socialPost });
+    res.status(201).json({ success: true, data: saved, socialPost, facebookSync });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-router.put('/products/:id', (req, res) => {
+router.put('/products/:id', async (req, res) => {
   try {
     const productId = req.params.id;
     const body = req.body;
@@ -238,18 +258,33 @@ router.put('/products/:id', (req, res) => {
     });
 
     let socialPost = null;
+    let facebookSync = null;
+
     if (body.publishToSocial === true) {
       socialPost = db.publishSocialPost({ productId: saved.id });
+    }
+
+    if (body.publishToFacebook === true) {
+      try {
+        console.log(`[Facebook Sync v26.0] Publicando actualización de "${saved.title}" en Facebook Page...`);
+        facebookSync = await metaGraphService.publishProductToFacebook(saved);
+      } catch (fbErr: any) {
+        console.error('[Facebook Sync Error]:', fbErr);
+        facebookSync = {
+          success: false,
+          message: `Fallo al publicar en Facebook: ${fbErr.message}`
+        };
+      }
     }
 
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: 'Producto Actualizado',
-      details: `Producto actualizado: "${saved.title}" - Precio: $${saved.price.toLocaleString()} COP.${socialPost ? ' Republicado en redes sociales.' : ''}`,
+      details: `Producto actualizado: "${saved.title}" - Precio: $${saved.price.toLocaleString()} COP.${socialPost ? ' Republicado en redes sociales.' : ''}${facebookSync?.success ? ` Publicado en Facebook Page (ID ${facebookSync.postId}).` : ''}`,
       status: 'success'
     });
 
-    res.json({ success: true, data: saved, socialPost });
+    res.json({ success: true, data: saved, socialPost, facebookSync });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1777,11 +1812,16 @@ router.get('/social/posts', (req, res) => {
   }
 });
 
-router.post('/social/publish', (req, res) => {
+router.post('/social/publish', async (req, res) => {
   try {
     const { productId, platforms, copies } = req.body;
     if (!productId) {
       return res.status(400).json({ success: false, message: 'El ID del producto es requerido' });
+    }
+
+    const product = db.getProductById(productId);
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
 
     const newPost = db.publishSocialPost({
@@ -1791,11 +1831,226 @@ router.post('/social/publish', (req, res) => {
       estimatedViewsBoost: 3000
     });
 
-    if (!newPost) {
+    let facebookSync = null;
+    if (Array.isArray(platforms) && platforms.includes('facebook')) {
+      try {
+        facebookSync = await metaGraphService.publishProductToFacebook(product, {
+          customCaption: copies?.facebook
+        });
+      } catch (fbErr: any) {
+        console.error('[Facebook Publish Error]:', fbErr);
+        facebookSync = {
+          success: false,
+          message: fbErr.message
+        };
+      }
+    }
+
+    res.status(201).json({ success: true, data: newPost, facebookSync });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ==========================================
+// RUTAS OFICIALES FACEBOOK META GRAPH API v26.0
+// ==========================================
+
+// GET /api/admin/social/facebook/status - Obtener estado actual de la sesión persistente de Facebook
+router.get('/social/facebook/status', (req, res) => {
+  try {
+    const config = metaGraphService.getFacebookConfig();
+    res.json({ success: true, data: config });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/connect - Vincular e iniciar sesión persistente con Page ID y Token
+router.post('/social/facebook/connect', async (req, res) => {
+  try {
+    const { pageId, accessToken, accountName, autoPostEnabled = true, pixelId } = req.body;
+
+    if (!pageId || !accessToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Page ID y Page Access Token permanente son requeridos para conectar la Página de Facebook.'
+      });
+    }
+
+    // Verificar en vivo contra Meta Graph API v26.0
+    const checkResult = await metaGraphService.checkConnection(pageId, accessToken);
+
+    const current = db.getSocialMarketingSettings();
+    const updatedConn = {
+      ...current.connections.facebook,
+      platform: 'facebook' as const,
+      connected: true,
+      accountName: checkResult.pageName || accountName || 'Zavela Store Colombia (Página Oficial)',
+      pageId: String(pageId).trim(),
+      accessToken: String(accessToken).trim(),
+      pixelId: pixelId ? String(pixelId).trim() : current.connections.facebook?.pixelId,
+      status: 'connected' as const,
+      lastSyncAt: new Date().toISOString(),
+      autoPostEnabled: autoPostEnabled !== false
+    };
+
+    const saved = db.saveSocialMarketingSettings({
+      connections: {
+        ...current.connections,
+        facebook: updatedConn
+      }
+    });
+
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Página de Facebook Conectada (Meta Graph API v26.0)',
+      details: `Página "${updatedConn.accountName}" (ID: ${updatedConn.pageId}) conectada con sesión permanente. Auto-publicación: ${updatedConn.autoPostEnabled ? 'Activa' : 'Pausada'}.`,
+      status: 'success'
+    });
+
+    res.json({
+      success: true,
+      data: saved.connections.facebook,
+      metaValidation: checkResult,
+      message: checkResult.connected
+        ? `✅ Página "${updatedConn.accountName}" conectada y verificada exitosamente.`
+        : `⚠️ Credenciales guardadas. Advertencia de Meta: ${checkResult.message}`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/disconnect - Desconectar sesión de Facebook
+router.post('/social/facebook/disconnect', (req, res) => {
+  try {
+    const current = db.getSocialMarketingSettings();
+    const updatedConn = {
+      ...current.connections.facebook,
+      connected: false,
+      status: 'disconnected' as const,
+      autoPostEnabled: false
+    };
+
+    const saved = db.saveSocialMarketingSettings({
+      connections: {
+        ...current.connections,
+        facebook: updatedConn
+      }
+    });
+
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Página de Facebook Desconectada',
+      details: 'Se pausó la sincronización automática con Facebook.',
+      status: 'info'
+    });
+
+    res.json({ success: true, data: saved.connections.facebook, message: 'Página de Facebook desconectada.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/test-connection - Probar token y permisos sin guardar
+router.post('/social/facebook/test-connection', async (req, res) => {
+  try {
+    const { pageId, accessToken } = req.body;
+    const config = metaGraphService.getFacebookConfig();
+    const targetPageId = pageId || config.pageId;
+    const targetToken = accessToken || config.accessToken;
+
+    if (!targetPageId || !targetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ingresa el Page ID y el Page Access Token para realizar la prueba.'
+      });
+    }
+
+    const result = await metaGraphService.checkConnection(targetPageId, targetToken);
+    res.json({ success: result.connected, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/test-post - Publicar post de prueba en el muro de Facebook
+router.post('/social/facebook/test-post', async (req, res) => {
+  try {
+    const { pageId, accessToken } = req.body;
+    const config = metaGraphService.getFacebookConfig();
+    const targetPageId = pageId || config.pageId;
+    const targetToken = accessToken || config.accessToken;
+
+    if (!targetPageId || !targetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'No hay credenciales de Facebook configuradas para realizar la prueba.'
+      });
+    }
+
+    const result = await metaGraphService.publishTestPost(targetPageId, targetToken);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/publish-product - Publicar producto específico en la Página de Facebook
+router.post('/social/facebook/publish-product', async (req, res) => {
+  try {
+    const { productId, customCaption } = req.body;
+    if (!productId) {
+      return res.status(400).json({ success: false, message: 'El ID del producto es requerido' });
+    }
+
+    const product = db.getProductById(productId);
+    if (!product) {
       return res.status(404).json({ success: false, message: 'Producto no encontrado' });
     }
 
-    res.status(201).json({ success: true, data: newPost });
+    const result = await metaGraphService.publishProductToFacebook(product, { customCaption });
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/social/facebook/sync-all - Publicar catálogo completo o seleccionados en Facebook
+router.post('/social/facebook/sync-all', async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    const allProducts = db.getProducts({ onlyActive: true });
+    const targetProducts = Array.isArray(productIds) && productIds.length > 0
+      ? allProducts.filter(p => productIds.includes(p.id))
+      : allProducts.slice(0, 5); // Lote de hasta 5 para evitar rate limit de Meta
+
+    if (targetProducts.length === 0) {
+      return res.status(400).json({ success: false, message: 'No hay productos activos para sincronizar' });
+    }
+
+    const results = [];
+    for (const prod of targetProducts) {
+      const resPub = await metaGraphService.publishProductToFacebook(prod);
+      results.push({
+        productId: prod.id,
+        title: prod.title,
+        ...resPub
+      });
+      // Breve pausa para respetar rate limit
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    const successCount = results.filter(r => r.success).length;
+
+    res.json({
+      success: true,
+      syncedCount: successCount,
+      totalCount: targetProducts.length,
+      results,
+      message: `Sincronización completada: ${successCount} de ${targetProducts.length} productos publicados en la Página de Facebook.`
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -30,11 +30,13 @@ import {
   Loader2,
   ChevronDown,
   BookOpen,
-  Download
+  Download,
+  Share2
 } from 'lucide-react';
 import { Product, Category } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { ProductCatalogMagazineModal } from './ProductCatalogMagazineModal.tsx';
+import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 import { 
   updateFirestoreProduct, 
   deleteFirestoreProduct, 
@@ -73,6 +75,104 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const [showQuickSelectMenu, setShowQuickSelectMenu] = useState(false);
 
   const masterCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // Facebook Page Meta Graph API v26.0 State
+  const [isFbModalOpen, setIsFbModalOpen] = useState(false);
+  const [fbConfig, setFbConfig] = useState<{
+    connected: boolean;
+    pageId: string;
+    accountName: string;
+    autoPostEnabled: boolean;
+  }>({
+    connected: false,
+    pageId: '',
+    accountName: 'Zavela Store Colombia',
+    autoPostEnabled: true
+  });
+  const [publishingFbProductId, setPublishingFbProductId] = useState<string | null>(null);
+
+  const fetchFacebookStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/social/facebook/status');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setFbConfig({
+          connected: Boolean(data.data.connected),
+          pageId: data.data.pageId || '',
+          accountName: data.data.accountName || 'Zavela Store Colombia',
+          autoPostEnabled: data.data.autoPostEnabled !== false
+        });
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  useEffect(() => {
+    fetchFacebookStatus();
+  }, []);
+
+  const handlePublishSingleToFacebook = async (product: Product, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!fbConfig.connected) {
+      setIsFbModalOpen(true);
+      return;
+    }
+
+    setPublishingFbProductId(product.id);
+    showToast(`Publicando "${product.title}" en la Página de Facebook...`);
+    try {
+      const res = await fetch('/api/admin/social/facebook/publish-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✅ "${product.title}" publicado con éxito en Facebook (ID: ${data.postId})`);
+      } else {
+        showToast(`❌ Error de Facebook: ${data.message || 'Verifica permisos del token'}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Error de red al publicar en Facebook: ${err.message}`, 'error');
+    } finally {
+      setPublishingFbProductId(null);
+    }
+  };
+
+  const handleBulkPublishToFacebook = async () => {
+    if (!fbConfig.connected) {
+      setIsFbModalOpen(true);
+      return;
+    }
+    const targetIds = selectedProductIds.length > 0 ? selectedProductIds : visibleIds.slice(0, 5);
+    if (targetIds.length === 0) {
+      showToast('No hay productos seleccionados para publicar', 'error');
+      return;
+    }
+
+    setIsProcessingBulk(true);
+    setBulkActionType('facebook');
+    showToast(`Sincronizando ${targetIds.length} productos con la Página de Facebook...`);
+    try {
+      const res = await fetch('/api/admin/social/facebook/sync-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: targetIds })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(`✅ Sincronizados ${data.syncedCount} productos en tu Página de Facebook`);
+      } else {
+        showToast(`Error al sincronizar con Facebook: ${data.message}`, 'error');
+      }
+    } catch (err: any) {
+      showToast(`Error de conexión con Facebook: ${err.message}`, 'error');
+    } finally {
+      setIsProcessingBulk(false);
+      setBulkActionType(null);
+    }
+  };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ type, message });
@@ -397,6 +497,59 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         </div>
       </div>
 
+      {/* Facebook Business Page Sync Banner */}
+      <div className="bg-gradient-to-r from-blue-900/10 via-[#1877F2]/10 to-indigo-900/10 border border-blue-200 dark:border-blue-900/40 p-4 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#1877F2] text-white flex items-center justify-center font-black text-lg shadow-md shadow-blue-500/20 shrink-0">
+            f
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-slate-900 dark:text-white">
+                Sincronización con Facebook Business Page
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 ${
+                fbConfig.connected
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${fbConfig.connected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                {fbConfig.connected ? 'Conectado & Auto-Post Activo' : 'No Conectado'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {fbConfig.connected 
+                ? `Página: "${fbConfig.accountName}" (ID: ${fbConfig.pageId || 'Configurado'}) - Los productos creados se publican con Pago Contra Entrega.`
+                : 'Inicia sesión con tu Page ID y Token permanente para publicar automáticamente tus productos en Facebook.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {fbConfig.connected && (
+            <button
+              type="button"
+              onClick={handleBulkPublishToFacebook}
+              disabled={isProcessingBulk}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-[#1877F2] text-xs font-bold border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+              title="Publicar catálogo activo en la Fanpage"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Publicar en Facebook</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsFbModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1877F2] hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
+          >
+            <span className="font-black">f</span>
+            <span>{fbConfig.connected ? 'Gestionar Conexión' : 'Iniciar Sesión / Conectar Facebook'}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Bulk Actions Floating / Sticky Action Bar (When 1 or more products are selected) */}
       {selectedProductIds.length > 0 && (
         <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white p-4 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -460,6 +613,21 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 <EyeOff className="w-3.5 h-3.5" />
               )}
               <span>Pausar</span>
+            </button>
+
+            {/* Bulk Publish to Facebook Page */}
+            <button
+              onClick={handleBulkPublishToFacebook}
+              disabled={isProcessingBulk}
+              className="px-3.5 py-1.5 bg-[#1877F2] hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-blue-500/20"
+              title="Publicar productos seleccionados en la Página de Facebook"
+            >
+              {isProcessingBulk && bulkActionType === 'facebook' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <span className="font-black text-xs leading-none">f</span>
+              )}
+              <span>Facebook ({selectedProductIds.length})</span>
             </button>
 
             {/* Bulk Delete Button -> Opens Modal */}
@@ -813,6 +981,18 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={(e) => handlePublishSingleToFacebook(p, e)}
+                            disabled={isBusy || publishingFbProductId === p.id}
+                            className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#1877F2] transition-colors cursor-pointer"
+                            title="Publicar en Facebook Business Page (Meta Graph API v26.0)"
+                          >
+                            {publishingFbProductId === p.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-[#1877F2]" />
+                            ) : (
+                              <span className="font-black text-xs leading-none">f</span>
+                            )}
+                          </button>
+                          <button
                             onClick={() => onEditProduct(p)}
                             disabled={isBusy}
                             className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
@@ -1031,6 +1211,13 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         isOpen={isMagazineModalOpen}
         onClose={() => setIsMagazineModalOpen(false)}
         products={products}
+      />
+
+      {/* Modal de Conexión e Inicio de Sesión de Facebook Page */}
+      <FacebookPageConnectModal
+        isOpen={isFbModalOpen}
+        onClose={() => setIsFbModalOpen(false)}
+        onConnected={fetchFacebookStatus}
       />
 
     </div>

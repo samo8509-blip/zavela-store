@@ -175,10 +175,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         },
         { 
           key: 'social_marketing', 
-          label: 'Redes: Facebook, TikTok e IG', 
+          label: 'Facebook Page & Redes Sociales', 
           icon: Share2,
-          badge: 'Viral Auto-Post',
-          badgeColor: 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400 text-white font-black'
+          badge: 'Meta v26.0',
+          badgeColor: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-400 text-white font-black'
         },
         { key: 'header_ticker', label: 'Barra Superior & Avisos Flash', icon: Zap },
         { key: 'brand_identity', label: 'Identidad, Logo y Colores', icon: Palette },

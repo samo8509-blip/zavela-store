@@ -39,6 +39,7 @@ import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { compressImageFile } from '../../utils/imageUtils.ts';
 import { uploadProductImageToStorage } from '../../services/firestoreProducts.ts';
+import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 
 export interface AdminProductEditorProps {
   product: Product | null;
@@ -117,8 +118,86 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [tags, setTags] = useState<string[]>(product?.tags || ['tendencia', 'calidad', 'contraentrega']);
   const [newTag, setNewTag] = useState('');
 
-  // Social Auto-Publishing
+  // Social & Facebook Meta Graph API v26.0 Auto-Publishing
   const [publishToSocial, setPublishToSocial] = useState<boolean>(true);
+  const [publishToFacebook, setPublishToFacebook] = useState<boolean>(true);
+  const [isFbModalOpen, setIsFbModalOpen] = useState<boolean>(false);
+  const [fbConfig, setFbConfig] = useState<{
+    connected: boolean;
+    pageId: string;
+    accountName: string;
+    autoPostEnabled: boolean;
+  }>({
+    connected: false,
+    pageId: '',
+    accountName: 'Zavela Store Colombia',
+    autoPostEnabled: true
+  });
+  const [isPublishingFbNow, setIsPublishingFbNow] = useState<boolean>(false);
+  const [fbPublishNowResult, setFbPublishNowResult] = useState<{ success: boolean; message: string; postId?: string } | null>(null);
+  const [showFbPreview, setShowFbPreview] = useState<boolean>(false);
+
+  const fetchFbStatus = async () => {
+    try {
+      const res = await fetch('/api/admin/social/facebook/status');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setFbConfig({
+          connected: Boolean(data.data.connected),
+          pageId: data.data.pageId || '',
+          accountName: data.data.accountName || 'Zavela Store Colombia',
+          autoPostEnabled: data.data.autoPostEnabled !== false
+        });
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  useEffect(() => {
+    fetchFbStatus();
+  }, []);
+
+  const handlePublishToFacebookNow = async () => {
+    if (!product?.id) {
+      alert('Guarda el producto primero para obtener su ID antes de publicarlo individualmente.');
+      return;
+    }
+    if (!fbConfig.connected) {
+      setIsFbModalOpen(true);
+      return;
+    }
+
+    setIsPublishingFbNow(true);
+    setFbPublishNowResult(null);
+    try {
+      const res = await fetch('/api/admin/social/facebook/publish-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFbPublishNowResult({
+          success: true,
+          message: `✅ Publicado con éxito en la página oficial de Facebook con ID ${data.postId}`,
+          postId: data.postId
+        });
+      } else {
+        setFbPublishNowResult({
+          success: false,
+          message: `❌ Error de Facebook: ${data.message || 'Verifica permisos del token permanente'}`
+        });
+      }
+    } catch (err: any) {
+      setFbPublishNowResult({
+        success: false,
+        message: `Fallo de conexión: ${err.message}`
+      });
+    } finally {
+      setIsPublishingFbNow(false);
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -386,7 +465,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         images: images.filter(img => Boolean(img && img.trim())),
         variants: variants || [],
         tags: tags || [],
-        publishToSocial
+        publishToSocial,
+        publishToFacebook
       } as any;
 
       await onSave(payload);
@@ -1459,38 +1539,191 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
       </div>
 
-      {/* Social Media Auto-Publishing Integration Card */}
-      <div className="bg-gradient-to-r from-purple-900/10 via-pink-900/10 to-cyan-900/10 dark:from-purple-950/30 dark:via-pink-950/30 dark:to-cyan-950/30 p-5 rounded-2xl border border-purple-200 dark:border-purple-800/50 shadow-xs">
+      {/* Facebook Business Page & Social Auto-Publishing Integration Card */}
+      <div className="bg-gradient-to-r from-blue-900/10 via-[#1877F2]/10 to-purple-900/10 dark:from-blue-950/30 dark:via-blue-900/20 dark:to-purple-950/30 p-5 rounded-2xl border border-blue-200 dark:border-blue-800/60 shadow-xs space-y-4">
+        
+        {/* Header row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 via-purple-600 to-cyan-400 text-white flex items-center justify-center font-black shadow-md shadow-purple-500/20 shrink-0">
-              <Share2 className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center font-black text-xl shadow-md shadow-blue-500/20 shrink-0">
+              f
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                  Auto-Publicar en Redes: Facebook, Instagram & TikTok
+                  Sincronización y Publicación en Facebook Business Page
                 </h4>
-                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-600 text-white text-[9px] font-black uppercase">
-                  Viral Boost
+                <span className="px-2 py-0.5 rounded-full bg-[#1877F2] text-white text-[9px] font-black uppercase">
+                  Meta v26.0
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
+                  fbConfig.connected
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${fbConfig.connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                  {fbConfig.connected ? 'Sesión Conectada' : 'No Conectada'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
-                Al guardar, transmitirá automáticamente este producto a tus cuentas vinculadas para generar visualizaciones y ventas con Pago Contra Entrega.
+                {fbConfig.connected
+                  ? `Página vinculada: "${fbConfig.accountName}" (ID: ${fbConfig.pageId || 'Configurado'}). Al guardar, se publicará la foto y el texto comercial con Pago Contra Entrega.`
+                  : 'Para que los productos subidos se publiquen automáticamente en Facebook, inicia sesión con tu Page ID y Token de Página Permanente.'}
               </p>
             </div>
           </div>
 
-          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={publishToSocial}
-              onChange={(e) => setPublishToSocial(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-12 h-7 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-pink-500 peer-checked:to-purple-600"></div>
-          </label>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsFbModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[#1877F2] font-black text-xs border border-blue-200 dark:border-blue-700 shadow-xs transition-colors cursor-pointer"
+            >
+              {fbConfig.connected ? '⚙️ Configurar Facebook' : '🔑 Iniciar Sesión Facebook Page'}
+            </button>
+          </div>
         </div>
+
+        {/* Switches & Action Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-blue-200/60 dark:border-blue-800/40">
+          
+          {/* Switch Facebook */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-blue-100 dark:border-blue-900/30">
+            <div>
+              <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span className="font-bold text-[#1877F2]">f</span>
+                <span>Publicar en Facebook al Guardar</span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                Sube la foto y crea el post oficial con enlace directo de compra.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+              <input
+                type="checkbox"
+                checked={publishToFacebook}
+                onChange={(e) => setPublishToFacebook(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1877F2]"></div>
+            </label>
+          </div>
+
+          {/* Switch Multi-red Social Boost */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-purple-100 dark:border-purple-900/30">
+            <div>
+              <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Share2 className="w-3.5 h-3.5 text-purple-600" />
+                <span>Transmitir a Redes Virales</span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                Genera copys automáticos para Instagram y TikTok.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
+              <input
+                type="checkbox"
+                checked={publishToSocial}
+                onChange={(e) => setPublishToSocial(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-6 bg-slate-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+
+        </div>
+
+        {/* Buttons: Preview & Instant Publish */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setShowFbPreview(!showFbPreview)}
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <span>{showFbPreview ? 'Ocultar vista previa de post' : '👁️ Ver cómo se publicará en Facebook'}</span>
+          </button>
+
+          {isEditing && product?.id && (
+            <button
+              type="button"
+              onClick={handlePublishToFacebookNow}
+              disabled={isPublishingFbNow}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#1877F2] hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+            >
+              {isPublishingFbNow ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Publicando en Meta...</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-black">f</span>
+                  <span>Publicar en Facebook Ahora</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Result toast for immediate publication */}
+        {fbPublishNowResult && (
+          <div className={`p-3 rounded-xl border text-xs font-medium animate-in fade-in duration-200 ${
+            fbPublishNowResult.success
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300'
+          }`}>
+            <div className="font-black">{fbPublishNowResult.message}</div>
+          </div>
+        )}
+
+        {/* Live Preview Box */}
+        {showFbPreview && (
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-full bg-[#1877F2] text-white flex items-center justify-center font-black">
+                f
+              </div>
+              <div>
+                <div className="font-black text-slate-900 dark:text-white">
+                  {fbConfig.accountName || 'Zavela Store Colombia'}
+                </div>
+                <div className="text-[10px] text-slate-400">Publicado vía Meta Graph API v26.0 • Pago Contra Entrega</div>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-slate-800 dark:text-slate-200 whitespace-pre-line font-sans leading-relaxed">
+              <p className="font-black text-sm text-slate-900 dark:text-white">
+                🔥 ¡Novedad en Zavela Store! {title || 'Nombre del Producto'}
+              </p>
+              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                💎 BENEFICIOS DESTACADOS:
+                {'\n'}✨ {shortDescription || 'Calidad premium y materiales de alta durabilidad.'}
+                {'\n'}🛡️ Garantía oficial de 30 días contra cualquier defecto.
+                {'\n'}🚚 Pago Contra Entrega: Pagas al recibir en la puerta de tu casa.
+              </p>
+              <p className="font-black text-emerald-700 dark:text-emerald-400">
+                💰 PRECIO: {formatCOP(price)} COP {compareAtPrice > price ? `(Antes: ${formatCOP(compareAtPrice)} COP)` : ''}
+              </p>
+              <p className="font-bold text-slate-700 dark:text-slate-300">
+                🛒 Pide ahora con Pago Contra Entrega en la puerta de tu casa:
+                {'\n'}👉 https://zavelastore.com.co/producto/{slug || 'producto'}
+              </p>
+              <p className="font-bold text-slate-700 dark:text-slate-300">
+                📲 Asesoría y pedidos directos por WhatsApp: +57 313 3595427
+              </p>
+              <p className="text-[11px] text-blue-600 font-mono">
+                #ZavelaStore #Colombia #PagoContraEntrega #Tendencias2026 #TiendaOnline
+              </p>
+            </div>
+
+            {images[0] && (
+              <div className="w-full h-48 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+                <img src={images[0]} alt="Vista previa post" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Bottom Save Bar */}
@@ -1729,6 +1962,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Conexión y Vinculación de Facebook Page */}
+      <FacebookPageConnectModal
+        isOpen={isFbModalOpen}
+        onClose={() => setIsFbModalOpen(false)}
+        onConnected={fetchFbStatus}
+      />
 
     </form>
   );

@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { Product, SocialMarketingSettings, SocialBroadcastPost, SocialPlatformConnection } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 
 interface AdminSocialMarketingProps {
   products: Product[];
@@ -77,6 +78,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
 
   // Connection Edit Modal
   const [connectModalPlatform, setConnectModalPlatform] = useState<'facebook' | 'instagram' | 'tiktok' | null>(null);
+  const [isFbPageModalOpen, setIsFbPageModalOpen] = useState(false);
   const [modalAccountName, setModalAccountName] = useState('');
   const [modalPageOrId, setModalPageOrId] = useState('');
   const [modalToken, setModalToken] = useState('');
@@ -220,7 +222,11 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
       if (!res.ok || !data.success) throw new Error(data.message || 'Error al publicar');
 
       setPosts(prev => [data.data, ...prev]);
-      showToast(`🚀 ¡Publicado con éxito en [${activePlats.join(', ')}]! Generando visualizaciones y tráfico.`);
+      if (data.facebookSync?.success) {
+        showToast(`🚀 ¡Publicado con éxito! ✅ Post oficial de Facebook creado con ID ${data.facebookSync.postId}`);
+      } else {
+        showToast(`🚀 ¡Publicado con éxito en [${activePlats.join(', ')}]! Generando visualizaciones y tráfico.`);
+      }
       setActiveTab('history');
     } catch (err: any) {
       alert(err.message || 'Error al publicar');
@@ -254,9 +260,13 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
   };
 
   const openConnectModal = (plat: 'facebook' | 'instagram' | 'tiktok') => {
+    if (plat === 'facebook') {
+      setIsFbPageModalOpen(true);
+      return;
+    }
     const conn = settings?.connections[plat];
     setConnectModalPlatform(plat);
-    setModalAccountName(conn?.accountName || (plat === 'facebook' ? 'Zavela Store Colombia Oficial' : plat === 'instagram' ? '@zavelastore.col' : '@zavelastore_oficial'));
+    setModalAccountName(conn?.accountName || (plat === 'instagram' ? '@zavelastore.col' : '@zavelastore_oficial'));
     setModalPageOrId(conn?.pageId || conn?.accountId || '');
     setModalToken(conn?.accessToken || '');
     setModalPixelId(conn?.pixelId || '');
@@ -1754,6 +1764,13 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal de Conexión y Vinculación Oficial Facebook Page Graph API v26.0 */}
+      <FacebookPageConnectModal
+        isOpen={isFbPageModalOpen}
+        onClose={() => setIsFbPageModalOpen(false)}
+        onConnected={fetchData}
+      />
 
     </div>
   );

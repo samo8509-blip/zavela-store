@@ -71,6 +71,7 @@ import { AdminSystemSecurity } from './admin/AdminSystemSecurity.tsx';
 import { AdminErrorBoundary } from './admin/AdminErrorBoundary.tsx';
 import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner.tsx';
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
+import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
 interface AdminDashboardProps {
   onBackToStore: () => void;
@@ -84,6 +85,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeSection, setActiveSection] = useState<AdminSectionKey>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null | undefined>(undefined);
+  const [isFbModalOpen, setIsFbModalOpen] = useState(false);
 
   // Core Data Stores
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -267,15 +269,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const url = isEdit ? `/api/admin/products/${productData.id}` : '/api/admin/products';
       const method = isEdit ? 'PUT' : 'POST';
 
-      await fetch(url, {
+      const backendRes = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData)
-      }).catch(() => {});
+      }).catch(() => null);
+
+      const backendData = backendRes ? await backendRes.json().catch(() => null) : null;
 
       await fetchAdminData();
       setEditingProduct(undefined);
-      showToast(isEdit ? 'Producto modificado en Firestore exitosamente.' : 'Producto creado y persistido en Firestore.');
+
+      if (backendData?.facebookSync?.success) {
+        showToast(`✅ ${isEdit ? 'Producto modificado' : 'Producto creado'} y publicado en Facebook (ID: ${backendData.facebookSync.postId})`);
+      } else if (backendData?.facebookSync && !backendData.facebookSync.success) {
+        showToast(`⚠️ Guardado en tienda, pero Facebook reportó: ${backendData.facebookSync.message}`);
+      } else {
+        showToast(isEdit ? 'Producto modificado en Firestore exitosamente.' : 'Producto creado y persistido en Firestore.');
+      }
     } catch (err: any) {
       alert(err.message || 'Error al guardar producto en Firestore');
       throw err;
@@ -434,6 +445,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             >
               <Shuffle className="w-3.5 h-3.5 text-indigo-600" />
               <span className="hidden md:inline">Simular tráfico</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsFbModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1877F2] hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
+              title="Vincular / Iniciar Sesión de Facebook Business Page (Meta Graph API v26.0)"
+            >
+              <span className="font-black text-xs leading-none">f</span>
+              <span className="hidden sm:inline">Facebook Page</span>
             </button>
 
             <button
@@ -770,6 +791,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Floating Immediate WhatsApp Notifications Banner (+57 300 878 4427) */}
       <WhatsAppAlertFloatingBanner />
+
+      {/* Modal de Conexión & Sesión Facebook Business Page Meta Graph API v26.0 */}
+      <FacebookPageConnectModal
+        isOpen={isFbModalOpen}
+        onClose={() => setIsFbModalOpen(false)}
+        onConnected={fetchAdminData}
+      />
 
     </div>
   );
