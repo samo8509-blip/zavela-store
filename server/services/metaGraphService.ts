@@ -148,12 +148,14 @@ export class MetaGraphService {
 
     const caption = options?.customCaption || this.formatProductCaption(product);
 
-    // Seleccionar URL de imagen válida
-    const rawImage = Array.isArray(product.images) && product.images.length > 0
-      ? product.images[0]
-      : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
+    // Seleccionar URL de imagen válida (soporta image, imagen y el array images)
+const rawImage = 
+  (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null) ||
+  product.image ||
+  product.imagen ||
+  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
 
-    const hasValidHttpImage = typeof rawImage === 'string' && (rawImage.startsWith('http://') || rawImage.startsWith('https://'));
+const hasValidHttpImage = typeof rawImage === 'string' && (rawImage.startsWith('http://') || rawImage.startsWith('https://'));age.startsWith('https://'));
 
     try {
       console.log(`[MetaGraphService v26.0] Publicando producto "${product.title}" en página ${pageId}...`);
@@ -180,27 +182,25 @@ export class MetaGraphService {
 
         data = await response.json();
       } else {
-        // Fallback: Publicación en el Muro (POST /{PAGE_ID}/feed)
-        const feedEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}/feed`;
-        const slugOrId = product.slug || product.id;
-        const link = `https://zavelastore.com.co/producto/${slugOrId}`;
+      // Fallback seguro: siempre publicar en /photos para evitar el Error #200 de /feed
+      const photoEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}/photos`;
+      const fallbackImage = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
+      
+      const params = new URLSearchParams();
+      params.append('url', fallbackImage);
+      params.append('caption', caption);
+      params.append('access_token', accessToken);
 
-        const params = new URLSearchParams();
-        params.append('message', caption);
-        params.append('link', link);
-        params.append('access_token', accessToken);
+      response = await fetch(photoEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params.toString()
+      });
 
-        response = await fetch(feedEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: params.toString()
-        });
-
-        data = await response.json();
-      }
-
+      data = await response.json();
+    }
       if (data && (data.id || data.post_id)) {
         const postId = String(data.post_id || data.id);
         const photoId = data.id ? String(data.id) : undefined;
