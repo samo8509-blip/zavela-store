@@ -148,50 +148,28 @@ export class MetaGraphService {
 
     const caption = options?.customCaption || this.formatProductCaption(product);
 
-    // Seleccionar URL de imagen válida (soporta image, imagen y el array images)
-const rawImage = 
-  (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null) ||
-  product.image ||
-  product.imagen ||
-  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
+    // Detección robusta de la imagen (soporta images array, image, imagen)
+    const rawImage = 
+      (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null) ||
+      (product as any).image ||
+      (product as any).imagen ||
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
 
-const hasValidHttpImage = typeof rawImage === 'string' && (rawImage.startsWith('http://') || rawImage.startsWith('https://'));age.startsWith('https://'));
+    const hasValidHttpImage = typeof rawImage === 'string' && (rawImage.startsWith('http://') || rawImage.startsWith('https://'));
+    const finalImageUrl = hasValidHttpImage ? rawImage : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
 
     try {
       console.log(`[MetaGraphService v26.0] Publicando producto "${product.title}" en página ${pageId}...`);
 
-      let response: Response;
-      let data: any;
-
-      if (hasValidHttpImage) {
-        // Método 1: Publicación con Foto (POST /{PAGE_ID}/photos)
-        const photoEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}/photos`;
-        
-        const params = new URLSearchParams();
-        params.append('url', rawImage);
-        params.append('caption', caption);
-        params.append('access_token', accessToken);
-
-        response = await fetch(photoEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: params.toString()
-        });
-
-        data = await response.json();
-      } else {
-      // Fallback seguro: siempre publicar en /photos para evitar el Error #200 de /feed
+      // Endpoint correcto: SIEMPRE a /{PAGE_ID}/photos para evitar el Error #200 de /{PAGE_ID}/feed
       const photoEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}/photos`;
-      const fallbackImage = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
       
       const params = new URLSearchParams();
-      params.append('url', fallbackImage);
+      params.append('url', finalImageUrl);
       params.append('caption', caption);
       params.append('access_token', accessToken);
 
-      response = await fetch(photoEndpoint, {
+      const response = await fetch(photoEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -199,8 +177,7 @@ const hasValidHttpImage = typeof rawImage === 'string' && (rawImage.startsWith('
         body: params.toString()
       });
 
-      data = await response.json();
-    }
+      const data = await response.json();
       if (data && (data.id || data.post_id)) {
         const postId = String(data.post_id || data.id);
         const photoId = data.id ? String(data.id) : undefined;

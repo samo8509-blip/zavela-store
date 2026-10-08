@@ -1338,10 +1338,20 @@ class DatabaseStore {
     for (const remote of remoteProducts) {
       const idx = this.data.products.findIndex(p => p.id === remote.id || p.slug === remote.slug);
       if (idx >= 0) {
+        const existing = this.data.products[idx];
+        const remoteImages = (Array.isArray(remote.images) && remote.images.length > 0) ? remote.images : [];
+        const existingImages = (Array.isArray(existing.images) && existing.images.length > 0) ? existing.images : [];
+        const finalImages = remoteImages.length > existingImages.length ? remoteImages : (existingImages.length > 0 ? existingImages : remoteImages);
+
+        const finalDropiId = (remote.dropi_product_id && String(remote.dropi_product_id).trim().length > 0)
+          ? String(remote.dropi_product_id).trim()
+          : (existing.dropi_product_id || '');
+
         this.data.products[idx] = {
-          ...this.data.products[idx],
+          ...existing,
           ...remote,
-          images: remote.images && remote.images.length > 0 ? remote.images : this.data.products[idx].images
+          images: finalImages.length > 0 ? finalImages : existingImages,
+          dropi_product_id: finalDropiId
         };
       } else {
         this.data.products.unshift(remote);

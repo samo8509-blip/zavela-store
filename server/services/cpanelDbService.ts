@@ -74,11 +74,26 @@ export class CpanelDbService {
     const baseUrl = this.getApiUrl();
     const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos`;
 
+    const rawImages = Array.isArray(product.images) && product.images.length > 0 
+      ? product.images 
+      : (Array.isArray((product as any).imagenes) ? (product as any).imagenes : []);
+    const validImages = rawImages.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    const mainImage = validImages[0] || (product as any).imagen || (product as any).image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
+    const finalImagesList = validImages.length > 0 ? validImages : [mainImage];
+    const imagesJson = JSON.stringify(finalImagesList);
+
+    const dropiId = product.dropi_product_id !== undefined && product.dropi_product_id !== null
+      ? String(product.dropi_product_id).trim()
+      : ((product as any).dropiProductId !== undefined && (product as any).dropiProductId !== null
+        ? String((product as any).dropiProductId).trim()
+        : ((product as any).dropi_id !== undefined && (product as any).dropi_id !== null ? String((product as any).dropi_id).trim() : ''));
+
     const payload = {
       ...product,
-      id: product.id,
+      id: String(product.id),
       title: product.title,
       nombre: product.title,
+      name: product.title,
       slug: product.slug,
       description: product.description,
       descripcion: product.description,
@@ -93,12 +108,16 @@ export class CpanelDbService {
       activo: product.active ? 1 : 0,
       featured: product.featured ? 1 : 0,
       destacado: product.featured ? 1 : 0,
-      images: product.images,
-      imagen: product.images?.[0] || '',
+      image: mainImage,
+      imagen: mainImage,
+      images: finalImagesList,
+      imagenes: imagesJson,
       category: product.categoryName || product.categoryId || '',
       categoria: product.categoryName || product.categoryId || '',
       categoryId: product.categoryId || '',
-      dropi_product_id: product.dropi_product_id || product.dropiProductId || '',
+      dropi_product_id: dropiId,
+      dropiProductId: dropiId,
+      dropi_id: dropiId,
       updatedAt: product.updatedAt || new Date().toISOString()
     };
 
@@ -394,9 +413,18 @@ export class CpanelDbService {
    */
   private normalizeProduct(item: any): Product {
     let images: string[] = [];
-    if (Array.isArray(item.images)) {
+    if (Array.isArray(item.images) && item.images.length > 0) {
       images = item.images;
-    } else if (typeof item.images === 'string') {
+    } else if (Array.isArray(item.imagenes) && item.imagenes.length > 0) {
+      images = item.imagenes;
+    } else if (typeof item.imagenes === 'string' && item.imagenes.trim()) {
+      try {
+        const parsed = JSON.parse(item.imagenes);
+        images = Array.isArray(parsed) ? parsed : [item.imagenes];
+      } catch {
+        images = item.imagenes.includes(',') ? item.imagenes.split(',').map((s: string) => s.trim()) : [item.imagenes];
+      }
+    } else if (typeof item.images === 'string' && item.images.trim()) {
       try {
         const parsed = JSON.parse(item.images);
         images = Array.isArray(parsed) ? parsed : [item.images];
@@ -413,10 +441,15 @@ export class CpanelDbService {
       images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
     }
 
-    const price = Number(item.price || item.precio) || 0;
-    const costPrice = Number(item.costPrice || item.costo || item.cost_price) || 0;
-    const title = item.title || item.nombre || 'Producto Zavela';
+    const price = Number(item.price !== undefined ? item.price : item.precio) || 0;
+    const costPrice = Number(item.costPrice !== undefined ? item.costPrice : (item.costo || item.cost_price)) || 0;
+    const title = item.title || item.nombre || item.name || 'Producto Zavela';
     const slug = item.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const dropiId = item.dropi_product_id !== undefined && item.dropi_product_id !== null
+      ? String(item.dropi_product_id).trim()
+      : (item.dropiProductId !== undefined && item.dropiProductId !== null
+        ? String(item.dropiProductId).trim()
+        : (item.dropi_id !== undefined && item.dropi_id !== null ? String(item.dropi_id).trim() : ''));
 
     return {
       id: String(item.id || `prod-${Math.random().toString(36).substring(2, 7)}`),
@@ -433,9 +466,9 @@ export class CpanelDbService {
       tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',') : []),
       categoryId: item.categoryId || item.categoria_id || item.category || 'cat-1',
       categoryName: item.categoryName || item.categoria || 'Catálogo',
-      dropi_product_id: item.dropi_product_id || item.dropiProductId || item.dropi_id,
-      createdAt: item.createdAt || item.fecha_creacion || new Date().toISOString(),
-      updatedAt: item.updatedAt || item.fecha_actualizacion || new Date().toISOString()
+      dropi_product_id: dropiId,
+      createdAt: item.createdAt || item.fecha_creacion || item.created_at || new Date().toISOString(),
+      updatedAt: item.updatedAt || item.fecha_actualizacion || item.updated_at || new Date().toISOString()
     };
   }
 

@@ -1,8 +1,24 @@
 -- ==============================================================================
--- ZavelaStore - Estructura de Tabla MySQL para cPanel
+-- ZavelaStore - Estructura de Tablas MySQL para cPanel
 -- Base de datos: zavela_store (o la asignada en cPanel: cpaneluser_zavela)
 -- ==============================================================================
 
+-- 1. Tabla nativa de productos en cPanel MySQL (utilizada directamente por ZavelaStore)
+CREATE TABLE IF NOT EXISTS `productos` (
+  `id` VARCHAR(64) NOT NULL,
+  `nombre` VARCHAR(255) NOT NULL,
+  `precio` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `stock` INT NOT NULL DEFAULT 10,
+  `descripcion` LONGTEXT NULL,
+  `imagen` VARCHAR(500) NULL COMMENT 'Foto de portada principal',
+  `imagenes` LONGTEXT NULL COMMENT 'JSON o texto con el array de URLs de la galería completa',
+  `dropi_product_id` VARCHAR(64) NULL DEFAULT NULL COMMENT 'Código numérico o string del ID de Dropi',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_productos_dropi` (`dropi_product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 2. Tabla extendida products (para compatibilidad internacional o campos avanzados)
 CREATE TABLE IF NOT EXISTS `products` (
   `id` VARCHAR(64) NOT NULL,
   `title` VARCHAR(255) NOT NULL,

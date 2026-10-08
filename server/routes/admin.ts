@@ -96,10 +96,78 @@ router.delete('/categories/:id', (req, res) => {
 // ==========================================
 // 3. PRODUCTS CRUD
 // ==========================================
-router.get('/products', (req, res) => {
+router.get('/products', async (req, res) => {
   try {
+    // Sincronizar catálogo con cPanel MySQL si responde
+    try {
+      const remote = await cpanelDbService.fetchProducts();
+      if (remote && remote.length > 0) {
+        db.mergeRemoteProducts(remote);
+      }
+    } catch {}
+
     const products = db.getProducts();
-    res.json({ success: true, data: products });
+
+    const mapped = products.map((row: any) => {
+      // 1. Manejo seguro de imágenes / galería
+      let images: string[] = [];
+      if (Array.isArray(row.images) && row.images.length > 0) {
+        images = row.images;
+      } else if (Array.isArray(row.imagenes) && row.imagenes.length > 0) {
+        images = row.imagenes;
+      } else if (typeof row.imagenes === 'string' && row.imagenes.trim()) {
+        try {
+          const parsed = JSON.parse(row.imagenes);
+          images = Array.isArray(parsed) ? parsed : [row.imagenes];
+        } catch {
+          images = row.imagenes.includes(',') ? row.imagenes.split(',').map((s: string) => s.trim()) : [row.imagenes];
+        }
+      } else if (typeof row.images === 'string' && row.images.trim()) {
+        try {
+          const parsed = JSON.parse(row.images);
+          images = Array.isArray(parsed) ? parsed : [row.images];
+        } catch {
+          images = row.images.includes(',') ? row.images.split(',').map((s: string) => s.trim()) : [row.images];
+        }
+      } else if (row.imagen) {
+        images = [row.imagen];
+      } else if (row.image) {
+        images = [row.image];
+      }
+
+      const mainImage = images.length > 0 ? images[0] : (row.imagen || row.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800');
+      if (images.length === 0) {
+        images = [mainImage];
+      }
+
+      // 2. dropi_product_id explícito
+      const dropiProductId = row.dropi_product_id !== undefined && row.dropi_product_id !== null
+        ? String(row.dropi_product_id)
+        : (row.dropiProductId !== undefined && row.dropiProductId !== null
+          ? String(row.dropiProductId)
+          : (row.dropi_id !== undefined && row.dropi_id !== null ? String(row.dropi_id) : ''));
+
+      return {
+        ...row,
+        id: String(row.id),
+        title: row.title || row.nombre || row.name || 'Producto Zavela',
+        name: row.title || row.nombre || row.name || 'Producto Zavela',
+        nombre: row.title || row.nombre || row.name || 'Producto Zavela',
+        price: Number(row.price !== undefined ? row.price : row.precio) || 0,
+        precio: Number(row.price !== undefined ? row.price : row.precio) || 0,
+        stock: Number(row.stock !== undefined ? row.stock : (row.inventario !== undefined ? row.inventario : 0)),
+        description: row.description !== undefined ? row.description : (row.descripcion || ''),
+        descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
+        image: mainImage,
+        imagen: mainImage,
+        images,
+        imagenes: images,
+        dropi_product_id: dropiProductId,
+        dropiProductId: dropiProductId
+      };
+    });
+
+    res.json({ success: true, data: mapped });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -108,40 +176,67 @@ router.get('/products', (req, res) => {
 router.post('/products', async (req, res) => {
   try {
     const body = req.body;
-    const costPrice = Number(body.costPrice) || 0;
-    const price = Number(body.price) || 0;
+    const costPrice = Number(body.costPrice || body.costo) || 0;
+    const price = Number(body.price || body.precio) || 0;
     const marginAmount = price - costPrice;
     const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
-    const compareAtPrice = Number(body.compareAtPrice) || (price > 0 ? price + 20000 : 0);
+    const compareAtPrice = Number(body.compareAtPrice || body.compare_price) || (price > 0 ? price + 20000 : 0);
     const discountPercentage = compareAtPrice > price ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
 
-    const rawImages = Array.isArray(body.images) ? body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0) : [];
+    let rawImages: string[] = [];
+    if (Array.isArray(body.images) && body.images.length > 0) {
+      rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
+      rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+      try {
+        const parsed = JSON.parse(body.imagenes);
+        if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      } catch {}
+    }
+
+    if (rawImages.length === 0 && (body.image || body.imagen)) {
+      const single = body.image || body.imagen;
+      if (typeof single === 'string' && single.trim()) rawImages.push(single.trim());
+    }
+
     const validImages = rawImages.length > 0 ? rawImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+    const mainImage = validImages[0];
+
+    const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+      ? String(body.dropi_product_id).trim()
+      : (body.dropiProductId !== undefined && body.dropiProductId !== null
+        ? String(body.dropiProductId).trim()
+        : (body.dropi_id !== undefined && body.dropi_id !== null ? String(body.dropi_id).trim() : ''));
+
+    const title = (body.title || body.nombre || body.name || 'Nuevo Producto').trim();
+    const slug = body.slug || title.toLowerCase().replace(/[^a-z0-9]/g, '-') || `prod-${Date.now()}`;
+    const description = body.description !== undefined ? body.description : (body.descripcion || '');
 
     const newProduct: Product = {
       id: body.id || `prod-${Date.now()}`,
-      title: body.title || 'Nuevo Producto',
-      slug: body.slug || (body.title ? body.title.toLowerCase().replace(/[^a-z0-9]/g, '-') : `prod-${Date.now()}`),
-      description: body.description || '',
-      shortDescription: body.shortDescription || '',
+      title,
+      slug,
+      description,
+      shortDescription: body.shortDescription || body.descripcion_corta || '',
       price,
       costPrice,
       compareAtPrice,
       discountPercentage,
       marginAmount,
       marginPercentage: Math.round(marginPercentage * 10) / 10,
-      stock: Number(body.stock) || 0,
-      active: body.active !== false,
-      featured: Boolean(body.featured),
+      stock: Number(body.stock !== undefined ? body.stock : (body.inventario !== undefined ? body.inventario : 0)),
+      active: body.active !== false && body.activo !== false,
+      featured: Boolean(body.featured || body.destacado),
       images: validImages,
       warrantyInfo: body.warrantyInfo || '30 días de garantía oficial Zavela Store por defectos de fábrica.',
-      tags: Array.isArray(body.tags) ? body.tags : (body.tags ? String(body.tags).split(',').map(t => t.trim()) : ['tendencia', 'calidad']),
-      weightKg: Number(body.weightKg) || 0.5,
-      categoryId: body.categoryId || db.getCategories()[0]?.id,
-      categoryName: db.getCategories().find(c => c.id === body.categoryId)?.name || db.getCategories()[0]?.name,
+      tags: Array.isArray(body.tags) ? body.tags : (body.tags ? String(body.tags).split(',').map((t: string) => t.trim()) : ['tendencia', 'calidad']),
+      weightKg: Number(body.weightKg || body.peso) || 0.5,
+      categoryId: body.categoryId || body.categoria_id || db.getCategories()[0]?.id,
+      categoryName: db.getCategories().find(c => c.id === (body.categoryId || body.categoria_id))?.name || body.categoria || db.getCategories()[0]?.name,
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
-      dropi_product_id: body.dropi_product_id !== undefined ? body.dropi_product_id : (body.dropiProductId !== undefined ? body.dropiProductId : ''),
+      dropi_product_id: dropiProductId,
       variants: Array.isArray(body.variants) ? body.variants : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -150,7 +245,12 @@ router.post('/products', async (req, res) => {
     const saved = db.saveProduct(newProduct);
 
     // Sincronizar producto con la base de datos MySQL en cPanel vía POST /api.php?action=productos
-    cpanelDbService.saveProduct(saved).catch(err => {
+    cpanelDbService.saveProduct({
+      ...saved,
+      imagen: mainImage,
+      imagenes: validImages,
+      dropi_product_id: dropiProductId
+    } as any).catch(err => {
       console.warn('[cPanel DB Sync] Error al guardar producto en cPanel:', err);
     });
 
@@ -204,8 +304,8 @@ router.put('/products/:id', async (req, res) => {
       existing = all.find(p => p.id === productId || p.slug === productId || p.slug === body.slug);
     }
 
-    const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (existing?.costPrice || 0);
-    const price = body.price !== undefined ? Number(body.price) : (existing?.price || 0);
+    const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
+    const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
     const marginAmount = price - costPrice;
     const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
     const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
@@ -214,18 +314,42 @@ router.put('/products/:id', async (req, res) => {
       : 0;
 
     let finalImages = existing?.images || [];
-    if (Array.isArray(body.images)) {
+    if (Array.isArray(body.images) && body.images.length > 0) {
       const filtered = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      if (filtered.length > 0) {
-        finalImages = filtered;
+      if (filtered.length > 0) finalImages = filtered;
+    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
+      const filtered = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      if (filtered.length > 0) finalImages = filtered;
+    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+      try {
+        const parsed = JSON.parse(body.imagenes);
+        if (Array.isArray(parsed) && parsed.length > 0) finalImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      } catch {}
+    } else if (body.image || body.imagen) {
+      const single = (body.image || body.imagen).trim();
+      if (single) {
+        finalImages = [single, ...(existing?.images?.filter((i: string) => i !== single) || [])];
       }
     }
 
+    if (finalImages.length === 0) {
+      finalImages = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+    }
+    const mainImage = finalImages[0];
+
+    const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+      ? String(body.dropi_product_id).trim()
+      : (body.dropiProductId !== undefined && body.dropiProductId !== null
+        ? String(body.dropiProductId).trim()
+        : (body.dropi_id !== undefined && body.dropi_id !== null
+          ? String(body.dropi_id).trim()
+          : (existing?.dropi_product_id !== undefined ? String(existing.dropi_product_id) : '')));
+
     const updated: Product = {
       id: productId,
-      title: body.title || existing?.title || 'Producto',
+      title: body.title || body.nombre || existing?.title || 'Producto',
       slug: body.slug || existing?.slug || productId,
-      description: body.description !== undefined ? body.description : (existing?.description || ''),
+      description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
       shortDescription: body.shortDescription !== undefined ? body.shortDescription : (existing?.shortDescription || ''),
       price,
       costPrice,
@@ -233,10 +357,10 @@ router.put('/products/:id', async (req, res) => {
       discountPercentage,
       marginAmount,
       marginPercentage: Math.round(marginPercentage * 10) / 10,
-      stock: body.stock !== undefined ? Number(body.stock) : (existing?.stock ?? 10),
+      stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
       active: body.active !== undefined ? Boolean(body.active) : (existing?.active ?? true),
       featured: body.featured !== undefined ? Boolean(body.featured) : (existing?.featured ?? false),
-      images: finalImages.length > 0 ? finalImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'],
+      images: finalImages,
       warrantyInfo: body.warrantyInfo || existing?.warrantyInfo || '30 días de garantía oficial Zavela Store.',
       tags: Array.isArray(body.tags) ? body.tags : (existing?.tags || ['tendencia']),
       weightKg: body.weightKg !== undefined ? Number(body.weightKg) : (existing?.weightKg || 0.5),
@@ -244,7 +368,7 @@ router.put('/products/:id', async (req, res) => {
       categoryName: db.getCategories().find(c => c.id === (body.categoryId || existing?.categoryId))?.name || existing?.categoryName || 'General',
       warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || existing?.brand || 'Zavela Store',
-      dropi_product_id: body.dropi_product_id !== undefined ? body.dropi_product_id : (body.dropiProductId !== undefined ? body.dropiProductId : existing?.dropi_product_id),
+      dropi_product_id: dropiProductId,
       variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -253,7 +377,12 @@ router.put('/products/:id', async (req, res) => {
     const saved = db.saveProduct(updated);
 
     // Sincronizar actualización de producto con la base de datos MySQL en cPanel vía POST /api.php?action=productos
-    cpanelDbService.saveProduct(saved).catch(err => {
+    cpanelDbService.saveProduct({
+      ...saved,
+      imagen: mainImage,
+      imagenes: finalImages,
+      dropi_product_id: dropiProductId
+    } as any).catch(err => {
       console.warn('[cPanel DB Sync] Error al actualizar producto en cPanel:', err);
     });
 
