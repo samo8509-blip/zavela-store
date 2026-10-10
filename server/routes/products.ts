@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
+import { pool } from '../mysqlPool.ts';
 
 const router = Router();
 
@@ -325,15 +326,15 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/products/:id - Eliminar producto
-router.delete('/:id', async (req, res) => {
+// DELETE /api/products/:id o /api/products.php?id=... - Eliminar producto
+router.delete('/:id?', async (req, res) => {
   try {
-    const id = req.params.id;
-    const deleted = db.deleteProduct(id);
+    const id = req.params.id || req.query.id as string;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID de producto no proporcionado' });
+    }
 
-    cpanelDbService.deleteProduct(id).catch(err => {
-      console.warn('[cPanel Sync] Advertencia al eliminar en cPanel MySQL:', err.message);
-    });
+    const [result]: any = await pool.query('DELETE FROM productos WHERE id = ?', [id]);
 
     res.json({
       success: true,

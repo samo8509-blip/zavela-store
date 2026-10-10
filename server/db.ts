@@ -29,6 +29,7 @@ export interface DatabaseSchema {
   advisorSales: AdvisorSale[];
   socialSettings?: SocialMarketingSettings;
   socialPosts?: SocialBroadcastPost[];
+  deletedProductIds?: string[];
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -1274,7 +1275,8 @@ class DatabaseStore {
 
   // Products
   getProducts(filter?: { categorySlug?: string; search?: string; onlyActive?: boolean; featured?: boolean }): Product[] {
-    let result = [...this.data.products];
+    const deleted = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
+    let result = this.data.products.filter(p => !deleted.has(String(p.id).trim()) && !deleted.has(String((p as any).productId || '')));
     if (filter?.onlyActive) {
       result = result.filter(p => p.active);
     }
@@ -1298,12 +1300,23 @@ class DatabaseStore {
     return result;
   }
 
+  isProductDeleted(id: string): boolean {
+    const target = String(id).trim();
+    return Boolean(this.data.deletedProductIds && this.data.deletedProductIds.includes(target));
+  }
+
   getProductById(idOrSlug: string): Product | undefined {
-    return this.data.products.find(p => p.id === idOrSlug || p.slug === idOrSlug);
+    const target = String(idOrSlug).trim();
+    if (this.isProductDeleted(target)) return undefined;
+    return this.data.products.find(p => String(p.id).trim() === target || p.slug === target || (p as any).productId === target);
   }
 
   saveProduct(product: Product): Product {
-    const index = this.data.products.findIndex(p => p.id === product.id);
+    if (product.id && this.data.deletedProductIds) {
+      this.data.deletedProductIds = this.data.deletedProductIds.filter(id => id !== String(product.id).trim());
+    }
+    const target = String(product.id).trim();
+    const index = this.data.products.findIndex(p => String(p.id).trim() === target);
     const updatedProduct = {
       ...product,
       updatedAt: new Date().toISOString()
@@ -1318,13 +1331,20 @@ class DatabaseStore {
   }
 
   deleteProduct(id: string): boolean {
-    const index = this.data.products.findIndex(p => p.id === id);
-    if (index >= 0) {
-      this.data.products.splice(index, 1);
-      this.saveData(this.data);
-      return true;
+    const target = String(id).trim();
+    if (!this.data.deletedProductIds) {
+      this.data.deletedProductIds = [];
     }
-    return false;
+    if (!this.data.deletedProductIds.includes(target)) {
+      this.data.deletedProductIds.push(target);
+    }
+    this.data.products = this.data.products.filter(p => 
+      String(p.id).trim() !== target && 
+      (p as any).productId !== target &&
+      p.slug !== target
+    );
+    this.saveData(this.data);
+    return true;
   }
 
   setProducts(products: Product[]): Product[] {
@@ -1335,8 +1355,13 @@ class DatabaseStore {
 
   mergeRemoteProducts(remoteProducts: Product[]): void {
     if (!remoteProducts || !Array.isArray(remoteProducts) || remoteProducts.length === 0) return;
+    const deleted = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
     for (const remote of remoteProducts) {
-      const idx = this.data.products.findIndex(p => p.id === remote.id || p.slug === remote.slug);
+      const targetRemoteId = String(remote.id).trim();
+      if (deleted.has(targetRemoteId) || (remote.slug && deleted.has(remote.slug))) {
+        continue;
+      }
+      const idx = this.data.products.findIndex(p => String(p.id).trim() === targetRemoteId || p.slug === remote.slug);
       if (idx >= 0) {
         const existing = this.data.products[idx];
         const remoteImages = (Array.isArray(remote.images) && remote.images.length > 0) ? remote.images : [];

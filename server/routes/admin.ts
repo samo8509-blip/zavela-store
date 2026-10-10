@@ -6,6 +6,7 @@ import { approveOrderForDropi } from './orders.ts';
 import { sendSaleNotification, dispatchWhatsAppAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { metaGraphService, isPlaceholderToken } from '../services/metaGraphService.ts';
+import { pool } from '../mysqlPool.ts';
 
 const router = Router();
 
@@ -469,30 +470,28 @@ router.put('/products/:id', async (req, res) => {
 router.delete('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = db.deleteProduct(id);
-
-    // Sincronizar eliminación con la base de datos MySQL en cPanel
-    try {
-      await cpanelDbService.deleteProduct(id);
-    } catch (cpanelErr: any) {
-      console.warn('[cPanel Product Delete Sync Warning]:', cpanelErr?.message || cpanelErr);
+    if (!id) {
+      return res.status(400).json({ error: 'ID de producto no proporcionado' });
     }
 
-    if (!deleted) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
+    // Ejecutar el DELETE en MySQL
+    const [result]: any = await pool.query('DELETE FROM productos WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado en la base de datos' });
     }
 
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: 'Producto Eliminado',
-      details: `Producto con ID ${id} fue eliminado correctamente del inventario.`,
+      details: `Producto con ID ${id} fue eliminado correctamente de MySQL.`,
       status: 'info'
     });
 
-    res.json({ success: true, message: 'Producto eliminado correctamente' });
-  } catch (error) {
-    console.error('Error al eliminar producto:', error);
-    res.status(500).json({ error: 'Error interno al eliminar de la base de datos' });
+    return res.json({ success: true, message: 'Producto eliminado correctamente' });
+  } catch (error: any) {
+    console.error('Error al eliminar producto de MySQL:', error);
+    return res.status(500).json({ error: 'Error al eliminar producto', details: error.message });
   }
 });
 

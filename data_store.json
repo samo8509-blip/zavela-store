@@ -292,7 +292,7 @@
       "dropi_product_id": "",
       "variants": [],
       "createdAt": "2026-10-10 10:56:33",
-      "updatedAt": "2026-10-10T16:12:48.233Z"
+      "updatedAt": "2026-10-10T16:28:28.849Z"
     },
     {
       "id": "prod-1791647789948",
@@ -322,7 +322,7 @@
       "dropi_product_id": "DROPI-12345",
       "variants": [],
       "createdAt": "2026-10-10 10:56:28",
-      "updatedAt": "2026-10-10T16:12:48.233Z"
+      "updatedAt": "2026-10-10T16:28:28.849Z"
     },
     {
       "id": "prod-1791417604563",
@@ -352,7 +352,7 @@
       "dropi_product_id": "DROPI-12345",
       "variants": [],
       "createdAt": "2026-10-07 19:00:04",
-      "updatedAt": "2026-10-10T16:12:48.233Z"
+      "updatedAt": "2026-10-10T16:28:28.849Z"
     },
     {
       "id": "prod-1791317610184",
@@ -383,7 +383,7 @@
       "dropi_product_id": "DROPI-998877",
       "variants": [],
       "createdAt": "2026-10-06 15:13:30",
-      "updatedAt": "2026-10-10T16:12:48.233Z"
+      "updatedAt": "2026-10-10T16:28:28.849Z"
     },
     {
       "id": "9lqDy6BspF8Bn852tEK1",
@@ -403,7 +403,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06 11:58:56",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "dropi_product_id": "",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
@@ -436,7 +436,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 12:11:59",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "dropi_product_id": ""
     },
     {
@@ -466,7 +466,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 12:11:54",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "dropi_product_id": ""
     },
     {
@@ -496,7 +496,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 11:54:01",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "dropi_product_id": ""
     },
     {
@@ -527,7 +527,7 @@
       "dropi_product_id": "",
       "variants": [],
       "createdAt": "2026-10-05 17:52:43",
-      "updatedAt": "2026-10-10T16:12:48.233Z"
+      "updatedAt": "2026-10-10T16:28:28.849Z"
     },
     {
       "id": "prod-test",
@@ -547,7 +547,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 11:35:41",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -571,7 +571,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06 09:49:51",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -595,7 +595,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:34:22",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -619,7 +619,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:39:10",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -643,7 +643,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:36:51",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -667,7 +667,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:35:02",
-      "updatedAt": "2026-10-10T16:12:48.233Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -817,7 +817,7 @@
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06 11:34:08",
-      "updatedAt": "2026-10-10T16:12:48.232Z",
+      "updatedAt": "2026-10-10T16:28:28.849Z",
       "dropi_product_id": ""
     },
     {
@@ -1621,6 +1621,46 @@
   },
   "logs": [
     {
+      "id": "log-1791649813478-f7pkj",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID test-to-delete-12345 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T16:30:13.478Z"
+    },
+    {
+      "id": "log-1791649813466-s58vy",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID temp-del-test-123 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T16:30:13.466Z"
+    },
+    {
+      "id": "log-1791649641212-2699h",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID temp-del-test-123 fue eliminado correctamente del inventario.",
+      "status": "info",
+      "createdAt": "2026-10-10T16:27:21.212Z"
+    },
+    {
+      "id": "log-1791649637159-icihr",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Creado",
+      "details": "Producto creado: \"Producto Prueba Borrado\" con stock de 10 unidades.",
+      "status": "success",
+      "createdAt": "2026-10-10T16:27:17.159Z"
+    },
+    {
+      "id": "log-1791649637158-17fjd",
+      "type": "PRODUCT_UPDATE",
+      "action": "Publicación en Redes Sociales",
+      "details": "Producto \"Producto Prueba Borrado\" publicado en [instagram, tiktok]. Generando visualizaciones y tráfico de ventas.",
+      "status": "success",
+      "createdAt": "2026-10-10T16:27:17.158Z"
+    },
+    {
       "id": "log-1791648779669-irg5g",
       "type": "PRODUCT_UPDATE",
       "action": "Producto Eliminado",
@@ -2184,6 +2224,31 @@
     }
   },
   "socialPosts": [
+    {
+      "id": "soc-post-1791649637157",
+      "productId": "temp-del-test-123",
+      "productTitle": "Producto Prueba Borrado",
+      "productPrice": 50000,
+      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      "productSlug": "producto-prueba-borrado",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "copies": {
+        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto Prueba Borrado\n\n🏷️ PRECIO ESPECIAL: $ 50.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
+        "instagram": "✨ Presentamos: Producto Prueba Borrado ✨\n\n💰 Precio: $ 50.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
+        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto Prueba Borrado por solo $ 50.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
+      },
+      "status": "published",
+      "publishedAt": "2026-10-10T16:27:17.157Z",
+      "views": 4038,
+      "clicks": 329,
+      "likes": 502,
+      "shares": 61,
+      "attributedSalesCOP": 650000,
+      "postUrl": "https://instagram.com/p/zavela_producto-p"
+    },
     {
       "id": "soc-post-1791648774203",
       "productId": "test-to-delete-12345",

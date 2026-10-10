@@ -7,6 +7,8 @@ const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
  * Provee persistencia externa y un sistema de fallback transparente hacia la base de datos local en memoria.
  */
 export class CpanelDbService {
+  private deletedProductIds: Set<string> = new Set();
+
   /**
    * Obtiene la URL base configurada para la API de cPanel.
    */
@@ -58,7 +60,9 @@ export class CpanelDbService {
         return null;
       }
 
-      return list.map(item => this.normalizeProduct(item));
+      return list
+        .map(item => this.normalizeProduct(item))
+        .filter(p => !this.deletedProductIds.has(String(p.id).trim()));
     } catch (err: any) {
       console.warn(`[cPanel DB Fallback] Conexión no disponible con cPanel (${err?.message || err}). Catálogo local activo.`);
       return null;
@@ -71,6 +75,9 @@ export class CpanelDbService {
    * Envía campos tanto en inglés como en español para máxima compatibilidad con el script PHP.
    */
   async saveProduct(product: Product): Promise<any | null> {
+    if (product.id) {
+      this.deletedProductIds.delete(String(product.id).trim());
+    }
     const baseUrl = this.getApiUrl();
     const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos`;
 
@@ -155,8 +162,10 @@ export class CpanelDbService {
    * Elimina un producto de la base de datos MySQL en cPanel.
    */
   async deleteProduct(id: string): Promise<boolean> {
+    const cleanId = String(id).trim();
+    this.deletedProductIds.add(cleanId);
     const baseUrl = this.getApiUrl();
-    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos&id=${encodeURIComponent(id)}`;
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=productos&id=${encodeURIComponent(cleanId)}`;
 
     try {
       const response = await fetch(endpoint, {
@@ -169,7 +178,7 @@ export class CpanelDbService {
       });
       return response.ok;
     } catch (err: any) {
-      console.warn(`[cPanel DB Delete] Error al eliminar producto ${id} en cPanel:`, err.message);
+      console.warn(`[cPanel DB Delete] Error al eliminar producto ${cleanId} en cPanel:`, err.message);
       return false;
     }
   }

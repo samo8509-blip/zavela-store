@@ -184,11 +184,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (statsRes.success) setStats(statsRes.data);
       
-      // Priorizar datos de cPanel MySQL
-      if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds);
-      } else if (productsRes.success && Array.isArray(productsRes.data)) {
+      // Priorizar datos de la base de datos sincronizada
+      if (productsRes.success && Array.isArray(productsRes.data)) {
         setProducts(productsRes.data);
+      } else if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+        setProducts(cpanelProds);
       }
 
       if (ordersRes.success) setOrders(ordersRes.data);
@@ -738,6 +738,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   categories={categories}
                   onRefresh={fetchAdminData}
                   onEditProduct={(p) => setEditingProduct(p)}
+                  onDeleteProduct={(deletedId) => {
+                    setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));
+                  }}
                 />
               )
             )}

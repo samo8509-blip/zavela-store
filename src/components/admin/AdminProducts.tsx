@@ -52,13 +52,15 @@ interface AdminProductsProps {
   categories: Category[];
   onRefresh: () => void;
   onEditProduct: (product: Product | null) => void;
+  onDeleteProduct?: (id: string) => void;
 }
 
 export const AdminProducts: React.FC<AdminProductsProps> = ({
   products,
   categories,
   onRefresh,
-  onEditProduct
+  onEditProduct,
+  onDeleteProduct
 }) => {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
 
@@ -395,8 +397,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   };
 
   const handleDeleteSingle = async (product: Product) => {
-    const id = product.id || (product as any).productId;
-    if (!id) return;
+    const rawId = product.id || (product as any).productId;
+    if (!rawId) return;
+    const id = String(rawId);
 
     const confirmed = window.confirm(`¿Seguro que deseas eliminar este producto?\n\n"${product.title}"\nEsta acción no se puede deshacer.`);
     if (!confirmed) return;
@@ -412,9 +415,14 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         throw new Error(errData.error || errData.message || `Error HTTP ${res.status}`);
       }
 
-      // Actualizar inmediatamente el estado local para que desaparezca al instante
-      setLocalProducts(prev => prev.filter(p => p.id !== id));
-      setSelectedProductIds(prev => prev.filter(selectedId => selectedId !== id));
+      // Actualizar inmediatamente el estado local filtrando el ID eliminado
+      setLocalProducts(prev => prev.filter(p => String(p.id) !== id && (p as any).productId !== id));
+      setSelectedProductIds(prev => prev.filter(selectedId => String(selectedId) !== id));
+      
+      if (onDeleteProduct) {
+        onDeleteProduct(id);
+      }
+
       showToast(`Producto "${product.title}" eliminado correctamente.`);
 
       // Sincronizar catálogo general
