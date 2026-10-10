@@ -237,12 +237,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveProduct = async (productData: Partial<Product>) => {
     try {
-      const isEdit = Boolean(productData.id);
+      const targetId = productData.id || (productData as any).productId;
+      const isEdit = Boolean(targetId);
 
-      // 1. Guardar o Actualizar directamente en cPanel MySQL
-      const savedProductResult = await saveCpanelProduct(productData);
+      // 1. Si el producto ya tiene id, enviar por PUT /api/admin/products/:id; si es nuevo sin id, enviar por POST
+      const endpoint = isEdit ? `/api/admin/products/${encodeURIComponent(targetId!)}` : '/api/admin/products';
+      const method = isEdit ? 'PUT' : 'POST';
 
-      const finalProductId = savedProductResult?.id || productData.id || `prod-${Date.now()}`;
+      const payload = {
+        ...productData,
+        ...(targetId ? { id: targetId } : {})
+      };
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || errJson.message || `Error HTTP ${res.status} al guardar producto`);
+      }
+
+      const resData = await res.json();
+      const savedProductResult = resData.data || payload;
+      const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
+
       const completeSavedProduct = {
         ...productData,
         ...savedProductResult,

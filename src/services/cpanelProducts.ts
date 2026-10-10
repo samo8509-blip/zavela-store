@@ -58,31 +58,35 @@ export async function getCpanelProducts(onlyActive: boolean = false): Promise<Pr
  * 2. GUARDAR / CREAR O ACTUALIZAR PRODUCTO EN CPANEL MYSQL
  */
 export async function saveCpanelProduct(productData: Partial<Product>): Promise<Product> {
-  const isEdit = Boolean(productData.id);
-  const url = isEdit ? `${API_PRODUCTS_URL}?id=${encodeURIComponent(productData.id!)}` : API_PRODUCTS_URL;
+  const targetId = productData.id || (productData as any).productId;
+  const isEdit = Boolean(targetId);
+  const url = isEdit ? `${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(targetId!)}` : API_ADMIN_PRODUCTS_URL;
   const method = isEdit ? 'PUT' : 'POST';
 
   try {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(productData)
+      body: JSON.stringify({
+        ...productData,
+        ...(targetId ? { id: targetId } : {})
+      })
     });
 
     if (!res.ok) {
-      // Fallback a endpoint de Express admin si la API PHP directa tuviera problema de proxy
-      const adminUrl = isEdit ? `${API_ADMIN_PRODUCTS_URL}/${productData.id}` : API_ADMIN_PRODUCTS_URL;
-      const adminMethod = isEdit ? 'PUT' : 'POST';
-      const adminRes = await fetch(adminUrl, {
-        method: adminMethod,
+      // Fallback a API directa de productos
+      const phpUrl = isEdit ? `${API_PRODUCTS_URL}?id=${encodeURIComponent(targetId!)}` : API_PRODUCTS_URL;
+      const phpRes = await fetch(phpUrl, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData)
       });
-      if (adminRes.ok) {
-        const adminData = await adminRes.json();
-        return adminData.data || productData;
+      if (phpRes.ok) {
+        const phpData = await phpRes.json();
+        return phpData.data || productData;
       }
-      throw new Error(`HTTP ${res.status} al guardar en cPanel MySQL`);
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `HTTP ${res.status} al guardar producto`);
     }
 
     const data = await res.json();
@@ -105,7 +109,7 @@ export async function deleteCpanelProduct(id: string, softDelete: boolean = fals
   if (!id) return false;
 
   if (softDelete) {
-    const res = await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(id)}`, {
+    const res = await fetch(`${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, active: false })
@@ -114,15 +118,14 @@ export async function deleteCpanelProduct(id: string, softDelete: boolean = fals
   }
 
   try {
-    const res = await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(id)}`, {
+    const res = await fetch(`${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(id)}`, {
       method: 'DELETE'
     });
     if (!res.ok) {
-      // Fallback a admin router
-      const adminRes = await fetch(`${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(id)}`, {
+      const phpRes = await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
-      return adminRes.ok;
+      return phpRes.ok;
     }
     return true;
   } catch (err: any) {

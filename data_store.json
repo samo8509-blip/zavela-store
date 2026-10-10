@@ -265,13 +265,73 @@
   ],
   "products": [
     {
+      "id": "prod-1791647793044",
+      "title": "Combo Secador Y Plancha Ancha Sencilla P (POST Update)",
+      "slug": "combo-secador-y-plancha-ancha-sencilla-p-post-update",
+      "description": "Descripción actualizada sin duplicación",
+      "shortDescription": "",
+      "price": 115000,
+      "costPrice": 0,
+      "compareAtPrice": 0,
+      "discountPercentage": 0,
+      "marginAmount": 115000,
+      "marginPercentage": 0,
+      "stock": 15,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2283046/1cf019fc-e2d2-4cd5-a330-41691099aac6.webp"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [],
+      "weightKg": 0.5,
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "",
+      "variants": [],
+      "createdAt": "2026-10-10 10:56:33",
+      "updatedAt": "2026-10-10T16:12:48.233Z"
+    },
+    {
+      "id": "prod-1791647789948",
+      "title": "Combo Secador Y Plancha Ancha Sencilla P",
+      "slug": "combo-secador-y-plancha-ancha-sencilla-p",
+      "description": "Características principales\nCombo: secador y plancha ancha.\nAguacate: cuidado del cabello.\nPlancha ancha: cabello largo y abundante.\nPronova: calidad.\nRegalo ideal: kit completo.\nDescripción\nSeca y alisa tu cabello con el Combo Pronova PRO-2520.\nUsa protector térmico.\nContenido del paquete: 1 secador y 1 plancha ancha Pronova.",
+      "shortDescription": "",
+      "price": 105800,
+      "costPrice": 0,
+      "compareAtPrice": 0,
+      "discountPercentage": 0,
+      "marginAmount": 109900,
+      "marginPercentage": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2283046/1cf019fc-e2d2-4cd5-a330-41691099aac6.webp"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [],
+      "weightKg": 0.5,
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "DROPI-12345",
+      "variants": [],
+      "createdAt": "2026-10-10 10:56:28",
+      "updatedAt": "2026-10-10T16:12:48.233Z"
+    },
+    {
       "id": "prod-1791417604563",
       "title": "Compresor de Aire Mk330 Portátil",
       "slug": "compresor-de-aire-mk330-port-til",
       "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
-      "shortDescription": "Envío gratis y garantía asegurada Zavela Store.",
+      "shortDescription": "",
       "price": 129800,
-      "costPrice": 45000,
+      "costPrice": 0,
       "compareAtPrice": 149800,
       "discountPercentage": 20,
       "marginAmount": 84800,
@@ -283,20 +343,16 @@
         "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
       ],
       "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [
-        "tendencia",
-        "calidad",
-        "contraentrega"
-      ],
+      "tags": [],
       "weightKg": 0.5,
-      "categoryId": "cat-general",
-      "categoryName": "General",
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela Store",
       "dropi_product_id": "DROPI-12345",
       "variants": [],
-      "createdAt": "2026-10-08T00:00:04.563Z",
-      "updatedAt": "2026-10-08T00:00:04.563Z"
+      "createdAt": "2026-10-07 19:00:04",
+      "updatedAt": "2026-10-10T16:12:48.233Z"
     },
     {
       "id": "prod-1791317610184",
@@ -321,13 +377,13 @@
       "tags": [],
       "weightKg": 0.5,
       "categoryId": "cat-1",
-      "categoryName": "Belleza y Cuidado Personal",
+      "categoryName": "Catálogo",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela Store",
       "dropi_product_id": "DROPI-998877",
       "variants": [],
       "createdAt": "2026-10-06 15:13:30",
-      "updatedAt": "2026-10-07T23:58:55.847Z"
+      "updatedAt": "2026-10-10T16:12:48.233Z"
     },
     {
       "id": "9lqDy6BspF8Bn852tEK1",
@@ -347,7 +403,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06 11:58:56",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "dropi_product_id": "",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
@@ -380,7 +436,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 12:11:59",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "dropi_product_id": ""
     },
     {
@@ -410,7 +466,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 12:11:54",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "dropi_product_id": ""
     },
     {
@@ -440,7 +496,7 @@
       "brand": "Zavela Store",
       "variants": [],
       "createdAt": "2026-10-06 11:54:01",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "dropi_product_id": ""
     },
     {
@@ -471,7 +527,7 @@
       "dropi_product_id": "",
       "variants": [],
       "createdAt": "2026-10-05 17:52:43",
-      "updatedAt": "2026-10-07T23:58:51.038Z"
+      "updatedAt": "2026-10-10T16:12:48.233Z"
     },
     {
       "id": "prod-test",
@@ -491,7 +547,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 11:35:41",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -515,7 +571,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06 09:49:51",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -539,7 +595,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:34:22",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -563,7 +619,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:39:10",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -587,7 +643,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:36:51",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -611,7 +667,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:35:02",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.233Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -761,7 +817,7 @@
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06 11:34:08",
-      "updatedAt": "2026-10-07T23:58:51.038Z",
+      "updatedAt": "2026-10-10T16:12:48.232Z",
       "dropi_product_id": ""
     },
     {
@@ -1565,6 +1621,46 @@
   },
   "logs": [
     {
+      "id": "log-1791648779669-irg5g",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID test-to-delete-12345 fue eliminado correctamente del inventario.",
+      "status": "info",
+      "createdAt": "2026-10-10T16:12:59.669Z"
+    },
+    {
+      "id": "log-1791648774204-rb3w8",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Creado",
+      "details": "Producto creado: \"Producto De Prueba Para Borrar\" con stock de 5 unidades.",
+      "status": "success",
+      "createdAt": "2026-10-10T16:12:54.204Z"
+    },
+    {
+      "id": "log-1791648774204-ydh50",
+      "type": "PRODUCT_UPDATE",
+      "action": "Publicación en Redes Sociales",
+      "details": "Producto \"Producto De Prueba Para Borrar\" publicado en [instagram, tiktok]. Generando visualizaciones y tráfico de ventas.",
+      "status": "success",
+      "createdAt": "2026-10-10T16:12:54.204Z"
+    },
+    {
+      "id": "log-1791648733640-wmxug",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Actualizado (vía POST)",
+      "details": "Producto actualizado: \"Combo Secador Y Plancha Ancha Sencilla P (POST Update)\".",
+      "status": "success",
+      "createdAt": "2026-10-10T16:12:13.640Z"
+    },
+    {
+      "id": "log-1791648714594-ix4hq",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Actualizado",
+      "details": "Producto actualizado: \"Combo Secador Y Plancha Ancha Sencilla P (Actualizado)\" - Precio: $109,900 COP.",
+      "status": "success",
+      "createdAt": "2026-10-10T16:11:54.594Z"
+    },
+    {
       "id": "log-1791417535857-hb235",
       "type": "PRODUCT_UPDATE",
       "action": "Producto Actualizado",
@@ -2088,6 +2184,31 @@
     }
   },
   "socialPosts": [
+    {
+      "id": "soc-post-1791648774203",
+      "productId": "test-to-delete-12345",
+      "productTitle": "Producto De Prueba Para Borrar",
+      "productPrice": 50000,
+      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
+      "productSlug": "producto-de-prueba-para-borrar",
+      "platforms": [
+        "instagram",
+        "tiktok"
+      ],
+      "copies": {
+        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto De Prueba Para Borrar\n\n🏷️ PRECIO ESPECIAL: $ 50.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
+        "instagram": "✨ Presentamos: Producto De Prueba Para Borrar ✨\n\n💰 Precio: $ 50.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
+        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto De Prueba Para Borrar por solo $ 50.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
+      },
+      "status": "published",
+      "publishedAt": "2026-10-10T16:12:54.203Z",
+      "views": 2017,
+      "clicks": 199,
+      "likes": 242,
+      "shares": 30,
+      "attributedSalesCOP": 350000,
+      "postUrl": "https://instagram.com/p/zavela_producto-d"
+    },
     {
       "id": "soc-post-1791298191020",
       "productId": "prod-1791298191006",

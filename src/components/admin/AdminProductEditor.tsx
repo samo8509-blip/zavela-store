@@ -54,7 +54,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   onSave,
   onCancel
 }) => {
-  const isEditing = Boolean(product?.id);
+  const currentProductId = product?.id || (product as any)?.productId || (product as any)?._id;
+  const isEditing = Boolean(currentProductId);
 
   const [title, setTitle] = useState(product?.title || (product as any)?.nombre || (product as any)?.name || '');
   const [slug, setSlug] = useState(product?.slug || '');
@@ -181,8 +182,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const validImages = images.filter(img => Boolean(img && img.trim()));
     const finalImages = validImages.length > 0 ? validImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
 
+    const targetFbId = currentProductId ? String(currentProductId) : (product?.id ? String(product.id) : `prod-${Date.now()}`);
+
     const currentProductData: Product = {
-      id: product?.id || `prod-${Date.now()}`,
+      id: targetFbId,
       title: effectiveTitle,
       slug: effectiveSlug,
       description: description || 'Producto exclusivo disponible con Pago Contra Entrega en toda Colombia.',
@@ -487,9 +490,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setIsSaving(true);
     try {
       const selectedCat = categories.find(c => c.id === categoryId);
+      const targetId = currentProductId ? String(currentProductId) : (product?.id ? String(product.id) : undefined);
 
       const payload: Partial<Product> = {
-        ...(product?.id ? { id: product.id } : {}),
+        ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         shortDescription: shortDescription.trim(),

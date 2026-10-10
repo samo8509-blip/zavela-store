@@ -173,9 +173,140 @@ router.get('/products', async (req, res) => {
   }
 });
 
+// Helper para ejecutar UPDATE unificado en productos (evita duplicación)
+async function executeProductUpdate(productId: string, body: any) {
+  let existing = db.getProductById(productId);
+  if (!existing) {
+    const all = db.getProducts();
+    existing = all.find(p => p.id === productId || p.slug === productId || p.slug === body.slug);
+  }
+
+  const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
+  const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
+  const marginAmount = price - costPrice;
+  const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
+  const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
+  const discountPercentage = (compareAtPrice && compareAtPrice > price) 
+    ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) 
+    : 0;
+
+  let finalImages = existing?.images || [];
+  if (Array.isArray(body.images) && body.images.length > 0) {
+    const filtered = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    if (filtered.length > 0) finalImages = filtered;
+  } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
+    const filtered = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    if (filtered.length > 0) finalImages = filtered;
+  } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+    try {
+      const parsed = JSON.parse(body.imagenes);
+      if (Array.isArray(parsed) && parsed.length > 0) finalImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    } catch {}
+  } else if (body.image || body.imagen) {
+    const single = (body.image || body.imagen).trim();
+    if (single) {
+      finalImages = [single, ...(existing?.images?.filter((i: string) => i !== single) || [])];
+    }
+  }
+
+  if (finalImages.length === 0) {
+    finalImages = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+  }
+  const mainImage = finalImages[0];
+
+  const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+    ? String(body.dropi_product_id).trim()
+    : (body.dropiProductId !== undefined && body.dropiProductId !== null
+      ? String(body.dropiProductId).trim()
+      : (body.dropi_id !== undefined && body.dropi_id !== null
+        ? String(body.dropi_id).trim()
+        : (existing?.dropi_product_id !== undefined ? String(existing.dropi_product_id) : '')));
+
+  const updated: Product = {
+    id: productId,
+    title: (body.title || body.nombre || body.name || existing?.title || 'Producto').trim(),
+    slug: body.slug || existing?.slug || productId,
+    description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
+    shortDescription: body.shortDescription !== undefined ? body.shortDescription : (existing?.shortDescription || ''),
+    price,
+    costPrice,
+    compareAtPrice,
+    discountPercentage,
+    marginAmount,
+    marginPercentage: Math.round(marginPercentage * 10) / 10,
+    stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
+    active: body.active !== undefined ? Boolean(body.active) : (existing?.active ?? true),
+    featured: body.featured !== undefined ? Boolean(body.featured) : (existing?.featured ?? false),
+    images: finalImages,
+    warrantyInfo: body.warrantyInfo || existing?.warrantyInfo || '30 días de garantía oficial Zavela Store.',
+    tags: Array.isArray(body.tags) ? body.tags : (existing?.tags || ['tendencia']),
+    weightKg: body.weightKg !== undefined ? Number(body.weightKg) : (existing?.weightKg || 0.5),
+    categoryId: body.categoryId || existing?.categoryId || db.getCategories()[0]?.id,
+    categoryName: db.getCategories().find(c => c.id === (body.categoryId || existing?.categoryId))?.name || existing?.categoryName || 'General',
+    warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
+    brand: body.brand || existing?.brand || 'Zavela Store',
+    dropi_product_id: dropiProductId,
+    variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  const saved = db.saveProduct(updated);
+
+  // Sincronizar actualización de producto con MySQL en cPanel vía POST /api.php?action=productos
+  cpanelDbService.saveProduct({
+    ...saved,
+    imagen: mainImage,
+    imagenes: finalImages,
+    dropi_product_id: dropiProductId
+  } as any).catch(err => {
+    console.warn('[cPanel DB Sync] Error al actualizar producto en cPanel:', err);
+  });
+
+  return saved;
+}
+
 router.post('/products', async (req, res) => {
   try {
     const body = req.body;
+    const targetId = body.id || body.productId;
+
+    // Si ya existe el producto con ese ID, actualizarlo (UPDATE) en lugar de crear un duplicado
+    const existing = targetId ? (db.getProductById(targetId) || db.getProducts().find(p => p.id === targetId || p.slug === targetId)) : null;
+
+    if (targetId && existing) {
+      const saved = await executeProductUpdate(targetId, body);
+
+      let socialPost = null;
+      let facebookSync = null;
+
+      if (body.publishToSocial === true) {
+        socialPost = db.publishSocialPost({ productId: saved.id });
+      }
+
+      const fbConfig = metaGraphService.getFacebookConfig();
+      const shouldPublishToFb = body.publishToFacebook === true || 
+        (body.publishToFacebook !== false && fbConfig.connected && fbConfig.autoPostEnabled);
+
+      if (shouldPublishToFb) {
+        try {
+          facebookSync = await metaGraphService.publishProductToFacebook(saved);
+        } catch (fbErr: any) {
+          facebookSync = { success: false, message: `Fallo al publicar en Facebook: ${fbErr.message}` };
+        }
+      }
+
+      db.addLog({
+        type: 'PRODUCT_UPDATE',
+        action: 'Producto Actualizado (vía POST)',
+        details: `Producto actualizado: "${saved.title}".`,
+        status: 'success'
+      });
+
+      return res.status(200).json({ success: true, data: saved, socialPost, facebookSync });
+    }
+
+    // Creación de producto nuevo (INSERT)
     const costPrice = Number(body.costPrice || body.costo) || 0;
     const price = Number(body.price || body.precio) || 0;
     const marginAmount = price - costPrice;
@@ -214,7 +345,7 @@ router.post('/products', async (req, res) => {
     const description = body.description !== undefined ? body.description : (body.descripcion || '');
 
     const newProduct: Product = {
-      id: body.id || `prod-${Date.now()}`,
+      id: targetId || `prod-${Date.now()}`,
       title,
       slug,
       description,
@@ -296,95 +427,7 @@ router.put('/products/:id', async (req, res) => {
   try {
     const productId = req.params.id;
     const body = req.body;
-    let existing = db.getProductById(productId);
-
-    if (!existing) {
-      // Look up by slug or ID match fallback
-      const all = db.getProducts();
-      existing = all.find(p => p.id === productId || p.slug === productId || p.slug === body.slug);
-    }
-
-    const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
-    const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
-    const marginAmount = price - costPrice;
-    const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
-    const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
-    const discountPercentage = (compareAtPrice && compareAtPrice > price) 
-      ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) 
-      : 0;
-
-    let finalImages = existing?.images || [];
-    if (Array.isArray(body.images) && body.images.length > 0) {
-      const filtered = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      if (filtered.length > 0) finalImages = filtered;
-    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
-      const filtered = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      if (filtered.length > 0) finalImages = filtered;
-    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
-      try {
-        const parsed = JSON.parse(body.imagenes);
-        if (Array.isArray(parsed) && parsed.length > 0) finalImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      } catch {}
-    } else if (body.image || body.imagen) {
-      const single = (body.image || body.imagen).trim();
-      if (single) {
-        finalImages = [single, ...(existing?.images?.filter((i: string) => i !== single) || [])];
-      }
-    }
-
-    if (finalImages.length === 0) {
-      finalImages = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
-    }
-    const mainImage = finalImages[0];
-
-    const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
-      ? String(body.dropi_product_id).trim()
-      : (body.dropiProductId !== undefined && body.dropiProductId !== null
-        ? String(body.dropiProductId).trim()
-        : (body.dropi_id !== undefined && body.dropi_id !== null
-          ? String(body.dropi_id).trim()
-          : (existing?.dropi_product_id !== undefined ? String(existing.dropi_product_id) : '')));
-
-    const updated: Product = {
-      id: productId,
-      title: body.title || body.nombre || existing?.title || 'Producto',
-      slug: body.slug || existing?.slug || productId,
-      description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
-      shortDescription: body.shortDescription !== undefined ? body.shortDescription : (existing?.shortDescription || ''),
-      price,
-      costPrice,
-      compareAtPrice,
-      discountPercentage,
-      marginAmount,
-      marginPercentage: Math.round(marginPercentage * 10) / 10,
-      stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
-      active: body.active !== undefined ? Boolean(body.active) : (existing?.active ?? true),
-      featured: body.featured !== undefined ? Boolean(body.featured) : (existing?.featured ?? false),
-      images: finalImages,
-      warrantyInfo: body.warrantyInfo || existing?.warrantyInfo || '30 días de garantía oficial Zavela Store.',
-      tags: Array.isArray(body.tags) ? body.tags : (existing?.tags || ['tendencia']),
-      weightKg: body.weightKg !== undefined ? Number(body.weightKg) : (existing?.weightKg || 0.5),
-      categoryId: body.categoryId || existing?.categoryId || db.getCategories()[0]?.id,
-      categoryName: db.getCategories().find(c => c.id === (body.categoryId || existing?.categoryId))?.name || existing?.categoryName || 'General',
-      warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
-      brand: body.brand || existing?.brand || 'Zavela Store',
-      dropi_product_id: dropiProductId,
-      variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const saved = db.saveProduct(updated);
-
-    // Sincronizar actualización de producto con la base de datos MySQL en cPanel vía POST /api.php?action=productos
-    cpanelDbService.saveProduct({
-      ...saved,
-      imagen: mainImage,
-      imagenes: finalImages,
-      dropi_product_id: dropiProductId
-    } as any).catch(err => {
-      console.warn('[cPanel DB Sync] Error al actualizar producto en cPanel:', err);
-    });
+    const saved = await executeProductUpdate(productId, body);
 
     let socialPost = null;
     let facebookSync = null;
@@ -423,27 +466,33 @@ router.put('/products/:id', async (req, res) => {
   }
 });
 
-router.delete('/products/:id', (req, res) => {
+router.delete('/products/:id', async (req, res) => {
   try {
-    const deleted = db.deleteProduct(req.params.id);
-    cpanelDbService.deleteProduct(req.params.id).catch(err => {
-      console.warn('[cPanel Product Delete Sync Warning]:', err.message);
-    });
+    const { id } = req.params;
+    const deleted = db.deleteProduct(id);
+
+    // Sincronizar eliminación con la base de datos MySQL en cPanel
+    try {
+      await cpanelDbService.deleteProduct(id);
+    } catch (cpanelErr: any) {
+      console.warn('[cPanel Product Delete Sync Warning]:', cpanelErr?.message || cpanelErr);
+    }
 
     if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+      return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: 'Producto Eliminado',
-      details: `Producto con ID ${req.params.id} fue eliminado del inventario (sincronizado con cPanel MySQL).`,
+      details: `Producto con ID ${id} fue eliminado correctamente del inventario.`,
       status: 'info'
     });
 
-    res.json({ success: true, message: 'Producto eliminado correctamente.' });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, message: 'Producto eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar producto:', error);
+    res.status(500).json({ error: 'Error interno al eliminar de la base de datos' });
   }
 });
 

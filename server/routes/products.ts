@@ -110,7 +110,60 @@ router.get('/:idOrSlug', (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const body = req.body;
-    const id = body.id || `prod-${Date.now()}`;
+    const targetId = body.id || body.productId;
+    const existing = targetId ? (db.getProductById(targetId) || db.getProducts().find(p => p.id === targetId || p.slug === targetId)) : null;
+
+    if (targetId && existing) {
+      // Si el producto ya existe, actualizarlo para evitar duplicación
+      let rawImages: string[] = [];
+      if (Array.isArray(body.images) && body.images.length > 0) {
+        rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
+        rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+        try {
+          const parsed = JSON.parse(body.imagenes);
+          if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+        } catch {}
+      }
+      if (rawImages.length === 0 && (body.image || body.imagen)) {
+        const single = body.image || body.imagen;
+        if (typeof single === 'string' && single.trim()) rawImages.push(single.trim());
+      }
+      const finalImages = rawImages.length > 0 ? rawImages : (existing.images?.length > 0 ? existing.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800']);
+      const mainImage = finalImages[0];
+
+      const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+        ? String(body.dropi_product_id).trim()
+        : (body.dropiProductId !== undefined && body.dropiProductId !== null
+          ? String(body.dropiProductId).trim()
+          : (existing.dropi_product_id !== undefined ? String(existing.dropi_product_id) : ''));
+
+      const updated = {
+        ...existing,
+        ...body,
+        id: targetId,
+        title: body.title || body.nombre || existing.title || 'Producto',
+        description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing.description || '')),
+        price: body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing.price || 0)),
+        stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10)),
+        images: finalImages,
+        dropi_product_id: dropiProductId,
+        updatedAt: new Date().toISOString()
+      };
+
+      const saved = db.saveProduct(updated);
+      cpanelDbService.saveProduct({
+        ...saved,
+        imagen: mainImage,
+        imagenes: finalImages,
+        dropi_product_id: dropiProductId
+      } as any).catch(() => {});
+
+      return res.status(200).json({ success: true, message: 'Producto actualizado en MySQL (cPanel)', data: saved });
+    }
+
+    const id = targetId || `prod-${Date.now()}`;
     const price = Number(body.price !== undefined ? body.price : body.precio) || 0;
     const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price)) || 0;
     const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : body.compare_price) || (price > 0 ? Math.round(price * 1.35) : 0);

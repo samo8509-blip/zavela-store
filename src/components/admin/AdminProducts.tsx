@@ -60,6 +60,12 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   onRefresh,
   onEditProduct
 }) => {
+  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+
+  useEffect(() => {
+    setLocalProducts(products);
+  }, [products]);
+
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'low_stock'>('all');
@@ -211,9 +217,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const lowStockCount = products.filter(p => (p.active ?? true) && p.stock <= 5).length;
+  const lowStockCount = localProducts.filter(p => (p.active ?? true) && p.stock <= 5).length;
 
-  const filteredProducts = products.filter((p) => {
+  const filteredProducts = localProducts.filter((p) => {
     if (selectedCategory !== 'all' && p.categoryId !== selectedCategory) return false;
     if (statusFilter === 'active' && !p.active) return false;
     if (statusFilter === 'inactive' && p.active) return false;
@@ -233,7 +239,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const visibleIds = filteredProducts.map(p => p.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedProductIds.includes(id));
   const someVisibleSelected = visibleIds.some(id => selectedProductIds.includes(id)) && !allVisibleSelected;
-  const allCatalogSelected = products.length > 0 && products.every(p => selectedProductIds.includes(p.id));
+  const allCatalogSelected = localProducts.length > 0 && localProducts.every(p => selectedProductIds.includes(p.id));
 
   // Sync master checkbox indeterminate state
   useEffect(() => {
@@ -263,13 +269,13 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Select entire catalog (all products)
   const handleSelectAllCatalog = () => {
-    setSelectedProductIds(products.map(p => p.id));
+    setSelectedProductIds(localProducts.map(p => p.id));
     setShowQuickSelectMenu(false);
   };
 
   // Select inactive only
   const handleSelectInactive = () => {
-    const inactiveIds = products.filter(p => !p.active).map(p => p.id);
+    const inactiveIds = localProducts.filter(p => !p.active).map(p => p.id);
     setSelectedProductIds(inactiveIds);
     setShowQuickSelectMenu(false);
     showToast(`Seleccionados ${inactiveIds.length} productos inactivos/ocultos.`);
@@ -277,7 +283,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Select zero stock only
   const handleSelectZeroStock = () => {
-    const zeroStockIds = products.filter(p => p.stock <= 0).map(p => p.id);
+    const zeroStockIds = localProducts.filter(p => p.stock <= 0).map(p => p.id);
     setSelectedProductIds(zeroStockIds);
     setShowQuickSelectMenu(false);
     showToast(`Seleccionados ${zeroStockIds.length} productos sin stock (0 un.).`);
@@ -332,20 +338,26 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     try {
       const isSoft = deleteMode === 'soft';
 
-      // 1. Execute in cPanel MySQL in batch
-      const count = await deleteMultipleCpanelProducts(selectedProductIds, isSoft);
-
-      showToast(
-        isSoft
-          ? `Se ocultaron ${count} productos en cPanel MySQL.`
-          : `¡Eliminación completada! Se borraron permanentemente ${count} productos de cPanel MySQL.`
-      );
+      if (isSoft) {
+        const count = await deleteMultipleCpanelProducts(selectedProductIds, true);
+        setLocalProducts(prev => prev.map(p => selectedProductIds.includes(p.id) ? { ...p, active: false } : p));
+        showToast(`Se ocultaron ${count} productos en la tienda.`);
+      } else {
+        await Promise.allSettled(
+          selectedProductIds.map(id =>
+            fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
+          )
+        );
+        await deleteMultipleCpanelProducts(selectedProductIds, false).catch(() => {});
+        setLocalProducts(prev => prev.filter(p => !selectedProductIds.includes(p.id)));
+        showToast(`¡Eliminación completada! Se borraron permanentemente ${selectedProductIds.length} productos.`);
+      }
 
       setSelectedProductIds([]);
       setIsDeleteModalOpen(false);
       onRefresh();
     } catch (err: any) {
-      showToast(err.message || 'Error al procesar eliminación en cPanel MySQL', 'error');
+      showToast(err.message || 'Error al procesar eliminación', 'error');
     } finally {
       setIsProcessingBulk(false);
     }
@@ -382,10 +394,37 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     }
   };
 
-  const handleDeleteSingle = (product: Product) => {
-    setSelectedProductIds([product.id]);
-    setDeleteMode('permanent');
-    setIsDeleteModalOpen(true);
+  const handleDeleteSingle = async (product: Product) => {
+    const id = product.id || (product as any).productId;
+    if (!id) return;
+
+    const confirmed = window.confirm(`¿Seguro que deseas eliminar este producto?\n\n"${product.title}"\nEsta acción no se puede deshacer.`);
+    if (!confirmed) return;
+
+    setIsProcessing(id);
+    try {
+      const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || `Error HTTP ${res.status}`);
+      }
+
+      // Actualizar inmediatamente el estado local para que desaparezca al instante
+      setLocalProducts(prev => prev.filter(p => p.id !== id));
+      setSelectedProductIds(prev => prev.filter(selectedId => selectedId !== id));
+      showToast(`Producto "${product.title}" eliminado correctamente.`);
+
+      // Sincronizar catálogo general
+      onRefresh();
+    } catch (err: any) {
+      console.error('Error al eliminar producto:', err);
+      showToast(err.message || 'Error al eliminar de la base de datos', 'error');
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   const handleSoftDeleteSingle = async (product: Product) => {
@@ -396,6 +435,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       await deleteCpanelProduct(product.id, true);
 
       showToast(`Producto "${product.title}" marcado como inactivo en cPanel MySQL.`);
+      setLocalProducts(prev => prev.map(p => p.id === product.id ? { ...p, active: false } : p));
       onRefresh();
     } catch (err: any) {
       showToast(err.message || 'Error al aplicar soft delete en cPanel MySQL', 'error');
@@ -405,7 +445,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   };
 
   // Products currently selected for modal preview
-  const selectedProductsList = products.filter(p => selectedProductIds.includes(p.id));
+  const selectedProductsList = localProducts.filter(p => selectedProductIds.includes(p.id));
 
   return (
     <div className="space-y-6">
