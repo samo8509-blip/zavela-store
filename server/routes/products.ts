@@ -1,9 +1,17 @@
 import { Router } from 'express';
-import { db } from '../db.ts';
+import { db, isTestProduct } from '../db.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { pool } from '../mysqlPool.ts';
 
 const router = Router();
+
+// Desactivar endpoints de prueba
+router.all(['/test-product', '/seed', '/test'], (req, res) => {
+  res.status(403).json({
+    success: false,
+    message: 'Endpoints de prueba deshabilitados permanentemente. El catálogo opera únicamente con productos reales creados manualmente o importados de Dropi.'
+  });
+});
 
 // GET /api/products - Get catalog with search, category, sort
 router.get('/', async (req, res) => {
@@ -22,7 +30,7 @@ router.get('/', async (req, res) => {
       search: search as string,
       onlyActive: true,
       featured: featured === 'true'
-    });
+    }).filter(p => !isTestProduct(p));
 
     if (minPrice) {
       products = products.filter(p => p.price >= Number(minPrice));

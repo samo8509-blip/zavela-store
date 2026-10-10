@@ -14,11 +14,14 @@ import {
   ExternalLink,
   Lock,
   RefreshCw,
+  MessageCircle,
   Users,
-  MessageCircle
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { StoreSettings } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -33,6 +36,37 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedBypassLink, setCopiedBypassLink] = useState(false);
+
+  // Estado persistente de Facebook leído directamente de MySQL
+  const [fbConfig, setFbConfig] = useState<{
+    connected: boolean;
+    pageId: string;
+    accountName: string;
+    autoPostEnabled: boolean;
+    pixelId?: string;
+    lastSyncAt?: string;
+  } | null>(null);
+  const [isFbModalOpen, setIsFbModalOpen] = useState(false);
+  const [isLoadingFb, setIsLoadingFb] = useState(false);
+
+  const fetchFbStatus = async () => {
+    setIsLoadingFb(true);
+    try {
+      const res = await fetch('/api/admin/social/facebook/status');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setFbConfig(data.data);
+      }
+    } catch (e) {
+      console.warn('Error fetching Facebook status in AdminSettings:', e);
+    } finally {
+      setIsLoadingFb(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchFbStatus();
+  }, []);
 
   // Sync if initialSettings updates from parent
   React.useEffect(() => {
@@ -294,6 +328,67 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
         </div>
       </div>
 
+      {/* PERSISTENCIA MYSQL: Tarjeta de Vinculación de Facebook Business Page */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+              f
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm sm:text-base text-slate-900">
+                  Página Oficial de Facebook (Meta Graph API v26.0)
+                </h3>
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${
+                  fbConfig?.connected
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${fbConfig?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                  {fbConfig?.connected ? 'Conectado a MySQL' : 'Sesión Desconectada'}
+                </span>
+              </div>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Almacenamiento persistente en tabla <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-indigo-600">configuraciones</code> de MySQL. No depende de la memoria volátil ni se desconecta al reiniciar el servidor.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsFbModalOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#1877F2] hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition-all cursor-pointer active:scale-95 shrink-0"
+          >
+            <span>{fbConfig?.connected ? 'Gestionar Conexión' : 'Conectar Facebook'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Página de Facebook:</span>
+            <span className="font-black text-slate-800 text-xs mt-0.5 block truncate">
+              {fbConfig?.accountName || 'Zavela Store Colombia (Página Oficial)'}
+            </span>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Fanpage ID Oficial:</span>
+            <span className="font-mono font-bold text-indigo-600 text-xs mt-0.5 block">
+              {fbConfig?.pageId || '1256955457511976'}
+            </span>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Auto-Publicación en Muro:</span>
+            <span className="font-bold text-emerald-700 text-xs mt-0.5 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{fbConfig?.autoPostEnabled !== false ? 'Activa al guardar producto' : 'Pausada'}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Settings Form */}
       <form onSubmit={handleSaveSettings} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6 text-xs">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
@@ -463,6 +558,16 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
         </div>
 
       </form>
+
+      {/* Modal de Conexión y Gestión de Facebook Business Page */}
+      <FacebookPageConnectModal
+        isOpen={isFbModalOpen}
+        onClose={() => setIsFbModalOpen(false)}
+        onConnected={() => {
+          fetchFbStatus();
+          onRefresh();
+        }}
+      />
 
     </div>
   );

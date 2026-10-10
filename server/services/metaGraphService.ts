@@ -1,5 +1,6 @@
 import { Product, SocialMarketingSettings } from '../../src/types/index.ts';
 import { db } from '../db.ts';
+import { pool } from '../mysqlPool.ts';
 
 export interface MetaFacebookPublishResult {
   success: boolean;
@@ -38,15 +39,58 @@ export function isPlaceholderToken(token?: string | null): boolean {
 
 export class MetaGraphService {
   private readonly apiBase = 'https://graph.facebook.com/v26.0';
+  private cachedEffectiveConfig: any = null;
+
+  /**
+   * Consulta SIEMPRE la base de datos MySQL (tabla configuraciones)
+   * para obtener el page_access_token y page_id vigentes de forma persistente.
+   */
+  public async getEffectiveFacebookConfig(): Promise<{
+    connected: boolean;
+    hasPlaceholderToken: boolean;
+    pageId: string;
+    accessToken: string;
+    accountName: string;
+    autoPostEnabled: boolean;
+    pixelId: string;
+    lastSyncAt?: string;
+  }> {
+    try {
+      const mysqlConfig = await pool.getFacebookConfig();
+      const rawPageId = mysqlConfig.pageId || '';
+      const effectivePageId = (!rawPageId || rawPageId.startsWith('fb_page_')) ? '1256955457511976' : rawPageId;
+      const isRealToken = !isPlaceholderToken(mysqlConfig.accessToken);
+
+      const result = {
+        connected: Boolean(effectivePageId && isRealToken),
+        hasPlaceholderToken: isPlaceholderToken(mysqlConfig.accessToken),
+        pageId: effectivePageId,
+        accessToken: mysqlConfig.accessToken || '',
+        accountName: mysqlConfig.accountName || 'Zavela Store Colombia (Página Oficial)',
+        autoPostEnabled: mysqlConfig.autoPostEnabled !== false,
+        pixelId: mysqlConfig.pixelId || '',
+        lastSyncAt: mysqlConfig.lastSyncAt
+      };
+
+      this.cachedEffectiveConfig = result;
+      return result;
+    } catch (err: any) {
+      console.warn('[MetaGraphService getEffectiveFacebookConfig Error]:', err.message);
+      return this.getFacebookConfig();
+    }
+  }
 
   /**
    * Obtiene la configuración de conexión con Facebook almacenada
    */
   public getFacebookConfig() {
+    if (this.cachedEffectiveConfig && !this.cachedEffectiveConfig.hasPlaceholderToken) {
+      return this.cachedEffectiveConfig;
+    }
+
     const settings = db.getSocialMarketingSettings();
     const fbConn = settings?.connections?.facebook;
     const rawPageId = fbConn?.pageId || '';
-    // Si contiene el placeholder 'fb_page_109283746192', mapear al ID real de la página 1256955457511976
     const effectivePageId = (!rawPageId || rawPageId.startsWith('fb_page_')) ? '1256955457511976' : rawPageId;
     const isRealToken = !isPlaceholderToken(fbConn?.accessToken);
 
@@ -133,16 +177,19 @@ export class MetaGraphService {
     product: Product,
     options?: { customCaption?: string; pageId?: string; accessToken?: string }
   ): Promise<MetaFacebookPublishResult> {
-    const config = this.getFacebookConfig();
-    const pageId = options?.pageId || config.pageId;
-    const accessToken = options?.accessToken || config.accessToken;
+    // Consultar SIEMPRE la base de datos MySQL (tabla configuraciones) para obtener el token y page ID vigentes
+    const config = await this.getEffectiveFacebookConfig();
+    const pageId = options?.pageId || config.pageId || '1256955457511976';
+    const accessToken = (options?.accessToken && !isPlaceholderToken(options.accessToken)) 
+      ? options.accessToken 
+      : config.accessToken;
 
     if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
       return {
         success: false,
         errorCode: 190,
         message: 'Debes ingresar tu Page Access Token permanente de Meta for Developers.',
-        technicalDetails: 'El token de Facebook actual no está configurado o es una plantilla de prueba ("EAAG..."). Haz clic en "Gestionar Conexión", pega tu Page Access Token permanente generado en Meta for Developers y presiona "Guardar Cambios".'
+        technicalDetails: 'El token de Facebook actual no está configurado en la base de datos MySQL o es una plantilla de prueba ("EAAG..."). Ve a "Gestionar Conexión", pega tu Page Access Token permanente generado en Meta for Developers y presiona "Guardar Cambios".'
       };
     }
 
@@ -268,14 +315,21 @@ export class MetaGraphService {
   }
 
   /**
-   * Verifica la conexión y permisos del Page ID y Page Access Token contra Meta Graph API v26.0
+   * Verifica la conexión y permisos del Page ID y Page Access Token contra Meta Graph API v26.0.
+   * Si no se proporcionan parámetros, consulta automáticamente la base de datos MySQL.
    */
-  public async checkConnection(pageId: string, accessToken: string): Promise<MetaConnectionCheckResult> {
-    if (!pageId || !accessToken) {
+  public async checkConnection(pageId?: string, accessToken?: string): Promise<MetaConnectionCheckResult> {
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
+      const dbConfig = await this.getEffectiveFacebookConfig();
+      pageId = pageId || dbConfig.pageId || '1256955457511976';
+      accessToken = (accessToken && !isPlaceholderToken(accessToken)) ? accessToken : dbConfig.accessToken;
+    }
+
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
       return {
         connected: false,
         validToken: false,
-        message: 'Page ID y Page Access Token son requeridos para la verificación.'
+        message: 'Page ID y Page Access Token permanente son requeridos para la verificación.'
       };
     }
 
@@ -330,7 +384,21 @@ export class MetaGraphService {
   /**
    * Publica un post de prueba para verificar permisos de escritura reales en la Fanpage
    */
-  public async publishTestPost(pageId: string, accessToken: string): Promise<MetaFacebookPublishResult> {
+  public async publishTestPost(pageId?: string, accessToken?: string): Promise<MetaFacebookPublishResult> {
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
+      const dbConfig = await this.getEffectiveFacebookConfig();
+      pageId = pageId || dbConfig.pageId || '1256955457511976';
+      accessToken = (accessToken && !isPlaceholderToken(accessToken)) ? accessToken : dbConfig.accessToken;
+    }
+
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
+      return {
+        success: false,
+        errorCode: 190,
+        message: 'No hay credenciales de Facebook configuradas en MySQL para realizar la prueba.'
+      };
+    }
+
     try {
       const feedEndpoint = `${this.apiBase}/${encodeURIComponent(pageId)}/feed`;
       const dateStr = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });

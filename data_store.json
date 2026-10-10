@@ -265,6 +265,30 @@
   ],
   "products": [
     {
+      "id": "prod-1791672177862",
+      "title": "Lamparas Unas 48 W",
+      "slug": "lamparas-unas-48-w",
+      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
+      "shortDescription": "",
+      "price": 90700,
+      "costPrice": 0,
+      "stock": 25,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://d39ru7awumhhs2.cloudfront.net/colombia/products/964359/1720710591191479118_0340_0340.jpg"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "dropi_product_id": "",
+      "createdAt": "2026-10-10 17:42:57",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
+    },
+    {
       "id": "prod-1791647793044",
       "title": "Combo Secador Y Plancha Ancha Sencilla P (POST Update)",
       "slug": "combo-secador-y-plancha-ancha-sencilla-p-post-update",
@@ -272,27 +296,45 @@
       "shortDescription": "",
       "price": 115000,
       "costPrice": 0,
-      "compareAtPrice": 0,
-      "discountPercentage": 0,
-      "marginAmount": 115000,
-      "marginPercentage": 0,
       "stock": 15,
       "active": true,
       "featured": false,
       "images": [
         "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2283046/1cf019fc-e2d2-4cd5-a330-41691099aac6.webp"
       ],
-      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
       "tags": [],
-      "weightKg": 0.5,
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela Store",
       "dropi_product_id": "",
-      "variants": [],
       "createdAt": "2026-10-10 10:56:33",
-      "updatedAt": "2026-10-10T16:28:28.849Z"
+      "updatedAt": "2026-10-10T22:54:39.097Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
+    },
+    {
+      "id": "prod-1791306714834",
+      "title": "Lampara Solar LED",
+      "slug": "lampara-solar-led",
+      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
+      "shortDescription": "",
+      "price": 89900,
+      "costPrice": 0,
+      "stock": 20,
+      "active": true,
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "tags": [],
+      "categoryId": "cat-1",
+      "categoryName": "Catálogo",
+      "dropi_product_id": "",
+      "createdAt": "2026-10-06 12:11:54",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791647789948",
@@ -322,7 +364,7 @@
       "dropi_product_id": "DROPI-12345",
       "variants": [],
       "createdAt": "2026-10-10 10:56:28",
-      "updatedAt": "2026-10-10T16:28:28.849Z"
+      "updatedAt": "2026-10-10T22:54:39.097Z"
     },
     {
       "id": "prod-1791417604563",
@@ -352,7 +394,7 @@
       "dropi_product_id": "DROPI-12345",
       "variants": [],
       "createdAt": "2026-10-07 19:00:04",
-      "updatedAt": "2026-10-10T16:28:28.849Z"
+      "updatedAt": "2026-10-10T22:54:39.097Z"
     },
     {
       "id": "prod-1791317610184",
@@ -383,7 +425,7 @@
       "dropi_product_id": "DROPI-998877",
       "variants": [],
       "createdAt": "2026-10-06 15:13:30",
-      "updatedAt": "2026-10-10T16:28:28.849Z"
+      "updatedAt": "2026-10-10T22:54:39.097Z"
     },
     {
       "id": "9lqDy6BspF8Bn852tEK1",
@@ -403,101 +445,11 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-06 11:58:56",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "dropi_product_id": "",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela"
-    },
-    {
-      "id": "prod-nuevo",
-      "title": "Producto Zavela Store Colombia",
-      "slug": "producto-zavela-store-colombia",
-      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
-      "shortDescription": "",
-      "price": 89900,
-      "costPrice": 0,
-      "compareAtPrice": 109900,
-      "discountPercentage": 20,
-      "marginAmount": 44900,
-      "marginPercentage": 100,
-      "stock": 20,
-      "active": true,
-      "featured": false,
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
-      ],
-      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [],
-      "weightKg": 0.5,
-      "categoryId": "cat-1",
-      "categoryName": "Catálogo",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela Store",
-      "variants": [],
-      "createdAt": "2026-10-06 12:11:59",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
-      "dropi_product_id": ""
-    },
-    {
-      "id": "prod-1791306714834",
-      "title": "Lampara Solar LED",
-      "slug": "lampara-solar-led",
-      "description": "Producto disponible con Pago Contra Entrega en toda Colombia.",
-      "shortDescription": "",
-      "price": 89900,
-      "costPrice": 0,
-      "compareAtPrice": 109900,
-      "discountPercentage": 20,
-      "marginAmount": 44900,
-      "marginPercentage": 100,
-      "stock": 20,
-      "active": true,
-      "featured": false,
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
-      ],
-      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [],
-      "weightKg": 0.5,
-      "categoryId": "cat-1",
-      "categoryName": "Catálogo",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela Store",
-      "variants": [],
-      "createdAt": "2026-10-06 12:11:54",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
-      "dropi_product_id": ""
-    },
-    {
-      "id": "prod-1791305641853",
-      "title": "Producto Test cPanel MySQL",
-      "slug": "producto-test-cpanel-mysql",
-      "description": "",
-      "shortDescription": "",
-      "price": 75000,
-      "costPrice": 0,
-      "compareAtPrice": 101250,
-      "discountPercentage": 26,
-      "marginAmount": 75000,
-      "marginPercentage": 0,
-      "stock": 15,
-      "active": true,
-      "featured": false,
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
-      ],
-      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
-      "tags": [],
-      "weightKg": 0.5,
-      "categoryId": "cat-1",
-      "categoryName": "Catálogo",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela Store",
-      "variants": [],
-      "createdAt": "2026-10-06 11:54:01",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
-      "dropi_product_id": ""
     },
     {
       "id": "T5KW7A8J81gxcWQGEpIj",
@@ -527,55 +479,7 @@
       "dropi_product_id": "",
       "variants": [],
       "createdAt": "2026-10-05 17:52:43",
-      "updatedAt": "2026-10-10T16:28:28.849Z"
-    },
-    {
-      "id": "prod-test",
-      "title": "Producto Prueba",
-      "slug": "producto-prueba",
-      "description": "Descripcion de prueba",
-      "shortDescription": "",
-      "price": 45000,
-      "costPrice": 0,
-      "stock": 15,
-      "active": true,
-      "featured": false,
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
-      ],
-      "tags": [],
-      "categoryId": "cat-1",
-      "categoryName": "Catálogo",
-      "createdAt": "2026-10-05 11:35:41",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
-      "warrantyInfo": "30 días de garantía oficial",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela",
-      "dropi_product_id": ""
-    },
-    {
-      "id": "prod-1791298191006",
-      "title": "Producto Test Sincronizacion",
-      "slug": "producto-test-sincronizacion",
-      "description": "",
-      "shortDescription": "",
-      "price": 99000,
-      "costPrice": 0,
-      "stock": 10,
-      "active": true,
-      "featured": false,
-      "images": [
-        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80"
-      ],
-      "tags": [],
-      "categoryId": "cat-1",
-      "categoryName": "Catálogo",
-      "createdAt": "2026-10-06 09:49:51",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
-      "warrantyInfo": "30 días de garantía oficial",
-      "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela",
-      "dropi_product_id": ""
+      "updatedAt": "2026-10-10T22:54:39.097Z"
     },
     {
       "id": "prod-1791239662306",
@@ -595,7 +499,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:34:22",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -619,7 +523,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:39:10",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -643,7 +547,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:36:51",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -667,7 +571,7 @@
       "categoryId": "cat-1",
       "categoryName": "Catálogo",
       "createdAt": "2026-10-05 17:35:02",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "brand": "Zavela",
@@ -817,7 +721,7 @@
       "warehouseCity": "Bogotá D.C.",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06 11:34:08",
-      "updatedAt": "2026-10-10T16:28:28.849Z",
+      "updatedAt": "2026-10-10T22:54:39.097Z",
       "dropi_product_id": ""
     },
     {
@@ -1621,6 +1525,78 @@
   },
   "logs": [
     {
+      "id": "log-1791672922058-4641q",
+      "type": "SETTINGS_UPDATE",
+      "action": "Página de Facebook Conectada (Meta Graph API v26.0)",
+      "details": "Página \"Zavela Store Colombia (Página Oficial)\" (ID: 1256955457511976) persistida en MySQL y sesión iniciada.",
+      "status": "success",
+      "createdAt": "2026-10-10T22:55:22.058Z"
+    },
+    {
+      "id": "log-1791672914635-tldm7",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-1791672911599 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:55:14.635Z"
+    },
+    {
+      "id": "log-1791672882055-wgo16",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID non-existent-product-id fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:54:42.055Z"
+    },
+    {
+      "id": "log-1791672876014-f9qv2",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID test-to-delete-12345 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:54:36.014Z"
+    },
+    {
+      "id": "log-1791670995973-bsofh",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-1791306714834 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:23:15.973Z"
+    },
+    {
+      "id": "log-1791670995970-s52u5",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-nuevo fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:23:15.970Z"
+    },
+    {
+      "id": "log-1791670995967-0491g",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-1791647793044 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:23:15.967Z"
+    },
+    {
+      "id": "log-1791670995965-d1qm1",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-1791305641853 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:23:15.965Z"
+    },
+    {
+      "id": "log-1791670961173-8z3vv",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID test-to-delete-12345 fue eliminado correctamente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-10T22:22:41.173Z"
+    },
+    {
       "id": "log-1791649813478-f7pkj",
       "type": "PRODUCT_UPDATE",
       "action": "Producto Eliminado",
@@ -1629,60 +1605,12 @@
       "createdAt": "2026-10-10T16:30:13.478Z"
     },
     {
-      "id": "log-1791649813466-s58vy",
-      "type": "PRODUCT_UPDATE",
-      "action": "Producto Eliminado",
-      "details": "Producto con ID temp-del-test-123 fue eliminado correctamente de MySQL.",
-      "status": "info",
-      "createdAt": "2026-10-10T16:30:13.466Z"
-    },
-    {
-      "id": "log-1791649641212-2699h",
-      "type": "PRODUCT_UPDATE",
-      "action": "Producto Eliminado",
-      "details": "Producto con ID temp-del-test-123 fue eliminado correctamente del inventario.",
-      "status": "info",
-      "createdAt": "2026-10-10T16:27:21.212Z"
-    },
-    {
-      "id": "log-1791649637159-icihr",
-      "type": "PRODUCT_UPDATE",
-      "action": "Producto Creado",
-      "details": "Producto creado: \"Producto Prueba Borrado\" con stock de 10 unidades.",
-      "status": "success",
-      "createdAt": "2026-10-10T16:27:17.159Z"
-    },
-    {
-      "id": "log-1791649637158-17fjd",
-      "type": "PRODUCT_UPDATE",
-      "action": "Publicación en Redes Sociales",
-      "details": "Producto \"Producto Prueba Borrado\" publicado en [instagram, tiktok]. Generando visualizaciones y tráfico de ventas.",
-      "status": "success",
-      "createdAt": "2026-10-10T16:27:17.158Z"
-    },
-    {
       "id": "log-1791648779669-irg5g",
       "type": "PRODUCT_UPDATE",
       "action": "Producto Eliminado",
       "details": "Producto con ID test-to-delete-12345 fue eliminado correctamente del inventario.",
       "status": "info",
       "createdAt": "2026-10-10T16:12:59.669Z"
-    },
-    {
-      "id": "log-1791648774204-rb3w8",
-      "type": "PRODUCT_UPDATE",
-      "action": "Producto Creado",
-      "details": "Producto creado: \"Producto De Prueba Para Borrar\" con stock de 5 unidades.",
-      "status": "success",
-      "createdAt": "2026-10-10T16:12:54.204Z"
-    },
-    {
-      "id": "log-1791648774204-ydh50",
-      "type": "PRODUCT_UPDATE",
-      "action": "Publicación en Redes Sociales",
-      "details": "Producto \"Producto De Prueba Para Borrar\" publicado en [instagram, tiktok]. Generando visualizaciones y tráfico de ventas.",
-      "status": "success",
-      "createdAt": "2026-10-10T16:12:54.204Z"
     },
     {
       "id": "log-1791648733640-wmxug",
@@ -2192,13 +2120,13 @@
     "connections": {
       "facebook": {
         "platform": "facebook",
-        "connected": false,
+        "connected": true,
         "accountName": "Zavela Store Colombia (Página Oficial)",
         "pageId": "1256955457511976",
-        "accessToken": "",
-        "pixelId": "pixel_9847261520",
+        "accessToken": "EAAG_test_real_token_for_meta_store_2026_xyz",
+        "pixelId": "",
         "status": "connected",
-        "lastSyncAt": "2026-08-28T12:24:49.105Z",
+        "lastSyncAt": "2026-10-10T22:55:22.051Z",
         "autoPostEnabled": true
       },
       "instagram": {
@@ -2224,82 +2152,6 @@
     }
   },
   "socialPosts": [
-    {
-      "id": "soc-post-1791649637157",
-      "productId": "temp-del-test-123",
-      "productTitle": "Producto Prueba Borrado",
-      "productPrice": 50000,
-      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
-      "productSlug": "producto-prueba-borrado",
-      "platforms": [
-        "instagram",
-        "tiktok"
-      ],
-      "copies": {
-        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto Prueba Borrado\n\n🏷️ PRECIO ESPECIAL: $ 50.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
-        "instagram": "✨ Presentamos: Producto Prueba Borrado ✨\n\n💰 Precio: $ 50.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
-        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto Prueba Borrado por solo $ 50.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
-      },
-      "status": "published",
-      "publishedAt": "2026-10-10T16:27:17.157Z",
-      "views": 4038,
-      "clicks": 329,
-      "likes": 502,
-      "shares": 61,
-      "attributedSalesCOP": 650000,
-      "postUrl": "https://instagram.com/p/zavela_producto-p"
-    },
-    {
-      "id": "soc-post-1791648774203",
-      "productId": "test-to-delete-12345",
-      "productTitle": "Producto De Prueba Para Borrar",
-      "productPrice": 50000,
-      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
-      "productSlug": "producto-de-prueba-para-borrar",
-      "platforms": [
-        "instagram",
-        "tiktok"
-      ],
-      "copies": {
-        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto De Prueba Para Borrar\n\n🏷️ PRECIO ESPECIAL: $ 50.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
-        "instagram": "✨ Presentamos: Producto De Prueba Para Borrar ✨\n\n💰 Precio: $ 50.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
-        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto De Prueba Para Borrar por solo $ 50.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
-      },
-      "status": "published",
-      "publishedAt": "2026-10-10T16:12:54.203Z",
-      "views": 2017,
-      "clicks": 199,
-      "likes": 242,
-      "shares": 30,
-      "attributedSalesCOP": 350000,
-      "postUrl": "https://instagram.com/p/zavela_producto-d"
-    },
-    {
-      "id": "soc-post-1791298191020",
-      "productId": "prod-1791298191006",
-      "productTitle": "Producto Test Sincronizacion",
-      "productPrice": 99000,
-      "productImageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80",
-      "productSlug": "producto-test-sincronizacion",
-      "platforms": [
-        "facebook",
-        "instagram",
-        "tiktok"
-      ],
-      "copies": {
-        "facebook": "🔥 ¡Nuevo Lanzamiento en Zavela Store! Producto Test Sincronizacion\n\n🏷️ PRECIO ESPECIAL: $ 99.000\n🚚 PAGO CONTRA ENTREGA: Recibe en tu casa y paga en efectivo.\n✅ 30 días de garantía oficial.\n\n👉 ¡Haz tu pedido directo antes de que se agoten las unidades!",
-        "instagram": "✨ Presentamos: Producto Test Sincronizacion ✨\n\n💰 Precio: $ 99.000 con envío contra entrega a toda Colombia 🇨🇴\n📦 Toca el link de nuestra biografía o déjanos un DM para apartar el tuyo con despacho prioritario.\n\n#ZavelaStore #PagoContraEntrega #Colombia #Tendencia2026 #EnvioGratis",
-        "tiktok": "POV: Encontraste el producto en tendencia con PAGO CONTRA ENTREGA en Colombia 🇨🇴😱🔥\n\nProducto Test Sincronizacion por solo $ 99.000!\nComenta \"YO QUIERO\" o haz clic en el enlace para pedirlo con envío gratis. #TikTokMadeMeBuyIt #ZavelaStore #Colombia #Oferta"
-      },
-      "status": "published",
-      "publishedAt": "2026-10-06T14:49:51.020Z",
-      "views": 4341,
-      "clicks": 336,
-      "likes": 371,
-      "shares": 65,
-      "attributedSalesCOP": 1287000,
-      "postUrl": "https://instagram.com/p/zavela_producto-t"
-    },
     {
       "id": "soc-post-1",
       "productId": "prod-amor-102",
@@ -2352,5 +2204,18 @@
       "attributedSalesCOP": 1598000,
       "postUrl": "https://tiktok.com/@zavelastore_oficial/video/sample2"
     }
+  ],
+  "deletedProductIds": [
+    "temp-del-test-123",
+    "producto-prueba-borrado",
+    "prod-1791305641853",
+    "producto-test-cpanel-mysql",
+    "prod-test",
+    "producto-prueba",
+    "prod-1791298191006",
+    "producto-test-sincronizacion",
+    "prod-nuevo",
+    "prod-1791672911599",
+    "test-to-delete-12345"
   ]
 }

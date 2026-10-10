@@ -64,3 +64,13 @@ CREATE TABLE IF NOT EXISTS `product_sync_logs` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY `idx_log_product` (`product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ==============================================================================
+-- 4. Tabla de configuraciones del sistema (Tokens de Meta Facebook, Fanpage ID, ajustes)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS `configuraciones` (
+  `clave` VARCHAR(64) NOT NULL,
+  `valor` LONGTEXT NULL,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`clave`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

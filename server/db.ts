@@ -152,189 +152,9 @@ const DEFAULT_CATEGORIES: Category[] = [
   },
 ];
 
-const DEFAULT_PRODUCTS: Product[] = [
-  {
-    "id": "GdY5ZMjnTXsc2SH2YWVM",
-    "title": "One million oneprive 212 vipblack",
-    "slug": "one-million-oneprive-212-vipblack",
-    "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
-    "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
-    "price": 170000,
-    "costPrice": 138000,
-    "compareAtPrice": 189000,
-    "discountPercentage": 10,
-    "marginAmount": 32000,
-    "marginPercentage": 23.2,
-    "stock": 25,
-    "active": true,
-    "featured": true,
-    "images": [
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/aa3318fe-fac3-47e6-8c97-aedfe14a41de.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/ef6bbdc5-4deb-4edb-b1fb-d484784c684a.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/bb5d59b5-d6dd-42ba-b25a-03db8e17b4c7.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226369/f30dd63a-395c-4ef2-8be3-ed4e3dadee60.jpg"
-    ],
-    "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
-    "tags": [
-      "tendencia",
-      "calidad",
-      "contraentrega"
-    ],
-    "weightKg": 0.5,
-    "categoryId": "cat-1",
-    "categoryName": "Belleza y Cuidado Personal",
-    "subcategoryId": "",
-    "subcategoryName": "",
-    "variants": [],
-    "warehouseCity": "Bogotá D.C.",
-    "brand": "Zavela Store",
-    "dropi_product_id": "",
-    "createdAt": "2026-08-28T20:26:48.571Z",
-    "updatedAt": "2026-08-28T20:49:44.918Z"
-  },
-  {
-    "id": "ZLIZ3gPA2mAEM0kqDdkR",
-    "title": "Bright cristal chance tendrá 2 perfumes",
-    "slug": "bright-cristal-chance-tendr--2-perfumes",
-    "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
-    "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
-    "price": 145000,
-    "costPrice": 105000,
-    "compareAtPrice": 165000,
-    "discountPercentage": 12,
-    "marginAmount": 40000,
-    "marginPercentage": 38.1,
-    "stock": 25,
-    "active": true,
-    "featured": false,
-    "images": [
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/7db6d421-8473-4748-991c-f6c467858f97.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/cbeb596e-42f0-455c-97a0-00d4bdd46f1b.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/827c1846-3eec-4f0f-8d26-a4f2deab287d.jpg"
-    ],
-    "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
-    "tags": [
-      "tendencia",
-      "calidad",
-      "contraentrega"
-    ],
-    "weightKg": 0.5,
-    "categoryId": "cat-amor-amistad",
-    "categoryName": "💖 Amor y Amistad",
-    "subcategoryId": "",
-    "subcategoryName": "",
-    "variants": [],
-    "warehouseCity": "Bogotá D.C.",
-    "brand": "Zavela Store",
-    "dropi_product_id": "",
-    "createdAt": "2026-08-28T20:33:35.092Z",
-    "updatedAt": "2026-08-28T20:33:35.092Z"
-  },
-  {
-    "id": "u67sAYAnWY8MPgRaq9JM",
-    "title": "Creed Silvereros 2 perfumeros",
-    "slug": "creed-silvereros-2-perfumeros",
-    "description": "Fragancias creadas para quienes buscan elegancia y carácter. Cada aroma está formulado para garantizar horas de fijación en la piel, dejando una huella imposible de ignorar en cada aplicación:\n\n🔹 Fijación prolongada y estela de alto impacto.\n\n🔹 Notas olfativas intensas y perfectamente equilibradas.\n\n🔹 Rentabilidad insuperable (la mejor relación calidad-precio del mercado).\n\n🔹 Empaques de lujo, ideales para regalo o uso diario.",
-    "shortDescription": "💎 PERFUMISSIMO: Distinción y calidad que se perciben al instante",
-    "price": 140000,
-    "costPrice": 90000,
-    "compareAtPrice": 155000,
-    "discountPercentage": 10,
-    "marginAmount": 50000,
-    "marginPercentage": 55.6,
-    "stock": 25,
-    "active": true,
-    "featured": false,
-    "images": [
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/950eb27f-3fc8-46d5-9c13-d3b4d8afcae6.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/8fc1a12e-5ced-4b21-87e7-4616dea7aefb.jpg",
-      "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226356/bbfd12a0-5949-48ac-9da1-d5a1ca096ec3.jpg"
-    ],
-    "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fábrica.",
-    "tags": [
-      "tendencia",
-      "calidad",
-      "contraentrega"
-    ],
-    "weightKg": 0.5,
-    "categoryId": "cat-1",
-    "categoryName": "Belleza y Cuidado Personal",
-    "subcategoryId": "",
-    "subcategoryName": "",
-    "variants": [],
-    "warehouseCity": "Bogotá D.C.",
-    "brand": "Zavela Store",
-    "dropi_product_id": "",
-    "createdAt": "2026-08-28T20:23:19.631Z",
-    "updatedAt": "2026-08-28T20:49:55.313Z"
-  },
-  {
-    "id": "prod-dewalt-2421",
-    "title": "Taladro 2421 Dewalt Con Herramientas",
-    "slug": "taladro-2421-dewalt-con-herramientas",
-    "description": "Potente taladro percutor inalámbrico Dewalt modelo 2421 acompañado de kit completo con 24 accesorios y herramientas de uso rudo. Ideal para bricolaje, proyectos del hogar, carpintería y reparaciones.\n\n🔹 Motor de alto torque con control de velocidad reversible.\n🔹 2 Baterías de litio de larga duración con cargador rápido.\n🔹 Maletín rígido de transporte con brocas, puntas y dados incluidos.\n🔹 Diseño ergonómico de agarre antideslizante para trabajos continuos.",
-    "shortDescription": "🔧 El kit definitivo para amantes del bricolaje y proyectos en casa",
-    "price": 174000,
-    "costPrice": 115000,
-    "compareAtPrice": 220000,
-    "discountPercentage": 21,
-    "marginAmount": 59000,
-    "marginPercentage": 33.9,
-    "stock": 35,
-    "active": true,
-    "featured": true,
-    "images": [
-      "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1572981779307-38b8cabb2407?auto=format&fit=crop&w=800&q=80"
-    ],
-    "warrantyInfo": "30 días de garantía oficial Zavela Store por defectos de fabricación.",
-    "tags": ["herramientas", "bricolaje", "dewalt", "hogar", "regalo", "contraentrega"],
-    "weightKg": 2.2,
-    "categoryId": "cat-2",
-    "categoryName": "Hogar y Herramientas",
-    "subcategoryId": "sub-4",
-    "subcategoryName": "Bricolaje y Herramientas",
-    "variants": [],
-    "warehouseCity": "Bogotá D.C.",
-    "brand": "Dewalt / Zavela Store",
-    "dropi_product_id": "",
-    "createdAt": "2026-08-28T21:00:00.000Z",
-    "updatedAt": "2026-08-28T21:00:00.000Z"
-  },
-  {
-    "id": "prod-bolso-perla-rochy",
-    "title": "Bolso Perla Blanco Artesanal Rochy",
-    "slug": "bolso-perla-blanco-artesanal-rochy",
-    "description": "Edición de lujo tejida 100% a mano con cuentas perladas de alto brillo. Incluye placa metálica en láser de autenticidad Rochy con código QR personalizado y cadena de hombro reforzada.\n\n🔹 Tejido artesanal minucioso de 18 horas de confección.\n🔹 Placa grabada en láser con código QR de verificación.\n🔹 Cierre de seguridad imantado y forro interno satinado.\n🔹 El regalo ideal para ocasiones especiales, bodas, aniversarios y veladas elegantes.",
-    "shortDescription": "💎 Edición de lujo tejida a mano con placa de autenticidad Rochy",
-    "price": 185000,
-    "costPrice": 120000,
-    "compareAtPrice": 240000,
-    "discountPercentage": 23,
-    "marginAmount": 65000,
-    "marginPercentage": 35.1,
-    "stock": 20,
-    "active": true,
-    "featured": true,
-    "images": [
-      "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?auto=format&fit=crop&w=800&q=80"
-    ],
-    "warrantyInfo": "30 días de garantía oficial Zavela Store y certificado de autenticidad.",
-    "tags": ["moda", "bolsos", "cuentas", "artesanal", "regalo", "lujo", "contraentrega"],
-    "weightKg": 0.7,
-    "categoryId": "cat-5",
-    "categoryName": "Moda y Accesorios",
-    "subcategoryId": "sub-12",
-    "subcategoryName": "Bolsos de Mano",
-    "variants": [],
-    "warehouseCity": "Bogotá D.C.",
-    "brand": "Rochy / Zavela Store",
-    "dropi_product_id": "",
-    "createdAt": "2026-08-28T21:10:00.000Z",
-    "updatedAt": "2026-08-28T21:10:00.000Z"
-  }
-];
+// El catálogo inicial de productos permanece vacío hasta que el administrador cree productos o los sincronice desde Dropi
+const DEFAULT_PRODUCTS: Product[] = [];
+
 
 const DEFAULT_SETTINGS: StoreSettings = {
   id: 'set-1',
@@ -1123,6 +943,40 @@ const DEFAULT_ORDERS: Order[] = [];
 
 const DEFAULT_CUSTOMERS: Customer[] = [];
 
+export function isTestProduct(p: any): boolean {
+  if (!p) return false;
+  const title = String(p.title || p.nombre || p.name || '').toLowerCase().trim();
+  const id = String(p.id || (p as any).productId || '').toLowerCase().trim();
+  const slug = String(p.slug || '').toLowerCase().trim();
+
+  return (
+    title.includes('prueba') ||
+    title.includes('dummy') ||
+    title.includes('producto test') ||
+    title.includes('test sincronizacion') ||
+    title.includes('test cpanel') ||
+    title === 'producto zavela store colombia' ||
+    title.startsWith('producto de prueba') ||
+    title.startsWith('producto prueba') ||
+    id.startsWith('test-') ||
+    id.startsWith('temp-') ||
+    id.startsWith('prod-test') ||
+    id.startsWith('test_') ||
+    id === 'prod-nuevo' ||
+    id === 'prod-1791672911599' ||
+    id === 'prod-1791298191006' ||
+    id === 'prod-1791305641853' ||
+    id === 'temp-del-test-123' ||
+    id === 'test-to-delete-12345' ||
+    id.includes('prueba') ||
+    id.includes('dummy') ||
+    slug.includes('prueba') ||
+    slug.includes('dummy') ||
+    slug.includes('producto-test') ||
+    slug.includes('test-')
+  );
+}
+
 class DatabaseStore {
   private data: DatabaseSchema;
 
@@ -1143,15 +997,17 @@ class DatabaseStore {
             : DEFAULT_CATEGORIES;
 
           const products = Array.isArray(parsed.products)
-            ? (parsed.products || []).map((p: any) => ({
-                ...p,
-                dropi_product_id: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
-                warrantyInfo: (p.warrantyInfo || '30 días de garantía oficial').replace(/dropi|novora/gi, 'Zavela'),
-                warehouseCity: p.warehouseCity || p.dropiWarehouseCity || 'Bogotá D.C.',
-                brand: (p.brand && !p.brand.toLowerCase().includes('novora')) ? p.brand : 'Zavela',
-                tags: (p.tags || []).filter((t: string) => typeof t === 'string' && !t.toLowerCase().includes('drop'))
-              }))
-            : DEFAULT_PRODUCTS;
+            ? (parsed.products || [])
+                .filter((p: any) => !isTestProduct(p))
+                .map((p: any) => ({
+                  ...p,
+                  dropi_product_id: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
+                  warrantyInfo: (p.warrantyInfo || '30 días de garantía oficial').replace(/dropi|novora/gi, 'Zavela'),
+                  warehouseCity: p.warehouseCity || p.dropiWarehouseCity || 'Bogotá D.C.',
+                  brand: (p.brand && !p.brand.toLowerCase().includes('novora')) ? p.brand : 'Zavela',
+                  tags: (p.tags || []).filter((t: string) => typeof t === 'string' && !t.toLowerCase().includes('drop'))
+                }))
+            : [];
 
           const heroBanners = (parsed.settings?.heroBanners && Array.isArray(parsed.settings.heroBanners) && parsed.settings.heroBanners.length > 0)
             ? parsed.settings.heroBanners
@@ -1276,7 +1132,7 @@ class DatabaseStore {
   // Products
   getProducts(filter?: { categorySlug?: string; search?: string; onlyActive?: boolean; featured?: boolean }): Product[] {
     const deleted = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
-    let result = this.data.products.filter(p => !deleted.has(String(p.id).trim()) && !deleted.has(String((p as any).productId || '')));
+    let result = this.data.products.filter(p => !isTestProduct(p) && !deleted.has(String(p.id).trim()) && !deleted.has(String((p as any).productId || '')));
     if (filter?.onlyActive) {
       result = result.filter(p => p.active);
     }
@@ -1308,10 +1164,16 @@ class DatabaseStore {
   getProductById(idOrSlug: string): Product | undefined {
     const target = String(idOrSlug).trim();
     if (this.isProductDeleted(target)) return undefined;
-    return this.data.products.find(p => String(p.id).trim() === target || p.slug === target || (p as any).productId === target);
+    const found = this.data.products.find(p => String(p.id).trim() === target || p.slug === target || (p as any).productId === target);
+    if (found && isTestProduct(found)) return undefined;
+    return found;
   }
 
   saveProduct(product: Product): Product {
+    if (isTestProduct(product)) {
+      console.warn(`[db.saveProduct] Ignorando producto de prueba: "${product.title}" (${product.id})`);
+      return product;
+    }
     if (product.id && this.data.deletedProductIds) {
       this.data.deletedProductIds = this.data.deletedProductIds.filter(id => id !== String(product.id).trim());
     }
@@ -1335,6 +1197,11 @@ class DatabaseStore {
     if (!this.data.deletedProductIds) {
       this.data.deletedProductIds = [];
     }
+    const exists = this.data.products.some(p => 
+      String(p.id).trim() === target || 
+      (p as any).productId === target ||
+      p.slug === target
+    );
     if (!this.data.deletedProductIds.includes(target)) {
       this.data.deletedProductIds.push(target);
     }
@@ -1344,11 +1211,11 @@ class DatabaseStore {
       p.slug !== target
     );
     this.saveData(this.data);
-    return true;
+    return exists;
   }
 
   setProducts(products: Product[]): Product[] {
-    this.data.products = [...products];
+    this.data.products = products.filter(p => !isTestProduct(p));
     this.saveData(this.data);
     return this.data.products;
   }
@@ -1357,6 +1224,9 @@ class DatabaseStore {
     if (!remoteProducts || !Array.isArray(remoteProducts) || remoteProducts.length === 0) return;
     const deleted = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
     for (const remote of remoteProducts) {
+      if (isTestProduct(remote)) {
+        continue;
+      }
       const targetRemoteId = String(remote.id).trim();
       if (deleted.has(targetRemoteId) || (remote.slug && deleted.has(remote.slug))) {
         continue;
@@ -1617,7 +1487,21 @@ class DatabaseStore {
 
     const prevOrdersCount = this.data.orders.length;
     const prevCustCount = this.data.customers.length;
+    const prevProdCount = this.data.products.length;
 
+    if (!this.data.deletedProductIds) {
+      this.data.deletedProductIds = [];
+    }
+
+    const testProds = this.data.products.filter(p => isTestProduct(p));
+    for (const tp of testProds) {
+      const tid = String(tp.id).trim();
+      if (!this.data.deletedProductIds.includes(tid)) {
+        this.data.deletedProductIds.push(tid);
+      }
+    }
+
+    this.data.products = this.data.products.filter(p => !isTestProduct(p));
     this.data.orders = this.data.orders.filter(o => !isTestOrder(o));
     this.data.customers = this.data.customers.filter(c => !isTestCustomer(c));
 
@@ -1629,7 +1513,8 @@ class DatabaseStore {
     this.saveData(this.data);
     return {
       deletedOrders: prevOrdersCount - this.data.orders.length,
-      deletedCustomers: prevCustCount - this.data.customers.length
+      deletedCustomers: prevCustCount - this.data.customers.length,
+      deletedProducts: prevProdCount - this.data.products.length
     };
   }
 
@@ -2453,6 +2338,19 @@ class DatabaseStore {
       productId: product.id,
       estimatedViewsBoost: 2000
     });
+  }
+
+  getConfig(key: string): string | null {
+    if (!(this.data as any).configuraciones) return null;
+    return (this.data as any).configuraciones[key] ?? null;
+  }
+
+  setConfig(key: string, value: string): void {
+    if (!(this.data as any).configuraciones) {
+      (this.data as any).configuraciones = {};
+    }
+    (this.data as any).configuraciones[key] = value;
+    this.saveData(this.data);
   }
 }
 

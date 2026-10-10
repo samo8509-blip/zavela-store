@@ -584,70 +584,10 @@ export async function uploadProductImageToStorage(file: File, customPath?: strin
 
 /**
  * 7. SEMBRAR / INICIALIZAR CATÁLOGO EN FIRESTORE (Seed masivo)
- * Si Firestore está vacío, puebla la colección con los productos iniciales
- * usando writeBatch de Firestore para garantizar persistencia total en la nube.
+ * Deshabilitado permanentemente: el catálogo debe permanecer limpio y gestionar
+ * únicamente los productos reales creados manualmente o importados de Dropi.
  */
-export async function seedProductsToFirestore(initialProducts: Product[]): Promise<number> {
-  try {
-    if (!initialProducts || initialProducts.length === 0) return 0;
-    
-    const productsRef = collection(db, PRODUCTS_COLLECTION);
-    const existingSnap = await getDocs(productsRef);
-    
-    if (existingSnap.size > 0) {
-      console.log(`Firestore ya contiene ${existingSnap.size} productos persistidos.`);
-      return existingSnap.size;
-    }
-
-    console.log(`Poblando Firestore con ${initialProducts.length} productos iniciales en lote...`);
-    
-    // Firestore writeBatch soporta hasta 500 operaciones por lote
-    const batch = writeBatch(db);
-    let count = 0;
-
-    for (const prod of initialProducts) {
-      const docRef = doc(db, PRODUCTS_COLLECTION, prod.id || `prod_${count}_${Date.now()}`);
-      const price = Number(prod.price) || 0;
-      const costPrice = Number(prod.costPrice) || Math.round(price * 0.45);
-      const compareAtPrice = Number(prod.compareAtPrice) || Math.round(price * 1.35);
-
-      batch.set(docRef, {
-        title: prod.title,
-        slug: prod.slug,
-        description: prod.description || '',
-        shortDescription: prod.shortDescription || '',
-        price,
-        costPrice,
-        compareAtPrice,
-        discountPercentage: prod.discountPercentage || 0,
-        marginAmount: price - costPrice,
-        marginPercentage: costPrice > 0 ? Math.round(((price - costPrice) / costPrice) * 1000) / 10 : 0,
-        stock: prod.stock ?? 25,
-        active: prod.active !== false,
-        isDeleted: false,
-        featured: Boolean(prod.featured),
-        images: prod.images || [],
-        warrantyInfo: prod.warrantyInfo || '30 días de garantía oficial Zavela Store.',
-        tags: prod.tags || ['tendencia', 'calidad'],
-        weightKg: prod.weightKg || 0.5,
-        categoryId: prod.categoryId || 'tecnologia',
-        categoryName: prod.categoryName || 'Tecnología',
-        subcategoryId: prod.subcategoryId || '',
-        subcategoryName: prod.subcategoryName || '',
-        variants: prod.variants || [],
-        warehouseCity: prod.warehouseCity || 'Bogotá D.C.',
-        brand: prod.brand || 'Zavela Store',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      count++;
-    }
-
-    await batch.commit();
-    console.log(`✅ ¡Éxito! Se sincronizaron ${count} productos en Cloud Firestore.`);
-    return count;
-  } catch (error) {
-    console.error('Error al inicializar productos en Firestore:', error);
-    return 0;
-  }
+export async function seedProductsToFirestore(_initialProducts?: Product[]): Promise<number> {
+  // Deshabilitado: sin generación automática de productos dummy o de prueba
+  return 0;
 }

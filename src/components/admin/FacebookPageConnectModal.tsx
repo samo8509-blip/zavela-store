@@ -103,6 +103,10 @@ export const FacebookPageConnectModal: React.FC<FacebookPageConnectModalProps> =
         currentToken = '';
       }
 
+      if (currentToken && currentToken.length > 25) {
+        currentConnected = true;
+      }
+
       setPageId(currentId);
       setAccessToken(currentToken);
       setAccountName(currentName);

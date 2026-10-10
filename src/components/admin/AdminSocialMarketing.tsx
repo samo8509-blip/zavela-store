@@ -95,13 +95,23 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [settRes, postsRes] = await Promise.all([
-        fetch('/api/admin/social/settings').then(r => r.json()),
-        fetch('/api/admin/social/posts').then(r => r.json())
+      const [settRes, postsRes, fbStatusRes] = await Promise.all([
+        fetch('/api/admin/social/settings').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/social/posts').then(r => r.json()).catch(() => ({ success: false })),
+        fetch('/api/admin/social/facebook/status').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
       if (settRes.success) {
-        setSettings(settRes.data);
+        const fullSettings = settRes.data;
+        if (fbStatusRes?.success && fbStatusRes?.data) {
+          fullSettings.connections.facebook = {
+            ...fullSettings.connections.facebook,
+            ...fbStatusRes.data,
+            connected: fbStatusRes.data.connected,
+            status: fbStatusRes.data.connected ? 'connected' : 'disconnected'
+          };
+        }
+        setSettings(fullSettings);
         if (settRes.data.targetChannels) {
           setTargetPlatforms(settRes.data.targetChannels);
         }

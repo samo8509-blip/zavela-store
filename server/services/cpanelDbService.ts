@@ -1,4 +1,5 @@
 import { Product, Order } from '../../src/types/index.ts';
+import { isTestProduct } from '../db.ts';
 
 const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
 
@@ -7,7 +8,19 @@ const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
  * Provee persistencia externa y un sistema de fallback transparente hacia la base de datos local en memoria.
  */
 export class CpanelDbService {
-  private deletedProductIds: Set<string> = new Set();
+  private deletedProductIds: Set<string> = new Set([
+    'prod-nuevo',
+    'temp-del-test-123',
+    'producto-prueba-borrado',
+    'prod-1791305641853',
+    'producto-test-cpanel-mysql',
+    'prod-test',
+    'producto-prueba',
+    'prod-1791298191006',
+    'producto-test-sincronizacion',
+    'prod-1791672911599',
+    'test-to-delete-12345'
+  ]);
 
   /**
    * Obtiene la URL base configurada para la API de cPanel.
@@ -62,7 +75,7 @@ export class CpanelDbService {
 
       return list
         .map(item => this.normalizeProduct(item))
-        .filter(p => !this.deletedProductIds.has(String(p.id).trim()));
+        .filter(p => !isTestProduct(p) && !this.deletedProductIds.has(String(p.id).trim()));
     } catch (err: any) {
       console.warn(`[cPanel DB Fallback] Conexión no disponible con cPanel (${err?.message || err}). Catálogo local activo.`);
       return null;
@@ -75,6 +88,10 @@ export class CpanelDbService {
    * Envía campos tanto en inglés como en español para máxima compatibilidad con el script PHP.
    */
   async saveProduct(product: Product): Promise<any | null> {
+    if (isTestProduct(product)) {
+      console.warn(`[cPanel DB Sync] Omitiendo guardado de producto de prueba: "${product.title}"`);
+      return null;
+    }
     if (product.id) {
       this.deletedProductIds.delete(String(product.id).trim());
     }
@@ -237,6 +254,84 @@ export class CpanelDbService {
       return response.ok;
     } catch (err: any) {
       console.warn('[cPanel DB Batch Delete] Error al eliminar productos en lote en cPanel:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene un valor de configuración de la base de datos MySQL en cPanel
+   */
+  async fetchConfig(clave: string): Promise<string | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=config&clave=${encodeURIComponent(clave)}`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(3000)
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data?.valor !== undefined ? String(data.valor) : (data?.data !== undefined ? String(data.data) : null);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Guarda un valor de configuración en MySQL de cPanel
+   */
+  async saveConfig(clave: string, valor: string): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=config`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clave, valor }),
+        signal: AbortSignal.timeout(3500)
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene la configuración de Facebook almacenada en MySQL en cPanel
+   */
+  async fetchFacebookConfig(): Promise<any | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=facebook_config`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(3000)
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data?.data || data?.config || (data?.accessToken ? data : null);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Guarda la configuración de Facebook en MySQL en cPanel
+   */
+  async saveFacebookConfig(config: any): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=facebook_config`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+        signal: AbortSignal.timeout(3500)
+      });
+      return response.ok;
+    } catch {
       return false;
     }
   }

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { db } from '../db.ts';
+import { db, isTestProduct } from '../db.ts';
 import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSettings } from '../../src/types/index.ts';
 import { GoogleGenAI } from '@google/genai';
 import { approveOrderForDropi } from './orders.ts';
@@ -109,7 +109,9 @@ router.get('/products', async (req, res) => {
 
     const products = db.getProducts();
 
-    const mapped = products.map((row: any) => {
+    const mapped = products
+      .filter((row: any) => !isTestProduct(row))
+      .map((row: any) => {
       // 1. Manejo seguro de imágenes / galería
       let images: string[] = [];
       if (Array.isArray(row.images) && row.images.length > 0) {
@@ -270,6 +272,12 @@ async function executeProductUpdate(productId: string, body: any) {
 router.post('/products', async (req, res) => {
   try {
     const body = req.body;
+    if (isTestProduct(body)) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se permite la creación de productos de prueba o simulación en el catálogo.'
+      });
+    }
     const targetId = body.id || body.productId;
 
     // Si ya existe el producto con ese ID, actualizarlo (UPDATE) en lugar de crear un duplicado
@@ -285,7 +293,7 @@ router.post('/products', async (req, res) => {
         socialPost = db.publishSocialPost({ productId: saved.id });
       }
 
-      const fbConfig = metaGraphService.getFacebookConfig();
+      const fbConfig = await metaGraphService.getEffectiveFacebookConfig();
       const shouldPublishToFb = body.publishToFacebook === true || 
         (body.publishToFacebook !== false && fbConfig.connected && fbConfig.autoPostEnabled);
 
@@ -394,7 +402,7 @@ router.post('/products', async (req, res) => {
       socialPost = db.autoBroadcastProduct(saved);
     }
 
-    const fbConfig = metaGraphService.getFacebookConfig();
+    const fbConfig = await metaGraphService.getEffectiveFacebookConfig();
     const shouldPublishToFb = body.publishToFacebook === true || 
       (body.publishToFacebook !== false && fbConfig.connected && fbConfig.autoPostEnabled);
 
@@ -437,7 +445,7 @@ router.put('/products/:id', async (req, res) => {
       socialPost = db.publishSocialPost({ productId: saved.id });
     }
 
-    const fbConfig = metaGraphService.getFacebookConfig();
+    const fbConfig = await metaGraphService.getEffectiveFacebookConfig();
     const shouldPublishToFb = body.publishToFacebook === true || 
       (body.publishToFacebook !== false && body.publishToFacebook !== 'false' && fbConfig.connected && fbConfig.autoPostEnabled);
 
@@ -1125,24 +1133,40 @@ router.post('/orders/clear-all', (req, res) => {
   }
 });
 
-// POST /api/admin/clean-tests - Clear test orders, simulated sales, and test customers
+// POST /api/admin/clean-tests - Clear test orders, simulated sales, test customers and test products
 router.post('/clean-tests', (req, res) => {
   try {
     const result = db.cleanTestRecords();
+    const parts = [
+      result.deletedOrders > 0 ? `${result.deletedOrders} pedidos de prueba` : null,
+      result.deletedCustomers > 0 ? `${result.deletedCustomers} clientes simulados` : null,
+      (result as any).deletedProducts > 0 ? `${(result as any).deletedProducts} productos de prueba` : null
+    ].filter(Boolean);
+
+    const summaryText = parts.length > 0 ? parts.join(', ') : '0 registros de prueba';
+
     db.addLog({
       type: 'STATUS_UPDATE',
       action: 'Limpieza de Pruebas Internas',
-      details: `Se borraron ${result.deletedOrders} ventas de prueba y ${result.deletedCustomers} clientes simulados. La tienda quedó lista y limpia para producción.`,
+      details: `Se borraron ${summaryText}. El catálogo de productos y la base de datos quedaron limpios para producción real con Dropi.`,
       status: 'info'
     });
     res.json({
       success: true,
-      message: `Pruebas internas y simulaciones borradas con éxito (${result.deletedOrders} pedidos y ${result.deletedCustomers} clientes removidos).`,
+      message: `Pruebas internas y simulaciones borradas con éxito (${summaryText} removidos).`,
       data: result
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+// Desactivar permanentemente endpoints de prueba o seed para que no se disparen de fondo
+router.all(['/test-product', '/seed', '/products/test', '/products/seed'], (req, res) => {
+  res.status(403).json({
+    success: false,
+    message: 'Endpoints de prueba deshabilitados permanentemente. El catálogo gestiona únicamente productos reales creados por el administrador o importados de Dropi.'
+  });
 });
 
 // POST /api/admin/customers/clear-all - Delete all test customers
@@ -1892,18 +1916,34 @@ router.post('/reset', (req, res) => {
 // ==========================================
 // 10. SOCIAL MARKETING & AUTO-BROADCAST
 // ==========================================
-router.get('/social/settings', (req, res) => {
+router.get('/social/settings', async (req, res) => {
   try {
+    const fbConfig = await metaGraphService.getEffectiveFacebookConfig();
     const settings = db.getSocialMarketingSettings();
+    settings.connections.facebook = {
+      ...settings.connections.facebook,
+      platform: 'facebook',
+      connected: fbConfig.connected,
+      accountName: fbConfig.accountName,
+      pageId: fbConfig.pageId,
+      accessToken: fbConfig.accessToken,
+      pixelId: fbConfig.pixelId,
+      status: fbConfig.connected ? 'connected' : 'disconnected',
+      autoPostEnabled: fbConfig.autoPostEnabled,
+      lastSyncAt: fbConfig.lastSyncAt || settings.connections.facebook?.lastSyncAt
+    };
     res.json({ success: true, data: settings });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-router.post('/social/settings', (req, res) => {
+router.post('/social/settings', async (req, res) => {
   try {
     const saved = db.saveSocialMarketingSettings(req.body);
+    if (req.body?.connections?.facebook) {
+      await pool.setFacebookConfig(req.body.connections.facebook);
+    }
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Ajustes de Redes Sociales Actualizados',
@@ -1916,7 +1956,7 @@ router.post('/social/settings', (req, res) => {
   }
 });
 
-router.post('/social/connect/:platform', (req, res) => {
+router.post('/social/connect/:platform', async (req, res) => {
   try {
     const platform = req.params.platform as 'facebook' | 'instagram' | 'tiktok';
     if (!['facebook', 'instagram', 'tiktok'].includes(platform)) {
@@ -1940,6 +1980,10 @@ router.post('/social/connect/:platform', (req, res) => {
       autoPostEnabled: true
     };
 
+    if (platform === 'facebook') {
+      await pool.setFacebookConfig(updatedConn);
+    }
+
     const saved = db.saveSocialMarketingSettings({
       connections: {
         ...current.connections,
@@ -1960,7 +2004,7 @@ router.post('/social/connect/:platform', (req, res) => {
   }
 });
 
-router.post('/social/disconnect/:platform', (req, res) => {
+router.post('/social/disconnect/:platform', async (req, res) => {
   try {
     const platform = req.params.platform as 'facebook' | 'instagram' | 'tiktok';
     if (!['facebook', 'instagram', 'tiktok'].includes(platform)) {
@@ -1974,6 +2018,10 @@ router.post('/social/disconnect/:platform', (req, res) => {
       status: 'disconnected' as const,
       autoPostEnabled: false
     };
+
+    if (platform === 'facebook') {
+      await pool.setFacebookConfig(updatedConn);
+    }
 
     const saved = db.saveSocialMarketingSettings({
       connections: {
@@ -2071,17 +2119,17 @@ router.post('/social/publish', async (req, res) => {
 // RUTAS OFICIALES FACEBOOK META GRAPH API v26.0
 // ==========================================
 
-// GET /api/admin/social/facebook/status - Obtener estado actual de la sesión persistente de Facebook
-router.get('/social/facebook/status', (req, res) => {
+// GET /api/admin/social/facebook/status - Obtener estado actual de la sesión persistente de Facebook desde MySQL
+router.get('/social/facebook/status', async (req, res) => {
   try {
-    const config = metaGraphService.getFacebookConfig();
+    const config = await metaGraphService.getEffectiveFacebookConfig();
     res.json({ success: true, data: config });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/admin/social/facebook/connect - Vincular e iniciar sesión persistente con Page ID y Token
+// POST /api/admin/social/facebook/connect - Vincular e iniciar sesión persistente con Page ID y Token en MySQL
 router.post('/social/facebook/connect', async (req, res) => {
   try {
     const { pageId, accessToken, accountName, autoPostEnabled = true, pixelId } = req.body;
@@ -2093,23 +2141,31 @@ router.post('/social/facebook/connect', async (req, res) => {
       });
     }
 
-    // Verificar en vivo contra Meta Graph API v26.0
-    const checkResult = await metaGraphService.checkConnection(pageId, accessToken);
+    const cleanPageId = String(pageId).trim();
+    const cleanToken = String(accessToken).trim();
+    const cleanName = String(accountName || 'Zavela Store Colombia (Página Oficial)').trim();
+    const cleanPixel = pixelId ? String(pixelId).trim() : '';
 
-    const current = db.getSocialMarketingSettings();
+    // Verificar en vivo contra Meta Graph API v26.0
+    const checkResult = await metaGraphService.checkConnection(cleanPageId, cleanToken);
+
     const updatedConn = {
-      ...current.connections.facebook,
       platform: 'facebook' as const,
       connected: true,
-      accountName: checkResult.pageName || accountName || 'Zavela Store Colombia (Página Oficial)',
-      pageId: String(pageId).trim(),
-      accessToken: String(accessToken).trim(),
-      pixelId: pixelId ? String(pixelId).trim() : current.connections.facebook?.pixelId,
+      accountName: checkResult.pageName || cleanName,
+      pageId: cleanPageId,
+      accessToken: cleanToken,
+      pixelId: cleanPixel,
       status: 'connected' as const,
       lastSyncAt: new Date().toISOString(),
       autoPostEnabled: autoPostEnabled !== false
     };
 
+    // 1. Guardar de forma persistente en MySQL (tabla configuraciones)
+    await pool.setFacebookConfig(updatedConn);
+
+    // 2. Guardar en store local
+    const current = db.getSocialMarketingSettings();
     const saved = db.saveSocialMarketingSettings({
       connections: {
         ...current.connections,
@@ -2120,17 +2176,17 @@ router.post('/social/facebook/connect', async (req, res) => {
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Página de Facebook Conectada (Meta Graph API v26.0)',
-      details: `Página "${updatedConn.accountName}" (ID: ${updatedConn.pageId}) conectada con sesión permanente. Auto-publicación: ${updatedConn.autoPostEnabled ? 'Activa' : 'Pausada'}.`,
+      details: `Página "${updatedConn.accountName}" (ID: ${updatedConn.pageId}) persistida en MySQL y sesión iniciada.`,
       status: 'success'
     });
 
     res.json({
       success: true,
-      data: saved.connections.facebook,
+      data: updatedConn,
       metaValidation: checkResult,
       message: checkResult.connected
-        ? `✅ Página "${updatedConn.accountName}" conectada y verificada exitosamente.`
-        : `⚠️ Credenciales guardadas. Advertencia de Meta: ${checkResult.message}`
+        ? `✅ Página "${updatedConn.accountName}" guardada en MySQL y verificada exitosamente.`
+        : `⚠️ Credenciales guardadas en MySQL. Advertencia de Meta: ${checkResult.message}`
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -2138,7 +2194,7 @@ router.post('/social/facebook/connect', async (req, res) => {
 });
 
 // POST /api/admin/social/facebook/disconnect - Desconectar sesión de Facebook
-router.post('/social/facebook/disconnect', (req, res) => {
+router.post('/social/facebook/disconnect', async (req, res) => {
   try {
     const current = db.getSocialMarketingSettings();
     const updatedConn = {
@@ -2147,6 +2203,9 @@ router.post('/social/facebook/disconnect', (req, res) => {
       status: 'disconnected' as const,
       autoPostEnabled: false
     };
+
+    // Actualizar en MySQL (tabla configuraciones)
+    await pool.setFacebookConfig(updatedConn);
 
     const saved = db.saveSocialMarketingSettings({
       connections: {
@@ -2172,7 +2231,7 @@ router.post('/social/facebook/disconnect', (req, res) => {
 router.post('/social/facebook/test-connection', async (req, res) => {
   try {
     const { pageId, accessToken } = req.body;
-    const config = metaGraphService.getFacebookConfig();
+    const config = await metaGraphService.getEffectiveFacebookConfig();
     const targetPageId = pageId || config.pageId;
     const targetToken = accessToken || config.accessToken;
 
@@ -2194,7 +2253,7 @@ router.post('/social/facebook/test-connection', async (req, res) => {
 router.post('/social/facebook/test-post', async (req, res) => {
   try {
     const { pageId, accessToken } = req.body;
-    const config = metaGraphService.getFacebookConfig();
+    const config = await metaGraphService.getEffectiveFacebookConfig();
     const targetPageId = pageId || config.pageId;
     const targetToken = accessToken || config.accessToken;
 
@@ -2404,23 +2463,15 @@ router.post('/social/facebook/publish-product', async (req, res) => {
 
     if (clientAccessToken && !isPlaceholderToken(clientAccessToken)) {
       try {
-        const currentSettings = db.getSocialMarketingSettings();
-        db.saveSocialMarketingSettings({
-          connections: {
-            ...currentSettings.connections,
-            facebook: {
-              ...currentSettings.connections.facebook,
-              platform: 'facebook',
-              accessToken: String(clientAccessToken).trim(),
-              pageId: clientPageId ? String(clientPageId).trim() : (currentSettings.connections.facebook?.pageId || '1256955457511976'),
-              connected: true,
-              status: 'connected',
-              lastSyncAt: new Date().toISOString()
-            }
-          }
-        });
+        await pool.setFacebookConfig({
+          accessToken: String(clientAccessToken).trim(),
+          pageId: clientPageId ? String(clientPageId).trim() : '1256955457511976',
+          connected: true,
+          status: 'connected',
+          lastSyncAt: new Date().toISOString()
+        } as any);
       } catch (err) {
-        console.warn('Could not persist client facebook token:', err);
+        console.warn('Could not persist client facebook token in MySQL:', err);
       }
     }
 
@@ -2442,23 +2493,15 @@ router.post('/social/facebook/sync-all', async (req, res) => {
 
     if (clientAccessToken && !isPlaceholderToken(clientAccessToken)) {
       try {
-        const currentSettings = db.getSocialMarketingSettings();
-        db.saveSocialMarketingSettings({
-          connections: {
-            ...currentSettings.connections,
-            facebook: {
-              ...currentSettings.connections.facebook,
-              platform: 'facebook',
-              accessToken: String(clientAccessToken).trim(),
-              pageId: clientPageId ? String(clientPageId).trim() : (currentSettings.connections.facebook?.pageId || '1256955457511976'),
-              connected: true,
-              status: 'connected',
-              lastSyncAt: new Date().toISOString()
-            }
-          }
-        });
+        await pool.setFacebookConfig({
+          accessToken: String(clientAccessToken).trim(),
+          pageId: clientPageId ? String(clientPageId).trim() : '1256955457511976',
+          connected: true,
+          status: 'connected',
+          lastSyncAt: new Date().toISOString()
+        } as any);
       } catch (err) {
-        console.warn('Could not persist client facebook token in sync-all:', err);
+        console.warn('Could not persist client facebook token in sync-all to MySQL:', err);
       }
     }
 

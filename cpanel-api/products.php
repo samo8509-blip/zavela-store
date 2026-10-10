@@ -61,8 +61,62 @@ try {
             $tableName = 'products';
         }
     }
+
+    // Auto-crear tabla configuraciones para el token de Meta Facebook
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `configuraciones` (
+        `clave` VARCHAR(64) NOT NULL PRIMARY KEY,
+        `valor` LONGTEXT NULL,
+        `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 } catch (Exception $e) {
     $tableName = 'productos';
+}
+
+// Soporte para endpoints de configuración (action=config o action=facebook_config)
+$action = $_GET['action'] ?? ($inputData['action'] ?? '');
+if ($action === 'config' || $action === 'facebook_config') {
+    if ($action === 'facebook_config') {
+        if ($method === 'GET') {
+            $stmt = $pdo->prepare("SELECT valor FROM configuraciones WHERE clave = 'meta_facebook_config' LIMIT 1");
+            $stmt->execute();
+            $row = $stmt->fetch();
+            $cfg = $row ? json_decode($row['valor'], true) : null;
+            echo json_encode(['success' => true, 'data' => $cfg]);
+            exit();
+        } else if ($method === 'POST') {
+            $json = json_encode($inputData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $stmt = $pdo->prepare("INSERT INTO configuraciones (clave, valor) VALUES ('meta_facebook_config', :val) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+            $stmt->execute([':val' => $json]);
+            if (!empty($inputData['accessToken'])) {
+                $stmt2 = $pdo->prepare("INSERT INTO configuraciones (clave, valor) VALUES ('facebook_access_token', :tok) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+                $stmt2->execute([':tok' => $inputData['accessToken']]);
+            }
+            if (!empty($inputData['pageId'])) {
+                $stmt3 = $pdo->prepare("INSERT INTO configuraciones (clave, valor) VALUES ('facebook_page_id', :pid) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+                $stmt3->execute([':pid' => $inputData['pageId']]);
+            }
+            echo json_encode(['success' => true, 'message' => 'Configuración de Facebook guardada en MySQL']);
+            exit();
+        }
+    } else {
+        if ($method === 'GET') {
+            $clave = $_GET['clave'] ?? '';
+            $stmt = $pdo->prepare("SELECT valor FROM configuraciones WHERE clave = :clave LIMIT 1");
+            $stmt->execute([':clave' => $clave]);
+            $row = $stmt->fetch();
+            echo json_encode(['success' => true, 'valor' => $row ? $row['valor'] : null]);
+            exit();
+        } else if ($method === 'POST') {
+            $clave = $inputData['clave'] ?? '';
+            $valor = $inputData['valor'] ?? '';
+            if (!empty($clave)) {
+                $stmt = $pdo->prepare("INSERT INTO configuraciones (clave, valor) VALUES (:clave, :valor) ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+                $stmt->execute([':clave' => $clave, ':valor' => $valor]);
+            }
+            echo json_encode(['success' => true, 'message' => 'Configuración guardada en MySQL']);
+            exit();
+        }
+    }
 }
 
 // Helper para normalizar producto de MySQL a JSON del frontend
