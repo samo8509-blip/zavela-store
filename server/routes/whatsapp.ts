@@ -99,7 +99,7 @@ ${JSON.stringify(catalogSummary, null, 2)}
 `;
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: 'gemini-3.8-flash',
         contents: [{ role: 'user', parts: [{ text: userMessage }] }],
         config: {
           systemInstruction
