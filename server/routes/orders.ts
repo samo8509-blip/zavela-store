@@ -375,42 +375,46 @@ router.post('/', async (req, res) => {
         }
       }
 
-      // 1. Deduct general product stock in memory
-      product.stock = Math.max(0, product.stock - rawItem.quantity);
+      const isOnlineEpayco = paymentMethod === 'epayco' || paymentMethod === 'pago_online';
 
-      // 2. Si el ítem incluye variante (color/talla/id), descontar unidades en el array JSON de variantes del producto
-      if (Array.isArray(product.variants) && product.variants.length > 0) {
-        const vIndex = product.variants.findIndex(v => 
-          (rawItem.variantId && v.id === rawItem.variantId) ||
-          (dropiVariationId && (String(v.dropi_variation_id) === String(dropiVariationId) || String(v.dropiVariationId) === String(dropiVariationId))) ||
-          (variantColor && v.color && v.color.toLowerCase() === variantColor.toLowerCase() && 
-            (!variantSize || (v.size || v.talla || '').toLowerCase() === variantSize.toLowerCase()))
-        );
-        if (vIndex >= 0) {
-          const varObj = product.variants[vIndex];
-          varObj.stock = Math.max(0, (varObj.stock !== undefined ? varObj.stock : 10) - rawItem.quantity);
+      if (!isOnlineEpayco) {
+        // 1. Deduct general product stock in memory for immediate cash-on-delivery orders
+        product.stock = Math.max(0, product.stock - rawItem.quantity);
+
+        // 2. Si el ítem incluye variante (color/talla/id), descontar unidades en el array JSON de variantes del producto
+        if (Array.isArray(product.variants) && product.variants.length > 0) {
+          const vIndex = product.variants.findIndex(v => 
+            (rawItem.variantId && v.id === rawItem.variantId) ||
+            (dropiVariationId && (String(v.dropi_variation_id) === String(dropiVariationId) || String(v.dropiVariationId) === String(dropiVariationId))) ||
+            (variantColor && v.color && v.color.toLowerCase() === variantColor.toLowerCase() && 
+              (!variantSize || (v.size || v.talla || '').toLowerCase() === variantSize.toLowerCase()))
+          );
+          if (vIndex >= 0) {
+            const varObj = product.variants[vIndex];
+            varObj.stock = Math.max(0, (varObj.stock !== undefined ? varObj.stock : 10) - rawItem.quantity);
+          }
         }
-      }
 
-      // 3. Descuento atómico de stock en MySQL (base espejo en ventas):
-      // UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?;
-      try {
-        await pool.query(
-          'UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?',
-          [rawItem.quantity, JSON.stringify(product.variants || []), product.id]
-        );
-      } catch (sqlErr: any) {
-        console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
-      }
+        // 3. Descuento atómico de stock en MySQL (base espejo en ventas):
+        // UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?;
+        try {
+          await pool.query(
+            'UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?',
+            [rawItem.quantity, JSON.stringify(product.variants || []), product.id]
+          );
+        } catch (sqlErr: any) {
+          console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
+        }
 
-      // 4. Guardar en store local y sincronizar con cPanel MySQL
-      db.saveProduct(product);
-      cpanelDbService.saveProduct({
-        ...product,
-        variants: product.variants
-      } as any).catch(err => {
-        console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
-      });
+        // 4. Guardar en store local y sincronizar con cPanel MySQL
+        db.saveProduct(product);
+        cpanelDbService.saveProduct({
+          ...product,
+          variants: product.variants
+        } as any).catch(err => {
+          console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
+        });
+      }
 
       // Check if stock has reached critical threshold (<= 5 units)
       if (product.stock <= 5) {
@@ -493,8 +497,13 @@ router.post('/', async (req, res) => {
       productCostTotal,
       grossMargin,
       paymentMethod: paymentMethod as PaymentMethod,
-      paymentStatus: paymentMethod === 'contra_entrega' ? 'CASH_ON_DELIVERY' : 'APPROVED',
-      status: 'PENDIENTE_REVISION', // Default status for approval flow
+      paymentStatus: (paymentMethod === 'epayco' || paymentMethod === 'pago_online')
+        ? 'PENDING'
+        : (paymentMethod === 'contra_entrega' ? 'CASH_ON_DELIVERY' : 'APPROVED'),
+      status: (paymentMethod === 'epayco' || paymentMethod === 'pago_online')
+        ? 'PENDIENTE_PAGO'
+        : 'PENDIENTE_REVISION',
+      stock_deducted: !(paymentMethod === 'epayco' || paymentMethod === 'pago_online'),
       carrier: 'Servientrega',
       dane_code: resolvedDane,
       items: validatedItems,

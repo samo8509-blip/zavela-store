@@ -5,6 +5,10 @@ export type OrderStatus =
   | 'APROBADO_DROPI'
   | 'ERROR_DROPI'
   | 'CANCELADO'
+  | 'PAGADO'
+  | 'APROBADO'
+  | 'RECHAZADO'
+  | 'PENDIENTE_PAGO'
   | 'pendiente'
   | 'pago_confirmado'
   | 'procesando'
@@ -17,7 +21,7 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export type PaymentMethod = 'contra_entrega' | 'pago_online' | 'transferencia' | 'cash_on_delivery';
+export type PaymentMethod = 'contra_entrega' | 'pago_online' | 'epayco' | 'transferencia' | 'cash_on_delivery';
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CASH_ON_DELIVERY';
 
 export interface ProductVariant {
@@ -34,6 +38,9 @@ export interface ProductVariant {
   costPrice?: number;
   stock: number;
   attributes?: Record<string, string>;
+  image?: string;
+  imagen?: string;
+  foto?: string;
 }
 
 export interface HeaderTickerItem {
@@ -436,6 +443,9 @@ export interface Product {
   active: boolean;
   featured?: boolean;
   images: string[];
+  image?: string;
+  imagen?: string;
+  imagenes?: string[] | string;
   warrantyInfo?: string;
   tags: string[];
   weightKg?: number;
@@ -561,6 +571,12 @@ export interface Order {
   dane_code?: string;
   dropi_approved_at?: string;
   dropi_response?: any;
+
+  // ePayco Colombia Payment Fields
+  epayco_ref_pay?: string;
+  epayco_transaction_id?: string;
+  epayco_data?: any;
+  stock_deducted?: boolean;
 
   items: OrderItem[];
   createdAt: string;

@@ -3,6 +3,7 @@ import { ShoppingBag, Zap, ShieldCheck, Truck, Sparkles, ChevronRight, CheckCirc
 import { Product } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
 import { ProductShareModal } from './ProductShareModal.tsx';
+import { extractProductImages } from '../utils/imageUtils.ts';
 
 interface ProductCardProps {
   product: Product;
@@ -21,9 +22,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const mainImage = product.images && product.images.length > 0
-    ? product.images[0]
-    : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
+  const productImages = extractProductImages(product);
+  const mainImage = productImages[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
 
   // Helper to extract clean bullet points or key features from description
   const cleanSummary = product.shortDescription || (() => {

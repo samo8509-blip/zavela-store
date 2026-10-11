@@ -91,3 +91,97 @@ export const compressImageFile = async (
     reader.readAsDataURL(file);
   });
 };
+
+/**
+ * Extract clean, normalized array of image URLs from any product representation
+ * (handling product.images, product.imagenes, JSON strings, single image fields, variants)
+ */
+export const extractProductImages = (product: any): string[] => {
+  if (!product) {
+    return ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+  }
+
+  const rawCandidates: any[] = [];
+
+  const addCandidate = (val: any) => {
+    if (!val) return;
+    if (Array.isArray(val)) {
+      val.forEach(v => addCandidate(v));
+      return;
+    }
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (!trimmed) return;
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(p => addCandidate(p));
+            return;
+          }
+        } catch {}
+      }
+      if (trimmed.includes(',') && !trimmed.startsWith('data:image/')) {
+        trimmed.split(',').forEach(part => addCandidate(part));
+        return;
+      }
+      rawCandidates.push(trimmed);
+    }
+  };
+
+  // 1. Check images
+  addCandidate(product.images);
+
+  // 2. Check imagenes
+  addCandidate(product.imagenes);
+
+  // 3. Check single image fields
+  addCandidate(product.image);
+  addCandidate(product.imagen);
+  addCandidate(product.photo);
+  addCandidate(product.foto);
+
+  // 4. Check variants images
+  if (Array.isArray(product.variants)) {
+    product.variants.forEach((v: any) => {
+      if (v) {
+        addCandidate(v.image);
+        addCandidate(v.imagen);
+        addCandidate(v.foto);
+        addCandidate(v.photo);
+      }
+    });
+  }
+
+  // Deduplicate and filter valid image links
+  const validImages: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of rawCandidates) {
+    if (typeof item === 'string') {
+      let cleanUrl = item.trim();
+      if ((cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) || (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))) {
+        cleanUrl = cleanUrl.slice(1, -1).trim();
+      }
+      if (!cleanUrl) continue;
+
+      const isHttp = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://');
+      const isDataUri = cleanUrl.startsWith('data:image/');
+      const isRelative = cleanUrl.startsWith('/') && (
+        cleanUrl.includes('.jpg') || cleanUrl.includes('.jpeg') || cleanUrl.includes('.png') || cleanUrl.includes('.webp') || cleanUrl.includes('.svg')
+      );
+
+      if ((isHttp || isDataUri || isRelative) && !seen.has(cleanUrl)) {
+        seen.add(cleanUrl);
+        validImages.push(cleanUrl);
+      }
+    }
+  }
+
+  if (validImages.length > 0) {
+    return validImages;
+  }
+
+  return ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+};
+

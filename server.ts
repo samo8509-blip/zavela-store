@@ -11,6 +11,7 @@ import whatsappRouter from './server/routes/whatsapp.ts';
 import alertsRouter from './server/routes/alerts.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
+import paymentsRouter from './server/routes/payments.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
@@ -54,6 +55,7 @@ async function startServer() {
   app.use('/api/alerts', alertsRouter);
   app.use('/api/customers', customersRouter);
   app.use('/api/advisors', advisorsRouter);
+  app.use('/api/payments', paymentsRouter);
 
   // Soporte directo para convenciones de URLs PHP de cPanel MySQL
   app.use('/api/products.php', productsRouter);

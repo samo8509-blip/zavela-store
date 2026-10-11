@@ -27,6 +27,7 @@ import { CartDrawer } from './components/CartDrawer.tsx';
 import { CheckoutModal } from './components/CheckoutModal.tsx';
 import { OrderSuccessModal } from './components/OrderSuccessModal.tsx';
 import { OrderTrackingView } from './components/OrderTrackingView.tsx';
+import { OrderConfirmation } from './components/OrderConfirmation.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdvisorPortal } from './components/advisor/AdvisorPortal.tsx';
 import { 
@@ -79,7 +80,7 @@ import { CustomerProfileModal } from './components/CustomerProfileModal.tsx';
 
 export default function App() {
   // Navigation State
-  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage'>('store');
+  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>('store');
   const [activeSubpageSlug, setActiveSubpageSlug] = useState<string>('');
   const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
@@ -203,6 +204,20 @@ export default function App() {
     isAdminOrAdvisor: currentView === 'admin' || currentView === 'advisor',
     gamificationSettings: settings?.gamificationGame
   });
+
+  // Check for ePayco order confirmation redirection (/order-confirmation or ?ref_pay=...)
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const path = window.location.pathname || '';
+      const params = new URLSearchParams(window.location.search);
+      if (path.includes('order-confirmation') || params.has('ref_pay') || params.has('x_ref_pay')) {
+        setCurrentView('order-confirmation');
+      }
+    } catch (e) {
+      console.warn('Error checking order confirmation route:', e);
+    }
+  }, []);
 
   // Check URL parameters for direct social media link or closing link with ruleta
   const hasCheckedUrlParams = useRef(false);
@@ -705,6 +720,29 @@ export default function App() {
         products={products}
         onBackToStore={() => setCurrentView('store')}
         onLogout={handleAdvisorLogout}
+      />
+    );
+  }
+
+  // If Order Confirmation View is active (ePayco Redirection)
+  if (currentView === 'order-confirmation') {
+    return (
+      <OrderConfirmation 
+        onBackToStore={() => {
+          loadStoreData();
+          setCurrentView('store');
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+        }}
+        onTrackOrder={(orderQuery) => {
+          loadStoreData();
+          setTrackingInitialQuery(orderQuery);
+          setCurrentView('tracking');
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+        }}
       />
     );
   }

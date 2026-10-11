@@ -65,6 +65,34 @@ export const ORDER_STATUS_MAP: Record<OrderStatus, StatusConfig> = {
     borderColor: 'border-slate-300',
     description: 'Pedido cancelado o anulado.'
   },
+  PAGADO: {
+    label: 'Pagado con ePayco',
+    color: 'text-emerald-800',
+    bgColor: 'bg-emerald-100',
+    borderColor: 'border-emerald-400',
+    description: 'Pago en línea procesado y aprobado con éxito a través de ePayco Colombia.'
+  },
+  APROBADO: {
+    label: 'Aprobado',
+    color: 'text-emerald-800',
+    bgColor: 'bg-emerald-100',
+    borderColor: 'border-emerald-400',
+    description: 'Pedido aprobado y confirmado para preparación.'
+  },
+  RECHAZADO: {
+    label: 'Pago Rechazado',
+    color: 'text-rose-800',
+    bgColor: 'bg-rose-100',
+    borderColor: 'border-rose-300',
+    description: 'Transacción ePayco rechazada o cancelada por la entidad financiera.'
+  },
+  PENDIENTE_PAGO: {
+    label: 'Pendiente de Pago',
+    color: 'text-amber-800',
+    bgColor: 'bg-amber-100',
+    borderColor: 'border-amber-300',
+    description: 'Esperando confirmación o aprobación de la pasarela ePayco.'
+  },
   pendiente: {
     label: 'Pendiente Revisión',
     color: 'text-amber-700',

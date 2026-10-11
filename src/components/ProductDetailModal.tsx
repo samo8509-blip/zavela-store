@@ -32,6 +32,7 @@ import { useProductTracker } from '../hooks/useProductTracker.ts';
 import { CommerceMindRecommendationsCarousel } from './CommerceMindRecommendationsCarousel.tsx';
 import { registerProductObservation } from '../services/commerceMindClient.ts';
 import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
+import { extractProductImages } from '../utils/imageUtils.ts';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -98,7 +99,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onOpenLuckyWheel,
   isLuckyWheelEnabled = true
 }) => {
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -111,25 +112,101 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const relatedSliderRef = useRef<HTMLDivElement>(null);
   const { trackProductVisit, recordTimeSpent } = useProductTracker();
 
+  // Robust image extraction from product (reads images, imagenes, JSON strings, single image fields, variants)
+  const imagesList = useMemo(() => {
+    return extractProductImages(product);
+  }, [product]);
+
+  // Reset active image when product changes
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product?.id]);
+
+  // Touch swipe support for smooth mobile photo navigation
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const distance = touchStartX.current - touchEndX.current;
+    const minSwipeDistance = 40;
+    if (distance > minSwipeDistance) {
+      // Swiped left -> Next image
+      setActiveImageIndex(prev => (prev < imagesList.length - 1 ? prev + 1 : 0));
+    } else if (distance < -minSwipeDistance) {
+      // Swiped right -> Previous image
+      setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imagesList.length - 1));
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  const handlePrevImage = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imagesList.length - 1));
+  };
+
+  const handleNextImage = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setActiveImageIndex(prev => (prev < imagesList.length - 1 ? prev + 1 : 0));
+  };
+
+  // Initialize variants on product open
   useEffect(() => {
     if (product?.variants && product.variants.length > 0) {
       const initialVariant = product.variants[0];
       setSelectedVariant(initialVariant);
-      setSelectedColor(extractVariantColor(initialVariant));
+      const col = extractVariantColor(initialVariant);
+      setSelectedColor(col);
       setSelectedSize(extractVariantSize(initialVariant));
+
+      // Sincronizar foto si la variante inicial tiene imagen asociada
+      const initPhoto = initialVariant.image || (initialVariant as any)?.imagen || (initialVariant as any)?.foto;
+      if (initPhoto) {
+        const foundIdx = imagesList.findIndex(img => img === initPhoto);
+        if (foundIdx !== -1) {
+          setActiveImageIndex(foundIdx);
+        }
+      }
     } else {
       setSelectedVariant(undefined);
       setSelectedColor('');
       setSelectedSize('');
     }
-    setSelectedImageIndex(0);
     setQuantity(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
 
-    if (product) {
+  // Track product visit once per product id
+  useEffect(() => {
+    if (product?.id) {
       trackProductVisit(product);
       registerProductObservation(product);
     }
-  }, [product, trackProductVisit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
+
+  // Keep activeImageIndex within valid range if images list changes
+  useEffect(() => {
+    if (imagesList.length > 0 && activeImageIndex >= imagesList.length) {
+      setActiveImageIndex(0);
+    }
+  }, [activeImageIndex, imagesList.length]);
 
   // Track active time spent inspecting this product
   useEffect(() => {
@@ -158,9 +235,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   if (!product) return null;
 
   const currentPrice = selectedVariant ? selectedVariant.price : product.price;
-  const currentImages = product.images && product.images.length > 0 ? product.images : [
-    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'
-  ];
 
   const handleIncrement = () => setQuantity(q => q + 1);
   const handleDecrement = () => setQuantity(q => (q > 1 ? q - 1 : 1));
@@ -213,6 +287,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const newSize = extractVariantSize(targetVariant);
     setSelectedSize(newSize);
     setSelectedVariant(targetVariant);
+
+    // Integración con Variantes de Color: actualizar la imagen principal automáticamente a la foto de ese color
+    const colorPhoto = targetVariant?.image || (targetVariant as any)?.imagen || (targetVariant as any)?.foto || (targetVariant as any)?.photo
+      || variantsForColor.find(v => v.image || (v as any)?.imagen || (v as any)?.foto)?.image
+      || (variantsForColor.find(v => (v as any)?.imagen) as any)?.imagen;
+
+    if (colorPhoto) {
+      const targetIdx = imagesList.findIndex(img => img === colorPhoto);
+      if (targetIdx !== -1) {
+        setActiveImageIndex(targetIdx);
+      }
+    } else {
+      // Buscar coincidencia por nombre de color dentro de las URLs de las fotos
+      const normalizedColor = colorName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+      const matchIdx = imagesList.findIndex(img => {
+        const lowerImg = img.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return lowerImg.includes(normalizedColor);
+      });
+      if (matchIdx !== -1) {
+        setActiveImageIndex(matchIdx);
+      }
+    }
   };
 
   const handleSelectSize = (sizeOpt: { variant: ProductVariant; size: string; stock: number }) => {
@@ -321,89 +417,123 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="lg:col-span-6 flex flex-col sm:flex-row gap-4">
                 
                 {/* Vertical Thumbnails List (Desktop left sidebar / Mobile bottom) */}
-                {currentImages.length > 1 && (
-                  <div className="order-2 sm:order-1 flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-y-auto sm:max-h-[480px] shrink-0 pb-1 sm:pb-0 sm:pr-1 scrollbar-thin">
-                    {currentImages.map((img, idx) => (
+                {imagesList.length > 1 && (
+                  <div 
+                    id="product-gallery-thumbnails"
+                    className="order-2 sm:order-1 flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-y-auto sm:max-h-[500px] shrink-0 p-1 sm:pr-2 scrollbar-thin select-none z-10"
+                    aria-label="Miniaturas de fotos del producto"
+                  >
+                    {imagesList.map((img, index) => (
                       <button
-                        key={idx}
-                        onClick={() => setSelectedImageIndex(idx)}
-                        className={`w-14 h-14 sm:w-18 sm:h-18 rounded-2xl overflow-hidden border-2 transition-all shrink-0 cursor-pointer bg-white p-0.5 ${
-                          selectedImageIndex === idx 
-                            ? 'border-red-600 ring-2 ring-red-500/20 shadow-sm scale-102' 
-                            : 'border-slate-200 hover:border-slate-400 opacity-75 hover:opacity-100'
+                        key={index}
+                        type="button"
+                        id={`btn-thumbnail-${index}`}
+                        onClick={() => setActiveImageIndex(index)}
+                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all shrink-0 cursor-pointer bg-white p-1 relative group/thumb ${
+                          activeImageIndex === index 
+                            ? 'border-red-600 ring-4 ring-red-500/25 shadow-md scale-105 z-10' 
+                            : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100 hover:scale-102'
                         }`}
+                        title={`Ver foto ${index + 1}`}
+                        aria-label={`Ver foto ${index + 1}`}
                       >
                         <img 
                           src={img} 
-                          alt={`Miniatura ${idx + 1}`} 
-                          className="w-full h-full object-cover rounded-xl" 
+                          alt={`Miniatura ${index + 1}`} 
+                          className="w-full h-full object-cover rounded-xl pointer-events-none select-none" 
                           referrerPolicy="no-referrer"
+                          loading="lazy"
                         />
+                        {activeImageIndex === index && (
+                          <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-600 ring-2 ring-white" />
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* Main Large Product Photo */}
-                <div className="order-1 sm:order-2 flex-1 flex flex-col items-center">
-                  <div className="aspect-square w-full rounded-2xl bg-white overflow-hidden relative border border-slate-200 p-3 sm:p-5 flex items-center justify-center shadow-xs group">
+                {/* Main Large Product Photo with interactive controls and swipe */}
+                <div className="order-1 sm:order-2 flex-1 flex flex-col items-center w-full">
+                  <div 
+                    id="product-gallery-main-view"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    className="aspect-square w-full rounded-2xl bg-white overflow-hidden relative border border-slate-200 p-3 sm:p-5 flex items-center justify-center shadow-xs group select-none touch-pan-y"
+                  >
                     <img
-                      src={currentImages[selectedImageIndex] || currentImages[0]}
+                      src={imagesList[activeImageIndex] || product.imagen || (product as any).image}
                       alt={product.title}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
                     />
+
+                    {/* Counter Badge */}
+                    <div className="absolute top-3 left-3 bg-slate-900/75 backdrop-blur-xs text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md z-10 pointer-events-none">
+                      <Camera className="w-3.5 h-3.5 text-slate-200" />
+                      <span>📷 {activeImageIndex + 1} / {imagesList.length}</span>
+                    </div>
 
                     {/* Discount Badge */}
                     {product.discountPercentage > 0 && (
-                      <span className="absolute top-3 right-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[11px] sm:text-xs px-3 py-1 rounded-lg uppercase tracking-wider shadow-md">
+                      <span className="absolute top-3 right-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[11px] sm:text-xs px-3 py-1 rounded-lg uppercase tracking-wider shadow-md z-10 pointer-events-none">
                         -{product.discountPercentage}% OFF
                       </span>
                     )}
 
                     {/* Warehouse Tag */}
-                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-800 text-[10px] font-mono px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
+                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-800 text-[10px] font-mono px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs z-10 pointer-events-none">
                       <Truck className="w-3.5 h-3.5 text-sky-600" />
                       <span>Despacho: {product.warehouseCity || 'Bogotá D.C.'}</span>
                     </div>
 
-                    {/* Image Nav Chevrons (if multiple images) */}
-                    {currentImages.length > 1 && (
+                    {/* Flechas de navegación interactivas (< y >) sobre la imagen principal */}
+                    {imagesList.length > 1 && (
                       <>
                         <button
+                          id="btn-gallery-prev"
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedImageIndex(prev => (prev > 0 ? prev - 1 : currentImages.length - 1));
-                          }}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-md border border-slate-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={handlePrevImage}
+                          aria-label="Foto anterior"
+                          title="Foto anterior"
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-20 hover:scale-110 active:scale-95"
                         >
-                          <ChevronLeft className="w-4 h-4" />
+                          <ChevronLeft className="w-5 h-5 text-slate-800" />
                         </button>
                         <button
+                          id="btn-gallery-next"
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedImageIndex(prev => (prev < currentImages.length - 1 ? prev + 1 : 0));
-                          }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-md border border-slate-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          onClick={handleNextImage}
+                          aria-label="Foto siguiente"
+                          title="Foto siguiente"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-20 hover:scale-110 active:scale-95"
                         >
-                          <ChevronRight className="w-4 h-4" />
+                          <ChevronRight className="w-5 h-5 text-slate-800" />
                         </button>
                       </>
                     )}
                   </div>
 
-                  {/* Carousel Dots indicator */}
-                  {currentImages.length > 1 && (
-                    <div className="flex items-center justify-center gap-1.5 mt-3">
-                      {currentImages.map((_, idx) => (
+                  {/* Puntos indicadores inferiores interactivos (dots rojo/gris) */}
+                  {imagesList.length > 1 && (
+                    <div 
+                      id="product-gallery-dots"
+                      className="flex items-center justify-center gap-2 mt-3"
+                      aria-label="Indicadores de fotos"
+                    >
+                      {imagesList.map((_, index) => (
                         <button
-                          key={idx}
-                          onClick={() => setSelectedImageIndex(idx)}
-                          className={`h-2 rounded-full transition-all cursor-pointer ${
-                            selectedImageIndex === idx ? 'w-6 bg-red-600' : 'w-2 bg-slate-300 hover:bg-slate-400'
+                          key={index}
+                          type="button"
+                          id={`btn-gallery-dot-${index}`}
+                          onClick={() => setActiveImageIndex(index)}
+                          className={`h-2.5 rounded-full transition-all cursor-pointer ${
+                            activeImageIndex === index 
+                              ? 'w-7 bg-red-600 ring-2 ring-red-400/30' 
+                              : 'w-2.5 bg-slate-300 hover:bg-slate-400'
                           }`}
+                          aria-label={`Ver foto ${index + 1}`}
+                          title={`Foto ${index + 1} de ${imagesList.length}`}
                         />
                       ))}
                     </div>

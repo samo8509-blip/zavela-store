@@ -983,6 +983,16 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                           <TrendingUp className="w-2.5 h-2.5" />
                           <span>+{formatCOP(order.grossMargin || Math.round((order.total || 0) * 0.4))} ganancia</span>
                         </div>
+                        {order.paymentMethod === 'epayco' || (order as any).epayco_ref_pay ? (
+                          <div className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded mt-1 inline-flex items-center gap-1">
+                            <span>🔒 ePayco</span>
+                            {(order as any).epayco_ref_pay && <span className="font-mono text-[9px]">#{(order as any).epayco_ref_pay}</span>}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                            Contra entrega
+                          </div>
+                        )}
                       </td>
 
                       {/* 6. Carrier & Tracking / Dropi Logistics */}
@@ -1053,6 +1063,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                           }`}
                         >
                           <option value="PENDIENTE_REVISION">⏳ Pendiente Revisión</option>
+                          <option value="PAGADO">💳 Pagado (ePayco)</option>
                           <option value="APROBADO_DROPI">🚀 Aprobado Dropi</option>
                           <option value="ERROR_DROPI">❌ Error Dropi</option>
                           <option value="pendiente">Pendiente</option>

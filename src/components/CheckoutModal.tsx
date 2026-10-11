@@ -24,6 +24,7 @@ import { calculateShippingCost, SHIPPING_ZONES, ShippingCalculationResult } from
 import { formatCOP } from '../utils/formatters.ts';
 import { decrementCpanelProductStock } from '../services/cpanelProducts.ts';
 import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
+import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -241,7 +242,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
-      // Descontar inventario en cPanel MySQL
+      if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
+        const createdOrder: Order = data.data;
+        const customerName = `${formData.firstName?.trim()} ${formData.lastName?.trim()}`.trim();
+        const customerAddress = `${formData.address?.trim()}, ${formData.city?.trim()}`;
+        const customerPhone = formData.phone.trim();
+
+        // Disparar checkout seguro oficial de ePayco Colombia
+        try {
+          await triggerEpaycoCheckout({
+            orderId: createdOrder.orderNumber || createdOrder.id,
+            orderReference: createdOrder.orderNumber || createdOrder.id,
+            totalAmount: total,
+            customerName,
+            customerAddress,
+            customerPhone,
+            customerEmail: formData.email?.trim(),
+            description: `Compra en Zavela Store - Pedido #${createdOrder.orderNumber}`
+          });
+        } catch (epaycoErr: any) {
+          console.error('[ePayco Modal Error]:', epaycoErr);
+          setServerError(`No se pudo abrir el checkout de ePayco: ${epaycoErr.message || 'Error desconocido'}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        onOrderCreated(createdOrder);
+        onClose();
+        return;
+      }
+
+      // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL
       try {
         for (const item of cartItems) {
           await decrementCpanelProductStock(item.product.id, item.quantity);
@@ -626,39 +657,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 />
                 <div>
                   <div className="flex items-center gap-1.5 font-black text-xs text-slate-900">
-                    <span>PAGO CONTRA ENTREGA</span>
+                    <span>Pago Contra Entrega (Efectivo al Recibir)</span>
                     <span className="bg-gradient-to-r from-[#FF5A36] to-[#FF3366] text-white text-[10px] px-1.5 py-0.2 rounded-md uppercase font-extrabold shadow-xs">Popular</span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1 leading-snug">
-                    Pagas en efectivo al domiciliario de Servientrega, Coordinadora o Interrapidísimo al recibir tu paquete.
+                    Pagas en efectivo al domiciliario de Servientrega, Coordinadora o Interrapidísimo al recibir tu paquete en casa.
                   </p>
                 </div>
               </label>
 
-              {/* Online Payment Option */}
+              {/* Online Payment Option - ePayco */}
               <label 
                 className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
-                  formData.paymentMethod === 'pago_online'
-                    ? 'border-sky-600 bg-sky-50/50 shadow-xs'
+                  formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
+                    ? 'border-emerald-600 bg-emerald-50/50 shadow-xs'
                     : 'border-slate-200 hover:border-slate-300 bg-slate-50'
                 }`}
               >
                 <input
                   type="radio"
                   name="paymentMethod"
-                  value="pago_online"
-                  checked={formData.paymentMethod === 'pago_online'}
-                  onChange={() => setFormData({ ...formData, paymentMethod: 'pago_online' })}
-                  className="mt-0.5 accent-sky-600"
+                  value="epayco"
+                  checked={formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'}
+                  onChange={() => setFormData({ ...formData, paymentMethod: 'epayco' })}
+                  className="mt-0.5 accent-emerald-600"
                 />
                 <div>
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                    <CreditCard className="w-3.5 h-3.5 text-sky-600" />
-                    <span>Pago en Línea Seguro</span>
+                  <div className="flex items-center gap-1.5 font-black text-xs text-slate-900">
+                    <CreditCard className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Pago en Línea Seguro con ePayco</span>
+                    <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 rounded-md uppercase font-extrabold shadow-xs">Seguro</span>
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1 leading-snug">
-                    Tarjetas Débito/Crédito, PSE, Nequi o Daviplata. Despacho prioritario directo.
+                    (PSE, Tarjetas de Crédito/Débito, Daviplata, Nequi, Efecty). Pasarela certificada PCI-DSS y despacho prioritario.
                   </p>
+                  <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                    <span className="text-[9px] font-bold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">PSE</span>
+                    <span className="text-[9px] font-bold bg-white text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">Tarjetas</span>
+                    <span className="text-[9px] font-bold bg-white text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200">Nequi</span>
+                    <span className="text-[9px] font-bold bg-white text-rose-800 px-1.5 py-0.5 rounded border border-rose-200">Daviplata</span>
+                    <span className="text-[9px] font-bold bg-white text-amber-800 px-1.5 py-0.5 rounded border border-amber-200">Efecty</span>
+                  </div>
                 </div>
               </label>
             </div>
@@ -762,17 +801,29 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               id="btn-submit-order"
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] disabled:opacity-50 active:scale-98 text-white font-black py-4 px-6 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
+              className={`w-full text-white font-black py-4 px-6 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-98 ${
+                formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800'
+                  : 'bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656]'
+              }`}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin text-white" />
-                  <span>Registrando pedido y generando guía...</span>
+                  <span>
+                    {formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
+                      ? 'Abriendo pasarela segura ePayco Colombia...'
+                      : 'Registrando pedido y generando guía...'}
+                  </span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5 text-white" />
-                  <span>CONFIRMAR PEDIDO ({formatCOP(total)})</span>
+                  <span>
+                    {formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
+                      ? `PAGAR EN LÍNEA CON EPAYCO (${formatCOP(total)})`
+                      : `CONFIRMAR PEDIDO CONTRA ENTREGA (${formatCOP(total)})`}
+                  </span>
                 </>
               )}
             </button>

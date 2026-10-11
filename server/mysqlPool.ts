@@ -178,6 +178,37 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // 9. Tabla pedidos (incluye soporte nativo para ePayco Colombia)
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS pedidos (
+        id VARCHAR(64) NOT NULL PRIMARY KEY,
+        order_number VARCHAR(64) NOT NULL,
+        cliente_nombre VARCHAR(255) NULL,
+        cliente_telefono VARCHAR(50) NULL,
+        cliente_email VARCHAR(100) NULL,
+        departamento VARCHAR(100) NULL,
+        ciudad VARCHAR(100) NULL,
+        direccion TEXT NULL,
+        total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        metodo_pago VARCHAR(50) DEFAULT 'contra_entrega',
+        estado VARCHAR(50) DEFAULT 'PENDIENTE_REVISION',
+        payment_status VARCHAR(50) DEFAULT 'PENDING',
+        epayco_ref_pay VARCHAR(100) NULL,
+        epayco_transaction_id VARCHAR(100) NULL,
+        items LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // Verificar columnas epayco_ref_pay en pedidos si ya existía
+    try {
+      await p.query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS epayco_ref_pay VARCHAR(100) NULL AFTER payment_status');
+    } catch {}
+    try {
+      await p.query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS epayco_transaction_id VARCHAR(100) NULL AFTER epayco_ref_pay');
+    } catch {}
+
     console.log('[Auto-Migración MySQL] ✓ Esquema e integridad de MySQL verificados al 100%.');
   } catch (err: any) {
     console.warn('[Auto-Migración MySQL Error]:', err.message);
