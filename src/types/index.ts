@@ -24,6 +24,11 @@ export interface ProductVariant {
   id: string;
   productId?: string;
   name: string;
+  color?: string;
+  size?: string;
+  talla?: string;
+  dropi_variation_id?: string | number;
+  dropiVariationId?: string | number;
   sku?: string;
   price: number;
   costPrice?: number;
@@ -467,6 +472,10 @@ export interface OrderItem {
   variantId?: string;
   title: string;
   variantName?: string;
+  variantColor?: string;
+  variantSize?: string;
+  dropi_variation_id?: string | number;
+  dropiVariationId?: string | number;
   quantity: number;
   unitPrice: number;
   unitCost?: number;

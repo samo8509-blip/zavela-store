@@ -109,10 +109,33 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [coverUrlInput, setCoverUrlInput] = useState('');
 
   // Variants
-  const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
-  const [newVarName, setNewVarName] = useState('');
-  const [newVarSku, setNewVarSku] = useState('');
+  const [variants, setVariants] = useState<ProductVariant[]>(() => {
+    return (product?.variants || []).map(v => {
+      let color = v.color;
+      let size = v.size || v.talla;
+      if (!color && v.name) {
+        if (v.name.includes(' / ')) {
+          const parts = v.name.split(' / ');
+          color = parts[0]?.trim();
+          size = size || parts[1]?.trim();
+        } else {
+          color = v.name;
+        }
+      }
+      return {
+        ...v,
+        color: color || v.name || 'Único',
+        size: size || 'Única',
+        talla: size || 'Única',
+        dropi_variation_id: v.dropi_variation_id || v.dropiVariationId
+      };
+    });
+  });
+  const [newVarColor, setNewVarColor] = useState('');
+  const [newVarSize, setNewVarSize] = useState('Única');
+  const [newVarDropiId, setNewVarDropiId] = useState('');
   const [newVarStock, setNewVarStock] = useState(10);
+  const [newVarSku, setNewVarSku] = useState('');
   const [newVarPrice, setNewVarPrice] = useState(price);
 
   // Tags
@@ -451,17 +474,33 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   const handleAddVariant = () => {
-    if (!newVarName.trim()) return;
+    const color = newVarColor.trim();
+    const size = newVarSize.trim() || 'Única';
+    if (!color) {
+      alert('Por favor indica al menos el Color o Nombre principal de la variante (ej. Negro, Rojo).');
+      return;
+    }
+    const displayName = size && size !== 'Única' ? `${color} / ${size}` : color;
+    const cleanDropiId = newVarDropiId.trim();
+
     const newVariant: ProductVariant = {
-      id: `var-${Date.now()}`,
-      name: newVarName.trim(),
+      id: `var-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: displayName,
+      color,
+      size,
+      talla: size,
+      dropi_variation_id: cleanDropiId || undefined,
+      dropiVariationId: cleanDropiId || undefined,
       sku: newVarSku.trim() || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
-      stock: newVarStock,
+      stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 10,
       price: newVarPrice || price
     };
     setVariants([...variants, newVariant]);
-    setNewVarName('');
+    setNewVarColor('');
+    setNewVarSize('Única');
+    setNewVarDropiId('');
     setNewVarSku('');
+    setNewVarStock(10);
   };
 
   const handleRemoveVariant = (id: string) => {
@@ -1230,63 +1269,215 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
           {/* Variants Management */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div>
-              <h3 className="font-extrabold text-sm text-slate-900">Variantes (Color, Talla, Versión)</h3>
-              <p className="text-xs text-slate-500">Agrega opciones para que el cliente elija al comprar</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                  <span>Variantes (Color, Talla, Versión & Dropi)</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {variants.length} {variants.length === 1 ? 'variante' : 'variantes'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Configura las opciones de color, talla y el código de variación de Dropi para que la orden se despache de forma exacta.
+                </p>
+              </div>
             </div>
 
-            {/* Add Variant Form */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-              <input
-                type="text"
-                value={newVarName}
-                onChange={(e) => setNewVarName(e.target.value)}
-                placeholder="Nombre (ej. Negro Mate)"
-                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-hidden"
-              />
-              <input
-                type="text"
-                value={newVarSku}
-                onChange={(e) => setNewVarSku(e.target.value)}
-                placeholder="SKU (opcional)"
-                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-hidden font-mono"
-              />
-              <input
-                type="number"
-                value={newVarStock}
-                onChange={(e) => setNewVarStock(Number(e.target.value))}
-                placeholder="Stock"
-                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-hidden"
-              />
-              <button
-                type="button"
-                onClick={handleAddVariant}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Agregar</span>
-              </button>
-            </div>
+            {/* Add Variant Form with 5 explicit fields */}
+            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
+              <div className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                Agregar Nueva Variante:
+              </div>
 
-            {/* Variants List */}
-            {variants.length > 0 && (
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
-                {variants.map((v) => (
-                  <div key={v.id} className="p-3 flex items-center justify-between gap-3 text-xs">
-                    <div>
-                      <span className="font-bold text-slate-900">{v.name}</span>
-                      <span className="text-slate-400 font-mono ml-2">({v.sku})</span>
-                      <span className="text-emerald-700 ml-2 font-semibold">• {v.stock} disponibles</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveVariant(v.id)}
-                      className="p-1 rounded text-rose-500 hover:bg-rose-50 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                {/* 1. Color / Nombre Principal */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    1. Color / Nombre <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newVarColor}
+                    onChange={(e) => setNewVarColor(e.target.value)}
+                    placeholder="ej. Negro, Rojo, Azul"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:border-cyan-500 outline-hidden font-medium"
+                  />
+                </div>
+
+                {/* 2. Talla / Medida */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    2. Talla / Medida
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={newVarSize}
+                      onChange={(e) => setNewVarSize(e.target.value)}
+                      placeholder="ej. S, M, L o Única"
+                      list="tallas-preset-list"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:border-cyan-500 outline-hidden font-medium"
+                    />
+                    <datalist id="tallas-preset-list">
+                      <option value="Única" />
+                      <option value="XS" />
+                      <option value="S" />
+                      <option value="M" />
+                      <option value="L" />
+                      <option value="XL" />
+                      <option value="XXL" />
+                      <option value="36" />
+                      <option value="37" />
+                      <option value="38" />
+                      <option value="39" />
+                      <option value="40" />
+                      <option value="41" />
+                      <option value="42" />
+                    </datalist>
                   </div>
-                ))}
+                </div>
+
+                {/* 3. Dropi Variation ID */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <span>3. ID Variación Dropi</span>
+                    <span className="text-[9px] bg-cyan-100 text-cyan-800 font-mono font-bold px-1 rounded">Dropi</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newVarDropiId}
+                    onChange={(e) => setNewVarDropiId(e.target.value)}
+                    placeholder="ej. 142058"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:border-cyan-500 outline-hidden font-mono"
+                  />
+                </div>
+
+                {/* 4. Stock */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    4. Stock
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newVarStock}
+                    onChange={(e) => setNewVarStock(Number(e.target.value))}
+                    placeholder="Stock"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:border-cyan-500 outline-hidden font-mono"
+                  />
+                </div>
+
+                {/* 5. SKU (Opcional) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    5. SKU (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newVarSku}
+                    onChange={(e) => setNewVarSku(e.target.value)}
+                    placeholder="ej. ZV-NEG-M"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:border-cyan-500 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Botón Agregar */}
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Agregar Variante</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Variants List with individual Delete and clear metrics */}
+            {variants.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                  <span>Variantes creadas para este producto:</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    Se sincronizan con MySQL y Dropi automáticamente
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                  {variants.map((v) => {
+                    const colorDisplay = v.color || (v.name?.includes(' / ') ? v.name.split(' / ')[0] : v.name) || 'Color Único';
+                    const sizeDisplay = v.size || v.talla || (v.name?.includes(' / ') ? v.name.split(' / ')[1] : 'Única');
+                    const dropiIdDisplay = v.dropi_variation_id || v.dropiVariationId;
+
+                    return (
+                      <div 
+                        key={v.id} 
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-slate-50/70 transition-colors"
+                      >
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          {/* Color */}
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-slate-900 ring-1 ring-slate-300 shrink-0"></span>
+                            <span className="font-extrabold text-slate-900 text-xs">
+                              {colorDisplay}
+                            </span>
+                          </div>
+
+                          {/* Talla */}
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 text-[11px]">
+                            Talla: {sizeDisplay}
+                          </span>
+
+                          {/* Dropi Variation ID */}
+                          {dropiIdDisplay ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[11px]">
+                              📦 Dropi ID: #{dropiIdDisplay}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md font-medium text-slate-400 bg-slate-100 text-[10px] italic">
+                              Sin Dropi ID
+                            </span>
+                          )}
+
+                          {/* Stock */}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                            v.stock > 0 
+                              ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' 
+                              : 'text-rose-700 bg-rose-50 border border-rose-200'
+                          }`}>
+                            Stock: {v.stock} un.
+                          </span>
+
+                          {/* SKU */}
+                          {v.sku && (
+                            <span className="text-slate-400 font-mono text-[10px] hidden md:inline-block">
+                              SKU: {v.sku}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Botón Eliminar Individual */}
+                        <div className="flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVariant(v.id)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                            title="Eliminar esta variante"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="sm:hidden">Eliminar</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                No hay variantes agregadas. El producto se venderá como opción única con el stock general ({stock} unidades).
               </div>
             )}
           </div>

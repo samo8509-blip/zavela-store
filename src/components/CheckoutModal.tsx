@@ -219,6 +219,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         items: cartItems.map(item => ({
           productId: item.product.id,
           variantId: item.variant?.id,
+          variantName: item.variant?.name,
+          variantColor: item.variant?.color,
+          variantSize: item.variant?.size || item.variant?.talla,
+          dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
+          sku: item.variant?.sku,
           quantity: item.quantity,
           unitPrice: item.variant?.price || item.product.price
         }))

@@ -18,6 +18,15 @@ import {
 
 const DB_FILE_PATH = path.join(process.cwd(), 'data_store.json');
 
+export interface CatalogBackup {
+  id: number;
+  nombre_respaldo: string;
+  total_productos: number;
+  datos_json: string;
+  origen: string;
+  created_at: string;
+}
+
 export interface DatabaseSchema {
   categories: Category[];
   products: Product[];
@@ -30,6 +39,7 @@ export interface DatabaseSchema {
   socialSettings?: SocialMarketingSettings;
   socialPosts?: SocialBroadcastPost[];
   deletedProductIds?: string[];
+  catalogBackups?: CatalogBackup[];
 }
 
 const DEFAULT_CATEGORIES: Category[] = [
@@ -1421,7 +1431,7 @@ class DatabaseStore {
   }
 
   // Clear all internal test records: simulated orders, test clients, and simulated sales
-  cleanTestRecords(): { deletedOrders: number; deletedCustomers: number } {
+  cleanTestRecords(): { deletedOrders: number; deletedCustomers: number; deletedProducts: number } {
     const isTestOrder = (o: Order) => {
       const id = String(o.id || '');
       const name = String(o.customerName || '').toLowerCase().trim();
@@ -2351,6 +2361,54 @@ class DatabaseStore {
     }
     (this.data as any).configuraciones[key] = value;
     this.saveData(this.data);
+  }
+
+  // Métodos de Gestión de Respaldos de Emergencia del Catálogo
+  getCatalogBackups(): CatalogBackup[] {
+    if (!this.data.catalogBackups) {
+      this.data.catalogBackups = [];
+    }
+    return this.data.catalogBackups;
+  }
+
+  getCatalogBackupById(id: number | string): CatalogBackup | null {
+    const list = this.getCatalogBackups();
+    const numericId = Number(id);
+    return list.find(b => b.id === numericId || String(b.id) === String(id)) || null;
+  }
+
+  saveCatalogBackup(backup: { nombre_respaldo: string; total_productos: number; datos_json: string; origen?: string }): CatalogBackup {
+    if (!this.data.catalogBackups) {
+      this.data.catalogBackups = [];
+    }
+    const newId = this.data.catalogBackups.length > 0 
+      ? Math.max(...this.data.catalogBackups.map(b => b.id)) + 1 
+      : 1;
+
+    const newBackup: CatalogBackup = {
+      id: newId,
+      nombre_respaldo: backup.nombre_respaldo,
+      total_productos: backup.total_productos,
+      datos_json: backup.datos_json,
+      origen: backup.origen || 'manual',
+      created_at: new Date().toISOString()
+    };
+
+    this.data.catalogBackups.unshift(newBackup);
+    this.saveData(this.data);
+    return newBackup;
+  }
+
+  deleteCatalogBackup(id: number | string): boolean {
+    if (!this.data.catalogBackups) return false;
+    const numericId = Number(id);
+    const prevLen = this.data.catalogBackups.length;
+    this.data.catalogBackups = this.data.catalogBackups.filter(b => b.id !== numericId && String(b.id) !== String(id));
+    if (this.data.catalogBackups.length !== prevLen) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
   }
 }
 

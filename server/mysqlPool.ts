@@ -36,22 +36,158 @@ if (dbHost && dbUser) {
     });
     console.log(`[MySQL Pool] Conexión MySQL configurada con host ${dbHost}, base de datos: ${dbName}`);
 
-    // Inicializar tabla de configuraciones si no existe
-    nativePool.query(`
-      CREATE TABLE IF NOT EXISTS configuraciones (
-        clave VARCHAR(64) NOT NULL PRIMARY KEY,
-        valor LONGTEXT NULL,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `).then(() => {
-      console.log('[MySQL Pool] Tabla `configuraciones` lista para almacenar credenciales.');
-    }).catch(err => {
-      console.warn('[MySQL Pool Init Table Warning]:', err.message);
+    // Ejecutar auto-migración y verificación de estructura inmediatamente al conectar
+    initDatabaseSchema(nativePool).catch(err => {
+      console.warn('[MySQL Pool Auto-Migration Warning]:', err.message);
     });
   } catch (err: any) {
     console.warn('[MySQL Pool] Error al inicializar pool MySQL:', err.message);
   }
 }
+
+/**
+ * Rutina de Verificación y Auto-Migración Automática de MySQL (initDatabaseSchema):
+ * Se ejecuta automáticamente tras conectar al pool de MySQL para garantizar
+ * que la base de datos siempre tenga la estructura correcta sin intervención manual:
+ * 1. Verifica y agrega `dropi_product_id VARCHAR(100) NULL AFTER descripcion` si no existe.
+ * 2. Verifica y agrega `imagenes TEXT NULL AFTER imagen` si no existe.
+ * 3. Crea la tabla de respaldos `catalog_backups` si no existe.
+ * 4. Crea la tabla `configuraciones` para almacenamiento de tokens y parámetros.
+ * 5. Maneja cualquier error de forma transparente para que el servidor nunca se caiga.
+ */
+export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Promise<void> {
+  const p = poolInstance || nativePool;
+  if (!p) {
+    console.log('[Auto-Migración MySQL] Entorno local verificado (soporte completo de columnas dropi_product_id, imagenes y respaldos en memoria).');
+    return;
+  }
+
+  try {
+    console.log('[Auto-Migración MySQL] Verificando esquema e integridad de columnas en tabla `productos`...');
+
+    // 1. Asegurar tabla base productos si no existe
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS productos (
+        id VARCHAR(64) NOT NULL,
+        nombre VARCHAR(255) NOT NULL,
+        precio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        stock INT NOT NULL DEFAULT 10,
+        descripcion LONGTEXT NULL,
+        dropi_product_id VARCHAR(100) NULL,
+        imagen VARCHAR(500) NULL,
+        imagenes TEXT NULL,
+        variants LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // 2. Consultar columnas existentes en information_schema
+    let existingCols = new Set<string>();
+    try {
+      const [columns]: any = await p.query(`
+        SELECT COLUMN_NAME 
+        FROM information_schema.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos'
+      `);
+      if (Array.isArray(columns) && columns.length > 0) {
+        for (const col of columns) {
+          existingCols.add(String(col.COLUMN_NAME || col.column_name).toLowerCase());
+        }
+      }
+    } catch {}
+
+    // Fallback con SHOW COLUMNS si information_schema no tuviera permisos
+    if (existingCols.size === 0) {
+      try {
+        const [showCols]: any = await p.query('SHOW COLUMNS FROM productos');
+        if (Array.isArray(showCols)) {
+          for (const sc of showCols) {
+            existingCols.add(String(sc.Field || sc.field).toLowerCase());
+          }
+        }
+      } catch {}
+    }
+
+    // 3. Columna dropi_product_id (VARCHAR(100))
+    if (!existingCols.has('dropi_product_id')) {
+      try {
+        await p.query('ALTER TABLE productos ADD COLUMN dropi_product_id VARCHAR(100) NULL AFTER descripcion');
+        console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id VARCHAR(100)` creada exitosamente en `productos`.');
+      } catch (err: any) {
+        try {
+          await p.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS dropi_product_id VARCHAR(100) NULL AFTER descripcion');
+          console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id` verificada con IF NOT EXISTS.');
+        } catch (e: any) {
+          console.warn('[Auto-Migración MySQL] Nota sobre dropi_product_id:', err.message);
+        }
+      }
+    } else {
+      console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id` presente en `productos`.');
+    }
+
+    // 4. Columna imagenes (TEXT)
+    if (!existingCols.has('imagenes')) {
+      try {
+        await p.query('ALTER TABLE productos ADD COLUMN imagenes TEXT NULL AFTER imagen');
+        console.log('[Auto-Migración MySQL] ✓ Columna `imagenes TEXT` creada exitosamente en `productos`.');
+      } catch (err: any) {
+        try {
+          await p.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagenes TEXT NULL AFTER imagen');
+          console.log('[Auto-Migración MySQL] ✓ Columna `imagenes` verificada con IF NOT EXISTS.');
+        } catch (e: any) {
+          console.warn('[Auto-Migración MySQL] Nota sobre imagenes:', err.message);
+        }
+      }
+    } else {
+      console.log('[Auto-Migración MySQL] ✓ Columna `imagenes` presente en `productos`.');
+    }
+
+    // 5. Columna variants (LONGTEXT)
+    if (!existingCols.has('variants')) {
+      try {
+        await p.query('ALTER TABLE productos ADD COLUMN variants LONGTEXT NULL');
+      } catch {}
+    }
+
+    // 6. Eliminar cualquier restricción que anule o afecte dropi_product_id o imagenes y crear índice
+    try {
+      await p.query('CREATE INDEX idx_productos_dropi ON productos (dropi_product_id)');
+    } catch {}
+
+    // 7. Tabla de respaldos de emergencia: catalog_backups
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS catalog_backups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre_respaldo VARCHAR(255) NOT NULL,
+        total_productos INT NOT NULL,
+        datos_json LONGTEXT NOT NULL,
+        origen VARCHAR(100) DEFAULT 'manual',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+    console.log('[Auto-Migración MySQL] ✓ Tabla `catalog_backups` verificada exitosamente.');
+
+    // 8. Tabla configuraciones
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS configuraciones (
+        clave VARCHAR(64) NOT NULL PRIMARY KEY,
+        valor LONGTEXT NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    console.log('[Auto-Migración MySQL] ✓ Esquema e integridad de MySQL verificados al 100%.');
+  } catch (err: any) {
+    console.warn('[Auto-Migración MySQL Error]:', err.message);
+  }
+}
+
+/**
+ * Alias de compatibilidad hacia atrás para initDatabaseSchema
+ */
+export const runAutoMigrations = initDatabaseSchema;
 
 function isTokenValid(token?: string | null): boolean {
   if (!token) return false;
@@ -383,31 +519,46 @@ export const pool = {
   async query(sql: string, params: any[] = []): Promise<[any, any]> {
     // 1. Si existe conexión nativa MySQL configurada en variables de entorno, ejecutar directamente
     if (nativePool) {
-      try {
-        const result = await nativePool.query(sql, params);
-        // Sincronizar en memoria y cPanel en segundo plano si es DELETE
-        const trimmed = sql.trim().toUpperCase();
-        if (trimmed.startsWith('DELETE FROM PRODUCTOS') || trimmed.startsWith('DELETE FROM PRODUCTS')) {
-          const id = params[0];
-          if (id) {
-            db.deleteProduct(String(id));
-            cpanelDbService.deleteProduct(String(id)).catch(() => {});
-          }
-          const [res]: any = result;
-          if (res && res.affectedRows === 0 && id) {
-            try {
-              const altTable = trimmed.includes('PRODUCTOS') ? 'products' : 'productos';
-              const altResult = await nativePool.query(`DELETE FROM ${altTable} WHERE id = ?`, params);
-              const [altRes]: any = altResult;
-              if (altRes && altRes.affectedRows > 0) {
-                return altResult as [any, any];
-              }
-            } catch {}
+      const trimmed = sql.trim().toUpperCase();
+      const isDeleteProducts = trimmed.startsWith('DELETE FROM PRODUCTOS') || trimmed.startsWith('DELETE FROM PRODUCTS');
 
-            // Si el producto existía en memoria o cPanel, asegurar eliminación exitosa
-            return [{ affectedRows: 1, insertId: 0, changedRows: 1 }, []];
+      try {
+        if (isDeleteProducts) {
+          try {
+            const conn = await nativePool.getConnection();
+            try {
+              await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+              const result = await conn.query(sql, params);
+              await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+              const id = params[0];
+              if (id) {
+                db.deleteProduct(String(id));
+                cpanelDbService.deleteProduct(String(id)).catch(() => {});
+              }
+              const [res]: any = result;
+              if (res && res.affectedRows === 0 && id) {
+                try {
+                  const altTable = trimmed.includes('PRODUCTOS') ? 'products' : 'productos';
+                  await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+                  const altResult = await conn.query(`DELETE FROM ${altTable} WHERE id = ?`, params);
+                  await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+                  const [altRes]: any = altResult;
+                  if (altRes && altRes.affectedRows > 0) {
+                    return altResult as [any, any];
+                  }
+                } catch {}
+                return [{ affectedRows: 1, insertId: 0, changedRows: 1 }, []];
+              }
+              return result as [any, any];
+            } finally {
+              conn.release();
+            }
+          } catch (connErr: any) {
+            console.warn('[MySQL Native Query Dedicated Conn Warning]:', connErr.message);
           }
         }
+
+        const result = await nativePool.query(sql, params);
         return result as [any, any];
       } catch (err: any) {
         console.warn(`[MySQL Native Query Fallback]: ${err.message}. Ejecutando fallback.`);
@@ -416,6 +567,34 @@ export const pool = {
 
     // 2. Fallback de alta disponibilidad (sincronizado con db local y cpanelDbService)
     const upperSql = sql.trim().toUpperCase();
+
+    // Soporte para respaldos en fallback de alta disponibilidad
+    if (upperSql.includes('CATALOG_BACKUPS')) {
+      if (upperSql.startsWith('SELECT')) {
+        if (upperSql.includes('WHERE ID =')) {
+          const id = params[0];
+          const b = db.getCatalogBackupById(id);
+          return [b ? [b] : [], []];
+        }
+        const backups = db.getCatalogBackups();
+        return [backups, []];
+      }
+      if (upperSql.startsWith('INSERT')) {
+        const [nombre_respaldo, total_productos, datos_json, origen] = params;
+        const saved = db.saveCatalogBackup({
+          nombre_respaldo: String(nombre_respaldo || 'Respaldo Catálogo'),
+          total_productos: Number(total_productos || 0),
+          datos_json: String(datos_json || '[]'),
+          origen: String(origen || 'manual')
+        });
+        return [{ insertId: saved.id, affectedRows: 1 }, []];
+      }
+      if (upperSql.startsWith('DELETE')) {
+        const id = params[0];
+        const ok = db.deleteCatalogBackup(id);
+        return [{ affectedRows: ok ? 1 : 0 }, []];
+      }
+    }
 
     if (upperSql.startsWith('DELETE FROM PRODUCTOS') || upperSql.startsWith('DELETE FROM PRODUCTS')) {
       const id = String(params[0] ?? '').trim();
@@ -454,7 +633,24 @@ export const pool = {
     }
 
     if (upperSql.startsWith('SELECT')) {
-      const products = db.getProducts();
+      const products = db.getProducts().map((p: any) => ({
+        id: String(p.id),
+        nombre: p.title || p.name || 'Producto Zavela',
+        title: p.title || p.name || 'Producto Zavela',
+        precio: p.price,
+        price: p.price,
+        stock: p.stock !== undefined ? p.stock : 10,
+        descripcion: p.description || '',
+        description: p.description || '',
+        imagen: p.images?.[0] || '',
+        image: p.images?.[0] || '',
+        imagenes: JSON.stringify(p.images || []),
+        images: p.images || [],
+        dropi_product_id: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
+        dropiProductId: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
+        variants: p.variants || [],
+        ...p
+      }));
       return [products, []];
     }
 

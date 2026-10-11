@@ -5,6 +5,7 @@ import { getDaneCode } from '../../src/data/colombiaGeo.ts';
 import { calculateShippingCost } from '../../src/data/shippingRates.ts';
 import { sendSaleNotification, sendLowStockAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
+import { pool } from '../mysqlPool.ts';
 
 const router = Router();
 
@@ -77,8 +78,10 @@ export async function approveOrderForDropi(orderId: string, options?: {
     if (!dropiId) {
       missingDropiIds.push(it.title || it.productId);
     } else {
+      const dropiVarId = it.dropi_variation_id || it.dropiVariationId;
       dropiProducts.push({
         product_id: dropiId,
+        ...(dropiVarId ? { variation_id: dropiVarId } : {}),
         quantity: it.quantity || 1,
         price: it.unitPrice || 0,
         title: it.title
@@ -353,9 +356,61 @@ router.post('/', async (req, res) => {
         });
       }
 
-      // Deduct stock
-      product.stock -= rawItem.quantity;
+      let itemUnitPrice = product.price;
+      let itemUnitCost = product.costPrice;
+      let variantName: string | undefined = rawItem.variantName;
+      let dropiVariationId: string | number | undefined = rawItem.dropi_variation_id || rawItem.dropiVariationId;
+      let variantColor: string | undefined = rawItem.variantColor || rawItem.color;
+      let variantSize: string | undefined = rawItem.variantSize || rawItem.size || rawItem.talla;
+
+      if (rawItem.variantId && product.variants) {
+        const variant = product.variants.find(v => v.id === rawItem.variantId);
+        if (variant) {
+          variantName = variant.name;
+          itemUnitPrice = variant.price || product.price;
+          itemUnitCost = variant.costPrice || product.costPrice;
+          dropiVariationId = variant.dropi_variation_id || variant.dropiVariationId || dropiVariationId;
+          variantColor = variant.color || variantColor;
+          variantSize = variant.size || variant.talla || variantSize;
+        }
+      }
+
+      // 1. Deduct general product stock in memory
+      product.stock = Math.max(0, product.stock - rawItem.quantity);
+
+      // 2. Si el ítem incluye variante (color/talla/id), descontar unidades en el array JSON de variantes del producto
+      if (Array.isArray(product.variants) && product.variants.length > 0) {
+        const vIndex = product.variants.findIndex(v => 
+          (rawItem.variantId && v.id === rawItem.variantId) ||
+          (dropiVariationId && (String(v.dropi_variation_id) === String(dropiVariationId) || String(v.dropiVariationId) === String(dropiVariationId))) ||
+          (variantColor && v.color && v.color.toLowerCase() === variantColor.toLowerCase() && 
+            (!variantSize || (v.size || v.talla || '').toLowerCase() === variantSize.toLowerCase()))
+        );
+        if (vIndex >= 0) {
+          const varObj = product.variants[vIndex];
+          varObj.stock = Math.max(0, (varObj.stock !== undefined ? varObj.stock : 10) - rawItem.quantity);
+        }
+      }
+
+      // 3. Descuento atómico de stock en MySQL (base espejo en ventas):
+      // UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?;
+      try {
+        await pool.query(
+          'UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?',
+          [rawItem.quantity, JSON.stringify(product.variants || []), product.id]
+        );
+      } catch (sqlErr: any) {
+        console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
+      }
+
+      // 4. Guardar en store local y sincronizar con cPanel MySQL
       db.saveProduct(product);
+      cpanelDbService.saveProduct({
+        ...product,
+        variants: product.variants
+      } as any).catch(err => {
+        console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
+      });
 
       // Check if stock has reached critical threshold (<= 5 units)
       if (product.stock <= 5) {
@@ -376,19 +431,6 @@ router.post('/', async (req, res) => {
         }).catch(err => console.warn('Error sending low stock WhatsApp alert:', err));
       }
 
-      let itemUnitPrice = product.price;
-      let itemUnitCost = product.costPrice;
-      let variantName: string | undefined = undefined;
-
-      if (rawItem.variantId && product.variants) {
-        const variant = product.variants.find(v => v.id === rawItem.variantId);
-        if (variant) {
-          variantName = variant.name;
-          itemUnitPrice = variant.price || product.price;
-          itemUnitCost = variant.costPrice || product.costPrice;
-        }
-      }
-
       const itemSubtotal = itemUnitPrice * rawItem.quantity;
       subtotal += itemSubtotal;
       productCostTotal += (itemUnitCost || 0) * rawItem.quantity;
@@ -400,6 +442,10 @@ router.post('/', async (req, res) => {
         variantId: rawItem.variantId,
         title: product.title,
         variantName,
+        variantColor,
+        variantSize,
+        dropi_variation_id: dropiVariationId,
+        dropiVariationId,
         quantity: rawItem.quantity,
         unitPrice: itemUnitPrice,
         unitCost: itemUnitCost,

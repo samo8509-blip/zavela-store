@@ -68,6 +68,22 @@ try {
         `valor` LONGTEXT NULL,
         `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Auto-migración en tabla productos: dropi_product_id e imagenes
+    if ($tableName === 'productos') {
+        $colDropi = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'dropi_product_id'");
+        if ($colDropi->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `dropi_product_id` VARCHAR(100) NULL AFTER `descripcion`");
+        }
+        $colImgs = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'imagenes'");
+        if ($colImgs->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `imagenes` TEXT NULL AFTER `imagen`");
+        }
+        $colVars = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'variants'");
+        if ($colVars->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `variants` LONGTEXT NULL");
+        }
+    }
 } catch (Exception $e) {
     $tableName = 'productos';
 }
@@ -352,7 +368,7 @@ try {
                     descripcion = VALUES(descripcion),
                     imagen = VALUES(imagen),
                     imagenes = VALUES(imagenes),
-                    dropi_product_id = VALUES(dropi_product_id)";
+                    dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), dropi_product_id)";
 
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([
@@ -575,8 +591,10 @@ try {
                 exit();
             }
 
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
             $stmt = $pdo->prepare("DELETE FROM {$tableName} WHERE id = :id");
             $stmt->execute([':id' => $id]);
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
 
             if ($stmt->rowCount() === 0) {
                 http_response_code(404);

@@ -1,4 +1,4 @@
-import { Product, Order } from '../../src/types/index.ts';
+import { Product, Order, ProductVariant } from '../../src/types/index.ts';
 import { isTestProduct } from '../db.ts';
 
 const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
@@ -112,6 +112,22 @@ export class CpanelDbService {
         ? String((product as any).dropiProductId).trim()
         : ((product as any).dropi_id !== undefined && (product as any).dropi_id !== null ? String((product as any).dropi_id).trim() : ''));
 
+    const rawVariants = Array.isArray(product.variants) ? product.variants : [];
+    const variantsList = rawVariants.map((v: any) => ({
+      id: v.id || `var-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: v.name || `${v.color || 'Único'} / ${v.size || v.talla || 'Única'}`,
+      color: v.color || (v.name?.includes(' / ') ? v.name.split(' / ')[0].trim() : v.name) || 'Único',
+      size: v.size || v.talla || (v.name?.includes(' / ') ? v.name.split(' / ')[1].trim() : 'Única') || 'Única',
+      talla: v.talla || v.size || (v.name?.includes(' / ') ? v.name.split(' / ')[1].trim() : 'Única') || 'Única',
+      dropi_variation_id: (v.dropi_variation_id !== undefined && v.dropi_variation_id !== null && String(v.dropi_variation_id).trim() !== '')
+        ? v.dropi_variation_id
+        : (v.dropiVariationId || undefined),
+      dropiVariationId: v.dropiVariationId || v.dropi_variation_id || undefined,
+      sku: v.sku || '',
+      stock: Number(v.stock) >= 0 ? Number(v.stock) : 10,
+      price: Number(v.price) || product.price
+    }));
+
     const payload = {
       ...product,
       id: String(product.id),
@@ -136,6 +152,8 @@ export class CpanelDbService {
       imagen: mainImage,
       images: finalImagesList,
       imagenes: imagesJson,
+      variants: variantsList,
+      variantes: JSON.stringify(variantsList),
       category: product.categoryName || product.categoryId || '',
       categoria: product.categoryName || product.categoryId || '',
       categoryId: product.categoryId || '',
@@ -555,6 +573,39 @@ export class CpanelDbService {
         ? String(item.dropiProductId).trim()
         : (item.dropi_id !== undefined && item.dropi_id !== null ? String(item.dropi_id).trim() : ''));
 
+    let rawVars: any[] = [];
+    if (Array.isArray(item.variants)) {
+      rawVars = item.variants;
+    } else if (Array.isArray(item.variantes)) {
+      rawVars = item.variantes;
+    } else if (typeof item.variants === 'string' && item.variants.trim()) {
+      try {
+        const parsed = JSON.parse(item.variants);
+        if (Array.isArray(parsed)) rawVars = parsed;
+      } catch {}
+    } else if (typeof item.variantes === 'string' && item.variantes.trim()) {
+      try {
+        const parsed = JSON.parse(item.variantes);
+        if (Array.isArray(parsed)) rawVars = parsed;
+      } catch {}
+    }
+
+    const variants: ProductVariant[] = rawVars.map((v: any) => ({
+      id: String(v.id || `var-${Math.random().toString(36).substring(2, 7)}`),
+      name: String(v.name || `${v.color || 'Único'} / ${v.size || v.talla || 'Única'}`),
+      color: v.color || (v.name?.includes(' / ') ? v.name.split(' / ')[0].trim() : v.name) || 'Único',
+      size: v.size || v.talla || (v.name?.includes(' / ') ? v.name.split(' / ')[1].trim() : 'Única') || 'Única',
+      talla: v.talla || v.size || (v.name?.includes(' / ') ? v.name.split(' / ')[1].trim() : 'Única') || 'Única',
+      dropi_variation_id: (v.dropi_variation_id !== undefined && v.dropi_variation_id !== null && String(v.dropi_variation_id).trim() !== '')
+        ? v.dropi_variation_id
+        : (v.dropiVariationId || undefined),
+      dropiVariationId: v.dropiVariationId || v.dropi_variation_id || undefined,
+      sku: v.sku ? String(v.sku) : undefined,
+      price: Number(v.price) || price,
+      costPrice: v.costPrice ? Number(v.costPrice) : undefined,
+      stock: Number(v.stock !== undefined ? v.stock : 10)
+    }));
+
     return {
       id: String(item.id || `prod-${Math.random().toString(36).substring(2, 7)}`),
       title,
@@ -567,6 +618,7 @@ export class CpanelDbService {
       active: item.active !== undefined ? Boolean(item.active) : (item.activo !== undefined ? Boolean(item.activo) : true),
       featured: Boolean(item.featured || item.destacado),
       images,
+      variants,
       tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',') : []),
       categoryId: item.categoryId || item.categoria_id || item.category || 'cat-1',
       categoryName: item.categoryName || item.categoria || 'Catálogo',

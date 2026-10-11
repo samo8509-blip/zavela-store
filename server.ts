@@ -13,10 +13,16 @@ import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db } from './server/db.ts';
+import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
 
 dotenv.config();
 
 async function startServer() {
+  // 1. Auto-migración y verificación de esquema MySQL al iniciar (cero intervención manual)
+  await initDatabaseSchema().catch(err => {
+    console.warn('[Server Startup Auto-Migration Warning]:', err.message);
+  });
+
   const app = express();
   const PORT = 3000;
 

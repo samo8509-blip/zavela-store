@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
   ShoppingBag, 
@@ -47,6 +47,44 @@ interface ProductDetailModalProps {
   isLuckyWheelEnabled?: boolean;
 }
 
+const extractVariantColor = (v: ProductVariant): string => {
+  if (v.color?.trim()) return v.color.trim();
+  if (v.name?.includes(' / ')) return v.name.split(' / ')[0].trim();
+  if (v.name?.includes(' - ')) return v.name.split(' - ')[0].trim();
+  return v.name?.trim() || 'Color Único';
+};
+
+const extractVariantSize = (v: ProductVariant): string => {
+  if (v.size?.trim()) return v.size.trim();
+  if (v.talla?.trim()) return v.talla.trim();
+  if (v.name?.includes(' / ')) return v.name.split(' / ')[1].trim();
+  if (v.name?.includes(' - ')) return v.name.split(' - ')[1].trim();
+  return 'Única';
+};
+
+const getColorSwatchInfo = (colorName: string): { bg: string; border?: string } => {
+  const norm = colorName.toLowerCase().trim();
+  if (norm.includes('negro') || norm.includes('black')) return { bg: '#111827' };
+  if (norm.includes('blanco') || norm.includes('white')) return { bg: '#ffffff', border: '#cbd5e1' };
+  if (norm.includes('gris claro') || norm.includes('light gray')) return { bg: '#94a3b8' };
+  if (norm.includes('gris oscuro') || norm.includes('dark gray')) return { bg: '#334155' };
+  if (norm.includes('gris') || norm.includes('gray')) return { bg: '#64748b' };
+  if (norm.includes('rojo') || norm.includes('red')) return { bg: '#ef4444' };
+  if (norm.includes('azul oscuro') || norm.includes('navy')) return { bg: '#1e3a8a' };
+  if (norm.includes('azul claro') || norm.includes('sky')) return { bg: '#38bdf8' };
+  if (norm.includes('azul') || norm.includes('blue')) return { bg: '#2563eb' };
+  if (norm.includes('verde') || norm.includes('green')) return { bg: '#16a34a' };
+  if (norm.includes('amarillo') || norm.includes('yellow')) return { bg: '#eab308' };
+  if (norm.includes('naranja') || norm.includes('orange')) return { bg: '#f97316' };
+  if (norm.includes('rosado') || norm.includes('rosa') || norm.includes('pink')) return { bg: '#ec4899' };
+  if (norm.includes('morado') || norm.includes('purple')) return { bg: '#9333ea' };
+  if (norm.includes('cafe') || norm.includes('café') || norm.includes('marron') || norm.includes('marrón') || norm.includes('brown')) return { bg: '#78350f' };
+  if (norm.includes('beige')) return { bg: '#f5f5dc', border: '#d1d5db' };
+  if (norm.includes('dorado') || norm.includes('gold')) return { bg: '#eab308' };
+  if (norm.includes('plateado') || norm.includes('silver')) return { bg: '#cbd5e1' };
+  return { bg: '#475569' };
+};
+
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   allProducts = [],
@@ -62,6 +100,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -73,9 +113,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   useEffect(() => {
     if (product?.variants && product.variants.length > 0) {
-      setSelectedVariant(product.variants[0]);
+      const initialVariant = product.variants[0];
+      setSelectedVariant(initialVariant);
+      setSelectedColor(extractVariantColor(initialVariant));
+      setSelectedSize(extractVariantSize(initialVariant));
     } else {
       setSelectedVariant(undefined);
+      setSelectedColor('');
+      setSelectedSize('');
     }
     setSelectedImageIndex(0);
     setQuantity(1);
@@ -119,6 +164,65 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleIncrement = () => setQuantity(q => q + 1);
   const handleDecrement = () => setQuantity(q => (q > 1 ? q - 1 : 1));
+
+  // Unique colors list for Paso 1
+  const uniqueColors = useMemo(() => {
+    if (!product?.variants || product.variants.length === 0) return [];
+    const seen = new Set<string>();
+    const colors: string[] = [];
+    product.variants.forEach(v => {
+      const col = extractVariantColor(v);
+      if (!seen.has(col.toLowerCase())) {
+        seen.add(col.toLowerCase());
+        colors.push(col);
+      }
+    });
+    return colors;
+  }, [product?.variants]);
+
+  // Sizes available for the active selectedColor for Paso 2
+  const availableSizesForActiveColor = useMemo(() => {
+    if (!product?.variants || !selectedColor) return [];
+    return product.variants
+      .filter(v => extractVariantColor(v).toLowerCase() === selectedColor.toLowerCase())
+      .map(v => ({
+        variant: v,
+        size: extractVariantSize(v),
+        stock: v.stock !== undefined ? v.stock : 10,
+        dropiVariationId: v.dropi_variation_id || v.dropiVariationId
+      }));
+  }, [product?.variants, selectedColor]);
+
+  const handleSelectColor = (colorName: string) => {
+    setSelectedColor(colorName);
+    const variantsForColor = (product?.variants || []).filter(
+      v => extractVariantColor(v).toLowerCase() === colorName.toLowerCase()
+    );
+    if (variantsForColor.length === 0) return;
+
+    // Check if current selected size exists for this newly chosen color
+    const sameSizeMatch = variantsForColor.find(
+      v => extractVariantSize(v).toLowerCase() === selectedSize.toLowerCase()
+    );
+
+    let targetVariant = sameSizeMatch && (sameSizeMatch.stock ?? 1) > 0 ? sameSizeMatch : undefined;
+    if (!targetVariant) {
+      targetVariant = variantsForColor.find(v => (v.stock ?? 1) > 0) || sameSizeMatch || variantsForColor[0];
+    }
+
+    const newSize = extractVariantSize(targetVariant);
+    setSelectedSize(newSize);
+    setSelectedVariant(targetVariant);
+  };
+
+  const handleSelectSize = (sizeOpt: { variant: ProductVariant; size: string; stock: number }) => {
+    if (sizeOpt.stock <= 0) return;
+    setSelectedSize(sizeOpt.size);
+    setSelectedVariant(sizeOpt.variant);
+  };
+
+  const currentStock = selectedVariant ? (selectedVariant.stock ?? 10) : product.stock;
+  const isOutOfStock = currentStock <= 0;
 
   // Compute related & recommended products ("OTROS CLIENTES TAMBIÉN VIERON")
   const relatedProducts = allProducts.filter(p => p.id !== product.id && p.active !== false);
@@ -384,37 +488,145 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
 
                   {/* Urgency Stock Alert (if stock <= 5) */}
-                  {product.stock <= 5 && product.stock > 0 && (
+                  {currentStock <= 5 && currentStock > 0 && (
                     <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-slate-900 flex items-center gap-2.5">
                       <Zap className="w-4 h-4 fill-amber-500 text-amber-500 shrink-0" />
                       <div className="text-xs font-bold text-amber-950">
-                        ¡Solo quedan {product.stock} unidades en bodega! Despachamos hoy mismo.
+                        ¡Solo quedan {currentStock} unidades en bodega para esta opción! Despachamos hoy mismo.
                       </div>
                     </div>
                   )}
 
-                  {/* Variants Selector */}
+                  {/* Two-Level Intuitive Variants Selector (Paso 1: Color, Paso 2: Talla) */}
                   {product.variants && product.variants.length > 0 && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                        Selecciona Opción / Variante:
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {product.variants.map((variant) => (
-                          <button
-                            key={variant.id}
-                            id={`variant-btn-${variant.id}`}
-                            onClick={() => setSelectedVariant(variant)}
-                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                              selectedVariant?.id === variant.id
-                                ? 'border-red-600 bg-red-600 text-white font-black shadow-xs'
-                                : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-400'
-                            }`}
-                          >
-                            {variant.name} {variant.stock <= 5 && `(Stock: ${variant.stock})`}
-                          </button>
-                        ))}
+                    <div className="space-y-3.5 pt-1 pb-1">
+                      {/* Paso 1: Seleccionar Color */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center font-bold">1</span>
+                            <span>Paso 1: Seleccionar Color</span>
+                          </label>
+                          {selectedColor && (
+                            <span className="text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                              {selectedColor}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {uniqueColors.map((colorName) => {
+                            const isSelected = selectedColor.toLowerCase() === colorName.toLowerCase();
+                            const swatch = getColorSwatchInfo(colorName);
+                            const colorVariants = product.variants!.filter(
+                              v => extractVariantColor(v).toLowerCase() === colorName.toLowerCase()
+                            );
+                            const hasAnyStock = colorVariants.some(v => (v.stock ?? 1) > 0);
+
+                            return (
+                              <button
+                                key={colorName}
+                                type="button"
+                                id={`color-btn-${colorName.replace(/\s+/g, '-').toLowerCase()}`}
+                                onClick={() => handleSelectColor(colorName)}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-2 ${
+                                  isSelected
+                                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/20'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span 
+                                  className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
+                                  style={{
+                                    backgroundColor: swatch.bg,
+                                    border: swatch.border ? `1px solid ${swatch.border}` : '1px solid rgba(0,0,0,0.15)'
+                                  }}
+                                />
+                                <span>{colorName}</span>
+                                {!hasAnyStock && (
+                                  <span className={`text-[9px] px-1 rounded ${isSelected ? 'bg-slate-800 text-rose-300' : 'bg-rose-50 text-rose-600'}`}>
+                                    Agotado
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+
+                      {/* Paso 2: Seleccionar Talla (según el color activo) */}
+                      {availableSizesForActiveColor.length > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center font-bold">2</span>
+                              <span>Paso 2: Seleccionar Talla / Medida</span>
+                            </label>
+                            {selectedSize && (
+                              <span className="text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                                Talla: {selectedSize}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            {availableSizesForActiveColor.map((opt) => {
+                              const isSelected = selectedSize.toLowerCase() === opt.size.toLowerCase();
+                              const isOut = opt.stock <= 0;
+
+                              return (
+                                <button
+                                  key={opt.variant.id}
+                                  type="button"
+                                  id={`talla-btn-${opt.variant.id}`}
+                                  disabled={isOut}
+                                  onClick={() => handleSelectSize(opt)}
+                                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
+                                    isOut
+                                      ? 'border-slate-200 bg-slate-100 text-slate-400 line-through cursor-not-allowed opacity-60'
+                                      : isSelected
+                                        ? 'border-red-600 bg-red-600 text-white font-black shadow-xs ring-2 ring-red-500/20 cursor-pointer'
+                                        : 'border-slate-200 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50 cursor-pointer'
+                                  }`}
+                                  title={isOut ? 'Variante agotada en bodega' : `Stock disponible: ${opt.stock} unidades`}
+                                >
+                                  <span>{opt.size}</span>
+                                  {isOut ? (
+                                    <span className="ml-1.5 text-[9px] uppercase font-bold text-rose-500 no-underline inline-block">
+                                      (Agotada)
+                                    </span>
+                                  ) : opt.stock <= 5 ? (
+                                    <span className={`ml-1 text-[10px] font-mono ${isSelected ? 'text-red-100' : 'text-amber-700 font-bold'}`}>
+                                      ({opt.stock} un.)
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Active Selection Summary Card */}
+                      {selectedVariant && (
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-extrabold text-slate-900">
+                              ✓ Opción activa: {selectedColor} / {selectedSize}
+                            </span>
+                            {(selectedVariant.dropi_variation_id || selectedVariant.dropiVariationId) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[10px]">
+                                📦 Dropi ID: #{selectedVariant.dropi_variation_id || selectedVariant.dropiVariationId}
+                              </span>
+                            )}
+                          </div>
+                          <span className={`font-bold text-[11px] ${
+                            currentStock > 0 ? 'text-emerald-700' : 'text-rose-600 font-black'
+                          }`}>
+                            {currentStock > 0 ? `Stock: ${currentStock} un.` : 'Agotado'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -474,28 +686,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     {/* Primary Button: AGREGAR AL CARRITO (Red / Ilko style) */}
                     <button
                       id="btn-modal-add-cart"
+                      disabled={isOutOfStock}
                       onClick={() => {
+                        if (isOutOfStock) return;
                         onAddToCart(product, selectedVariant, quantity);
                         onClose();
                       }}
-                      className="flex-1 h-12 bg-red-600 hover:bg-red-700 active:scale-98 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer shadow-md hover:shadow-lg"
+                      className={`flex-1 h-12 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg ${
+                        isOutOfStock 
+                          ? 'bg-slate-300 cursor-not-allowed opacity-60' 
+                          : 'bg-red-600 hover:bg-red-700 active:scale-98 cursor-pointer'
+                      }`}
                     >
                       <ShoppingBag className="w-4 h-4 text-white" />
-                      <span>AGREGAR AL CARRITO</span>
+                      <span>{isOutOfStock ? 'AGOTADO' : 'AGREGAR AL CARRITO'}</span>
                     </button>
                   </div>
 
                   {/* Fast Buy Now (Pago Contra Entrega) Button */}
                   <button
                     id="btn-modal-buy-now"
+                    disabled={isOutOfStock}
                     onClick={() => {
+                      if (isOutOfStock) return;
                       onBuyNow(product, selectedVariant, quantity);
                       onClose();
                     }}
-                    className="w-full h-12 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-98 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider cursor-pointer shadow-md hover:shadow-lg"
+                    className={`w-full h-12 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg ${
+                      isOutOfStock
+                        ? 'bg-slate-300 cursor-not-allowed opacity-60'
+                        : 'bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-98 cursor-pointer'
+                    }`}
                   >
                     <Zap className="w-4 h-4 fill-white text-white" />
-                    <span>COMPRAR AHORA (PAGO CONTRA ENTREGA)</span>
+                    <span>{isOutOfStock ? 'PRODUCTO AGOTADO' : 'COMPRAR AHORA (PAGO CONTRA ENTREGA)'}</span>
                   </button>
 
                   {/* Share & Ruleta Options */}

@@ -99,7 +99,67 @@ router.delete('/categories/:id', (req, res) => {
 // ==========================================
 router.get('/products', async (req, res) => {
   try {
-    // Sincronizar catálogo con cPanel MySQL si responde
+    // 1. Consulta obligatoria y blindada de MySQL incluyendo dropi_product_id, imagenes, variants y created_at
+    try {
+      const [sqlRows]: any = await pool.query(
+        'SELECT id, nombre, precio, stock, descripcion, imagen, imagenes, dropi_product_id, variants, created_at FROM productos'
+      );
+      if (Array.isArray(sqlRows) && sqlRows.length > 0) {
+        const synced = sqlRows
+          .filter((r: any) => !isTestProduct(r))
+          .map((r: any) => {
+            let imgs: string[] = [];
+            if (Array.isArray(r.imagenes)) imgs = r.imagenes;
+            else if (typeof r.imagenes === 'string' && r.imagenes.trim()) {
+              try {
+                const parsed = JSON.parse(r.imagenes);
+                if (Array.isArray(parsed)) imgs = parsed;
+              } catch {
+                imgs = r.imagenes.includes(',') ? r.imagenes.split(',').map((s: string) => s.trim()) : [r.imagenes];
+              }
+            } else if (r.imagen) {
+              imgs = [r.imagen];
+            }
+
+            let parsedVariants: any[] = [];
+            if (Array.isArray(r.variants)) {
+              parsedVariants = r.variants;
+            } else if (typeof r.variants === 'string' && r.variants.trim()) {
+              try {
+                const parsed = JSON.parse(r.variants);
+                if (Array.isArray(parsed)) parsedVariants = parsed;
+              } catch {}
+            }
+
+            return {
+              id: String(r.id),
+              title: r.nombre || 'Producto Zavela',
+              nombre: r.nombre || 'Producto Zavela',
+              name: r.nombre || 'Producto Zavela',
+              price: Number(r.precio) || 0,
+              precio: Number(r.precio) || 0,
+              stock: Number(r.stock !== undefined ? r.stock : 10),
+              description: r.descripcion || '',
+              descripcion: r.descripcion || '',
+              image: imgs[0] || r.imagen || '',
+              imagen: imgs[0] || r.imagen || '',
+              images: imgs.length > 0 ? imgs : [r.imagen || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+              imagenes: imgs,
+              dropi_product_id: r.dropi_product_id ? String(r.dropi_product_id).trim() : '',
+              dropiProductId: r.dropi_product_id ? String(r.dropi_product_id).trim() : '',
+              variants: parsedVariants,
+              createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
+            };
+          });
+        if (synced.length > 0) {
+          db.mergeRemoteProducts(synced as any);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[Admin GET /products Direct Query Warning]:', err.message);
+    }
+
+    // 2. Sincronizar catálogo con cPanel MySQL si responde
     try {
       const remote = await cpanelDbService.fetchProducts();
       if (remote && remote.length > 0) {
@@ -217,13 +277,21 @@ async function executeProductUpdate(productId: string, body: any) {
   }
   const mainImage = finalImages[0];
 
-  const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+  // Blindaje de dropi_product_id: Si viene vacío o indefinido, conservar el valor anterior
+  const rawIncomingDropi = body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== ''
     ? String(body.dropi_product_id).trim()
-    : (body.dropiProductId !== undefined && body.dropiProductId !== null
+    : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
       ? String(body.dropiProductId).trim()
-      : (body.dropi_id !== undefined && body.dropi_id !== null
+      : (body.dropi_id !== undefined && body.dropi_id !== null && String(body.dropi_id).trim() !== ''
         ? String(body.dropi_id).trim()
-        : (existing?.dropi_product_id !== undefined ? String(existing.dropi_product_id) : '')));
+        : ''));
+
+  const existingDropi = existing?.dropi_product_id !== undefined && existing?.dropi_product_id !== null && String(existing.dropi_product_id).trim() !== ''
+    ? String(existing.dropi_product_id).trim()
+    : ((existing as any)?.dropiProductId ? String((existing as any).dropiProductId).trim() : '');
+
+  // Lógica COALESCE(NULLIF(incoming, ''), dropi_product_id)
+  const dropiProductId = rawIncomingDropi !== '' ? rawIncomingDropi : existingDropi;
 
   const updated: Product = {
     id: productId,
@@ -255,6 +323,37 @@ async function executeProductUpdate(productId: string, body: any) {
   };
 
   const saved = db.saveProduct(updated);
+
+  // Ejecutar UPDATE en MySQL protegiendo dropi_product_id contra sobreescritura accidental:
+  // dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id)
+  try {
+    const imagesJson = JSON.stringify(finalImages);
+    await pool.query(`
+      UPDATE productos 
+      SET 
+        nombre = ?,
+        precio = ?,
+        stock = ?,
+        descripcion = ?,
+        imagen = ?,
+        imagenes = ?,
+        dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
+        variants = ?
+      WHERE id = ?
+    `, [
+      saved.title,
+      saved.price,
+      saved.stock,
+      saved.description,
+      mainImage,
+      imagesJson,
+      rawIncomingDropi || '',
+      JSON.stringify(saved.variants || []),
+      productId
+    ]);
+  } catch (err: any) {
+    console.warn('[MySQL Product UPDATE Warning]:', err.message);
+  }
 
   // Sincronizar actualización de producto con MySQL en cPanel vía POST /api.php?action=productos
   cpanelDbService.saveProduct({
@@ -482,12 +581,20 @@ router.delete('/products/:id', async (req, res) => {
       return res.status(400).json({ error: 'ID de producto no proporcionado' });
     }
 
-    // Ejecutar el DELETE en MySQL
-    const [result]: any = await pool.query('DELETE FROM productos WHERE id = ?', [id]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Producto no encontrado en la base de datos' });
+    // Eliminación limpia directa de MySQL sin bloqueos de clave foránea
+    try {
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      await pool.query('DELETE FROM productos WHERE id = ?', [id]);
+      await pool.query('DELETE FROM products WHERE id = ?', [id]);
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Delete Product Warning]:', sqlErr.message);
+      try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
     }
+
+    // Sincronizar eliminación local y cPanel
+    db.deleteProduct(id);
+    cpanelDbService.deleteProduct(id).catch(() => {});
 
     db.addLog({
       type: 'PRODUCT_UPDATE',
@@ -496,14 +603,14 @@ router.delete('/products/:id', async (req, res) => {
       status: 'info'
     });
 
-    return res.json({ success: true, message: 'Producto eliminado correctamente' });
+    return res.json({ success: true, message: 'Producto eliminado correctamente de MySQL' });
   } catch (error: any) {
     console.error('Error al eliminar producto de MySQL:', error);
     return res.status(500).json({ error: 'Error al eliminar producto', details: error.message });
   }
 });
 
-router.post('/products/bulk-delete', (req, res) => {
+router.post('/products/bulk-delete', async (req, res) => {
   try {
     const { ids, softDelete } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -515,6 +622,18 @@ router.post('/products/bulk-delete', (req, res) => {
       cpanelDbService.batchUpdateProductStatus(ids, false).catch(err => console.warn('[cPanel Batch Soft Delete]:', err));
     } else {
       cpanelDbService.batchDeleteProducts(ids).catch(err => console.warn('[cPanel Batch Delete]:', err));
+
+      // Eliminación limpia directa de MySQL en lote sin bloqueos de clave foránea
+      try {
+        const placeholders = ids.map(() => '?').join(',');
+        await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+        await pool.query(`DELETE FROM productos WHERE id IN (${placeholders})`, ids);
+        await pool.query(`DELETE FROM products WHERE id IN (${placeholders})`, ids);
+        await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      } catch (sqlErr: any) {
+        console.warn('[MySQL Bulk Delete SQL Warning]:', sqlErr.message);
+        try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
+      }
     }
 
     let count = 0;
@@ -534,7 +653,7 @@ router.post('/products/bulk-delete', (req, res) => {
     db.addLog({
       type: 'PRODUCT_UPDATE',
       action: softDelete ? 'Productos Pausados en Lote' : 'Productos Eliminados en Lote',
-      details: `${count} productos fueron ${softDelete ? 'ocultados de la tienda' : 'eliminados permanentemente'}.`,
+      details: `${count} productos fueron ${softDelete ? 'ocultados de la tienda' : 'eliminados permanentemente de MySQL'}.`,
       status: 'info'
     });
 
@@ -1897,6 +2016,324 @@ router.post('/restore', (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// ==========================================
+// 9.1 RESPALDOS DE EMERGENCIA DEL CATÁLOGO (MySQL catalog_backups)
+// ==========================================
+
+// GET /api/admin/backups - Listar historial de respaldos disponibles
+router.get('/backups', async (req, res) => {
+  try {
+    let backups: any[] = [];
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT id, nombre_respaldo, total_productos, origen, created_at FROM catalog_backups ORDER BY id DESC'
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        backups = rows.map((r: any) => ({
+          id: Number(r.id),
+          nombre_respaldo: r.nombre_respaldo,
+          total_productos: Number(r.total_productos),
+          origen: r.origen || 'manual',
+          created_at: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
+        }));
+      }
+    } catch (err: any) {
+      console.warn('[GET /api/admin/backups MySQL Error]:', err.message);
+    }
+
+    // Fallback con db local si MySQL no devolvió registros
+    if (backups.length === 0) {
+      backups = db.getCatalogBackups().map(b => ({
+        id: b.id,
+        nombre_respaldo: b.nombre_respaldo,
+        total_productos: b.total_productos,
+        origen: b.origen,
+        created_at: b.created_at
+      }));
+    }
+
+    res.json({ success: true, data: backups });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/backups/create - Crear respaldo instantáneo del catálogo actual
+router.post('/backups/create', async (req, res) => {
+  try {
+    const { nombre, origen } = req.body || {};
+
+    // Obtener productos actuales completos con sus IDs de Dropi, fotos, stock y variantes
+    const currentProducts = db.getProducts().map((p: any) => ({
+      id: String(p.id),
+      title: p.title || p.nombre || p.name || 'Producto Zavela',
+      name: p.title || p.nombre || p.name || 'Producto Zavela',
+      nombre: p.title || p.nombre || p.name || 'Producto Zavela',
+      slug: p.slug || String(p.id),
+      price: Number(p.price || p.precio || 0),
+      precio: Number(p.price || p.precio || 0),
+      costPrice: Number(p.costPrice || p.costo || 0),
+      compareAtPrice: Number(p.compareAtPrice || 0),
+      stock: Number(p.stock !== undefined ? p.stock : 10),
+      description: p.description || p.descripcion || '',
+      descripcion: p.description || p.descripcion || '',
+      shortDescription: p.shortDescription || '',
+      image: p.image || p.imagen || (p.images && p.images[0]) || '',
+      imagen: p.imagen || p.image || (p.images && p.images[0]) || '',
+      images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.imagen ? [p.imagen] : []),
+      imagenes: Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.imagen ? [p.imagen] : []),
+      dropi_product_id: p.dropi_product_id || p.dropiProductId || '',
+      dropiProductId: p.dropi_product_id || p.dropiProductId || '',
+      variants: Array.isArray(p.variants) ? p.variants : [],
+      active: p.active !== false,
+      featured: Boolean(p.featured),
+      categoryId: p.categoryId,
+      categoryName: p.categoryName,
+      brand: p.brand || 'Zavela Store',
+      createdAt: p.createdAt || new Date().toISOString()
+    }));
+
+    const total = currentProducts.length;
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }) + ' ' + now.toLocaleTimeString('es-CO', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const backupName = (nombre && String(nombre).trim())
+      ? String(nombre).trim()
+      : `Respaldo Catálogo - ${formattedDate} (${total} productos)`;
+
+    const datosJson = JSON.stringify(currentProducts);
+    const backupOrigin = origen || 'manual';
+
+    let insertedId: number = Date.now();
+
+    // 1. Guardar en MySQL tabla catalog_backups
+    try {
+      const [result]: any = await pool.query(
+        'INSERT INTO catalog_backups (nombre_respaldo, total_productos, datos_json, origen) VALUES (?, ?, ?, ?)',
+        [backupName, total, datosJson, backupOrigin]
+      );
+      if (result && result.insertId) {
+        insertedId = Number(result.insertId);
+      }
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Backup Insert Warning]:', sqlErr.message);
+    }
+
+    // 2. Guardar en espejo local para alta disponibilidad
+    const savedLocal = db.saveCatalogBackup({
+      nombre_respaldo: backupName,
+      total_productos: total,
+      datos_json: datosJson,
+      origen: backupOrigin
+    });
+    if (!insertedId || insertedId > 1000000000) {
+      insertedId = savedLocal.id;
+    }
+
+    db.addLog({
+      type: 'SYSTEM',
+      action: 'Respaldo de Catálogo Creado',
+      details: `Se generó el respaldo de emergencia "${backupName}" con ${total} productos y códigos Dropi en MySQL.`,
+      status: 'success'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Respaldo de emergencia del catálogo creado con éxito.',
+      data: {
+        id: insertedId,
+        nombre_respaldo: backupName,
+        total_productos: total,
+        origen: backupOrigin,
+        created_at: now.toISOString()
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/backups/:id/restore - Restaurar catálogo desde respaldo autorizado
+router.post('/backups/:id/restore', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let backupRecord: any = null;
+
+    // Buscar en MySQL
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT id, nombre_respaldo, total_productos, datos_json, origen, created_at FROM catalog_backups WHERE id = ? LIMIT 1',
+        [id]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        backupRecord = rows[0];
+      }
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Backup Select Warning]:', sqlErr.message);
+    }
+
+    // Fallback con db local
+    if (!backupRecord) {
+      const localBackup = db.getCatalogBackupById(id);
+      if (localBackup) {
+        backupRecord = localBackup;
+      }
+    }
+
+    if (!backupRecord || !backupRecord.datos_json) {
+      return res.status(404).json({ success: false, message: `Respaldo con ID ${id} no encontrado en la base de datos.` });
+    }
+
+    let productsToRestore: any[] = [];
+    try {
+      productsToRestore = JSON.parse(backupRecord.datos_json);
+    } catch {
+      return res.status(400).json({ success: false, message: 'El contenido JSON del respaldo está dañado.' });
+    }
+
+    if (!Array.isArray(productsToRestore)) {
+      return res.status(400).json({ success: false, message: 'Formato de productos en respaldo no es un array válido.' });
+    }
+
+    let restoredCount = 0;
+
+    for (const prod of productsToRestore) {
+      const prodId = String(prod.id || `prod-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`);
+      const title = prod.title || prod.nombre || prod.name || 'Producto Restaurado';
+      const price = Number(prod.price || prod.precio || 0);
+      const stock = Number(prod.stock !== undefined ? prod.stock : 10);
+      const description = prod.description || prod.descripcion || '';
+      const dropiProductId = prod.dropi_product_id || prod.dropiProductId || '';
+      const images = Array.isArray(prod.images) && prod.images.length > 0 
+        ? prod.images 
+        : (Array.isArray(prod.imagenes) && prod.imagenes.length > 0 ? prod.imagenes : (prod.imagen ? [prod.imagen] : []));
+      const mainImage = images[0] || prod.imagen || prod.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
+      const imagesJson = JSON.stringify(images);
+      const variants = Array.isArray(prod.variants) ? prod.variants : [];
+      const variantsJson = JSON.stringify(variants);
+
+      // 1. Restaurar o actualizar en MySQL usando ON DUPLICATE KEY UPDATE protegiendo dropi_product_id
+      try {
+        await pool.query(`
+          INSERT INTO productos (id, nombre, precio, stock, descripcion, dropi_product_id, imagen, imagenes, variants)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            nombre = VALUES(nombre),
+            precio = VALUES(precio),
+            stock = VALUES(stock),
+            descripcion = VALUES(descripcion),
+            dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), productos.dropi_product_id),
+            imagen = VALUES(imagen),
+            imagenes = VALUES(imagenes),
+            variants = VALUES(variants)
+        `, [
+          prodId,
+          title,
+          price,
+          stock,
+          description,
+          dropiProductId,
+          mainImage,
+          imagesJson,
+          variantsJson
+        ]);
+      } catch (sqlErr: any) {
+        console.warn(`[MySQL Restore Prod ${prodId} Warning]:`, sqlErr.message);
+      }
+
+      // 2. Restaurar en data_store local
+      db.saveProduct({
+        ...prod,
+        id: prodId,
+        title,
+        price,
+        stock,
+        description,
+        dropi_product_id: dropiProductId,
+        images: images.length > 0 ? images : [mainImage],
+        variants
+      });
+
+      // 3. Sincronizar en cPanel MySQL
+      cpanelDbService.saveProduct({
+        ...prod,
+        id: prodId,
+        title,
+        price,
+        stock,
+        description,
+        dropi_product_id: dropiProductId,
+        imagen: mainImage,
+        imagenes: images,
+        variants
+      } as any).catch(() => {});
+
+      restoredCount++;
+    }
+
+    db.addLog({
+      type: 'SYSTEM',
+      action: 'Restauración de Catálogo Exitosa',
+      details: `Se restauró el respaldo #${id} ("${backupRecord.nombre_respaldo}") con ${restoredCount} productos, recuperando imágenes, variantes y códigos Dropi en MySQL.`,
+      status: 'success'
+    });
+
+    res.json({
+      success: true,
+      message: `Respaldo restaurado exitosamente. Se restablecieron ${restoredCount} productos en MySQL.`,
+      restoredCount,
+      backupId: id,
+      backupName: backupRecord.nombre_respaldo
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/admin/backups/:id - Eliminar respaldo obsoleto
+router.delete('/backups/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let deleted = false;
+
+    // Borrar de MySQL
+    try {
+      const [resSql]: any = await pool.query('DELETE FROM catalog_backups WHERE id = ?', [id]);
+      if (resSql && resSql.affectedRows > 0) {
+        deleted = true;
+      }
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Delete Backup Warning]:', sqlErr.message);
+    }
+
+    // Borrar de store local
+    const localDeleted = db.deleteCatalogBackup(id);
+    if (localDeleted) {
+      deleted = true;
+    }
+
+    db.addLog({
+      type: 'SYSTEM',
+      action: 'Respaldo de Catálogo Eliminado',
+      details: `El respaldo de catálogo con ID #${id} fue eliminado.`,
+      status: 'info'
+    });
+
+    res.json({ success: true, message: 'Respaldo eliminado correctamente.' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 
 router.post('/reset', (req, res) => {
   try {

@@ -37,6 +37,7 @@ import { Product, Category } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { ProductCatalogMagazineModal } from './ProductCatalogMagazineModal.tsx';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
+import { CatalogBackupsModal } from './CatalogBackupsModal.tsx';
 import { 
   updateCpanelProduct, 
   deleteCpanelProduct, 
@@ -74,6 +75,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isMagazineModalOpen, setIsMagazineModalOpen] = useState(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
 
   // Multi-Selection State
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -506,6 +508,17 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            id="btn-respaldos-emergencia"
+            onClick={() => setIsBackupModalOpen(true)}
+            title="Gestionar respaldos de emergencia del catálogo y restauración en MySQL"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-xs shadow-md border border-slate-700 hover:border-amber-400/40 transition-all cursor-pointer shrink-0"
+          >
+            <Database className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">💾 Respaldos de Emergencia</span>
+            <span className="sm:hidden">💾 Respaldos</span>
+          </button>
+
           <button
             onClick={() => setIsMagazineModalOpen(true)}
             title="Generar y descargar revista digital tipo Yanbal en PDF con los productos del catálogo"
@@ -1259,6 +1272,17 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         isOpen={isFbModalOpen}
         onClose={() => setIsFbModalOpen(false)}
         onConnected={fetchFacebookStatus}
+      />
+
+      {/* Modal de Respaldos de Emergencia del Catálogo en MySQL */}
+      <CatalogBackupsModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+        onRestoreSuccess={() => {
+          showToast('✓ Respaldo restaurado correctamente. Actualizando catálogo de productos...');
+          onRefresh();
+        }}
+        totalCurrentProducts={products.length}
       />
 
     </div>
