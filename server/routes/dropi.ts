@@ -315,10 +315,11 @@ router.get('/product/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Se requiere un ID de producto de Dropi' });
     }
 
-    // Extraer identificador limpio
+   // Extraer identificador limpio
     const parsed = parseDropiUrlOrId(rawParam);
     const cleanId = parsed ? parsed.id : rawParam.replace(/^DROPI-/i, '').trim();
-    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN;
+    const HARDCODED_DROPI_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBwLmRyb3BpLmNvOjgwliwiaWF0IjoxNzkxMjEzOTQ0LCJleHAiOjQ5NDY4ODc1NDQslm5iZiI6MTc5MTIxMzk0NCwianRjIoiWHVDWTIxd05Gc0xPdDIDQilsInN1Yil6IjewMTk3NzciLCJwcnYiOiI4N2UwYWYxZWY5ZmQxNTgxMmZkZWM5NzE1M2ExNGUwYjA0NzU0NmFhliwiYXVkIjoiliwidG9rZW5fdHlwZSI6IkIOVEVHUkFUSU9OUyIsIndiX2IkljoxLCJpbnRIZ3JhdGlvbl9oZXBlljpudWxsLCJpbnRIZ3JhdGlvbl9oEXBlX2Ikljo4NDksImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6IliJ9.k3S1Pen-ALPUemNX-CKRTEQDGnAg__Pfg4MAJGFHyhU';
+    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN || HARDCODED_DROPI_TOKEN;
 
     // 1. Si existe token de Dropi, consultar la API oficial de Dropi Colombia con diagnóstico detallado
     if (token && token.trim()) {
