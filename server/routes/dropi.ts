@@ -337,13 +337,13 @@ router.get('/product/:id', async (req, res) => {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 6000);
 
-            const response = await fetch(endpoint, {
-              headers: {
-                'Authorization': `Bearer ${token.trim()}`,
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZavelaStore/1.0',
-                'Content-Type': 'application/json'
-              },
+          headers: {
+          'Authorization': token.trim().startsWith('Bearer ') ? token.trim() : `Bearer ${token.trim()}`,
+          'token': token.trim(),
+          'dropi-token': token.trim(),
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
               signal: controller.signal
             });
             clearTimeout(timeout);
