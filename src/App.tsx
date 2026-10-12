@@ -703,7 +703,43 @@ export default function App() {
   // Filter & Sort Products
   const filteredProducts = products.filter(p => {
     if (!p.active) return false;
-    if (selectedCategoryId !== 'all' && p.categoryId !== selectedCategoryId) return false;
+    if (selectedCategoryId !== 'all') {
+      const catObj = categories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
+      const targetSlug = (catObj?.slug || selectedCategoryId).toLowerCase();
+      const targetId = (catObj?.id || selectedCategoryId).toLowerCase();
+      
+      const isDirectMatch = p.categoryId === selectedCategoryId || (catObj && p.categoryId === catObj.id);
+      const isCategorySlugMatch = Boolean((p as any).categorySlug && String((p as any).categorySlug).toLowerCase() === targetSlug);
+
+      // Event & Campaign matching (Halloween, Amor y Amistad, Navidad)
+      const isHalloweenMatch = (targetSlug.includes('halloween') || targetSlug.includes('disfraz') || targetId.includes('halloween')) && (
+        p.categoryId === 'cat-halloween' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('halloween') || t.toLowerCase().includes('disfraz') || t.toLowerCase().includes('terror') || t.toLowerCase().includes('neón'))) ||
+        p.title.toLowerCase().includes('halloween') ||
+        p.title.toLowerCase().includes('disfraz') ||
+        p.title.toLowerCase().includes('máscara')
+      );
+
+      const isAmorMatch = (targetSlug.includes('amor') || targetSlug.includes('amistad') || targetId.includes('amor')) && (
+        p.categoryId === 'cat-amor-amistad' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('amor') || t.toLowerCase().includes('amistad') || t.toLowerCase().includes('pareja') || t.toLowerCase().includes('rosa'))) ||
+        p.title.toLowerCase().includes('amor') ||
+        p.title.toLowerCase().includes('amistad') ||
+        p.title.toLowerCase().includes('pareja') ||
+        p.title.toLowerCase().includes('rosa')
+      );
+
+      const isNavidadMatch = (targetSlug.includes('navid') || targetSlug.includes('diciem') || targetId.includes('navid')) && (
+        p.categoryId === 'cat-navidad' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('navid') || t.toLowerCase().includes('navidad') || t.toLowerCase().includes('regalo'))) ||
+        p.title.toLowerCase().includes('navid') ||
+        p.title.toLowerCase().includes('navidad')
+      );
+
+      if (!isDirectMatch && !isCategorySlugMatch && !isHalloweenMatch && !isAmorMatch && !isNavidadMatch) {
+        return false;
+      }
+    }
     
     // Subcategory filtering (supports subcategoryId, subcategory slug, or tag match for perfumery/fragrances)
     if (selectedCategoryId !== 'all' && selectedSubcategoryId !== 'all') {
@@ -947,6 +983,10 @@ export default function App() {
             if (currentView !== 'store') {
               setCurrentView('store');
             }
+            const catalogEl = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
+            if (catalogEl) {
+              catalogEl.scrollIntoView({ behavior: 'smooth' });
+            }
           }}
           selectedSubcategoryId={selectedSubcategoryId}
           onSelectSubcategoryId={(subId) => {
@@ -1097,12 +1137,12 @@ export default function App() {
               currentStyle={settings?.heroBannerStyle || 'jpfans'}
               onSelectCategory={(catId) => {
                 setSelectedCategoryId(catId);
-                const catalogEl = document.getElementById('catalog-products-section');
+                setSelectedSubcategoryId('all');
+                const catalogEl = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
                 if (catalogEl) {
                   catalogEl.scrollIntoView({ behavior: 'smooth' });
                 }
               }}
-              onQuickBuy={(prod) => handleBuyNow(prod, prod.variants?.[0], 1)}
               onViewProduct={setSelectedProduct}
               onSaveBannerStyle={async (newStyle) => {
                 await saveFirestoreSettings({ heroBannerStyle: newStyle });
@@ -1220,6 +1260,7 @@ export default function App() {
           </div>
 
           {/* Catalog & Category Section */}
+          <div id="catalogo" className="scroll-mt-24"></div>
           <div id="catalog-products-section" className="space-y-6 pt-2 scroll-mt-24">
             
             {/* Category Filter Pills & Sort Bar */}
@@ -1403,18 +1444,25 @@ export default function App() {
                   <div className="w-14 h-14 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto border border-slate-200">
                     <Search className="w-6 h-6 text-sky-600" />
                   </div>
-                  <h3 className="font-bold text-slate-900 text-sm">No se encontraron productos</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {selectedCategoryId !== 'all'
+                      ? 'No hay productos disponibles en esta categoría actualmente'
+                      : 'No se encontraron productos'}
+                  </h3>
                   <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                    No encontramos ningún producto que coincida con tu búsqueda. Intenta con otro término o categoría.
+                    {selectedCategoryId !== 'all'
+                      ? 'Pronto agregaremos nuevas existencias y novedades para esta sección.'
+                      : 'No encontramos ningún producto que coincida con tu búsqueda. Intenta con otro término o categoría.'}
                   </p>
                   <button
                     onClick={() => {
                       setSelectedCategoryId('all');
+                      setSelectedSubcategoryId('all');
                       setSearchQuery('');
                     }}
-                    className="bg-gradient-to-r from-[#FF5A36] to-[#FF3366] text-white font-black px-4 py-2 rounded-xl text-xs cursor-pointer uppercase tracking-wider shadow-md hover:shadow-lg"
+                    className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black px-5 py-2.5 rounded-xl text-xs cursor-pointer uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
                   >
-                    Restablecer Filtros
+                    Ver todos los productos
                   </button>
                 </div>
               ) : (

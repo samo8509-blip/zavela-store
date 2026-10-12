@@ -347,8 +347,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   // SKU generation for clean catalog look
-  const skuNumber = product.dropi_product_id 
-    ? String(product.dropi_product_id) 
+  const skuNumber = (product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
+    ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
 
   return (

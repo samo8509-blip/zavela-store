@@ -37,7 +37,8 @@ import {
   Gamepad2,
   Gem,
   Star,
-  MessageSquare
+  MessageSquare,
+  Boxes
 } from 'lucide-react';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { SergioMartinezSignature } from '../SergioMartinezSignature.tsx';
@@ -72,6 +73,7 @@ export type AdminViewKey =
   | 'blog_posts'
   // GRUPO 5: INVENTARIO Y CATÁLOGO
   | 'products'
+  | 'dropi_bulk_importer'
   // GRUPO 6: VENTAS & LOGÍSTICA COD
   | 'shipping_rates'
   // GRUPO 7: PIE DE PÁGINA & CMS LEGAL
@@ -252,6 +254,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           badgeColor: lowStockCount > 0 
             ? 'bg-amber-400 text-slate-950 font-black animate-pulse' 
             : 'bg-cyan-500 text-slate-950 font-black' 
+        },
+        {
+          key: 'dropi_bulk_importer',
+          label: 'Importador y Cotizador Dropi',
+          icon: Boxes,
+          badge: 'Masivo COP',
+          badgeColor: 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-black'
         },
       ]
     },

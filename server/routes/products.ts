@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { db, isTestProduct } from '../db.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { pool } from '../mysqlPool.ts';
+import { dropiBackupService } from '../services/dropiBackupService.ts';
 
 const router = Router();
 
@@ -51,10 +52,20 @@ router.get('/', async (req, res) => {
       products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
+    const dropiMap = dropiBackupService.getBackupMap();
+    const mappedProducts = products.map(p => {
+      const dId = p.dropi_product_id ? String(p.dropi_product_id).trim() : (p.dropiProductId ? String(p.dropiProductId).trim() : (dropiMap[String(p.id)] || ''));
+      return {
+        ...p,
+        dropi_product_id: dId,
+        dropiProductId: dId
+      };
+    });
+
     res.json({
       success: true,
-      count: products.length,
-      data: products
+      count: mappedProducts.length,
+      data: mappedProducts
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -148,6 +159,16 @@ router.post('/', async (req, res) => {
           ? String(body.dropiProductId).trim()
           : (existing.dropi_product_id !== undefined ? String(existing.dropi_product_id) : ''));
 
+      if (dropiProductId) {
+        dropiBackupService.saveDropiId(targetId, dropiProductId);
+        try {
+          await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, targetId]);
+        } catch {}
+        try {
+          await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, targetId]);
+        } catch {}
+      }
+
       const updated = {
         ...existing,
         ...body,
@@ -158,6 +179,7 @@ router.post('/', async (req, res) => {
         stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10)),
         images: finalImages,
         dropi_product_id: dropiProductId,
+        dropiProductId: dropiProductId,
         updatedAt: new Date().toISOString()
       };
 
@@ -166,7 +188,8 @@ router.post('/', async (req, res) => {
         ...saved,
         imagen: mainImage,
         imagenes: finalImages,
-        dropi_product_id: dropiProductId
+        dropi_product_id: dropiProductId,
+        dropiProductId: dropiProductId
       } as any).catch(() => {});
 
       return res.status(200).json({ success: true, message: 'Producto actualizado en MySQL (cPanel)', data: saved });
@@ -238,15 +261,31 @@ router.post('/', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    // 1. Guardar localmente
-    const saved = db.saveProduct(product);
+    // 1. Guardar copia en respaldo persistente y en MySQL física
+    if (dropiProductId) {
+      dropiBackupService.saveDropiId(id, dropiProductId);
+      try {
+        await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
+      } catch {}
+      try {
+        await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
+      } catch {}
+    }
 
-    // 2. Sincronizar de forma asíncrona con MySQL en cPanel
+    // 2. Guardar localmente
+    const saved = db.saveProduct({
+      ...product,
+      dropi_product_id: dropiProductId,
+      dropiProductId: dropiProductId
+    });
+
+    // 3. Sincronizar de forma asíncrona con MySQL en cPanel
     cpanelDbService.saveProduct({
       ...saved,
       imagen: mainImage,
       imagenes: validImages,
-      dropi_product_id: dropiProductId
+      dropi_product_id: dropiProductId,
+      dropiProductId: dropiProductId
     } as any).catch(err => {
       console.warn('[cPanel Sync] Advertencia al sincronizar producto en MySQL cPanel:', err.message);
     });
@@ -255,6 +294,163 @@ router.post('/', async (req, res) => {
       success: true,
       message: 'Producto guardado en MySQL (cPanel)',
       data: saved
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/products/bulk-import - Importación y Cotización Masiva desde Dropi
+router.post(['/bulk-import', '/bulk_import'], async (req, res) => {
+  try {
+    const rawItems = req.body.items || req.body.products || req.body;
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      return res.status(400).json({ success: false, message: 'Se requiere una lista de productos para importar' });
+    }
+
+    const savedProducts: any[] = [];
+    const backupEntries: Record<string, string> = {};
+
+    for (let i = 0; i < rawItems.length; i++) {
+      const item = rawItems[i];
+      const name = (item.name || item.title || item.nombre || 'Producto Importado Dropi').trim();
+      
+      // Normalizar slug (minúsculas, sin tildes ni caracteres especiales, con guiones)
+      const rawSlug = (item.slug || name)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      
+      const id = item.id || `prod-dropi-${Date.now()}-${i}`;
+      const slug = rawSlug || id;
+      const description = item.description || item.descripcion || '';
+      
+      let images = Array.isArray(item.images) && item.images.length > 0 
+        ? item.images.filter((img: any) => typeof img === 'string' && img.trim())
+        : (item.image ? [item.image] : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800']);
+      if (images.length === 0) {
+        images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+      }
+      const mainImage = images[0];
+
+      const price = Number(item.price !== undefined ? item.price : item.precio) || 0;
+      const costPrice = Number(item.cost_price !== undefined ? item.cost_price : (item.costPrice !== undefined ? item.costPrice : item.costo)) || 0;
+      const dropiProductId = String(item.dropi_product_id || item.dropiProductId || item.dropi_id || item.id || '').trim();
+      const estimatedShipping = Number(item.estimated_shipping !== undefined ? item.estimated_shipping : (item.estimatedShippingCost !== undefined ? item.estimatedShippingCost : 21730)) || 21730;
+      const totalOperatingCost = costPrice + estimatedShipping;
+      const realNetProfit = price - totalOperatingCost;
+      const realNetMarginPercentage = totalOperatingCost > 0 ? Math.round((realNetProfit / totalOperatingCost) * 1000) / 10 : 0;
+      const compareAtPrice = Number(item.compareAtPrice) || (price > 0 ? Math.round(price * 1.35) : 0);
+      const discountPercentage = compareAtPrice > price ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
+
+      const product = {
+        id,
+        title: name,
+        name,
+        nombre: name,
+        slug,
+        description,
+        shortDescription: item.shortDescription || description.slice(0, 160),
+        price,
+        costPrice,
+        cost_price: costPrice,
+        compareAtPrice,
+        discountPercentage,
+        marginAmount: realNetProfit,
+        marginPercentage: realNetMarginPercentage,
+        realNetProfit,
+        realNetMarginPercentage,
+        estimatedShippingCost: estimatedShipping,
+        shipping_cost: 0, // Envío gratis al cliente
+        shippingCost: 0,
+        totalOperatingCost,
+        stock: Number(item.stock) || 25,
+        active: true,
+        status: 'active',
+        featured: Boolean(item.featured),
+        images,
+        warrantyInfo: item.warrantyInfo || '30 días de garantía oficial Zavela Store.',
+        tags: Array.isArray(item.tags) ? item.tags : ['dropi', 'tendencia', 'calidad'],
+        weightKg: Number(item.weightKg) || 0.5,
+        categoryId: item.categoryId || item.category_id || 'cat-general',
+        categoryName: item.categoryName || item.category_name || item.category || 'General',
+        warehouseCity: item.warehouseCity || item.warehouse || 'Bogotá D.C.',
+        brand: item.brand || 'Zavela Store',
+        dropi_product_id: dropiProductId,
+        dropiProductId,
+        variants: Array.isArray(item.variants) ? item.variants : [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // 1. Guardar en mapa de respaldo persistente
+      if (dropiProductId) {
+        backupEntries[id] = dropiProductId;
+        dropiBackupService.saveDropiId(id, dropiProductId);
+      }
+
+      // 2. Guardar en base de datos local
+      const saved = db.saveProduct(product);
+      savedProducts.push(saved);
+
+      // 3. Guardar físicamente en MySQL en ambas tablas
+      try {
+        const imagesJson = JSON.stringify(images);
+        await pool.query(`
+          INSERT INTO products (id, title, name, slug, price, cost_price, dropi_product_id, description, images, shipping_cost, stock)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            name = VALUES(name),
+            price = VALUES(price),
+            cost_price = VALUES(cost_price),
+            dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), products.dropi_product_id),
+            images = VALUES(images),
+            stock = VALUES(stock)
+        `, [id, name, name, slug, price, costPrice, dropiProductId, description, imagesJson, product.stock]);
+      } catch (err: any) {
+        console.warn('[MySQL products bulk-import warning]:', err.message);
+      }
+
+      try {
+        const imagesJson = JSON.stringify(images);
+        await pool.query(`
+          INSERT INTO productos (id, nombre, precio, dropi_product_id, descripcion, imagen, imagenes, stock)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            nombre = VALUES(nombre),
+            precio = VALUES(precio),
+            dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), productos.dropi_product_id),
+            imagen = VALUES(imagen),
+            imagenes = VALUES(imagenes),
+            stock = VALUES(stock)
+        `, [id, name, price, dropiProductId, description, mainImage, imagesJson, product.stock]);
+      } catch (err: any) {
+        console.warn('[MySQL productos bulk-import warning]:', err.message);
+      }
+
+      // 4. Sincronizar asíncronamente con cPanel
+      cpanelDbService.saveProduct({
+        ...saved,
+        imagen: mainImage,
+        imagenes: images,
+        dropi_product_id: dropiProductId,
+        dropiProductId
+      } as any).catch(() => {});
+    }
+
+    // Guardado en lote en archivo de respaldo persistente
+    if (Object.keys(backupEntries).length > 0) {
+      dropiBackupService.saveBulk(backupEntries);
+    }
+
+    res.status(201).json({
+      success: true,
+      count: savedProducts.length,
+      data: savedProducts,
+      message: `Se importaron ${savedProducts.length} productos de Dropi exitosamente con persistencia en MySQL y respaldo local.`
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -292,13 +488,34 @@ router.put('/:id', async (req, res) => {
     }
     const mainImage = finalImages[0];
 
-    const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+    const rawIncomingDropi = body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== ''
       ? String(body.dropi_product_id).trim()
-      : (body.dropiProductId !== undefined && body.dropiProductId !== null
+      : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
         ? String(body.dropiProductId).trim()
-        : (body.dropi_id !== undefined && body.dropi_id !== null
+        : (body.dropi_id !== undefined && body.dropi_id !== null && String(body.dropi_id).trim() !== ''
           ? String(body.dropi_id).trim()
-          : (existing?.dropi_product_id !== undefined ? String(existing.dropi_product_id) : '')));
+          : ''));
+
+    const dropiMap = dropiBackupService.getBackupMap();
+    const existingDropi = existing?.dropi_product_id ? String(existing.dropi_product_id).trim() : (dropiMap[id] || '');
+    const dropiProductId = rawIncomingDropi !== '' ? rawIncomingDropi : existingDropi;
+
+    // 1. Guardar de emergencia en respaldo persistente server/data/dropi_backup.json
+    if (dropiProductId) {
+      dropiBackupService.saveDropiId(id, dropiProductId);
+    }
+
+    // 2. Guardar directamente con consulta SQL en la base de datos física (UPDATE products SET dropi_product_id = ?)
+    try {
+      await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
+    } catch (e: any) {
+      console.warn('[MySQL products UPDATE dropi_product_id]:', e.message);
+    }
+    try {
+      await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
+    } catch (e: any) {
+      console.warn('[MySQL productos UPDATE dropi_product_id]:', e.message);
+    }
 
     const updated = {
       ...existing,
@@ -310,6 +527,7 @@ router.put('/:id', async (req, res) => {
       stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
       images: finalImages,
       dropi_product_id: dropiProductId,
+      dropiProductId: dropiProductId,
       updatedAt: new Date().toISOString()
     };
 
@@ -319,7 +537,8 @@ router.put('/:id', async (req, res) => {
       ...saved,
       imagen: mainImage,
       imagenes: finalImages,
-      dropi_product_id: dropiProductId
+      dropi_product_id: dropiProductId,
+      dropiProductId: dropiProductId
     } as any).catch(err => {
       console.warn('[cPanel Sync] Advertencia al actualizar en cPanel MySQL:', err.message);
     });

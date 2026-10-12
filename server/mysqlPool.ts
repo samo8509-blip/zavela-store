@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import { db } from './db.ts';
 import { cpanelDbService } from './services/cpanelDbService.ts';
+import { dropiBackupService } from './services/dropiBackupService.ts';
 
 // Configuración de conexión MySQL para cPanel / producción o desarrollo
 const dbHost = process.env.DB_HOST || process.env.MYSQL_HOST || '';
@@ -63,9 +64,9 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
   }
 
   try {
-    console.log('[Auto-Migración MySQL] Verificando esquema e integridad de columnas en tabla `productos`...');
+    console.log('[Auto-Migración MySQL] Verificando esquema e integridad de columnas en tablas `products` y `productos`...');
 
-    // 1. Asegurar tabla base productos si no existe
+    // 1. Asegurar tabla base `productos` si no existe
     await p.query(`
       CREATE TABLE IF NOT EXISTS productos (
         id VARCHAR(64) NOT NULL,
@@ -73,7 +74,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         precio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         stock INT NOT NULL DEFAULT 10,
         descripcion LONGTEXT NULL,
-        dropi_product_id VARCHAR(100) NULL,
+        dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
         imagen VARCHAR(500) NULL,
         imagenes TEXT NULL,
         variants LONGTEXT NULL,
@@ -83,80 +84,122 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
-    // 2. Consultar columnas existentes en information_schema
-    let existingCols = new Set<string>();
-    try {
-      const [columns]: any = await p.query(`
-        SELECT COLUMN_NAME 
-        FROM information_schema.COLUMNS 
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'productos'
-      `);
-      if (Array.isArray(columns) && columns.length > 0) {
-        for (const col of columns) {
-          existingCols.add(String(col.COLUMN_NAME || col.column_name).toLowerCase());
-        }
-      }
-    } catch {}
+    // 2. Asegurar también tabla `products` en caso de esquema en inglés
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id VARCHAR(64) NOT NULL,
+        title VARCHAR(255) NULL,
+        nombre VARCHAR(255) NULL,
+        precio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        stock INT NOT NULL DEFAULT 10,
+        descripcion LONGTEXT NULL,
+        description LONGTEXT NULL,
+        dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
+        imagen VARCHAR(500) NULL,
+        imagenes TEXT NULL,
+        images TEXT NULL,
+        variants LONGTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
 
-    // Fallback con SHOW COLUMNS si information_schema no tuviera permisos
-    if (existingCols.size === 0) {
+    // 3. Migración segura de dropi_product_id VARCHAR(100) NULL DEFAULT NULL en ambas tablas
+    const tablesToMigrate = ['productos', 'products'];
+    for (const tbl of tablesToMigrate) {
       try {
-        const [showCols]: any = await p.query('SHOW COLUMNS FROM productos');
-        if (Array.isArray(showCols)) {
-          for (const sc of showCols) {
-            existingCols.add(String(sc.Field || sc.field).toLowerCase());
+        await p.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS dropi_product_id VARCHAR(100) NULL DEFAULT NULL`);
+        console.log(`[Auto-Migración MySQL] ✓ Columna dropi_product_id verificada en tabla \`${tbl}\`.`);
+      } catch (alterErr: any) {
+        // Fallback para versiones de MySQL que no soporten 'IF NOT EXISTS' en ALTER TABLE
+        try {
+          const [cols]: any = await p.query(`
+            SELECT COLUMN_NAME 
+            FROM information_schema.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'dropi_product_id'
+          `, [tbl]);
+          if (!Array.isArray(cols) || cols.length === 0) {
+            await p.query(`ALTER TABLE ${tbl} ADD COLUMN dropi_product_id VARCHAR(100) NULL DEFAULT NULL`);
+            console.log(`[Auto-Migración MySQL] ✓ Columna dropi_product_id añadida a \`${tbl}\` mediante fallback.`);
           }
+        } catch (subErr: any) {
+          console.warn(`[Auto-Migración MySQL] Nota sobre dropi_product_id en \`${tbl}\`:`, subErr.message);
         }
+      }
+
+      // Migración de columna imagenes si no existe
+      try {
+        await p.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS imagenes TEXT NULL`);
+      } catch {
+        try {
+          await p.query(`ALTER TABLE ${tbl} ADD COLUMN imagenes TEXT NULL`);
+        } catch {}
+      }
+
+      // Migración de columna variants si no existe
+      try {
+        await p.query(`ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS variants LONGTEXT NULL`);
+      } catch {
+        try {
+          await p.query(`ALTER TABLE ${tbl} ADD COLUMN variants LONGTEXT NULL`);
+        } catch {}
+      }
+
+      // Índice para dropi_product_id
+      try {
+        await p.query(`CREATE INDEX idx_${tbl}_dropi ON ${tbl} (dropi_product_id)`);
       } catch {}
     }
 
-    // 3. Columna dropi_product_id (VARCHAR(100))
-    if (!existingCols.has('dropi_product_id')) {
-      try {
-        await p.query('ALTER TABLE productos ADD COLUMN dropi_product_id VARCHAR(100) NULL AFTER descripcion');
-        console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id VARCHAR(100)` creada exitosamente en `productos`.');
-      } catch (err: any) {
-        try {
-          await p.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS dropi_product_id VARCHAR(100) NULL AFTER descripcion');
-          console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id` verificada con IF NOT EXISTS.');
-        } catch (e: any) {
-          console.warn('[Auto-Migración MySQL] Nota sobre dropi_product_id:', err.message);
-        }
-      }
-    } else {
-      console.log('[Auto-Migración MySQL] ✓ Columna `dropi_product_id` presente en `productos`.');
-    }
-
-    // 4. Columna imagenes (TEXT)
-    if (!existingCols.has('imagenes')) {
-      try {
-        await p.query('ALTER TABLE productos ADD COLUMN imagenes TEXT NULL AFTER imagen');
-        console.log('[Auto-Migración MySQL] ✓ Columna `imagenes TEXT` creada exitosamente en `productos`.');
-      } catch (err: any) {
-        try {
-          await p.query('ALTER TABLE productos ADD COLUMN IF NOT EXISTS imagenes TEXT NULL AFTER imagen');
-          console.log('[Auto-Migración MySQL] ✓ Columna `imagenes` verificada con IF NOT EXISTS.');
-        } catch (e: any) {
-          console.warn('[Auto-Migración MySQL] Nota sobre imagenes:', err.message);
-        }
-      }
-    } else {
-      console.log('[Auto-Migración MySQL] ✓ Columna `imagenes` presente en `productos`.');
-    }
-
-    // 5. Columna variants (LONGTEXT)
-    if (!existingCols.has('variants')) {
-      try {
-        await p.query('ALTER TABLE productos ADD COLUMN variants LONGTEXT NULL');
-      } catch {}
-    }
-
-    // 6. Eliminar cualquier restricción que anule o afecte dropi_product_id o imagenes y crear índice
+    // 4. Verificación de conteo y Protección Estricta contra Sobrescritura de Seed:
+    // NUNCA sobrescribas ni borres los productos si la tabla `products` o `productos` ya tiene registros.
+    // La siembra inicial (seed) SOLO debe ejecutarse si SELECT COUNT(*) es estrictamente igual a 0.
+    let productosCount = 0;
     try {
-      await p.query('CREATE INDEX idx_productos_dropi ON productos (dropi_product_id)');
+      const [pRows]: any = await p.query('SELECT COUNT(*) AS total FROM productos');
+      if (Array.isArray(pRows) && pRows[0]) {
+        productosCount = Number(pRows[0].total || 0);
+      }
     } catch {}
 
-    // 7. Tabla de respaldos de emergencia: catalog_backups
+    let productsCount = 0;
+    try {
+      const [prodRows]: any = await p.query('SELECT COUNT(*) AS total FROM products');
+      if (Array.isArray(prodRows) && prodRows[0]) {
+        productsCount = Number(prodRows[0].total || 0);
+      }
+    } catch {}
+
+    console.log(`[Auto-Migración MySQL] Estado de catálogo: productos=${productosCount}, products=${productsCount}.`);
+    if (productosCount > 0 || productsCount > 0) {
+      console.log('[Auto-Migración MySQL] 🛡️ Base de datos ya contiene registros. Siembra omitida para preservar datos e IDs de Dropi.');
+    }
+
+    // 5. Restauración automática de IDs de Dropi desde el archivo de respaldo persistente (dropi_backup.json)
+    const dropiMap = dropiBackupService.getBackupMap();
+    if (Object.keys(dropiMap).length > 0) {
+      console.log(`[Auto-Migración MySQL] Sincronizando ${Object.keys(dropiMap).length} IDs de Dropi desde dropi_backup.json...`);
+      for (const [prodId, dId] of Object.entries(dropiMap)) {
+        if (!dId) continue;
+        try {
+          await p.query(
+            'UPDATE productos SET dropi_product_id = ? WHERE id = ? AND (dropi_product_id IS NULL OR dropi_product_id = "")',
+            [dId, prodId]
+          );
+        } catch {}
+        try {
+          await p.query(
+            'UPDATE products SET dropi_product_id = ? WHERE id = ? AND (dropi_product_id IS NULL OR dropi_product_id = "")',
+            [dId, prodId]
+          );
+        } catch {}
+      }
+      console.log('[Auto-Migración MySQL] ✓ Restauración de códigos Dropi completada.');
+    }
+
+    // 6. Tabla de respaldos de emergencia: catalog_backups
     await p.query(`
       CREATE TABLE IF NOT EXISTS catalog_backups (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -548,9 +591,11 @@ export const pool = {
    * Ejecuta consultas SQL con soporte para MySQL nativo y fallback unificado
    */
   async query(sql: string, params: any[] = []): Promise<[any, any]> {
+    const upperSql = sql.trim().toUpperCase();
+    const trimmed = upperSql;
+
     // 1. Si existe conexión nativa MySQL configurada en variables de entorno, ejecutar directamente
     if (nativePool) {
-      const trimmed = sql.trim().toUpperCase();
       const isDeleteProducts = trimmed.startsWith('DELETE FROM PRODUCTOS') || trimmed.startsWith('DELETE FROM PRODUCTS');
 
       try {
@@ -590,6 +635,22 @@ export const pool = {
         }
 
         const result = await nativePool.query(sql, params);
+
+        // Si es consulta SELECT en productos, asegurar que cada fila tenga dropi_product_id restaurado
+        if (upperSql.startsWith('SELECT') && Array.isArray((result as any)[0])) {
+          const dropiMap = dropiBackupService.getBackupMap();
+          for (const row of (result as any)[0]) {
+            const rId = String(row.id || (row as any).productId || '');
+            if (!row.dropi_product_id && dropiMap[rId]) {
+              row.dropi_product_id = dropiMap[rId];
+              row.dropiProductId = dropiMap[rId];
+            } else if (row.dropi_product_id) {
+              row.dropiProductId = String(row.dropi_product_id);
+              dropiBackupService.saveDropiId(rId, String(row.dropi_product_id));
+            }
+          }
+        }
+
         return result as [any, any];
       } catch (err: any) {
         console.warn(`[MySQL Native Query Fallback]: ${err.message}. Ejecutando fallback.`);
@@ -597,7 +658,6 @@ export const pool = {
     }
 
     // 2. Fallback de alta disponibilidad (sincronizado con db local y cpanelDbService)
-    const upperSql = sql.trim().toUpperCase();
 
     // Soporte para respaldos en fallback de alta disponibilidad
     if (upperSql.includes('CATALOG_BACKUPS')) {
@@ -656,6 +716,19 @@ export const pool = {
     }
 
     if (upperSql.startsWith('UPDATE PRODUCTOS') || upperSql.startsWith('UPDATE PRODUCTS')) {
+      if (upperSql.includes('DROPI_PRODUCT_ID')) {
+        const id = String(params[params.length - 1] ?? '').trim();
+        const dropiId = String(params[0] ?? '').trim();
+        if (id && dropiId) {
+          dropiBackupService.saveDropiId(id, dropiId);
+          const p = db.getProductById(id);
+          if (p) {
+            p.dropi_product_id = dropiId;
+            p.dropiProductId = dropiId;
+            db.saveProduct(p);
+          }
+        }
+      }
       return [{ affectedRows: 1, changedRows: 1 }, []];
     }
 
@@ -664,24 +737,28 @@ export const pool = {
     }
 
     if (upperSql.startsWith('SELECT')) {
-      const products = db.getProducts().map((p: any) => ({
-        id: String(p.id),
-        nombre: p.title || p.name || 'Producto Zavela',
-        title: p.title || p.name || 'Producto Zavela',
-        precio: p.price,
-        price: p.price,
-        stock: p.stock !== undefined ? p.stock : 10,
-        descripcion: p.description || '',
-        description: p.description || '',
-        imagen: p.images?.[0] || '',
-        image: p.images?.[0] || '',
-        imagenes: JSON.stringify(p.images || []),
-        images: p.images || [],
-        dropi_product_id: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
-        dropiProductId: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
-        variants: p.variants || [],
-        ...p
-      }));
+      const dropiMap = dropiBackupService.getBackupMap();
+      const products = db.getProducts().map((p: any) => {
+        const dId = p.dropi_product_id ? String(p.dropi_product_id).trim() : (p.dropiProductId ? String(p.dropiProductId).trim() : (dropiMap[String(p.id)] || ''));
+        return {
+          id: String(p.id),
+          nombre: p.title || p.name || 'Producto Zavela',
+          title: p.title || p.name || 'Producto Zavela',
+          precio: p.price,
+          price: p.price,
+          stock: p.stock !== undefined ? p.stock : 10,
+          descripcion: p.description || '',
+          description: p.description || '',
+          imagen: p.images?.[0] || '',
+          image: p.images?.[0] || '',
+          imagenes: JSON.stringify(p.images || []),
+          images: p.images || [],
+          variants: p.variants || [],
+          ...p,
+          dropi_product_id: dId,
+          dropiProductId: dId
+        };
+      });
       return [products, []];
     }
 

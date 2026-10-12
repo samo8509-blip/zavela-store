@@ -265,6 +265,51 @@
   ],
   "products": [
     {
+      "id": "prod-dropi-1791814526611-0",
+      "title": "Cúpula Rosa Eterna Preservada Luz LED Amor y Amistad",
+      "name": "Cúpula Rosa Eterna Preservada Luz LED Amor y Amistad",
+      "nombre": "Cúpula Rosa Eterna Preservada Luz LED Amor y Amistad",
+      "slug": "cupula-rosa-eterna-preservada-luz-led-amor-y-amistad",
+      "description": "",
+      "shortDescription": "",
+      "price": 89900,
+      "costPrice": 32000,
+      "cost_price": 32000,
+      "compareAtPrice": 121365,
+      "discountPercentage": 26,
+      "marginAmount": 36170,
+      "marginPercentage": 67.3,
+      "realNetProfit": 36170,
+      "realNetMarginPercentage": 67.3,
+      "estimatedShippingCost": 21730,
+      "shipping_cost": 0,
+      "shippingCost": 0,
+      "totalOperatingCost": 53730,
+      "stock": 25,
+      "active": true,
+      "status": "active",
+      "featured": false,
+      "images": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      "warrantyInfo": "30 días de garantía oficial Zavela Store.",
+      "tags": [
+        "dropi",
+        "tendencia",
+        "calidad"
+      ],
+      "weightKg": 0.5,
+      "categoryId": "cat-general",
+      "categoryName": "General",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela Store",
+      "dropi_product_id": "DROPI-48192",
+      "dropiProductId": "DROPI-48192",
+      "variants": [],
+      "createdAt": "2026-10-12T14:15:26.611Z",
+      "updatedAt": "2026-10-12T14:15:26.612Z"
+    },
+    {
       "id": "prod-1791675587239",
       "title": "Enterizo Short Realce Pro",
       "slug": "enterizo-short-realce-pro",
@@ -284,10 +329,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:39:47",
-      "updatedAt": "2026-10-12T13:27:08.678Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791674972170",
@@ -309,10 +355,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:29:33",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791674725014",
@@ -334,10 +381,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:25:25",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791674443405",
@@ -359,10 +407,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:20:43",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791674025116",
@@ -384,10 +433,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:13:45",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791673839092",
@@ -409,10 +459,11 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:10:39",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
-      "brand": "Zavela"
+      "brand": "Zavela",
+      "dropiProductId": ""
     },
     {
       "id": "prod-1791672177862",
@@ -445,7 +496,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 17:42:57",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -456,7 +507,7 @@
       "name": "Combo Secador Y Plancha Ancha Sencilla P (POST Update)",
       "nombre": "Combo Secador Y Plancha Ancha Sencilla P (POST Update)",
       "slug": "combo-secador-y-plancha-ancha-sencilla-p-post-update",
-      "price": 115000,
+      "price": 98776,
       "precio": 115000,
       "costPrice": 0,
       "compareAtPrice": 0,
@@ -481,7 +532,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 10:56:33",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -517,7 +568,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-06 12:11:54",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -553,7 +604,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-10 10:56:28",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -589,7 +640,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-07 19:00:04",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -627,7 +678,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-06 15:13:30",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -663,7 +714,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-06 11:58:56",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -699,7 +750,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:52:43",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -735,7 +786,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 18:05:09",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -771,7 +822,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:39:10",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -807,7 +858,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:36:51",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -843,7 +894,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:35:02",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -916,8 +967,8 @@
         "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/cbeb596e-42f0-455c-97a0-00d4bdd46f1b.jpg",
         "https://d39ru7awumhhs2.cloudfront.net/colombia/products/2226359/827c1846-3eec-4f0f-8d26-a4f2deab287d.jpg"
       ],
-      "dropi_product_id": "",
-      "dropiProductId": "",
+      "dropi_product_id": "DROPI-778899",
+      "dropiProductId": "DROPI-778899",
       "variants": [],
       "active": true,
       "featured": false,
@@ -925,7 +976,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-11 09:11:33",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:29.237Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -1001,7 +1052,7 @@
       "categoryName": "Catálogo",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06 11:34:08",
-      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "updatedAt": "2026-10-12T13:56:17.400Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []

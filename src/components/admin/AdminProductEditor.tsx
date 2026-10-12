@@ -65,7 +65,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
   const [dropiProductId, setDropiProductId] = useState<string>(
-    product?.dropi_product_id ? String(product.dropi_product_id) : (product?.dropiProductId ? String(product.dropiProductId) : '')
+    product?.dropi_product_id ? String(product.dropi_product_id) : (product?.dropiProductId ? String(product.dropiProductId) : ((product as any)?.dropi_id ? String((product as any).dropi_id) : ''))
   );
   
   // Financials & Dropi Operational Costs
@@ -542,6 +542,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
         dropi_product_id: dropiProductId.trim() || '',
+        dropiProductId: dropiProductId.trim() || '',
+        dropi_id: dropiProductId.trim() || '',
         price,
         costPrice,
         estimatedShippingCost,

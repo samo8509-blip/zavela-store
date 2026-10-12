@@ -59,6 +59,7 @@ import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
 import { AdminProducts } from './admin/AdminProducts.tsx';
 import { AdminProductEditor } from './admin/AdminProductEditor.tsx';
+import { DropiBulkImporter } from './admin/DropiBulkImporter.tsx';
 import { AdminOrders } from './admin/AdminOrders.tsx';
 import { AdminPendingDropiOrders } from './admin/AdminPendingDropiOrders.tsx';
 import { AdminCustomers } from './admin/AdminCustomers.tsx';
@@ -263,13 +264,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const resData = await res.json();
       const savedProductResult = resData.data || payload;
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
+      const finalDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
 
       const completeSavedProduct = {
         ...productData,
         ...savedProductResult,
         id: finalProductId,
+        dropi_product_id: finalDropiCode,
+        dropiProductId: finalDropiCode,
         publishToFacebook: productData.publishToFacebook !== false
       };
+
+      // Actualizar inmediatamente el estado de productos local para que el badge de Dropi se visualice al instante
+      setProducts(prev => {
+        const idx = prev.findIndex(p => p.id === finalProductId);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...completeSavedProduct } as Product;
+          return copy;
+        }
+        return [completeSavedProduct as Product, ...prev];
+      });
 
       // 2. Si el toggle 'Publicar en Facebook al Guardar' está activo, asegurar publicación inmediata tras confirmación de MySQL
       let fbSyncResult: any = null;
@@ -738,11 +753,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   categories={categories}
                   onRefresh={fetchAdminData}
                   onEditProduct={(p) => setEditingProduct(p)}
+                  onNavigateToDropiImporter={() => setActiveSection('dropi_bulk_importer')}
                   onDeleteProduct={(deletedId) => {
                     setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));
                   }}
                 />
               )
+            )}
+
+            {activeSection === 'dropi_bulk_importer' && (
+              <DropiBulkImporter
+                onImportComplete={async () => {
+                  await fetchAdminData();
+                  setActiveSection('products');
+                  showToast('✅ Catálogo actualizado con los nuevos productos importados de Dropi.');
+                }}
+                onBackToProducts={() => setActiveSection('products')}
+              />
             )}
 
             {/* GRUPO 6: VENTAS & LOGÍSTICA */}

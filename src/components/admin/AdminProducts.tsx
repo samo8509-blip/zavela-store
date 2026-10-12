@@ -31,7 +31,8 @@ import {
   ChevronDown,
   BookOpen,
   Download,
-  Share2
+  Share2,
+  Boxes
 } from 'lucide-react';
 import { Product, Category } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -54,6 +55,7 @@ interface AdminProductsProps {
   onRefresh: () => void;
   onEditProduct: (product: Product | null) => void;
   onDeleteProduct?: (id: string) => void;
+  onNavigateToDropiImporter?: () => void;
 }
 
 export const AdminProducts: React.FC<AdminProductsProps> = ({
@@ -61,7 +63,8 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   categories,
   onRefresh,
   onEditProduct,
-  onDeleteProduct
+  onDeleteProduct,
+  onNavigateToDropiImporter
 }) => {
   const [localProducts, setLocalProducts] = useState<Product[]>(products);
 
@@ -236,7 +239,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       p.slug.toLowerCase().includes(q) ||
       p.categoryName?.toLowerCase().includes(q) ||
       p.tags?.some(t => t.toLowerCase().includes(q)) ||
-      (p.dropi_product_id && String(p.dropi_product_id).includes(q))
+      Boolean((p.dropi_product_id || (p as any).dropiProductId || (p as any).dropi_id) && String(p.dropi_product_id || (p as any).dropiProductId || (p as any).dropi_id).toLowerCase().includes(q))
     );
   });
 
@@ -540,6 +543,17 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
             <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
             <span className="hidden sm:inline">Sincronizar</span>
           </button>
+
+          {onNavigateToDropiImporter && (
+            <button
+              onClick={onNavigateToDropiImporter}
+              title="Importar catálogo masivo de Dropi con cotizador y ajuste de márgenes"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 text-white font-black text-xs shadow-md shadow-blue-600/20 transition-all cursor-pointer shrink-0"
+            >
+              <Boxes className="w-4 h-4 text-cyan-200" />
+              <span>Importador Dropi (Masivo)</span>
+            </button>
+          )}
 
           <button
             onClick={() => onEditProduct(null)}
@@ -943,11 +957,15 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                             <div className="font-extrabold text-slate-900 line-clamp-1">{p.title}</div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <span className="text-[10px] font-mono text-slate-400">/{p.slug}</span>
-                              {p.dropi_product_id && (
-                                <span className="inline-flex items-center gap-0.5 text-[9px] font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-1.5 py-0.2 rounded">
-                                  Dropi #{p.dropi_product_id}
-                                </span>
-                              )}
+                              {(() => {
+                                const dropiCode = p.dropi_product_id || (p as any).dropiProductId || (p as any).dropi_id;
+                                return dropiCode ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-black text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-2xs">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    Dropi #{dropiCode}
+                                  </span>
+                                ) : null;
+                              })()}
                             </div>
                           </div>
                         </div>

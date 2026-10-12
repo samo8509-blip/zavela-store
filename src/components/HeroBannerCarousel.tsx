@@ -31,7 +31,7 @@ interface HeroBannerCarouselProps {
   orders?: Order[];
   currentStyle?: 'jpfans' | 'classic';
   onSelectCategory: (categoryId: string) => void;
-  onQuickBuy: (product: Product) => void;
+  onQuickBuy?: (product: Product) => void;
   onViewProduct: (product: Product) => void;
   onSaveBannerStyle?: (style: 'jpfans' | 'classic') => Promise<void>;
 }
@@ -222,15 +222,28 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
   };
 
   const handleBannerAction = () => {
-    if (currentProduct) {
-      onQuickBuy(currentProduct);
-    } else {
-      onSelectCategory('all');
-      const catalogEl = document.getElementById('catalog-products-section');
-      if (catalogEl) {
-        catalogEl.scrollIntoView({ behavior: 'smooth' });
-      }
+    // 1. Establecer la categoría activa según el evento o contexto del banner (ej: halloween, amor y amistad, navidad)
+    const textToAnalyze = `${currentBanner.title || ''} ${currentBanner.subtitle || ''} ${currentBanner.tagline || ''} ${currentBanner.badgeText || ''} ${currentBanner.ctaText || ''} ${currentBanner.ctaLink || ''}`.toLowerCase();
+    
+    let targetCatId = 'all';
+    if (textToAnalyze.includes('halloween') || textToAnalyze.includes('disfraz') || textToAnalyze.includes('disfraces') || textToAnalyze.includes('terror') || textToAnalyze.includes('miedo')) {
+      targetCatId = 'cat-halloween';
+    } else if (textToAnalyze.includes('amor') || textToAnalyze.includes('amistad') || textToAnalyze.includes('regalo') || textToAnalyze.includes('pareja') || textToAnalyze.includes('romant')) {
+      targetCatId = 'cat-amor-amistad';
+    } else if (textToAnalyze.includes('navid') || textToAnalyze.includes('diciem') || textToAnalyze.includes('xmas') || textToAnalyze.includes('luces')) {
+      targetCatId = 'cat-navidad';
+    } else if (currentProduct?.categoryId) {
+      targetCatId = currentProduct.categoryId;
     }
+
+    onSelectCategory(targetCatId);
+
+    // 2. Hacer scroll suave hacia la sección del catálogo de productos (#catalogo)
+    const catalogEl = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
+    if (catalogEl) {
+      catalogEl.scrollIntoView({ behavior: 'smooth' });
+    }
+    // 3. NO abrir el checkout ni añadir artículos al carrito
   };
 
   const formatCOP = (val: number) => `$ ${val.toLocaleString('es-CO')}`;

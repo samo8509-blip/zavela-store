@@ -15,6 +15,7 @@ import {
   SocialMarketingSettings,
   SocialBroadcastPost
 } from '../src/types/index.ts';
+import { dropiBackupService } from './services/dropiBackupService.ts';
 
 const DB_FILE_PATH = path.join(process.cwd(), 'data_store.json');
 
@@ -1006,18 +1007,38 @@ class DatabaseStore {
             ? parsed.categories
             : DEFAULT_CATEGORIES;
 
-          const products = Array.isArray(parsed.products)
+          const rawProducts = Array.isArray(parsed.products)
             ? (parsed.products || [])
                 .filter((p: any) => !isTestProduct(p))
-                .map((p: any) => ({
-                  ...p,
-                  dropi_product_id: p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : ''),
-                  warrantyInfo: (p.warrantyInfo || '30 días de garantía oficial').replace(/dropi|novora/gi, 'Zavela'),
-                  warehouseCity: p.warehouseCity || p.dropiWarehouseCity || 'Bogotá D.C.',
-                  brand: (p.brand && !p.brand.toLowerCase().includes('novora')) ? p.brand : 'Zavela',
-                  tags: (p.tags || []).filter((t: string) => typeof t === 'string' && !t.toLowerCase().includes('drop'))
-                }))
+                .map((p: any) => {
+                  const dId = p.dropi_product_id ? String(p.dropi_product_id) : (p.dropiProductId ? String(p.dropiProductId) : '');
+                  return {
+                    ...p,
+                    dropi_product_id: dId,
+                    dropiProductId: dId,
+                    warrantyInfo: (p.warrantyInfo || '30 días de garantía oficial').replace(/dropi|novora/gi, 'Zavela'),
+                    warehouseCity: p.warehouseCity || p.dropiWarehouseCity || 'Bogotá D.C.',
+                    brand: (p.brand && !p.brand.toLowerCase().includes('novora')) ? p.brand : 'Zavela',
+                    tags: (p.tags || []).filter((t: string) => typeof t === 'string' && !t.toLowerCase().includes('drop'))
+                  };
+                })
             : [];
+
+          // Restaurar automáticamente los códigos Dropi desde el respaldo persistente dropi_backup.json
+          dropiBackupService.restoreProducts(rawProducts);
+
+          // También respaldar cualquier código Dropi existente que ya esté en data_store.json
+          const harvestMap: Record<string, string> = {};
+          for (const p of rawProducts) {
+            if (p.dropi_product_id && String(p.dropi_product_id).trim()) {
+              harvestMap[String(p.id)] = String(p.dropi_product_id).trim();
+            }
+          }
+          if (Object.keys(harvestMap).length > 0) {
+            dropiBackupService.saveBulk(harvestMap);
+          }
+
+          const products = rawProducts;
 
           const heroBanners = (parsed.settings?.heroBanners && Array.isArray(parsed.settings.heroBanners) && parsed.settings.heroBanners.length > 0)
             ? parsed.settings.heroBanners
@@ -1163,7 +1184,15 @@ class DatabaseStore {
         p.tags.some(t => t.toLowerCase().includes(q))
       );
     }
-    return result;
+    const backupMap = dropiBackupService.getBackupMap();
+    return result.map(p => {
+      const dId = p.dropi_product_id ? String(p.dropi_product_id).trim() : (p.dropiProductId ? String(p.dropiProductId).trim() : (backupMap[String(p.id)] || ''));
+      return {
+        ...p,
+        dropi_product_id: dId,
+        dropiProductId: dId
+      };
+    });
   }
 
   isProductDeleted(id: string): boolean {
@@ -1178,6 +1207,16 @@ class DatabaseStore {
 
     const lowerTarget = target.toLowerCase();
 
+    const enrich = (prod: Product): Product => {
+      const backupMap = dropiBackupService.getBackupMap();
+      const dId = prod.dropi_product_id ? String(prod.dropi_product_id).trim() : (prod.dropiProductId ? String(prod.dropiProductId).trim() : (backupMap[String(prod.id)] || ''));
+      return {
+        ...prod,
+        dropi_product_id: dId,
+        dropiProductId: dId
+      };
+    };
+
     // 1. Coincidencia directa exacta por ID o Slug
     const found = this.data.products.find(p => 
       String(p.id).trim() === target || 
@@ -1186,7 +1225,7 @@ class DatabaseStore {
       (p.slug && p.slug.trim().toLowerCase() === lowerTarget) ||
       String((p as any).productId || '').trim() === target
     );
-    if (found && !isTestProduct(found)) return found;
+    if (found && !isTestProduct(found)) return enrich(found);
 
     // 2. Coincidencia normalizada (sin tildes, con guiones)
     const norm = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -1197,7 +1236,7 @@ class DatabaseStore {
       norm(p.id || '') === normTarget || 
       norm(p.title || '') === normTarget
     );
-    if (normFound && !isTestProduct(normFound)) return normFound;
+    if (normFound && !isTestProduct(normFound)) return enrich(normFound);
 
     // 3. Coincidencia por palabras clave ("lamparas-unas-48-w" -> coincidencia de palabras)
     const words = normTarget.split('-').filter(w => w.length > 2);
@@ -1207,7 +1246,7 @@ class DatabaseStore {
         const normSlug = norm(p.slug || '');
         return words.every(w => normTitle.includes(w) || normSlug.includes(w));
       });
-      if (wordMatch && !isTestProduct(wordMatch)) return wordMatch;
+      if (wordMatch && !isTestProduct(wordMatch)) return enrich(wordMatch);
     }
 
     return undefined;
@@ -1222,9 +1261,28 @@ class DatabaseStore {
       this.data.deletedProductIds = this.data.deletedProductIds.filter(id => id !== String(product.id).trim());
     }
     const target = String(product.id).trim();
+
+    // Blindaje y persistencia para dropi_product_id:
+    const incomingDropi = product.dropi_product_id !== undefined && product.dropi_product_id !== null && String(product.dropi_product_id).trim() !== ''
+      ? String(product.dropi_product_id).trim()
+      : ((product as any).dropiProductId !== undefined && (product as any).dropiProductId !== null && String((product as any).dropiProductId).trim() !== ''
+        ? String((product as any).dropiProductId).trim()
+        : '');
+
+    const backupMap = dropiBackupService.getBackupMap();
+    const existing = this.data.products.find(p => String(p.id).trim() === target);
+    const existingDropi = existing?.dropi_product_id ? String(existing.dropi_product_id).trim() : (backupMap[target] || '');
+
+    const finalDropi = incomingDropi || existingDropi;
+    if (finalDropi) {
+      dropiBackupService.saveDropiId(target, finalDropi);
+    }
+
     const index = this.data.products.findIndex(p => String(p.id).trim() === target);
     const updatedProduct = {
       ...product,
+      dropi_product_id: finalDropi,
+      dropiProductId: finalDropi,
       updatedAt: new Date().toISOString()
     };
     if (index >= 0) {
@@ -1267,6 +1325,8 @@ class DatabaseStore {
   mergeRemoteProducts(remoteProducts: Product[]): void {
     if (!remoteProducts || !Array.isArray(remoteProducts) || remoteProducts.length === 0) return;
     const deleted = new Set((this.data.deletedProductIds || []).map(id => String(id).trim()));
+    const backupMap = dropiBackupService.getBackupMap();
+
     for (const remote of remoteProducts) {
       if (isTestProduct(remote)) {
         continue;
@@ -1284,16 +1344,29 @@ class DatabaseStore {
 
         const finalDropiId = (remote.dropi_product_id && String(remote.dropi_product_id).trim().length > 0)
           ? String(remote.dropi_product_id).trim()
-          : (existing.dropi_product_id || '');
+          : (existing.dropi_product_id ? String(existing.dropi_product_id).trim() : (backupMap[targetRemoteId] || ''));
+
+        if (finalDropiId) {
+          dropiBackupService.saveDropiId(String(targetRemoteId), String(finalDropiId));
+        }
 
         this.data.products[idx] = {
           ...existing,
           ...remote,
           images: finalImages.length > 0 ? finalImages : existingImages,
-          dropi_product_id: finalDropiId
+          dropi_product_id: finalDropiId,
+          dropiProductId: finalDropiId
         };
       } else {
-        this.data.products.unshift(remote);
+        const dId = remote.dropi_product_id ? String(remote.dropi_product_id).trim() : (backupMap[targetRemoteId] || '');
+        if (dId) {
+          dropiBackupService.saveDropiId(targetRemoteId, dId);
+        }
+        this.data.products.unshift({
+          ...remote,
+          dropi_product_id: dId,
+          dropiProductId: dId
+        });
       }
     }
   }
