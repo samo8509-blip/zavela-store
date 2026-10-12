@@ -318,7 +318,7 @@ router.get('/product/:id', async (req, res) => {
    // Extraer identificador limpio
     const parsed = parseDropiUrlOrId(rawParam);
     const cleanId = parsed ? parsed.id : rawParam.replace(/^DROPI-/i, '').trim();
-    const HARDCODED_DROPI_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBwLmRyb3BpLmNvOjgwliwiaWF0IjoxNzkxMjEzOTQ0LCJleHAiOjQ5NDY4ODc1NDQslm5iZiI6MTc5MTIxMzk0NCwianRjIoiWHVDWTIxd05Gc0xPdDIDQilsInN1Yil6IjewMTk3NzciLCJwcnYiOiI4N2UwYWYxZWY5ZmQxNTgxMmZkZWM5NzE1M2ExNGUwYjA0NzU0NmFhliwiYXVkIjoiliwidG9rZW5fdHlwZSI6IkIOVEVHUkFUSU9OUyIsIndiX2IkljoxLCJpbnRIZ3JhdGlvbl9oZXBlljpudWxsLCJpbnRIZ3JhdGlvbl9oEXBlX2Ikljo4NDksImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6IliJ9.k3S1Pen-ALPUemNX-CKRTEQDGnAg__Pfg4MAJGFHyhU';
+   const HARDCODED_DROPI_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBwLmRyb3BpLmNvOjgwIiwiaWF0IjoxNzkxODIyNDcyLCJleHAiOjQ5NDc0OTYwNzIsIm5iZiI6MTc5MTgyMjQ3MiwianRpIjoiYXlQVEczQ3EwcnRqRGpQZCIsInN1YiI6IjEwMTk3NzciLCJwcnYiOiI4N2UwYWYxZWY5ZmQxNTgxMmZkZWM5NzE1M2ExNGUwYjA0NzU0NmFhIiwiYXVkIjoiV09PQ09NRVJDRSIsInRva2VuX3R5cGUiOiJJTlRFR1JBVElPTlMiLCJ3Yl9pZCI6MSwiaW50ZWdyYXRpb25fdHlwZSI6IldPT0NPTUVSQ0UiLCJpbnRlZ3JhdGlvbl90eXBlX2lkIjoxLCJpcF91cmwiOltdLCJpbnRlZ3JhdGlvbl91cmwiOiJodHRwczovL3phdmVsYXN0b3JlLmNvbS5jbyJ9.c0UWt4OmXYenExJObrtKqnwgJrVjhcMo1otii90hEus';
     const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN || HARDCODED_DROPI_TOKEN;
 
     // 1. Si existe token de Dropi, consultar la API oficial de Dropi Colombia con diagnóstico detallado
@@ -339,12 +339,13 @@ router.get('/product/:id', async (req, res) => {
 
        const response = await fetch(endpoint, {
           headers: {
-            'Authorization': `Bearer ${HARDCODED_DROPI_TOKEN}`,
-            'token': HARDCODED_DROPI_TOKEN,
-            'dropi-token': HARDCODED_DROPI_TOKEN,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
+          'dropi-integration-key': HARDCODED_DROPI_TOKEN,
+          'Authorization': `Bearer ${HARDCODED_DROPI_TOKEN}`,
+          'token': HARDCODED_DROPI_TOKEN,
+          'dropi-token': HARDCODED_DROPI_TOKEN,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
           signal: controller.signal
         });
         clearTimeout(timeout);
