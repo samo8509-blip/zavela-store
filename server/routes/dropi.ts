@@ -335,33 +335,34 @@ router.get('/product/:id', async (req, res) => {
           try {
             console.log(`[Dropi API Detail] Consultando: ${endpoint}`);
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 6000);
+           const timeout = setTimeout(() => controller.abort(), 6000);
 
+       const response = await fetch(endpoint, {
           headers: {
-          'Authorization': token.trim().startsWith('Bearer ') ? token.trim() : `Bearer ${token.trim()}`,
-          'token': token.trim(),
-          'dropi-token': token.trim(),
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-              signal: controller.signal
-            });
-            clearTimeout(timeout);
+            'Authorization': `Bearer ${HARDCODED_DROPI_TOKEN}`,
+            'token': HARDCODED_DROPI_TOKEN,
+            'dropi-token': HARDCODED_DROPI_TOKEN,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
 
-            if (!response.ok) {
-              const errText = await response.text();
-              console.error(`[Dropi API Detail Error] HTTP ${response.status} en ${endpoint}. Respuesta exacta: ${errText}`);
-              if (response.status === 401 || response.status === 403) {
-                return res.status(response.status).json({
-                  success: false,
-                  error: "TOKEN_ERROR",
-                  message: "Falta configurar o renovar el token de Dropi en el archivo .env",
-                  dropi_status: response.status,
-                  dropi_response: errText
-                });
-              }
-              continue;
-            }
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error(`[Dropi API Detail Error] HTTP ${response.status} en ${endpoint}. Respuesta exacta: ${errText}`);
+          if (response.status === 401 || response.status === 403) {
+            return res.status(response.status).json({
+              success: false,
+              error: "TOKEN_ERROR",
+              message: "Falta configurar o renovar el token de Dropi en el archivo .env",
+              dropi_status: response.status,
+              dropi_response: errText
+            });
+          }
+          continue;
+        }
 
             const resJson: any = await response.json();
             const productData = resJson.data || resJson.product || resJson.result || resJson;
