@@ -21,6 +21,22 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
+// Circuit breaker for Gemini quota rate limits (429 / RESOURCE_EXHAUSTED)
+let geminiQuotaCooldownUntil = 0;
+
+function isGeminiInCooldown(): boolean {
+  return Date.now() < geminiQuotaCooldownUntil;
+}
+
+function triggerGeminiCooldown(err: any): void {
+  const errMsg = String(err?.message || err || '');
+  const status = err?.status || err?.code;
+  if (status === 429 || status === 'RESOURCE_EXHAUSTED' || errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+    geminiQuotaCooldownUntil = Date.now() + 10 * 60 * 1000;
+    console.info('[AI Cooldown]: Límite de cuota Gemini detectado (429). Activando motor algorítmico de alto rendimiento sin interrupciones durante 10 minutos.');
+  }
+}
+
 // Format phone number to clean WhatsApp international standard (e.g. 573151234567)
 function formatWhatsAppNumber(phone?: string): string {
   if (!phone) return '573157894512';
@@ -441,8 +457,8 @@ En el momento oportuno, refuerza la confianza de compra destacando:
 
     const aiClient = getGeminiClient();
 
-    // If Gemini client is available, execute with exact Prompt instructions
-    if (aiClient) {
+    // If Gemini client is available and not in cooldown, execute with exact Prompt instructions
+    if (aiClient && !isGeminiInCooldown()) {
       try {
         const catalogSummary = candidateProducts.slice(0, 35).map(p => ({
           id: p.id,
@@ -537,7 +553,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
         });
 
         const response = await aiClient.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: 'gemini-2.5-flash',
           contents: formattedContents,
           config: {
             systemInstruction,
@@ -576,7 +592,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 
           return res.json({
             success: true,
-            provider: 'gemini-3.8-flash',
+            provider: 'gemini-2.5-flash',
             reply: parsedResponse.reply,
             recommendedProducts: finalProducts,
             recommendedProductIds: finalIds,
@@ -587,7 +603,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
           });
         }
       } catch (geminiError: any) {
-        console.warn('Gemini API call fallback to pre-designed Sofia engine:', geminiError?.message || geminiError);
+        triggerGeminiCooldown(geminiError);
       }
     }
 
@@ -1004,10 +1020,10 @@ async function handleCommerceMind(req: any, res: any) {
 
     const aiClient = getGeminiClient();
 
-    if (aiClient) {
+    if (aiClient && !isGeminiInCooldown()) {
       try {
         const response = await aiClient.models.generateContent({
-          model: 'gemini-3.8-flash',
+          model: 'gemini-2.5-flash',
           contents: [
             {
               role: 'user',
@@ -1046,7 +1062,7 @@ async function handleCommerceMind(req: any, res: any) {
           // If structure is slightly off, fallback gracefully to strict schema
         }
       } catch (geminiError: any) {
-        console.warn('CommerceMind Gemini API call error, falling back to algorithmic engine:', geminiError?.message || geminiError);
+        triggerGeminiCooldown(geminiError);
       }
     }
 

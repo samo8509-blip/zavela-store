@@ -77,6 +77,12 @@ import {
 } from './utils/customerAuthManager.ts';
 import { CustomerAuthModal } from './components/CustomerAuthModal.tsx';
 import { CustomerProfileModal } from './components/CustomerProfileModal.tsx';
+import { 
+  extractProductIdentifierFromUrl, 
+  resolveProductMatch, 
+  fetchProductDirectlyFromApi 
+} from './utils/productUrlResolver.ts';
+import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 
 export default function App() {
   // Navigation State
@@ -219,40 +225,112 @@ export default function App() {
     }
   }, []);
 
-  // Check URL parameters for direct social media link or closing link with ruleta
-  const hasCheckedUrlParams = useRef(false);
-  useEffect(() => {
-    if (products.length === 0 || hasCheckedUrlParams.current) return;
-    hasCheckedUrlParams.current = true;
+  // Product Deep Linking State & Social Media Route Handling
+  const [isProductNotFoundOpen, setIsProductNotFoundOpen] = useState(false);
+  const [notFoundSearchTerm, setNotFoundSearchTerm] = useState('');
+  const [isLoadingDirectProduct, setIsLoadingDirectProduct] = useState(false);
+  const hasProcessedInitialProductRoute = useRef(false);
 
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const targetProductId = params.get('product') || params.get('p');
-      const ruletaParam = params.get('ruleta') || params.get('cierre') || params.get('descuento');
+  const processProductDeepLink = useCallback(async (catalog: Product[]) => {
+    const routeInfo = extractProductIdentifierFromUrl();
+    if (!routeInfo.isProductRoute || !routeInfo.identifier) return;
 
-      const isRuletaClosing = ruletaParam === 'true' || ruletaParam === '1';
-      if (isRuletaClosing) {
-        setIsSocialClosingLink(true);
+    if (routeInfo.isRuletaClosing) {
+      setIsSocialClosingLink(true);
+    }
+
+    // 1. Intentar resolver de inmediato con el catálogo en memoria (coincidencia slug, id o palabras clave)
+    let matched = resolveProductMatch(routeInfo.identifier, catalog);
+
+    // 2. Si no se encuentra en memoria, consultar directamente la API backend
+    if (!matched) {
+      setIsLoadingDirectProduct(true);
+      matched = await fetchProductDirectlyFromApi(routeInfo.identifier);
+      setIsLoadingDirectProduct(false);
+
+      if (matched) {
+        setProducts(prev => {
+          if (!prev.some(p => p.id === matched!.id)) {
+            return [matched!, ...prev];
+          }
+          return prev;
+        });
       }
+    }
 
-      if (targetProductId) {
-        const found = products.find(p => p.id === targetProductId || p.slug === targetProductId);
+    if (matched) {
+      setIsProductNotFoundOpen(false);
+      setSelectedProduct(matched);
+      trackProductVisit(matched);
+
+      if (routeInfo.isRuletaClosing) {
+        setTimeout(() => {
+          openLuckyWheel('social_closing');
+        }, 1200);
+      }
+    } else {
+      // Solo si el producto definitivamente no existe en la base de datos o catálogo local
+      setIsProductNotFoundOpen(true);
+      setNotFoundSearchTerm(routeInfo.identifier);
+    }
+  }, [trackProductVisit, openLuckyWheel]);
+
+  useEffect(() => {
+    if (products.length === 0) return;
+    if (!hasProcessedInitialProductRoute.current) {
+      hasProcessedInitialProductRoute.current = true;
+      processProductDeepLink(products);
+    }
+  }, [products, processProductDeepLink]);
+
+  // Manejador del botón Atrás/Adelante del navegador (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const routeInfo = extractProductIdentifierFromUrl();
+      if (routeInfo.isProductRoute && routeInfo.identifier) {
+        const found = resolveProductMatch(routeInfo.identifier, products);
         if (found) {
           setSelectedProduct(found);
-          trackProductVisit(found);
-
-          if (isRuletaClosing) {
-            // Auto open lucky wheel after 1.5 seconds for social closing link
-            setTimeout(() => {
-              openLuckyWheel('social_closing');
-            }, 1200);
-          }
+          setIsProductNotFoundOpen(false);
+        } else {
+          processProductDeepLink(products);
         }
+      } else {
+        setSelectedProduct(null);
+        setIsProductNotFoundOpen(false);
       }
-    } catch (e) {
-      console.warn('Error reading URL params:', e);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products, processProductDeepLink]);
+
+  const handleSelectProduct = useCallback((p: Product) => {
+    setSelectedProduct(p);
+    trackProductVisit(p);
+    setIsProductNotFoundOpen(false);
+    if (typeof window !== 'undefined') {
+      const slug = p.slug || p.id;
+      window.history.pushState(null, '', `/producto/${encodeURIComponent(slug)}`);
     }
-  }, [products, trackProductVisit, openLuckyWheel]);
+  }, [trackProductVisit]);
+
+  const handleCloseProductDetail = useCallback(() => {
+    setSelectedProduct(null);
+    if (typeof window !== 'undefined') {
+      const routeInfo = extractProductIdentifierFromUrl();
+      if (routeInfo.isProductRoute) {
+        window.history.pushState(null, '', '/');
+      }
+    }
+  }, []);
+
+  const handleCloseProductNotFound = useCallback(() => {
+    setIsProductNotFoundOpen(false);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/');
+    }
+  }, []);
 
   const handleApplyDiscountAndBuy = (product: Product, coupon: ActiveDiscountCoupon) => {
     setAppliedDiscountCoupon(coupon);

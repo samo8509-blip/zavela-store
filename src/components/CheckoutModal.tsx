@@ -338,36 +338,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {/* Free Shipping Notification Banner / Progress Bar */}
+        {/* Modalidad A: Free Shipping Notification Banner */}
         <div className="px-4 sm:px-6 py-2.5 bg-slate-100 border-b border-slate-200">
-          {shippingCalculation.isFreeShipping ? (
-            <div className="flex items-center justify-between gap-2 text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
-                <span>¡Felicidades! Calificas para <strong>ENVÍO 100% GRATIS</strong> a {formData.city}, {formData.department}</span>
-              </div>
-              <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold shadow-2xs">
-                ¡Ahorras {formatCOP(shippingCalculation.baseRate)}!
+          <div className="flex items-center justify-between gap-2 text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
+              <span className="truncate">
+                ¡Felicidades! Tu compra incluye <strong>ENVÍO GRATIS NACIONAL ($0 COP)</strong> a {formData.city ? `${formData.city}, ${formData.department}` : 'toda Colombia'}
               </span>
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-700 font-medium">
-                  🚚 <strong>1 producto tiene flete ({formatCOP(shippingCalculation.baseRate)})</strong>. ¡Lleva <strong>2 productos o más</strong> y tu envío es <strong>TOTALMENTE GRATIS</strong>!
-                </span>
-                <span className="font-bold text-emerald-700 text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
-                  2+ prods = $0 Flete
-                </span>
-              </div>
-              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-sky-500 to-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(100, Math.round(Math.max((subtotal / freeShippingThreshold) * 100, (cartItems.reduce((s, i) => s + i.quantity, 0) / 2) * 100)))}%` }}
-                />
-              </div>
-            </div>
-          )}
+            <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold shadow-2xs shrink-0">
+              $0 Flete
+            </span>
+          </div>
         </div>
 
         {/* Scrollable Form */}
@@ -759,26 +742,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               )}
 
               {/* Dynamic Shipping Breakdown Line */}
-              <div className="flex justify-between items-center py-1 bg-white px-2.5 rounded-xl border border-slate-200">
+              <div className="flex justify-between items-center py-1.5 bg-white px-2.5 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-slate-500" />
+                  <Truck className="w-3.5 h-3.5 text-emerald-600" />
                   <span className="font-bold text-slate-800">Costo de Envío ({shippingCalculation.zoneShortName}):</span>
                 </div>
-                <div>
-                  {shippingCalculation.isFreeShipping ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400 line-through text-[11px] font-mono">
-                        {formatCOP(shippingCalculation.baseRate)}
-                      </span>
-                      <span className="font-extrabold text-xs text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
-                        ¡GRATIS!
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="font-mono font-bold text-slate-900">
-                      {formatCOP(shippingCalculation.finalRate)}
-                    </span>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 line-through text-[11px] font-mono">
+                    {formatCOP(shippingCalculation.baseRate > 0 ? shippingCalculation.baseRate : 16500)}
+                  </span>
+                  <span className="font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
+                    ¡GRATIS! ($0 COP)
+                  </span>
                 </div>
               </div>
 

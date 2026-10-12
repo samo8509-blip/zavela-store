@@ -48,20 +48,21 @@ export const ProductShareModal: React.FC<ProductShareModalProps> = ({
     }
   }, [initialMode, isLuckyWheelEnabled, product?.id]);
 
-  // Build full canonical product URL (with or without ruleta parameter)
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://zavelastore.com';
+  // Build full canonical product URL (with clean /producto/:slug route)
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://zavelastore.com.co';
+  const slugOrId = product.slug || product.id;
   const isRuletaMode = selectedCustomMessage === 'ruleta_closing';
   const activeProductUrl = isRuletaMode 
-    ? `${baseUrl}/?product=${product.id}&ruleta=true` 
-    : `${baseUrl}/?product=${product.id}`;
+    ? `${baseUrl}/producto/${slugOrId}?ruleta=true` 
+    : `${baseUrl}/producto/${slugOrId}`;
   const priceFormatted = formatCOP(product.price);
 
   // Customized share messages depending on customer intent
   const messageVariants = {
-    recommend: `🔥 ¡Mira este producto que encontré en Zavela Store! 🇨🇴\n\n📦 *${product.title}*\n💰 *Precio:* ${priceFormatted} COP\n🚚 *¡Pagas al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ Garantía oficial de 30 días.\n\n👉 Míralo aquí: ${baseUrl}/?product=${product.id}`,
-    gift: `🎁 ¡Mira esta excelente idea de regalo en Zavela Store!\n\n✨ *${product.title}*\n💵 *Solo:* ${priceFormatted} COP\n🚚 Envío a toda Colombia con pago contra entrega.\n\n👇 Entra al enlace para ver fotos y detalles: ${baseUrl}/?product=${product.id}`,
-    deal: `🚨 ¡OFERTA IMPERDIBLE EN COLOMBIA! 😱\n\n💥 *${product.title}* por solo *${priceFormatted}*\n📦 Recibes en la puerta de tu casa y pagas seguro al mensajero.\n\n🏃💨 Pídelo antes de que se agote: ${baseUrl}/?product=${product.id}`,
-    ruleta_closing: `🔥 ¡Hola! Te comparto tu enlace de compra exclusivo para *${product.title}* con Ruleta de Descuentos 🇨🇴📦\n\n💰 *Precio Catálogo:* ${priceFormatted} COP\n🚚 *¡Pagas seguro en efectivo al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ *Garantía oficial de 30 días.*\n🎁 *¡Gira la Ruleta en el enlace y desbloquea entre 5% y 15% OFF de regalo para tu pedido!*\n\n👉 Entra aquí, gira tu ruleta y pide contra entrega: ${baseUrl}/?product=${product.id}&ruleta=true`
+    recommend: `🔥 ¡Mira este producto que encontré en Zavela Store! 🇨🇴\n\n📦 *${product.title}*\n💰 *Precio:* ${priceFormatted} COP\n🚚 *¡Pagas al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ Garantía oficial de 30 días.\n\n👉 Míralo aquí: ${baseUrl}/producto/${slugOrId}`,
+    gift: `🎁 ¡Mira esta excelente idea de regalo en Zavela Store!\n\n✨ *${product.title}*\n💵 *Solo:* ${priceFormatted} COP\n🚚 Envío a toda Colombia con pago contra entrega.\n\n👇 Entra al enlace para ver fotos y detalles: ${baseUrl}/producto/${slugOrId}`,
+    deal: `🚨 ¡OFERTA IMPERDIBLE EN COLOMBIA! 😱\n\n💥 *${product.title}* por solo *${priceFormatted}*\n📦 Recibes en la puerta de tu casa y pagas seguro al mensajero.\n\n🏃💨 Pídelo antes de que se agote: ${baseUrl}/producto/${slugOrId}`,
+    ruleta_closing: `🔥 ¡Hola! Te comparto tu enlace de compra exclusivo para *${product.title}* con Ruleta de Descuentos 🇨🇴📦\n\n💰 *Precio Catálogo:* ${priceFormatted} COP\n🚚 *¡Pagas seguro en efectivo al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ *Garantía oficial de 30 días.*\n🎁 *¡Gira la Ruleta en el enlace y desbloquea entre 5% y 15% OFF de regalo para tu pedido!*\n\n👉 Entra aquí, gira tu ruleta y pide contra entrega: ${baseUrl}/producto/${slugOrId}?ruleta=true`
   };
 
   const currentMessage = messageVariants[selectedCustomMessage];

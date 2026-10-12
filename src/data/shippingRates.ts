@@ -179,10 +179,9 @@ export interface CalculateShippingOptions {
 }
 
 /**
- * Calcula el costo de envío dinámico con la regla clave:
- * - 1 producto individual: Paga el flete de su zona logística ($11.000 / $16.500 / $28.000 COP)
- * - 2 o más productos: ¡ENVÍO 100% GRATIS A TODO EL PAÍS! (Incentivo de alto impacto comercial)
- * - También aplica si un producto individual tiene envío gratis activado o supera el monto mínimo.
+ * Calcula el costo de envío dinámico estandarizado en Modalidad A:
+ * ¡ENVÍO GRATIS NACIONAL ($0 COP) EN TODAS LAS COMPRAS!
+ * Garantiza flete $0 COP a cualquier municipio de Colombia sin importar la cantidad.
  */
 export function calculateShippingCost({
   department,
@@ -190,7 +189,7 @@ export function calculateShippingCost({
   cartItems = [],
   subtotal,
   totalQuantity,
-  freeShippingThreshold = 120000,
+  freeShippingThreshold = 0,
   customRates
 }: CalculateShippingOptions): ShippingCalculationResult {
   const zone = getShippingZoneForLocation(department, city);
@@ -202,61 +201,18 @@ export function calculateShippingCost({
     ? totalQuantity 
     : cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
-  // 1. REGLA PRINCIPAL DE CONVERSIÓN: 2 o más productos en el carrito = ENVÍO GRATIS
-  const isMultiItemFreeShipping = actualTotalQuantity >= 2;
+  // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
+  const isFreeShipping = true;
+  const freeShippingReason: 'multi_item_bundle' | 'cart_threshold' | 'product_free_shipping' | null = 'product_free_shipping';
+  const finalRate = 0;
 
-  // 2. Validar si algún producto en el carrito tiene envío gratis activado de fábrica
-  const hasProductWithFreeShipping = cartItems.some(item => {
-    const p = item.product as any;
-    return p?.freeShipping === true || p?.envioGratis === true;
-  });
+  // Etiqueta descriptiva oficial de beneficio
+  const badgeText = `¡Envío GRATIS Nacional Incluido! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`;
+  const badgeColor: 'emerald' | 'sky' | 'amber' | 'indigo' | 'orange' = 'emerald';
 
-  // 3. Validar si se superó el umbral de compra mínima por monto ($120.000 COP)
-  const isThresholdMet = subtotal >= freeShippingThreshold && subtotal > 0;
-
-  let isFreeShipping = false;
-  let freeShippingReason: 'multi_item_bundle' | 'cart_threshold' | 'product_free_shipping' | null = null;
-  let finalRate = baseRate;
-
-  if (isMultiItemFreeShipping) {
-    isFreeShipping = true;
-    freeShippingReason = 'multi_item_bundle';
-    finalRate = 0;
-  } else if (isThresholdMet) {
-    isFreeShipping = true;
-    freeShippingReason = 'cart_threshold';
-    finalRate = 0;
-  } else if (hasProductWithFreeShipping) {
-    isFreeShipping = true;
-    freeShippingReason = 'product_free_shipping';
-    finalRate = 0;
-  }
-
-  // Generar etiqueta descriptiva
-  let badgeText = '';
-  let badgeColor: 'emerald' | 'sky' | 'amber' | 'indigo' | 'orange' = 'sky';
-
-  if (isFreeShipping) {
-    if (freeShippingReason === 'multi_item_bundle') {
-      badgeText = `¡Envío GRATIS por llevar 2+ productos! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`;
-    } else {
-      badgeText = `¡Envío GRATIS aplicado! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`;
-    }
-    badgeColor = 'emerald';
-  } else if (zone.id === 'zona_1') {
-    badgeText = `Envío 1 Producto (Local / Principal): $${baseRate.toLocaleString('es-CO')} COP`;
-    badgeColor = 'sky';
-  } else if (zone.id === 'zona_2') {
-    badgeText = `Envío 1 Producto (Nacional Estándar): $${baseRate.toLocaleString('es-CO')} COP`;
-    badgeColor = 'indigo';
-  } else {
-    badgeText = `Envío 1 Producto (Zona Especial): $${baseRate.toLocaleString('es-CO')} COP`;
-    badgeColor = 'amber';
-  }
-
-  const amountNeededForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
-  const itemsNeededForFreeShipping = Math.max(0, 2 - actualTotalQuantity);
-  const savingsCOP = isFreeShipping ? baseRate : 0;
+  const amountNeededForFreeShipping = 0;
+  const itemsNeededForFreeShipping = 0;
+  const savingsCOP = baseRate > 0 ? baseRate : 16500;
 
   return {
     zoneId: zone.id,
@@ -273,7 +229,7 @@ export function calculateShippingCost({
     badgeText,
     badgeColor,
     daneCode,
-    freeShippingThreshold,
+    freeShippingThreshold: 0,
     amountNeededForFreeShipping,
     savingsCOP
   };

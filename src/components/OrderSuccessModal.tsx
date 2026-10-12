@@ -123,6 +123,12 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
               <span className="text-slate-600">Dirección:</span>
               <span className="font-bold text-slate-900 text-right max-w-[200px] truncate">{order.address}</span>
             </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Flete de Envío:</span>
+              <span className="font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
+                ¡GRATIS! ($0 COP)
+              </span>
+            </div>
             <div className="flex justify-between pt-2 border-t border-slate-200">
               <span className="text-slate-600">Método de Pago:</span>
               <span className="font-black text-sky-700 uppercase">

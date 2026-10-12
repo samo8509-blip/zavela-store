@@ -1172,11 +1172,45 @@ class DatabaseStore {
   }
 
   getProductById(idOrSlug: string): Product | undefined {
+    if (!idOrSlug) return undefined;
     const target = String(idOrSlug).trim();
     if (this.isProductDeleted(target)) return undefined;
-    const found = this.data.products.find(p => String(p.id).trim() === target || p.slug === target || (p as any).productId === target);
-    if (found && isTestProduct(found)) return undefined;
-    return found;
+
+    const lowerTarget = target.toLowerCase();
+
+    // 1. Coincidencia directa exacta por ID o Slug
+    const found = this.data.products.find(p => 
+      String(p.id).trim() === target || 
+      p.slug === target || 
+      String(p.id).trim().toLowerCase() === lowerTarget ||
+      (p.slug && p.slug.trim().toLowerCase() === lowerTarget) ||
+      String((p as any).productId || '').trim() === target
+    );
+    if (found && !isTestProduct(found)) return found;
+
+    // 2. Coincidencia normalizada (sin tildes, con guiones)
+    const norm = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const normTarget = norm(target);
+
+    const normFound = this.data.products.find(p => 
+      norm(p.slug || '') === normTarget || 
+      norm(p.id || '') === normTarget || 
+      norm(p.title || '') === normTarget
+    );
+    if (normFound && !isTestProduct(normFound)) return normFound;
+
+    // 3. Coincidencia por palabras clave ("lamparas-unas-48-w" -> coincidencia de palabras)
+    const words = normTarget.split('-').filter(w => w.length > 2);
+    if (words.length > 0) {
+      const wordMatch = this.data.products.find(p => {
+        const normTitle = norm(p.title || '');
+        const normSlug = norm(p.slug || '');
+        return words.every(w => normTitle.includes(w) || normSlug.includes(w));
+      });
+      if (wordMatch && !isTestProduct(wordMatch)) return wordMatch;
+    }
+
+    return undefined;
   }
 
   saveProduct(product: Product): Product {

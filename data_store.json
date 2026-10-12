@@ -270,9 +270,9 @@
       "slug": "enterizo-short-realce-pro",
       "description": "? Características:\n? Tela Suplex de Alta Calidad: Elasticidad, ajuste perfecto y comodidad total.\n? Diseño con Espalda Descubierta y Fruncido Trasero: Resalta y moldea la figura.\n? Corte Deportivo con Short Ceñido: Ideal para entrenamientos o looks sport-chic.\n? Cintura Alta con Efecto Moldeador: Define la silueta y estiliza.\n? Perfecto para Gym, Athleisure y Uso Diario.",
       "shortDescription": "",
-      "price": 72100,
+      "price": 62100,
       "costPrice": 0,
-      "stock": 25,
+      "stock": 24,
       "active": true,
       "featured": false,
       "images": [
@@ -284,7 +284,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:39:47",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:08.678Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791674972170",
@@ -306,7 +309,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:29:33",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791674725014",
@@ -314,7 +320,7 @@
       "slug": "lamparasolar-luzled-recargabl-sincontrol",
       "description": "Proyector de Energía Solar Lampara de pared Jardín al aire libre la seguridad de la noche de luces LED de movimiento Solar en el exterior de la luz solar para el hogar Especificaciones: Modo de iluminación de botón: 1: modo off, 2, 1 archivos: Algunas personas se iluminan los reflejos durante 15-30 segundos, entonces nadie las luces apagadas. 3, 2 archivos: Algunas personas se encienda la luz durante 15-30 segundos, luego la luz no tripulado es siempre y débil. 4, 3 archivos: Algunas personas no son, y la débil luz es siempre.\n\nLampara Solar Luz Led recargable Sin Control",
       "shortDescription": "",
-      "price": 90900,
+      "price": 91000,
       "costPrice": 0,
       "stock": 25,
       "active": true,
@@ -328,7 +334,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:25:25",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791674443405",
@@ -350,7 +359,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:20:43",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791674025116",
@@ -372,7 +384,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:13:45",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791673839092",
@@ -394,7 +409,10 @@
       "categoryName": "Catálogo",
       "dropi_product_id": "",
       "createdAt": "2026-10-10 18:10:39",
-      "updatedAt": "2026-10-11T15:26:54.964Z"
+      "updatedAt": "2026-10-12T13:27:03.894Z",
+      "warrantyInfo": "30 días de garantía oficial",
+      "warehouseCity": "Bogotá D.C.",
+      "brand": "Zavela"
     },
     {
       "id": "prod-1791672177862",
@@ -402,7 +420,7 @@
       "name": "Lamparas Unas 48 W",
       "nombre": "Lamparas Unas 48 W",
       "slug": "lamparas-unas-48-w",
-      "price": 90700,
+      "price": 80000,
       "precio": 90700,
       "costPrice": 0,
       "compareAtPrice": 0,
@@ -427,7 +445,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 17:42:57",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -463,7 +481,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 10:56:33",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -499,7 +517,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-06 12:11:54",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -535,7 +553,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-10 10:56:28",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -571,7 +589,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-07 19:00:04",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -609,7 +627,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-06 15:13:30",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -645,7 +663,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-06 11:58:56",
-      "updatedAt": "2026-10-11T15:26:54.963Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -681,7 +699,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:52:43",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -717,7 +735,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-10 18:05:09",
-      "updatedAt": "2026-10-11T15:26:54.964Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -753,7 +771,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:39:10",
-      "updatedAt": "2026-10-11T15:26:54.963Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -789,7 +807,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:36:51",
-      "updatedAt": "2026-10-11T15:26:54.963Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -825,7 +843,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela",
       "createdAt": "2026-10-05 17:35:02",
-      "updatedAt": "2026-10-11T15:26:54.963Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -907,7 +925,7 @@
       "categoryName": "Catálogo",
       "brand": "Zavela Store",
       "createdAt": "2026-10-11 09:11:33",
-      "updatedAt": "2026-10-11T15:27:04.180Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -983,7 +1001,7 @@
       "categoryName": "Catálogo",
       "brand": "Dewalt / Zavela Store",
       "createdAt": "2026-10-06 11:34:08",
-      "updatedAt": "2026-10-11T15:26:54.963Z",
+      "updatedAt": "2026-10-12T13:27:03.894Z",
       "warrantyInfo": "30 días de garantía oficial",
       "warehouseCity": "Bogotá D.C.",
       "tags": []
@@ -1027,8 +1045,59 @@
       "tags": []
     }
   ],
-  "orders": [],
+  "orders": [
+    {
+      "id": "ord-1791811628677",
+      "orderNumber": "NV-9311",
+      "customerName": "Carlos Gomez",
+      "customerPhone": "3101234567",
+      "customerEmail": "3101234567@zavelastore.co",
+      "department": "Antioquia",
+      "city": "Medellin",
+      "address": "Calle 10 # 40-20",
+      "subtotal": 62100,
+      "shippingCost": 0,
+      "shippingZone": "Zona 1 (Local / Principales)",
+      "total": 62100,
+      "productCostTotal": 0,
+      "grossMargin": 62100,
+      "paymentMethod": "contra_entrega",
+      "paymentStatus": "CASH_ON_DELIVERY",
+      "status": "PENDIENTE_REVISION",
+      "stock_deducted": true,
+      "carrier": "Servientrega",
+      "dane_code": "05001",
+      "items": [
+        {
+          "id": "item-1791811628680-nbf8",
+          "orderId": "ord-1791811628677",
+          "productId": "prod-1791675587239",
+          "title": "Enterizo Short Realce Pro",
+          "quantity": 1,
+          "unitPrice": 62100,
+          "unitCost": 0,
+          "subtotal": 62100,
+          "image": "https://d39ru7awumhhs2.cloudfront.net/colombia/products/1669461/1769283648image%20(4).png"
+        }
+      ],
+      "createdAt": "2026-10-12T13:27:08.693Z",
+      "updatedAt": "2026-10-12T13:27:08.693Z"
+    }
+  ],
   "customers": [
+    {
+      "id": "cust-1791811628693",
+      "firstName": "Carlos",
+      "lastName": "Gomez",
+      "email": "3101234567@zavelastore.co",
+      "phone": "3101234567",
+      "department": "Antioquia",
+      "city": "Medellin",
+      "address": "Calle 10 # 40-20",
+      "totalOrders": 1,
+      "totalSpent": 62100,
+      "createdAt": "2026-10-12T13:27:08.693Z"
+    },
     {
       "id": "cust-1791732418956",
       "firstName": "Carlos",
@@ -1799,6 +1868,23 @@
     }
   },
   "logs": [
+    {
+      "id": "log-1791811628698-itz0i",
+      "type": "WHATSAPP_ALERT",
+      "action": "Canal Privado Copiloto: Nueva Orden por Aprobar #NV-9311",
+      "details": "Nueva Orden por Aprobar #NV-9311 -> +573008784427. Estado: pending_direct_backup",
+      "status": "info",
+      "createdAt": "2026-10-12T13:27:08.698Z"
+    },
+    {
+      "id": "log-1791811628695-8cjpe",
+      "type": "ORDER_CREATED",
+      "orderId": "ord-1791811628677",
+      "action": "Pedido Registrado (Pendiente Revisión)",
+      "details": "Nuevo pedido NV-9311 registrado por Carlos Gomez - Total: $62,100 COP. Listo para revisión Dropi.",
+      "status": "success",
+      "createdAt": "2026-10-12T13:27:08.695Z"
+    },
     {
       "id": "log-1791732424185-g2krq",
       "type": "WHATSAPP_ALERT",

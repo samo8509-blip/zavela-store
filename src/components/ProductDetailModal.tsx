@@ -898,8 +898,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                     <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-slate-600">
                       <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-                        <Truck className="w-4 h-4 text-slate-500" />
-                        <span className="font-semibold">Envío a toda Colombia</span>
+                        <Truck className="w-4 h-4 text-emerald-600" />
+                        <span className="font-semibold text-emerald-700">Envío Gratis Nacional</span>
                       </div>
                       <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
                         <ShieldCheck className="w-4 h-4 text-slate-500" />

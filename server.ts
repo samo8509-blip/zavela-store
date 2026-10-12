@@ -25,7 +25,7 @@ async function startServer() {
   });
 
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   // Middlewares - Support large image uploads (base64)
   app.use(express.json({ limit: '50mb' }));
@@ -96,7 +96,10 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
+        return next();
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
@@ -113,16 +116,21 @@ async function startServer() {
     console.log(`Zavela Store backend running at http://0.0.0.0:${PORT}`);
   });
 
-  // Si PORT es distinto a 3000 (ej. PORT=5000), mantenemos también el listener en 3000
-  // para garantizar compatibilidad con el entorno de desarrollo y proxy de AI Studio
+  const customPort = process.env.PORT && process.env.PORT !== '3000' && process.env.PORT !== '8080'
+    ? Number(process.env.PORT)
+    : null;
+
   let secondaryServer: any = null;
-  if (PORT !== 3000) {
+  if (customPort && !isNaN(customPort)) {
     try {
-      secondaryServer = app.listen(3000, '0.0.0.0', () => {
-        console.log(`Zavela Store listener en puerto 3000 activo para AI Studio dev proxy.`);
+      secondaryServer = app.listen(customPort, '0.0.0.0', () => {
+        console.log(`Zavela Store custom listener activo en http://0.0.0.0:${customPort}`);
+      });
+      secondaryServer.on('error', (err: any) => {
+        console.warn(`[Port ${customPort} Notice]:`, err?.message || err);
       });
     } catch (e: any) {
-      console.warn('[Port Listener Notice]: Puerto 3000 no disponible:', e?.message || e);
+      console.warn(`[Port ${customPort} Notice]:`, e?.message || e);
     }
   }
 

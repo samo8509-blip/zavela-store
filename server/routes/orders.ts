@@ -472,10 +472,11 @@ router.post('/', async (req, res) => {
       freeShippingThreshold: threshold
     });
 
-    const shippingCost = shippingCalc.finalRate;
+    // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
+    const shippingCost = 0;
     const validDiscountAmount = Math.max(0, Math.min(Number(discountAmount) || 0, subtotal));
-    const total = Math.max(0, subtotal - validDiscountAmount) + shippingCost;
-    const grossMargin = total - productCostTotal - shippingCost;
+    const total = Math.max(0, subtotal - validDiscountAmount);
+    const grossMargin = total - productCostTotal;
 
     const newOrder: Order = {
       id: orderId,

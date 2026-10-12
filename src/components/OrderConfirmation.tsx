@@ -313,6 +313,13 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                 )}
 
                 <div>
+                  <span className="text-slate-400 block text-xs">Costo de Envío:</span>
+                  <span className="font-bold text-emerald-400 block mt-0.5 text-xs">
+                    $0 COP (Envío Gratis Nacional)
+                  </span>
+                </div>
+
+                <div>
                   <span className="text-slate-400 block text-xs">Estado de Transacción:</span>
                   <span className={`font-black uppercase tracking-wider inline-block mt-0.5 ${
                     isApproved ? 'text-emerald-400' : isPending ? 'text-amber-400' : 'text-rose-400'
@@ -326,7 +333,7 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
               {order && (
                 <div className="border-t border-slate-800 pt-3 mt-3 space-y-1.5 text-xs">
                   <div className="flex items-center gap-1.5 font-bold text-slate-300">
-                    <Truck className="w-3.5 h-3.5 text-sky-400" />
+                    <Truck className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Datos de Envío:</span>
                   </div>
                   <p className="text-slate-300">
@@ -334,6 +341,9 @@ export const OrderConfirmation: React.FC<OrderConfirmationProps> = ({
                   </p>
                   <p className="text-slate-300">
                     <strong>Dirección:</strong> {order.address}, {order.city}, {order.department}
+                  </p>
+                  <p className="text-slate-300">
+                    <strong>Flete de Despacho:</strong> <span className="text-emerald-400 font-bold">$0 COP (Envío Gratis Nacional)</span>
                   </p>
                   {order.items && order.items.length > 0 && (
                     <p className="text-slate-400 text-[11px] pt-1">
