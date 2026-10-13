@@ -754,105 +754,10 @@ const DEFAULT_LOGS: SystemLog[] = [
   }
 ];
 
-export const DEFAULT_ADVISORS: Advisor[] = [
-  {
-    id: 'AS-001',
-    name: 'Juan Pérez (Asesor 1)',
-    firstName: 'Juan',
-    lastName: 'Pérez',
-    role: 'advisor',
-    sellerCode: 'VEN-001',
-    username: 'juan.perez',
-    password: 'juan123',
-    phone: '3101234567',
-    email: 'juan.asesor1@zavelastore.com',
-    channel: 'WhatsApp de Ventas',
-    commissionRate: 10,
-    status: 'active',
-    settlementStatus: 'pendiente_liquidacion',
-    notes: 'Asesor principal de ventas directas WhatsApp',
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString()
-  },
-  {
-    id: 'AS-002',
-    name: 'Valentina Morales (Asesora 2)',
-    firstName: 'Valentina',
-    lastName: 'Morales',
-    role: 'advisor',
-    sellerCode: 'VEN-002',
-    username: 'valentina.morales',
-    password: 'valentina123',
-    phone: '3209876543',
-    email: 'valentina.ventas@zavelastore.com',
-    channel: 'WhatsApp de Ventas',
-    commissionRate: 10,
-    status: 'active',
-    settlementStatus: 'al_dia',
-    notes: 'Campañas de video corto TikTok y WhatsApp',
-    createdAt: new Date(Date.now() - 86400000 * 8).toISOString()
-  },
-  {
-    id: 'AS-003',
-    name: 'Carlos Gómez (Asesor 3)',
-    firstName: 'Carlos',
-    lastName: 'Gómez',
-    role: 'advisor',
-    sellerCode: 'VEN-003',
-    username: 'carlos.gomez',
-    password: 'carlos123',
-    phone: '3157891234',
-    email: 'carlos.gomez@zavelastore.com',
-    channel: 'WhatsApp de Ventas',
-    commissionRate: 10,
-    status: 'active',
-    settlementStatus: 'al_dia',
-    notes: 'Atención campañas Meta Ads y referidos',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString()
-  },
-  {
-    id: 'AS-004',
-    name: 'Daniela Ríos (Asesora 4)',
-    firstName: 'Daniela',
-    lastName: 'Ríos',
-    role: 'advisor',
-    sellerCode: 'VEN-004',
-    username: 'daniela.rios',
-    password: 'daniela123',
-    phone: '3184567890',
-    email: 'daniela.rios@zavelastore.com',
-    channel: 'WhatsApp de Ventas',
-    commissionRate: 10,
-    status: 'active',
-    settlementStatus: 'al_dia',
-    notes: 'Cierre de ventas por Instagram y WhatsApp',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString()
-  }
-];
+export const DEFAULT_ADVISORS: Advisor[] = [];
 
-export const DEFAULT_ADVISOR_SALES: AdvisorSale[] = [
-  {
-    id: 'DP-001',
-    orderNumber: 'DP-1001',
-    advisorId: 'AS-001',
-    advisorName: 'Juan (Asesor 1)',
-    advisorChannel: 'WhatsApp Directo / Llamadas',
-    productId: 'prod-2240082',
-    productTitle: 'Reloj Smartwatch Ultra',
-    quantity: 2,
-    unitPrice: 80000,
-    totalAmount: 160000,
-    clientName: 'Carlos Pérez',
-    clientPhone: '3101234567',
-    clientCity: 'Medellín',
-    clientDepartment: 'Antioquia',
-    clientAddress: 'Calle 10 # 40-20 Apto 301',
-    additionalNotes: 'Cliente confirmó despacho contra entrega. Cobrar en efectivo al recibir.',
-    dropiStatus: 'pendiente_bolsa',
-    paymentMethod: 'contra_entrega',
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
+export const DEFAULT_ADVISOR_SALES: AdvisorSale[] = [];
+
 
 export const DEFAULT_SOCIAL_SETTINGS: SocialMarketingSettings = {
   autoPublishOnProductCreate: true,
@@ -1073,8 +978,8 @@ class DatabaseStore {
             customers: parsed.customers || DEFAULT_CUSTOMERS,
             settings: mergedSettings,
             logs: parsed.logs || DEFAULT_LOGS,
-            advisors: parsed.advisors && parsed.advisors.length > 0 ? parsed.advisors : DEFAULT_ADVISORS,
-            advisorSales: parsed.advisorSales && parsed.advisorSales.length > 0 ? parsed.advisorSales : DEFAULT_ADVISOR_SALES,
+            advisors: Array.isArray(parsed.advisors) ? parsed.advisors : [],
+            advisorSales: Array.isArray(parsed.advisorSales) ? parsed.advisorSales : [],
             socialSettings: parsed.socialSettings || DEFAULT_SOCIAL_SETTINGS,
             socialPosts: parsed.socialPosts && parsed.socialPosts.length > 0 ? parsed.socialPosts : DEFAULT_SOCIAL_POSTS
           };
@@ -1097,8 +1002,8 @@ class DatabaseStore {
       customers: DEFAULT_CUSTOMERS,
       settings: DEFAULT_SETTINGS,
       logs: DEFAULT_LOGS,
-      advisors: DEFAULT_ADVISORS,
-      advisorSales: DEFAULT_ADVISOR_SALES,
+      advisors: [],
+      advisorSales: [],
       socialSettings: DEFAULT_SOCIAL_SETTINGS,
       socialPosts: DEFAULT_SOCIAL_POSTS
     };
@@ -2056,15 +1961,25 @@ class DatabaseStore {
   // ==========================================
 
   getAdvisors(): Advisor[] {
-    return this.data.advisors || DEFAULT_ADVISORS;
+    return this.data.advisors || [];
   }
 
   getAdvisorById(id: string): Advisor | undefined {
-    return (this.data.advisors || DEFAULT_ADVISORS).find(a => a.id === id);
+    return (this.data.advisors || []).find(a => a.id === id);
+  }
+
+  saveAllAdvisors(advisors: Advisor[]): void {
+    this.data.advisors = advisors;
+    this.saveData(this.data);
+  }
+
+  saveAllProducts(products: Product[]): void {
+    this.data.products = products;
+    this.saveData(this.data);
   }
 
   saveAdvisor(advisor: Partial<Advisor>): Advisor {
-    if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
+    if (!this.data.advisors) this.data.advisors = [];
     const existingIndex = this.data.advisors.findIndex(a => a.id === advisor.id);
     const existing = existingIndex >= 0 ? this.data.advisors[existingIndex] : null;
     
@@ -2142,7 +2057,7 @@ class DatabaseStore {
   }
 
   deleteAdvisor(id: string): boolean {
-    if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
+    if (!this.data.advisors) this.data.advisors = [];
     if (id === 'admin-master') return false;
     const idx = this.data.advisors.findIndex(a => a.id === id);
     if (idx >= 0) {
@@ -2154,7 +2069,7 @@ class DatabaseStore {
   }
 
   deleteAdvisors(ids: string[]): number {
-    if (!this.data.advisors) this.data.advisors = [...DEFAULT_ADVISORS];
+    if (!this.data.advisors) this.data.advisors = [];
     if (!Array.isArray(ids) || ids.length === 0) return 0;
     const initialCount = this.data.advisors.length;
     const cleanIds = ids.filter(id => id !== 'admin-master');

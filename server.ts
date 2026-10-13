@@ -16,13 +16,19 @@ import dropiRouter from './server/routes/dropi.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
+import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
 
 dotenv.config();
 
 async function startServer() {
   // 1. Auto-migración y verificación de esquema MySQL al iniciar (cero intervención manual)
   await initDatabaseSchema().catch(err => {
-    console.warn('[Server Startup Auto-Migration Warning]:', err.message);
+    console.error('[Server Startup Auto-Migration Error]:', err.message);
+  });
+
+  // 2. Desactivación definitiva de seeders y limpieza de datos demo recurrentes
+  await runCleanupAndDisableSeeders().catch(err => {
+    console.warn('[Server Startup Seeder Cleanup Warning]:', err.message);
   });
 
   const app = express();
