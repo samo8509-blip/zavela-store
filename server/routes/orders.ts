@@ -5,7 +5,7 @@ import { getDaneCode } from '../../src/data/colombiaGeo.ts';
 import { calculateShippingCost } from '../../src/data/shippingRates.ts';
 import { sendSaleNotification, sendLowStockAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
-import { pool } from '../mysqlPool.ts';
+import { pool, nativePool } from '../mysqlPool.ts';
 
 const router = Router();
 
@@ -575,6 +575,119 @@ router.get('/track/:query', (req, res) => {
   }
 });
 
+// GET /api/orders/calendar?date=YYYY-MM-DD - Historical sales calendar & spreadsheet audit
+router.get('/calendar', async (req, res) => {
+  try {
+    const requestedDate = req.query.date as string;
+    const allOrders = db.getOrders();
+    const allProducts = db.getProducts();
+
+    const productMap = new Map<string, any>();
+    allProducts.forEach(p => {
+      productMap.set(p.id, p);
+      if (p.slug) productMap.set(p.slug, p);
+    });
+
+    const getSupplierName = (item: any): string => {
+      if (item.supplier_name) return item.supplier_name;
+      if (item.supplier) return item.supplier;
+      const prod = productMap.get(item.productId);
+      if (prod?.supplier_name) return prod.supplier_name;
+      if (prod?.supplier) return prod.supplier;
+      if (prod?.dropi_product_id || item.dropi_product_id) return 'Dropi Colombia';
+      return 'DeRocha Store / Propio';
+    };
+
+    // Calculate dates list with order counts
+    const salesDatesMap: Record<string, { count: number; totalSales: number }> = {};
+    for (const o of allOrders) {
+      if (!o.createdAt) continue;
+      const d = o.createdAt.slice(0, 10);
+      if (!salesDatesMap[d]) {
+        salesDatesMap[d] = { count: 0, totalSales: 0 };
+      }
+      salesDatesMap[d].count += 1;
+      salesDatesMap[d].totalSales += (o.total || 0);
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const targetDate = requestedDate || (Object.keys(salesDatesMap).sort().reverse()[0] || todayStr);
+
+    const filteredOrders = allOrders.filter(o => {
+      if (!o.createdAt) return false;
+      const orderDate = o.createdAt.slice(0, 10);
+      return orderDate === targetDate;
+    });
+
+    let totalSales = 0;
+    let totalOperatingCost = 0;
+    let totalNetProfit = 0;
+
+    const enrichedOrders = filteredOrders.map(order => {
+      const items = Array.isArray(order.items) ? order.items : [];
+      let itemsCost = 0;
+      const suppliersSet = new Set<string>();
+
+      const productsSummary = items.map(it => {
+        const prod = productMap.get(it.productId);
+        const unitCost = Number(it.unitCost || prod?.supplier_cost || prod?.cost || 0);
+        itemsCost += unitCost * (it.quantity || 1);
+        suppliersSet.add(getSupplierName(it));
+        return `${it.title || 'Producto'} (x${it.quantity || 1})`;
+      }).join(' + ') || 'Sin productos';
+
+      const operatingCost = (order.productCostTotal && order.productCostTotal > 0)
+        ? order.productCostTotal + (order.shippingCost || 0)
+        : itemsCost + (order.shippingCost || 0);
+
+      const netProfit = (order.total || 0) - operatingCost;
+
+      totalSales += (order.total || 0);
+      totalOperatingCost += operatingCost;
+      totalNetProfit += netProfit;
+
+      const timeStr = order.createdAt ? new Date(order.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--';
+
+      return {
+        id: order.id,
+        orderNumber: order.orderNumber || order.id,
+        createdAt: order.createdAt,
+        time: timeStr,
+        date: targetDate,
+        customerName: order.customerName || 'Cliente Anónimo',
+        customerPhone: order.customerPhone || 'N/A',
+        city: order.city || 'Bogotá D.C.',
+        department: order.department || 'Cundinamarca',
+        daneCode: order.dane_code || getDaneCode(order.city, order.department),
+        products: productsSummary,
+        supplier: Array.from(suppliersSet).join(', ') || 'Dropi Colombia',
+        totalSale: order.total || 0,
+        operatingCost,
+        netProfit,
+        status: order.status || 'PENDIENTE_REVISION',
+        paymentMethod: order.paymentMethod || 'contra_entrega',
+        carrier: order.carrier || 'Servientrega',
+        trackingNumber: order.trackingNumber || order.dropi_guia || ''
+      };
+    });
+
+    res.json({
+      success: true,
+      date: targetDate,
+      orders: enrichedOrders,
+      totals: {
+        orderCount: enrichedOrders.length,
+        totalSales,
+        totalOperatingCost,
+        totalNetProfit
+      },
+      salesDates: salesDatesMap
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/orders/:id - Single order details
 router.get('/:id', (req, res) => {
   try {
@@ -583,6 +696,47 @@ router.get('/:id', (req, res) => {
       return res.status(404).json({ success: false, message: 'Pedido no encontrado.' });
     }
     res.json({ success: true, data: order });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/orders/:id - Delete order permanently from local DB and MySQL
+router.delete('/:id', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const targetOrder = db.getOrderById(orderId);
+    const orderNumber = targetOrder?.orderNumber || orderId;
+
+    // 1. Local JSON deletion
+    const deletedLocal = db.deleteOrder(orderId);
+
+    // 2. MySQL deletion in orders and pedidos tables
+    const p = pool || nativePool;
+    if (p) {
+      try {
+        await p.query('DELETE FROM order_items WHERE order_id = ? OR orderId = ?', [orderId, orderId]);
+        await p.query('DELETE FROM orders WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
+        await p.query('DELETE FROM pedidos WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
+        console.log(`[MySQL] ✓ Pedido ${orderNumber} (${orderId}) eliminado de tablas MySQL.`);
+      } catch (sqlErr: any) {
+        console.warn('[MySQL Delete Order Warning]:', sqlErr.message);
+      }
+    }
+
+    // 3. Activity logging
+    db.addLog({
+      type: 'ORDER_DELETED' as any,
+      orderId,
+      action: 'Pedido Eliminado Permanentemente',
+      details: `Pedido ${orderNumber} (${orderId}) fue eliminado permanentemente del sistema y base de datos MySQL.`,
+      status: 'info'
+    });
+
+    res.json({
+      success: true,
+      message: `Pedido ${orderNumber} eliminado permanentemente con éxito.`
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

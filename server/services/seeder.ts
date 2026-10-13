@@ -52,7 +52,30 @@ export async function runCleanupAndDisableSeeders(poolInstance?: mysql.Pool | nu
         } catch {}
       }
 
-      console.log('[Seeder Service] ✓ Limpieza de registros de prueba en MySQL completada con éxito.');
+      // Eliminar órdenes de prueba simuladas recurrentes (ZV-8677, ZV-8942, Carlos Gómez, etc.)
+      const testOrderPatterns = ['%ord-sim-%', '%ord-test-%', '%simulado%'];
+      const testOrderNumbers = ['ZV-8677', 'ZV-8942', 'DP-8677', 'DP-8942', 'NV-8677', 'NV-8942'];
+
+      for (const pattern of testOrderPatterns) {
+        try {
+          await p.query('DELETE FROM orders WHERE id LIKE ?', [pattern]);
+          await p.query('DELETE FROM pedidos WHERE id LIKE ?', [pattern]);
+        } catch {}
+      }
+
+      for (const oNum of testOrderNumbers) {
+        try {
+          await p.query('DELETE FROM orders WHERE order_number = ?', [oNum]);
+          await p.query('DELETE FROM pedidos WHERE order_number = ?', [oNum]);
+        } catch {}
+      }
+
+      try {
+        await p.query("DELETE FROM orders WHERE customer_name LIKE '%Carlos Gomez%' OR customer_name LIKE '%Carlos Gómez%'");
+        await p.query("DELETE FROM pedidos WHERE cliente_nombre LIKE '%Carlos Gomez%' OR cliente_nombre LIKE '%Carlos Gómez%'");
+      } catch {}
+
+      console.log('[Seeder Service] ✓ Limpieza de registros y órdenes de prueba en MySQL completada con éxito.');
     } catch (err: any) {
       console.warn('[Seeder Service Warning al limpiar MySQL]:', err.message);
     }
@@ -89,6 +112,12 @@ export async function runCleanupAndDisableSeeders(poolInstance?: mysql.Pool | nu
     if (cleanProducts.length !== currentProducts.length) {
       db.saveAllProducts(cleanProducts);
       console.log(`[Seeder Service] ✓ Productos demo eliminados de almacenamiento local (${currentProducts.length - cleanProducts.length} removidos).`);
+    }
+
+    // 3. Purgar órdenes y clientes simulados en almacenamiento local
+    const cleanResult = db.cleanTestRecords();
+    if (cleanResult.deletedOrders > 0) {
+      console.log(`[Seeder Service] ✓ ${cleanResult.deletedOrders} órdenes de prueba eliminadas de data_store.`);
     }
   } catch (err: any) {
     console.warn('[Seeder Service Warning al limpiar data_store]:', err.message);

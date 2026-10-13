@@ -967,7 +967,21 @@ class DatabaseStore {
           const data: DatabaseSchema = {
             categories,
             products,
-            orders: (parsed.orders || DEFAULT_ORDERS).map((o: any) => ({
+            orders: (parsed.orders || []).filter((o: any) => {
+              const name = String(o.customerName || '').toLowerCase().trim();
+              const num = String(o.orderNumber || '').toUpperCase().trim();
+              const id = String(o.id || '');
+              return !(
+                name.includes('carlos gomez') ||
+                name.includes('carlos gómez') ||
+                name.includes('prueba') ||
+                name.includes('test') ||
+                num.includes('8677') ||
+                num.includes('8942') ||
+                id.includes('sim') ||
+                id.includes('test')
+              );
+            }).map((o: any) => ({
               ...o,
               orderNumber: o.orderNumber?.replace(/^DP-/, 'NV-') || 'NV-1001',
               trackingNumber: o.trackingNumber || o.dropiTrackingNumber,
@@ -1449,6 +1463,7 @@ class DatabaseStore {
       const name = String(o.customerName || '').toLowerCase().trim();
       const notes = String(o.additionalNotes || '').toLowerCase();
       const phone = String(o.customerPhone || '').replace(/\D/g, '');
+      const orderNumber = String(o.orderNumber || '').toUpperCase().trim();
 
       return (
         id.startsWith('ord-sim-') ||
@@ -1457,8 +1472,12 @@ class DatabaseStore {
         id === 'ord_6ac3d1d6de62c' ||
         id === 'ord_6ac3d1d181bbb' ||
         id === 'ord_6ac3d1cb38ede' ||
+        orderNumber.includes('8677') ||
+        orderNumber.includes('8942') ||
         name.includes('prueba') ||
         name.includes('test') ||
+        name.includes('carlos gomez') ||
+        name.includes('carlos gómez') ||
         name === 'juan perez' ||
         name === '' ||
         notes.includes('venta simulada') ||

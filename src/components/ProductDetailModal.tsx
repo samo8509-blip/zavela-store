@@ -833,6 +833,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </button>
                   </div>
 
+                  {/* 🎉 Promoción de Envío Único por Cantidad (quantity >= 2) */}
+                  {quantity >= 2 && (
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/15 border-2 border-emerald-500/40 text-slate-900 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200 shadow-xs">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
+                        🎉
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-black text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                          <span>¡Envío único aplicado por compras de 2 o más unidades!</span>
+                          <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                            {quantity} Unidades
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-emerald-800 font-medium leading-tight mt-0.5">
+                          El costo de envío se cobra UNA SOLA VEZ para todo el pedido (no multiplicado por cada unidad).
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Fast Buy Now (Pago Contra Entrega) Button */}
                   <button
                     id="btn-modal-buy-now"

@@ -64,7 +64,35 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
   const [description, setDescription] = useState(product?.description || '');
-  const [categoryId, setCategoryId] = useState(product?.categoryId || categories[0]?.id || '');
+  // Inicialización fiel de Categoría (evita sobreescritura accidental con la primera categoría de la lista)
+  const initialCategory = (() => {
+    if (!product) return categories[0]?.id || '';
+    // 1. Coincidencia exacta con ID de categoría
+    if (product.categoryId && categories.some(c => c.id === product.categoryId)) {
+      return product.categoryId;
+    }
+    // 2. Coincidencia por ID o Slug
+    const candidateId = product.categoryId || (product as any).categoria_id;
+    if (candidateId) {
+      const bySlugOrId = categories.find(c => c.id === candidateId || c.slug === candidateId);
+      if (bySlugOrId) return bySlugOrId.id;
+    }
+    // 3. Coincidencia por Nombre de Categoría (ej: "Artículos Navideños y Diciembre", "Halloween & Disfraces")
+    const rawCat = (product as any).category || product.categoryName || (product as any).categoria;
+    if (rawCat) {
+      const clean = String(rawCat).trim().toLowerCase();
+      const found = categories.find(c => 
+        c.name.toLowerCase() === clean || 
+        c.slug.toLowerCase() === clean ||
+        c.id.toLowerCase() === clean ||
+        clean.includes(c.name.toLowerCase()) ||
+        c.name.toLowerCase().includes(clean)
+      );
+      if (found) return found.id;
+    }
+    return product.categoryId || (product as any).category || categories[0]?.id || '';
+  })();
+  const [categoryId, setCategoryId] = useState<string>(initialCategory);
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
   
@@ -569,7 +597,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         ? (dropiProductId.trim() || undefined)
         : (dropiProductId.trim() || undefined);
 
-      const payload: Partial<Product> = {
+        const catNameResolved = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || 'General';
+        const payload: Partial<Product> = {
         ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
         name: title.trim(),
@@ -577,7 +606,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         shortDescription: shortDescription.trim(),
         description: description.trim(),
         categoryId: categoryId || categories[0]?.id,
-        categoryName: selectedCat?.name || 'General',
+        categoryName: catNameResolved,
+        category: catNameResolved,
+        categoria: catNameResolved,
+        categoria_id: categoryId || categories[0]?.id,
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
         provider,
@@ -1084,11 +1116,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden font-medium text-slate-800"
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
+                  {categoryId && !categories.some(c => c.id === categoryId) && (
+                    <option value={categoryId}>
+                      {product?.categoryName || (product as any)?.category || (product as any)?.categoria || categoryId}
+                    </option>
+                  )}
                 </select>
               </div>
             </div>

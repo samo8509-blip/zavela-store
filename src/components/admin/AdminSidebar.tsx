@@ -38,7 +38,8 @@ import {
   Gem,
   Star,
   MessageSquare,
-  Boxes
+  Boxes,
+  FileSpreadsheet
 } from 'lucide-react';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { SergioMartinezSignature } from '../SergioMartinezSignature.tsx';
@@ -48,6 +49,7 @@ export type AdminViewKey =
   | 'overview'
   | 'commercemind_ai'
   | 'copilot_private_alerts'
+  | 'sales_calendar'
   | 'pending_dropi_orders'
   | 'advisors_sales'
   | 'orders'
@@ -154,6 +156,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: ShoppingCart, 
           badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Totales` : undefined, 
           badgeColor: 'bg-emerald-500 text-slate-950 font-bold' 
+        },
+        { 
+          key: 'sales_calendar', 
+          label: 'Historial & Auditoría de Ventas', 
+          icon: FileSpreadsheet, 
+          badge: 'Hoja de Cálculo', 
+          badgeColor: 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black' 
         },
         { 
           key: 'customers', 

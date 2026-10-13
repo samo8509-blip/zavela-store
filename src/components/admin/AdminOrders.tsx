@@ -35,7 +35,8 @@ import {
   FileCheck,
   Zap,
   Info,
-  Sliders
+  Sliders,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
@@ -697,6 +698,17 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('sales_calendar')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+              title="Abrir Calendario & Hoja de Cálculo de Ventas"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Historial & Auditoría (Calendario)</span>
+            </button>
+          )}
+
           <button
             id="btn-simulate-custom-orders"
             onClick={() => setShowSimulatorModal(true)}

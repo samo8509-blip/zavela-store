@@ -165,6 +165,18 @@ router.post('/', async (req, res) => {
       const supplierCost = Number(body.supplier_cost !== undefined ? body.supplier_cost : (body.costPrice !== undefined ? body.costPrice : (existing.supplier_cost || existing.costPrice || 0))) || 0;
       const suggestedPrice = Number(body.suggested_price !== undefined ? body.suggested_price : (body.suggestedPrice !== undefined ? body.suggestedPrice : (existing.suggested_price || existing.compareAtPrice || 0))) || 0;
 
+      // Extracción estricta y preservación de Categoría (sin sobreescritura accidental)
+      const rawCategory = body.category || body.categoryName || body.categoria || existing.category || existing.categoryName || (existing as any)?.categoria;
+      const matchedCategory = rawCategory ? db.getCategories().find(c => 
+        c.name.toLowerCase() === String(rawCategory).toLowerCase() || 
+        c.id.toLowerCase() === String(rawCategory).toLowerCase() ||
+        c.slug.toLowerCase() === String(rawCategory).toLowerCase() ||
+        String(rawCategory).toLowerCase().includes(c.name.toLowerCase()) ||
+        c.name.toLowerCase().includes(String(rawCategory).toLowerCase())
+      ) : null;
+      const categoryName = rawCategory ? (matchedCategory?.name || String(rawCategory).trim()) : (existing.categoryName || 'General');
+      const categoryId = body.categoryId || body.categoria_id || matchedCategory?.id || existing.categoryId || 'cat-general';
+
       if (dropiProductId) {
         dropiBackupService.saveDropiId(targetId, dropiProductId);
       }
@@ -179,8 +191,8 @@ router.post('/', async (req, res) => {
 
         await pool.query(`
           INSERT INTO products (
-            id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, supplier_sku, images, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             name = VALUES(name),
@@ -190,6 +202,8 @@ router.post('/', async (req, res) => {
             suggested_price = VALUES(suggested_price),
             stock = VALUES(stock),
             description = VALUES(description),
+            category = VALUES(category),
+            category_id = VALUES(category_id),
             dropi_product_id = VALUES(dropi_product_id),
             provider = VALUES(provider),
             supplier = VALUES(supplier),
@@ -198,13 +212,13 @@ router.post('/', async (req, res) => {
             updated_at = NOW()
         `, [
           targetId, titleStr, titleStr, slugVal, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
-          dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(finalImages)
+          categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(finalImages)
         ]);
 
         await pool.query(`
           INSERT INTO productos (
-            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
             nombre = VALUES(nombre),
             precio = VALUES(precio),
@@ -212,6 +226,9 @@ router.post('/', async (req, res) => {
             suggested_price = VALUES(suggested_price),
             stock = VALUES(stock),
             descripcion = VALUES(descripcion),
+            categoria = VALUES(categoria),
+            category = VALUES(category),
+            category_id = VALUES(category_id),
             dropi_product_id = VALUES(dropi_product_id),
             provider = VALUES(provider),
             supplier = VALUES(supplier),
@@ -221,7 +238,7 @@ router.post('/', async (req, res) => {
             updated_at = NOW()
         `, [
           targetId, titleStr, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
-          dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(finalImages)
+          categoryName, categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(finalImages)
         ]);
       } catch (sqlErr: any) {
         console.warn('[MySQL Save Product Error]:', sqlErr.message);
@@ -237,6 +254,11 @@ router.post('/', async (req, res) => {
         costPrice: supplierCost,
         supplier_cost: supplierCost,
         suggested_price: suggestedPrice,
+        category: categoryName,
+        categoria: categoryName,
+        categoryName: categoryName,
+        categoryId: categoryId,
+        categoria_id: categoryId,
         stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10)),
         images: finalImages,
         dropi_product_id: dropiProductId || undefined,
@@ -302,6 +324,18 @@ router.post('/', async (req, res) => {
     const title = (body.title || body.nombre || body.name || 'Nuevo Producto').trim();
     const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
 
+    // Extracción estricta y preservación de Categoría (sin sobreescritura accidental)
+    const rawCategory = body.category || body.categoryName || body.categoria || body.category_name;
+    const matchedCategory = rawCategory ? db.getCategories().find(c => 
+      c.name.toLowerCase() === String(rawCategory).toLowerCase() || 
+      c.id.toLowerCase() === String(rawCategory).toLowerCase() ||
+      c.slug.toLowerCase() === String(rawCategory).toLowerCase() ||
+      String(rawCategory).toLowerCase().includes(c.name.toLowerCase()) ||
+      c.name.toLowerCase().includes(String(rawCategory).toLowerCase())
+    ) : null;
+    const categoryName = rawCategory ? (matchedCategory?.name || String(rawCategory).trim()) : 'General';
+    const categoryId = body.categoryId || body.categoria_id || matchedCategory?.id || 'cat-general';
+
     const product = {
       id,
       title,
@@ -327,8 +361,11 @@ router.post('/', async (req, res) => {
       warrantyInfo: body.warrantyInfo || '30 días de garantía oficial Zavela Store.',
       tags: Array.isArray(body.tags) ? body.tags : ['tendencia', 'calidad'],
       weightKg: Number(body.weightKg || body.peso) || 0.5,
-      categoryId: body.categoryId || body.categoria_id || 'cat-general',
-      categoryName: body.categoryName || body.categoria || 'General',
+      categoryId,
+      categoryName,
+      category: categoryName,
+      categoria: categoryName,
+      categoria_id: categoryId,
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
       dropi_product_id: dropiProductId || undefined,
@@ -347,8 +384,8 @@ router.post('/', async (req, res) => {
     try {
       await pool.query(`
         INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, supplier_sku, images, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           name = VALUES(name),
@@ -358,6 +395,8 @@ router.post('/', async (req, res) => {
           suggested_price = VALUES(suggested_price),
           stock = VALUES(stock),
           description = VALUES(description),
+          category = VALUES(category),
+          category_id = VALUES(category_id),
           dropi_product_id = VALUES(dropi_product_id),
           provider = VALUES(provider),
           supplier = VALUES(supplier),
@@ -366,13 +405,13 @@ router.post('/', async (req, res) => {
           updated_at = NOW()
       `, [
         id, title, title, slug, price, supplierCost, suggestedPrice, product.stock, product.description,
-        dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(validImages)
+        categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(validImages)
       ]);
 
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
@@ -380,6 +419,9 @@ router.post('/', async (req, res) => {
           suggested_price = VALUES(suggested_price),
           stock = VALUES(stock),
           descripcion = VALUES(descripcion),
+          categoria = VALUES(categoria),
+          category = VALUES(category),
+          category_id = VALUES(category_id),
           dropi_product_id = VALUES(dropi_product_id),
           provider = VALUES(provider),
           supplier = VALUES(supplier),
@@ -389,7 +431,7 @@ router.post('/', async (req, res) => {
           updated_at = NOW()
       `, [
         id, title, price, supplierCost, suggestedPrice, product.stock, product.description,
-        dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(validImages)
+        categoryName, categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(validImages)
       ]);
     } catch (sqlErr: any) {
       console.warn('[MySQL Save Product Error]:', sqlErr.message);

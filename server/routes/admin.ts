@@ -296,106 +296,130 @@ async function executeProductUpdate(productId: string, body: any) {
   // Lógica COALESCE(NULLIF(incoming, ''), dropi_product_id)
   const dropiProductId = rawIncomingDropi !== '' ? rawIncomingDropi : existingDropi;
 
+  // Extracción estricta y preservación de Categoría (evita reseteos a categoría por defecto)
+  const rawCat = body.category || body.categoryName || body.categoria || (existing as any)?.category || existing?.categoryName || (existing as any)?.categoria;
+  const matchedCat = rawCat ? db.getCategories().find(c => 
+    c.name.toLowerCase() === String(rawCat).toLowerCase() || 
+    c.id.toLowerCase() === String(rawCat).toLowerCase() ||
+    c.slug.toLowerCase() === String(rawCat).toLowerCase() ||
+    String(rawCat).toLowerCase().includes(c.name.toLowerCase()) ||
+    c.name.toLowerCase().includes(String(rawCat).toLowerCase())
+  ) : null;
+  const categoryName = rawCat ? (matchedCat?.name || String(rawCat).trim()) : (existing?.categoryName || 'General');
+  const categoryId = body.categoryId || body.categoria_id || matchedCat?.id || existing?.categoryId || 'cat-general';
+
   const updated: Product = {
-    id: productId,
-    title: (body.title || body.nombre || body.name || existing?.title || 'Producto').trim(),
-    slug: body.slug || existing?.slug || productId,
-    description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
-    shortDescription: body.shortDescription !== undefined ? body.shortDescription : (existing?.shortDescription || ''),
-    price,
-    costPrice,
-    compareAtPrice,
-    discountPercentage,
-    marginAmount,
-    marginPercentage: Math.round(marginPercentage * 10) / 10,
-    stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
-    active: body.active !== undefined ? Boolean(body.active) : (existing?.active ?? true),
-    featured: body.featured !== undefined ? Boolean(body.featured) : (existing?.featured ?? false),
-    images: finalImages,
-    warrantyInfo: body.warrantyInfo || existing?.warrantyInfo || '30 días de garantía oficial Zavela Store.',
-    tags: Array.isArray(body.tags) ? body.tags : (existing?.tags || ['tendencia']),
-    weightKg: body.weightKg !== undefined ? Number(body.weightKg) : (existing?.weightKg || 0.5),
-    categoryId: body.categoryId || existing?.categoryId || db.getCategories()[0]?.id,
-    categoryName: db.getCategories().find(c => c.id === (body.categoryId || existing?.categoryId))?.name || existing?.categoryName || 'General',
-    warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
-    brand: body.brand || existing?.brand || 'Zavela Store',
-    dropi_product_id: dropiProductId,
-    variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
-    createdAt: existing?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
+      id: productId,
+      title: (body.title || body.nombre || body.name || existing?.title || 'Producto').trim(),
+      slug: body.slug || existing?.slug || productId,
+      description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
+      shortDescription: body.shortDescription !== undefined ? body.shortDescription : (existing?.shortDescription || ''),
+      price,
+      costPrice,
+      compareAtPrice,
+      discountPercentage,
+      marginAmount,
+      marginPercentage: Math.round(marginPercentage * 10) / 10,
+      stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
+      active: body.active !== undefined ? Boolean(body.active) : (existing?.active ?? true),
+      featured: body.featured !== undefined ? Boolean(body.featured) : (existing?.featured ?? false),
+      images: finalImages,
+      warrantyInfo: body.warrantyInfo || existing?.warrantyInfo || '30 días de garantía oficial Zavela Store.',
+      tags: Array.isArray(body.tags) ? body.tags : (existing?.tags || ['tendencia']),
+      weightKg: body.weightKg !== undefined ? Number(body.weightKg) : (existing?.weightKg || 0.5),
+      categoryId,
+      categoryName,
+      category: categoryName,
+      categoria: categoryName,
+      categoria_id: categoryId,
+      warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
+      brand: body.brand || existing?.brand || 'Zavela Store',
+      dropi_product_id: dropiProductId,
+      variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-  const saved = db.saveProduct(updated);
+    const saved = db.saveProduct(updated);
 
-  if (dropiProductId) {
-    dropiBackupService.saveDropiId(productId, dropiProductId);
-  }
+    if (dropiProductId) {
+      dropiBackupService.saveDropiId(productId, dropiProductId);
+    }
 
-  // Ejecutar UPDATE en MySQL directamente en ambas tablas protegiendo dropi_product_id contra sobreescritura accidental:
-  // dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id)
-  try {
-    const imagesJson = JSON.stringify(finalImages);
-    await pool.query(`
-      UPDATE productos 
-      SET 
-        nombre = ?,
-        precio = ?,
-        stock = ?,
-        descripcion = ?,
-        imagen = ?,
-        imagenes = ?,
-        dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
-        variants = ?
-      WHERE id = ?
-    `, [
-      saved.title,
-      saved.price,
-      saved.stock,
-      saved.description,
-      mainImage,
-      imagesJson,
-      rawIncomingDropi || '',
-      JSON.stringify(saved.variants || []),
-      productId
-    ]);
-  } catch (err: any) {
-    console.warn('[MySQL Product UPDATE Warning productos]:', err.message);
-  }
+    // Ejecutar UPDATE en MySQL directamente en ambas tablas protegiendo dropi_product_id y guardando category:
+    try {
+      const imagesJson = JSON.stringify(finalImages);
+      await pool.query(`
+        UPDATE productos 
+        SET 
+          nombre = ?,
+          precio = ?,
+          stock = ?,
+          descripcion = ?,
+          categoria = ?,
+          category = ?,
+          category_id = ?,
+          imagen = ?,
+          imagenes = ?,
+          dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
+          variants = ?
+        WHERE id = ?
+      `, [
+        saved.title,
+        saved.price,
+        saved.stock,
+        saved.description,
+        categoryName,
+        categoryName,
+        categoryId,
+        mainImage,
+        imagesJson,
+        rawIncomingDropi || '',
+        JSON.stringify(saved.variants || []),
+        productId
+      ]);
+    } catch (err: any) {
+      console.warn('[MySQL Product UPDATE Warning productos]:', err.message);
+    }
 
-  try {
-    const imagesJson = JSON.stringify(finalImages);
-    await pool.query(`
-      UPDATE products 
-      SET 
-        title = ?,
-        price = ?,
-        stock = ?,
-        descripcion = ?,
-        description = ?,
-        imagen = ?,
-        image = ?,
-        imagenes = ?,
-        images = ?,
-        dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
-        variants = ?
-      WHERE id = ?
-    `, [
-      saved.title,
-      saved.price,
-      saved.stock,
-      saved.description,
-      saved.description,
-      mainImage,
-      mainImage,
-      imagesJson,
-      imagesJson,
-      rawIncomingDropi || '',
-      JSON.stringify(saved.variants || []),
-      productId
-    ]);
-  } catch (err: any) {
-    console.warn('[MySQL Product UPDATE Warning products]:', err.message);
-  }
+    try {
+      const imagesJson = JSON.stringify(finalImages);
+      await pool.query(`
+        UPDATE products 
+        SET 
+          title = ?,
+          price = ?,
+          stock = ?,
+          descripcion = ?,
+          description = ?,
+          category = ?,
+          category_id = ?,
+          imagen = ?,
+          image = ?,
+          imagenes = ?,
+          images = ?,
+          dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
+          variants = ?
+        WHERE id = ?
+      `, [
+        saved.title,
+        saved.price,
+        saved.stock,
+        saved.description,
+        saved.description,
+        categoryName,
+        categoryId,
+        mainImage,
+        mainImage,
+        imagesJson,
+        imagesJson,
+        rawIncomingDropi || '',
+        JSON.stringify(saved.variants || []),
+        productId
+      ]);
+    } catch (err: any) {
+      console.warn('[MySQL Product UPDATE Warning products]:', err.message);
+    }
 
   // Sincronizar actualización de producto con MySQL en cPanel vía POST /api.php?action=productos
   cpanelDbService.saveProduct({
@@ -494,6 +518,18 @@ router.post('/products', async (req, res) => {
     const slug = body.slug || title.toLowerCase().replace(/[^a-z0-9]/g, '-') || `prod-${Date.now()}`;
     const description = body.description !== undefined ? body.description : (body.descripcion || '');
 
+    // Extracción estricta y preservación de Categoría para nuevo producto
+    const rawPostCat = body.category || body.categoryName || body.categoria || body.category_name;
+    const matchedPostCat = rawPostCat ? db.getCategories().find(c => 
+      c.name.toLowerCase() === String(rawPostCat).toLowerCase() || 
+      c.id.toLowerCase() === String(rawPostCat).toLowerCase() ||
+      c.slug.toLowerCase() === String(rawPostCat).toLowerCase() ||
+      String(rawPostCat).toLowerCase().includes(c.name.toLowerCase()) ||
+      c.name.toLowerCase().includes(String(rawPostCat).toLowerCase())
+    ) : null;
+    const postCatName = rawPostCat ? (matchedPostCat?.name || String(rawPostCat).trim()) : 'General';
+    const postCatId = body.categoryId || body.categoria_id || matchedPostCat?.id || 'cat-general';
+
     const newProduct: Product = {
       id: targetId || `prod-${Date.now()}`,
       title,
@@ -513,8 +549,11 @@ router.post('/products', async (req, res) => {
       warrantyInfo: body.warrantyInfo || '30 días de garantía oficial Zavela Store por defectos de fábrica.',
       tags: Array.isArray(body.tags) ? body.tags : (body.tags ? String(body.tags).split(',').map((t: string) => t.trim()) : ['tendencia', 'calidad']),
       weightKg: Number(body.weightKg || body.peso) || 0.5,
-      categoryId: body.categoryId || body.categoria_id || db.getCategories()[0]?.id,
-      categoryName: db.getCategories().find(c => c.id === (body.categoryId || body.categoria_id))?.name || body.categoria || db.getCategories()[0]?.name,
+      categoryId: postCatId,
+      categoryName: postCatName,
+      category: postCatName,
+      categoria: postCatName,
+      categoria_id: postCatId,
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
@@ -525,12 +564,53 @@ router.post('/products', async (req, res) => {
 
     if (dropiProductId) {
       dropiBackupService.saveDropiId(newProduct.id, dropiProductId);
-      try {
-        await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, newProduct.id]);
-      } catch {}
-      try {
-        await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, newProduct.id]);
-      } catch {}
+    }
+
+    // Persistir físicamente en MySQL cPanel
+    try {
+      await pool.query(`
+        INSERT INTO products (
+          id, title, name, slug, price, supplier_cost, stock, description, category, category_id, dropi_product_id, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          name = VALUES(name),
+          slug = VALUES(slug),
+          price = VALUES(price),
+          stock = VALUES(stock),
+          description = VALUES(description),
+          category = VALUES(category),
+          category_id = VALUES(category_id),
+          dropi_product_id = VALUES(dropi_product_id),
+          images = VALUES(images),
+          updated_at = NOW()
+      `, [
+        newProduct.id, title, title, slug, price, costPrice, newProduct.stock, description,
+        postCatName, postCatId, dropiProductId || null, JSON.stringify(validImages)
+      ]);
+
+      await pool.query(`
+        INSERT INTO productos (
+          id, nombre, precio, supplier_cost, stock, descripcion, categoria, category, category_id, dropi_product_id, imagen, imagenes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          nombre = VALUES(nombre),
+          precio = VALUES(precio),
+          stock = VALUES(stock),
+          descripcion = VALUES(descripcion),
+          categoria = VALUES(categoria),
+          category = VALUES(category),
+          category_id = VALUES(category_id),
+          dropi_product_id = VALUES(dropi_product_id),
+          imagen = VALUES(imagen),
+          imagenes = VALUES(imagenes),
+          updated_at = NOW()
+      `, [
+        newProduct.id, title, price, costPrice, newProduct.stock, description,
+        postCatName, postCatName, postCatId, dropiProductId || null, mainImage, JSON.stringify(validImages)
+      ]);
+    } catch (sqlErr: any) {
+      console.warn('[Admin MySQL Save Product Error]:', sqlErr.message);
     }
 
     const saved = db.saveProduct({

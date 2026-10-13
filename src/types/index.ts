@@ -458,6 +458,9 @@ export interface Product {
   weightKg?: number;
   categoryId?: string;
   categoryName?: string;
+  category?: string;
+  categoria?: string;
+  categoria_id?: string;
   subcategoryId?: string;
   subcategoryName?: string;
   variants?: ProductVariant[];

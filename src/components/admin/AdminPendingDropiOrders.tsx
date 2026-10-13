@@ -28,7 +28,8 @@ import {
   Info,
   Loader2,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
@@ -196,6 +197,34 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
       initialMap[prodId] = String(val);
     });
     setDropiProductIdsMap(initialMap);
+  };
+
+  // Delete / Discard Order Permanently
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  const handleDeleteOrder = async (orderId: string) => {
+    const target = orders.find(o => o.id === orderId);
+    const orderNumber = target?.orderNumber || orderId;
+
+    if (!window.confirm(`¿Estás seguro de eliminar permanentemente el pedido ${orderNumber}? Esta acción no se puede deshacer y liberará los registros.`)) {
+      return;
+    }
+
+    setIsDeletingId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        await fetch(`/api/admin/orders/${orderId}`, { method: 'DELETE' });
+      }
+      onRefresh();
+    } catch (err: any) {
+      console.error('Error al eliminar orden:', err);
+      alert('Error al eliminar pedido: ' + (err.message || 'Error de conexión'));
+    } finally {
+      setIsDeletingId(null);
+    }
   };
 
   // Submit Approval to Dropi Colombia API
@@ -818,7 +847,16 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2 justify-end">
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                      <button
+                        onClick={() => handleDeleteOrder(order.id)}
+                        disabled={isDeletingId === order.id}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 font-semibold px-4 py-2 rounded-xl text-sm transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                        title="Eliminar o descartar pedido"
+                      >
+                        <span>🗑️ Eliminar</span>
+                      </button>
+
                       <button
                         onClick={() => setSelectedOrderForView(order)}
                         className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"

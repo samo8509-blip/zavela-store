@@ -201,13 +201,15 @@ export function calculateShippingCost({
     ? totalQuantity 
     : cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
-  // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
+  // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos o Tarifa Única por Paquete
   const isFreeShipping = true;
-  const freeShippingReason: 'multi_item_bundle' | 'cart_threshold' | 'product_free_shipping' | null = 'product_free_shipping';
-  const finalRate = 0;
+  const freeShippingReason: 'multi_item_bundle' | 'cart_threshold' | 'product_free_shipping' | null = actualTotalQuantity >= 2 ? 'multi_item_bundle' : 'product_free_shipping';
+  const finalRate = 0; // Garantizado: el flete nunca se multiplica por cantidad de unidades
 
-  // Etiqueta descriptiva oficial de beneficio
-  const badgeText = `¡Envío GRATIS Nacional Incluido! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`;
+  // Etiqueta descriptiva oficial de beneficio con promoción de envío único por cantidad
+  const badgeText = actualTotalQuantity >= 2
+    ? `🎉 ¡Envío único aplicado por compras de 2 o más unidades! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`
+    : `¡Envío GRATIS Nacional Incluido! (Ahorras $${baseRate.toLocaleString('es-CO')} COP)`;
   const badgeColor: 'emerald' | 'sky' | 'amber' | 'indigo' | 'orange' = 'emerald';
 
   const amountNeededForFreeShipping = 0;

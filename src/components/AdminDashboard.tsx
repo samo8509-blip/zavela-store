@@ -61,6 +61,7 @@ import { AdminProducts } from './admin/AdminProducts.tsx';
 import { AdminProductEditor } from './admin/AdminProductEditor.tsx';
 import { DropiBulkImporter } from './admin/DropiBulkImporter.tsx';
 import { AdminOrders } from './admin/AdminOrders.tsx';
+import { SalesCalendarSheet } from './admin/SalesCalendarSheet.tsx';
 import { AdminPendingDropiOrders } from './admin/AdminPendingDropiOrders.tsx';
 import { AdminCustomers } from './admin/AdminCustomers.tsx';
 import { AdminAdvisorsDropi } from './admin/AdminAdvisorsDropi.tsx';
@@ -786,6 +787,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   setActiveSection(sec);
                   setEditingProduct(undefined);
                 }}
+              />
+            )}
+
+            {activeSection === 'sales_calendar' && (
+              <SalesCalendarSheet
+                orders={orders}
+                products={products}
+                onRefresh={fetchAdminData}
               />
             )}
 

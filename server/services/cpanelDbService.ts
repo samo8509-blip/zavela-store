@@ -1,5 +1,5 @@
 import { Product, Order, ProductVariant } from '../../src/types/index.ts';
-import { isTestProduct } from '../db.ts';
+import { db, isTestProduct } from '../db.ts';
 
 const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
 
@@ -154,8 +154,9 @@ export class CpanelDbService {
       imagenes: imagesJson,
       variants: variantsList,
       variantes: JSON.stringify(variantsList),
-      category: product.categoryName || product.categoryId || '',
-      categoria: product.categoryName || product.categoryId || '',
+      category: (product as any).category || product.categoryName || (product as any).categoria || '',
+      categoria: (product as any).categoria || (product as any).category || product.categoryName || '',
+      categoryName: product.categoryName || (product as any).category || (product as any).categoria || '',
       categoryId: product.categoryId || '',
       dropi_product_id: dropiId,
       dropiProductId: dropiId,
@@ -214,6 +215,31 @@ export class CpanelDbService {
       return response.ok;
     } catch (err: any) {
       console.warn(`[cPanel DB Delete] Error al eliminar producto ${cleanId} en cPanel:`, err.message);
+      return false;
+    }
+  }
+
+  /**
+   * DELETE /api.php?action=pedidos&id=:id
+   * Elimina un pedido permanentemente de la base de datos MySQL en cPanel.
+   */
+  async deleteOrder(id: string): Promise<boolean> {
+    const cleanId = String(id).trim();
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=pedidos&id=${encodeURIComponent(cleanId)}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      return response.ok;
+    } catch (err: any) {
+      console.warn(`[cPanel DB Delete] Error al eliminar pedido ${cleanId} en cPanel:`, err.message);
       return false;
     }
   }
@@ -606,6 +632,18 @@ export class CpanelDbService {
       stock: Number(v.stock !== undefined ? v.stock : 10)
     }));
 
+    // Preservar categoría original sin forzar a cat-1
+    const rawCatStr = item.category || item.categoria || item.categoryName || item.categoryId || '';
+    const matchedCat = rawCatStr ? db.getCategories().find(c => 
+      c.name.toLowerCase() === String(rawCatStr).toLowerCase() || 
+      c.id.toLowerCase() === String(rawCatStr).toLowerCase() ||
+      c.slug.toLowerCase() === String(rawCatStr).toLowerCase() ||
+      String(rawCatStr).toLowerCase().includes(c.name.toLowerCase()) ||
+      c.name.toLowerCase().includes(String(rawCatStr).toLowerCase())
+    ) : null;
+    const categoryName = rawCatStr ? (matchedCat?.name || String(rawCatStr).trim()) : 'General';
+    const categoryId = item.categoryId || item.categoria_id || matchedCat?.id || 'cat-general';
+
     return {
       id: String(item.id || `prod-${Math.random().toString(36).substring(2, 7)}`),
       title,
@@ -620,8 +658,10 @@ export class CpanelDbService {
       images,
       variants,
       tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',') : []),
-      categoryId: item.categoryId || item.categoria_id || item.category || 'cat-1',
-      categoryName: item.categoryName || item.categoria || 'Catálogo',
+      categoryId,
+      categoryName,
+      category: categoryName,
+      categoria: categoryName,
       dropi_product_id: dropiId,
       createdAt: item.createdAt || item.fecha_creacion || item.created_at || new Date().toISOString(),
       updatedAt: item.updatedAt || item.fecha_actualizacion || item.updated_at || new Date().toISOString()

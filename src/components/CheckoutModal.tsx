@@ -146,16 +146,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const discountedSubtotal = Math.max(0, subtotal - discountAmount);
 
-  // Dynamic 3-Zone Shipping calculation
+  // Cantidad total de unidades en el pedido para aplicar envío único
+  const totalItemQuantity = useMemo(() => {
+    return cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  }, [cartItems]);
+
+  // Dynamic 3-Zone Shipping calculation (Garantiza flete único por pedido sin multiplicar por unidad)
   const shippingCalculation: ShippingCalculationResult = useMemo(() => {
     return calculateShippingCost({
       department: formData.department,
       city: formData.city,
       cartItems,
+      totalQuantity: totalItemQuantity,
       subtotal: discountedSubtotal,
       freeShippingThreshold
     });
-  }, [formData.department, formData.city, cartItems, discountedSubtotal, freeShippingThreshold]);
+  }, [formData.department, formData.city, cartItems, totalItemQuantity, discountedSubtotal, freeShippingThreshold]);
 
   const shippingCost = shippingCalculation.finalRate;
   const total = discountedSubtotal + shippingCost;
@@ -577,6 +583,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* 🎉 Promoción de Envío Único por Cantidad (totalItemQuantity >= 2) */}
+                {totalItemQuantity >= 2 && (
+                  <div className="mt-2.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-2 border-emerald-500/30 text-slate-900 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200 shadow-2xs">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
+                      🎉
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-black text-emerald-950 flex items-center gap-1.5 flex-wrap">
+                        <span>¡Envío único aplicado por compras de 2 o más unidades!</span>
+                        <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-2xs">
+                          {totalItemQuantity} unidades
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-emerald-800 font-medium leading-tight mt-0.5">
+                        Tu flete se cobra una sola vez para todo el paquete y no se multiplica por cada unidad adicional.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Exact Address */}
@@ -743,9 +769,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Dynamic Shipping Breakdown Line */}
               <div className="flex justify-between items-center py-1.5 bg-white px-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <Truck className="w-3.5 h-3.5 text-emerald-600" />
                   <span className="font-bold text-slate-800">Costo de Envío ({shippingCalculation.zoneShortName}):</span>
+                  {totalItemQuantity >= 2 && (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                      🎉 Envío Único ({totalItemQuantity} un.)
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 line-through text-[11px] font-mono">
