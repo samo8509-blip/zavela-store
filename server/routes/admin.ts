@@ -100,140 +100,100 @@ router.delete('/categories/:id', (req, res) => {
 // ==========================================
 router.get('/products', async (req, res) => {
   try {
-    // 1. Consulta obligatoria y blindada de MySQL incluyendo dropi_product_id, imagenes, variants y created_at
+    let productsList: any[] = [];
+
+    // 1. Consulta SQL directa a la tabla física products en MySQL cPanel
     try {
-      const [sqlRows]: any = await pool.query(
-        'SELECT id, nombre, precio, stock, descripcion, imagen, imagenes, dropi_product_id, variants, created_at FROM productos'
-      );
+      const [sqlRows]: any = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
       if (Array.isArray(sqlRows) && sqlRows.length > 0) {
-        const synced = sqlRows
-          .filter((r: any) => !isTestProduct(r))
-          .map((r: any) => {
-            let imgs: string[] = [];
-            if (Array.isArray(r.imagenes)) imgs = r.imagenes;
-            else if (typeof r.imagenes === 'string' && r.imagenes.trim()) {
-              try {
-                const parsed = JSON.parse(r.imagenes);
-                if (Array.isArray(parsed)) imgs = parsed;
-              } catch {
-                imgs = r.imagenes.includes(',') ? r.imagenes.split(',').map((s: string) => s.trim()) : [r.imagenes];
-              }
-            } else if (r.imagen) {
-              imgs = [r.imagen];
-            }
-
-            let parsedVariants: any[] = [];
-            if (Array.isArray(r.variants)) {
-              parsedVariants = r.variants;
-            } else if (typeof r.variants === 'string' && r.variants.trim()) {
-              try {
-                const parsed = JSON.parse(r.variants);
-                if (Array.isArray(parsed)) parsedVariants = parsed;
-              } catch {}
-            }
-
-            const dId = r.dropi_product_id ? String(r.dropi_product_id).trim() : (dropiBackupService.getBackupMap()[String(r.id)] || '');
-            return {
-              id: String(r.id),
-              title: r.nombre || 'Producto Zavela',
-              nombre: r.nombre || 'Producto Zavela',
-              name: r.nombre || 'Producto Zavela',
-              price: Number(r.precio) || 0,
-              precio: Number(r.precio) || 0,
-              stock: Number(r.stock !== undefined ? r.stock : 10),
-              description: r.descripcion || '',
-              descripcion: r.descripcion || '',
-              image: imgs[0] || r.imagen || '',
-              imagen: imgs[0] || r.imagen || '',
-              images: imgs.length > 0 ? imgs : [r.imagen || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
-              imagenes: imgs,
-              dropi_product_id: dId,
-              dropiProductId: dId,
-              variants: parsedVariants,
-              createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
-            };
-          });
-        if (synced.length > 0) {
-          db.mergeRemoteProducts(synced as any);
+        productsList = sqlRows;
+      } else {
+        const [altRows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
+        if (Array.isArray(altRows) && altRows.length > 0) {
+          productsList = altRows;
         }
       }
-    } catch (err: any) {
-      console.warn('[Admin GET /products Direct Query Warning]:', err.message);
+    } catch (sqlErr: any) {
+      console.warn('[Admin GET /products MySQL Error]:', sqlErr.message);
     }
 
-    // 2. Sincronizar catálogo con cPanel MySQL si responde
-    try {
-      const remote = await cpanelDbService.fetchProducts();
-      if (remote && remote.length > 0) {
-        db.mergeRemoteProducts(remote);
-      }
-    } catch {}
-
-    const products = db.getProducts();
+    // 2. Mapeo y filtrado seguro (sin re-inyección de datos de prueba)
     const dropiMap = dropiBackupService.getBackupMap();
-
-    const mapped = products
+    const mapped = productsList
       .filter((row: any) => !isTestProduct(row))
       .map((row: any) => {
-      // 1. Manejo seguro de imágenes / galería
-      let images: string[] = [];
-      if (Array.isArray(row.images) && row.images.length > 0) {
-        images = row.images;
-      } else if (Array.isArray(row.imagenes) && row.imagenes.length > 0) {
-        images = row.imagenes;
-      } else if (typeof row.imagenes === 'string' && row.imagenes.trim()) {
-        try {
-          const parsed = JSON.parse(row.imagenes);
-          images = Array.isArray(parsed) ? parsed : [row.imagenes];
-        } catch {
-          images = row.imagenes.includes(',') ? row.imagenes.split(',').map((s: string) => s.trim()) : [row.imagenes];
+        let images: string[] = [];
+        if (Array.isArray(row.images) && row.images.length > 0) {
+          images = row.images;
+        } else if (Array.isArray(row.imagenes) && row.imagenes.length > 0) {
+          images = row.imagenes;
+        } else if (typeof row.imagenes === 'string' && row.imagenes.trim()) {
+          try {
+            const parsed = JSON.parse(row.imagenes);
+            images = Array.isArray(parsed) ? parsed : [row.imagenes];
+          } catch {
+            images = row.imagenes.includes(',') ? row.imagenes.split(',').map((s: string) => s.trim()) : [row.imagenes];
+          }
+        } else if (typeof row.images === 'string' && row.images.trim()) {
+          try {
+            const parsed = JSON.parse(row.images);
+            images = Array.isArray(parsed) ? parsed : [row.images];
+          } catch {
+            images = row.images.includes(',') ? row.images.split(',').map((s: string) => s.trim()) : [row.images];
+          }
+        } else if (row.imagen) {
+          images = [row.imagen];
+        } else if (row.image) {
+          images = [row.image];
         }
-      } else if (typeof row.images === 'string' && row.images.trim()) {
-        try {
-          const parsed = JSON.parse(row.images);
-          images = Array.isArray(parsed) ? parsed : [row.images];
-        } catch {
-          images = row.images.includes(',') ? row.images.split(',').map((s: string) => s.trim()) : [row.images];
+
+        const mainImage = images.length > 0 ? images[0] : (row.imagen || row.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800');
+        if (images.length === 0) {
+          images = [mainImage];
         }
-      } else if (row.imagen) {
-        images = [row.imagen];
-      } else if (row.image) {
-        images = [row.image];
-      }
 
-      const mainImage = images.length > 0 ? images[0] : (row.imagen || row.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800');
-      if (images.length === 0) {
-        images = [mainImage];
-      }
+        const dropiProductId = row.dropi_product_id !== undefined && row.dropi_product_id !== null && String(row.dropi_product_id).trim() !== ''
+          ? String(row.dropi_product_id).trim()
+          : (row.dropiProductId !== undefined && row.dropiProductId !== null && String(row.dropiProductId).trim() !== ''
+            ? String(row.dropiProductId).trim()
+            : (dropiMap[String(row.id)] || ''));
 
-      // 2. dropi_product_id explícito con respaldo persistente
-      const dropiProductId = row.dropi_product_id !== undefined && row.dropi_product_id !== null && String(row.dropi_product_id).trim() !== ''
-        ? String(row.dropi_product_id).trim()
-        : (row.dropiProductId !== undefined && row.dropiProductId !== null && String(row.dropiProductId).trim() !== ''
-          ? String(row.dropiProductId).trim()
-          : (dropiMap[String(row.id)] || ''));
+        const price = Number(row.price !== undefined ? row.price : row.precio) || 0;
+        const supplierCost = Number(row.supplier_cost !== undefined ? row.supplier_cost : (row.costPrice || 0)) || 0;
+        const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
 
-      return {
-        ...row,
-        id: String(row.id),
-        title: row.title || row.nombre || row.name || 'Producto Zavela',
-        name: row.title || row.nombre || row.name || 'Producto Zavela',
-        nombre: row.title || row.nombre || row.name || 'Producto Zavela',
-        price: Number(row.price !== undefined ? row.price : row.precio) || 0,
-        precio: Number(row.price !== undefined ? row.price : row.precio) || 0,
-        stock: Number(row.stock !== undefined ? row.stock : (row.inventario !== undefined ? row.inventario : 0)),
-        description: row.description !== undefined ? row.description : (row.descripcion || ''),
-        descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
-        image: mainImage,
-        imagen: mainImage,
-        images,
-        imagenes: images,
-        dropi_product_id: dropiProductId,
-        dropiProductId: dropiProductId
-      };
-    });
+        return {
+          id: String(row.id),
+          title: row.title || row.nombre || row.name || 'Producto Zavela',
+          name: row.title || row.nombre || row.name || 'Producto Zavela',
+          nombre: row.title || row.nombre || row.name || 'Producto Zavela',
+          slug: row.slug || String(row.id),
+          price,
+          precio: price,
+          costPrice: supplierCost,
+          supplier_cost: supplierCost,
+          compareAtPrice: suggestedPrice,
+          suggested_price: suggestedPrice,
+          stock: Number(row.stock !== undefined ? row.stock : 10),
+          description: row.description !== undefined ? row.description : (row.descripcion || ''),
+          descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
+          category: row.category || row.categoria || 'General',
+          categoryName: row.category || row.categoria || 'General',
+          categoryId: row.category_id || 'cat-general',
+          image: mainImage,
+          imagen: mainImage,
+          images,
+          imagenes: images,
+          dropi_product_id: dropiProductId,
+          dropiProductId: dropiProductId,
+          provider: row.provider || (dropiProductId ? 'dropi' : 'direct'),
+          supplier: row.supplier || (row.provider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa')),
+          supplier_sku: row.supplier_sku || undefined,
+          createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
+        };
+      });
 
-    res.json({ success: true, data: mapped });
+    res.json({ success: true, count: mapped.length, data: mapped });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -730,6 +690,7 @@ router.delete('/products/:id', async (req, res) => {
     }
 
     // Sincronizar eliminación local y cPanel
+    dropiBackupService.removeDropiId(id);
     db.deleteProduct(id);
     cpanelDbService.deleteProduct(id).catch(() => {});
 
@@ -782,6 +743,7 @@ router.post('/products/bulk-delete', async (req, res) => {
           count++;
         }
       } else {
+        dropiBackupService.removeDropiId(id);
         const ok = db.deleteProduct(id);
         if (ok) count++;
       }

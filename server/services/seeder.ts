@@ -26,7 +26,12 @@ export async function runCleanupAndDisableSeeders(poolInstance?: mysql.Pool | nu
         '%Proyector Laser%',
         '%Producto Prueba%',
         '%test-product%',
-        '%prod-test%'
+        '%prod-test%',
+        '%Bright cristal%',
+        '%Rosa Eterna%',
+        '%Cúpula Rosa%',
+        'ZLIZ3gPA2mAEM0kqDdkR',
+        'prod-dropi-1791814526611-0'
       ];
 
       for (const pattern of testProductNames) {
@@ -103,7 +108,17 @@ export async function runCleanupAndDisableSeeders(poolInstance?: mysql.Pool | nu
     const currentProducts = db.getProducts();
     const cleanProducts = currentProducts.filter(prod => {
       const title = (prod.title || (prod as any).name || '').toLowerCase();
-      if (title.includes('esfera inflable') || title.includes('proyector laser') || title.includes('producto prueba')) {
+      const id = String(prod.id || '');
+      if (
+        title.includes('esfera inflable') || 
+        title.includes('proyector laser') || 
+        title.includes('producto prueba') ||
+        title.includes('bright cristal') ||
+        title.includes('rosa eterna') ||
+        title.includes('cúpula rosa') ||
+        id === 'ZLIZ3gPA2mAEM0kqDdkR' ||
+        id === 'prod-dropi-1791814526611-0'
+      ) {
         return false;
       }
       return true;

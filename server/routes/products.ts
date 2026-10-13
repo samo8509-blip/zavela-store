@@ -1,10 +1,71 @@
 import { Router } from 'express';
 import { db, isTestProduct } from '../db.ts';
-import { cpanelDbService } from '../services/cpanelDbService.ts';
-import { pool } from '../mysqlPool.ts';
+import { pool, nativePool } from '../mysqlPool.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
+
+// Helper para convertir una fila SQL de MySQL en objeto Product estándar
+function mapSqlRowToProduct(row: any): any {
+  let images: string[] = [];
+  if (Array.isArray(row.images)) {
+    images = row.images;
+  } else if (typeof row.images === 'string' && row.images.trim()) {
+    try {
+      const parsed = JSON.parse(row.images);
+      images = Array.isArray(parsed) ? parsed : [row.images];
+    } catch {
+      images = row.images.includes(',') ? row.images.split(',').map((s: string) => s.trim()) : [row.images];
+    }
+  } else if (row.imagen) {
+    images = [row.imagen];
+  } else if (row.imagenes) {
+    try {
+      const parsed = JSON.parse(row.imagenes);
+      images = Array.isArray(parsed) ? parsed : [row.imagenes];
+    } catch {
+      images = [row.imagenes];
+    }
+  }
+
+  if (images.length === 0) {
+    images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+  }
+
+  const price = Number(row.price !== undefined ? row.price : row.precio) || 0;
+  const supplierCost = Number(row.supplier_cost !== undefined ? row.supplier_cost : (row.costPrice || 0)) || 0;
+  const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
+  const dropiId = row.dropi_product_id ? String(row.dropi_product_id).trim() : '';
+
+  return {
+    id: String(row.id),
+    title: row.title || row.name || row.nombre || 'Producto Zavela',
+    name: row.title || row.name || row.nombre || 'Producto Zavela',
+    slug: row.slug || String(row.id),
+    price,
+    costPrice: supplierCost,
+    supplier_cost: supplierCost,
+    compareAtPrice: suggestedPrice,
+    suggested_price: suggestedPrice,
+    discountPercentage: (suggestedPrice > price && suggestedPrice > 0) ? Math.round(((suggestedPrice - price) / suggestedPrice) * 100) : 0,
+    stock: Number(row.stock !== undefined ? row.stock : 10),
+    description: row.description || row.descripcion || '',
+    category: row.category || row.categoria || 'General',
+    categoryName: row.category || row.categoria || 'General',
+    categoryId: row.category_id || 'cat-general',
+    dropi_product_id: dropiId,
+    dropiProductId: dropiId,
+    provider: row.provider || (dropiId ? 'dropi' : 'direct'),
+    supplier: row.supplier || (row.provider === 'derocha' ? 'DeRocha' : (dropiId ? 'Dropi Colombia' : 'Bodega Directa')),
+    supplier_sku: row.supplier_sku || undefined,
+    image: images[0],
+    images,
+    active: true,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString()
+  };
+}
 
 // Desactivar endpoints de prueba
 router.all(['/test-product', '/seed', '/test'], (req, res) => {
@@ -14,24 +75,63 @@ router.all(['/test-product', '/seed', '/test'], (req, res) => {
   });
 });
 
-// GET /api/products - Get catalog with search, category, sort
+// GET /api/products - Consulta directa y exclusiva en MySQL cPanel
 router.get('/', async (req, res) => {
   try {
     const { category, search, featured, sort, minPrice, maxPrice } = req.query;
 
-    // 1. Intento de sincronización con la API PHP de cPanel (MySQL)
-    const remoteProducts = await cpanelDbService.fetchProducts();
-    if (remoteProducts && remoteProducts.length > 0) {
-      db.mergeRemoteProducts(remoteProducts);
+    let products: any[] = [];
+    let queriedFromSql = false;
+
+    // 1. Consulta SQL directa a la tabla física `products` en MySQL cPanel
+    try {
+      if (nativePool) {
+        const [sqlRows]: any = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
+        if (Array.isArray(sqlRows)) {
+          products = sqlRows.map(mapSqlRowToProduct);
+          queriedFromSql = true;
+        }
+      }
+    } catch (sqlErr: any) {
+      console.warn('[GET /api/products MySQL Error]:', sqlErr.message);
     }
 
-    // 2. Carga y filtrado con fallback transparente a la base de datos local
-    let products = db.getProducts({
-      categorySlug: category as string,
-      search: search as string,
-      onlyActive: true,
-      featured: featured === 'true'
-    }).filter(p => !isTestProduct(p));
+    // 2. Si no hay conexión MySQL activa en este entorno local, usar almacenamiento seguro local
+    if (!queriedFromSql) {
+      products = db.getProducts().map((p: any) => ({
+        ...p,
+        id: String(p.id),
+        title: p.title || p.nombre || p.name,
+        name: p.title || p.nombre || p.name,
+        price: Number(p.price || p.precio) || 0,
+        stock: Number(p.stock !== undefined ? p.stock : 10),
+        images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800']),
+        image: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : (p.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'),
+        dropi_product_id: p.dropi_product_id || p.dropiProductId || ''
+      }));
+    }
+
+    // 2. Filtrar productos de prueba demo conocidos
+    products = products.filter(p => !isTestProduct(p));
+
+    // 3. Filtros opcionales por categoría, búsqueda y precio
+    if (category && typeof category === 'string' && category !== 'all' && category !== 'todas') {
+      const catLower = category.toLowerCase().trim();
+      products = products.filter(p => 
+        (p.category && p.category.toLowerCase().includes(catLower)) ||
+        (p.categoryName && p.categoryName.toLowerCase().includes(catLower)) ||
+        (p.categoryId && p.categoryId.toLowerCase() === catLower)
+      );
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.toLowerCase().trim();
+      products = products.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.dropi_product_id && p.dropi_product_id.toLowerCase().includes(q))
+      );
+    }
 
     if (minPrice) {
       products = products.filter(p => p.price >= Number(minPrice));
@@ -40,32 +140,21 @@ router.get('/', async (req, res) => {
       products = products.filter(p => p.price <= Number(maxPrice));
     }
 
-    // Sorting
+    // Ordenamiento
     if (sort === 'price_asc') {
       products.sort((a, b) => a.price - b.price);
     } else if (sort === 'price_desc') {
       products.sort((a, b) => b.price - a.price);
     } else if (sort === 'discount') {
       products.sort((a, b) => b.discountPercentage - a.discountPercentage);
-    } else {
-      // Default: newest first
-      products.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
 
-    const dropiMap = dropiBackupService.getBackupMap();
-    const mappedProducts = products.map(p => {
-      const dId = p.dropi_product_id ? String(p.dropi_product_id).trim() : (p.dropiProductId ? String(p.dropiProductId).trim() : (dropiMap[String(p.id)] || ''));
-      return {
-        ...p,
-        dropi_product_id: dId,
-        dropiProductId: dId
-      };
-    });
-
+    // Retorna EXCLUSIVAMENTE lo que existe físicamente en MySQL
+    // Si la tabla está vacía o tiene pocos productos, NO inyecta productos por defecto
     res.json({
       success: true,
-      count: mappedProducts.length,
-      data: mappedProducts
+      count: products.length,
+      data: products
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -94,7 +183,7 @@ router.get('/proxy-image', async (req, res) => {
   }
 });
 
-// GET /api/products/categories (and /api/products/meta/categories)
+// GET /api/products/categories - Categorías disponibles
 router.get('/categories', (req, res) => {
   try {
     const categories = db.getCategories();
@@ -113,181 +202,49 @@ router.get('/meta/categories', (req, res) => {
   }
 });
 
-// GET /api/products/:id - Single product by ID or Slug
-router.get('/:idOrSlug', (req, res) => {
+// GET /api/products/:idOrSlug - Producto individual desde MySQL
+router.get('/:idOrSlug', async (req, res) => {
   try {
-    const product = db.getProductById(req.params.idOrSlug);
-    if (!product) {
-      return res.status(404).json({ success: false, message: 'Producto no encontrado' });
+    const { idOrSlug } = req.params;
+
+    try {
+      const [rows]: any = await pool.query(
+        'SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1',
+        [idOrSlug, idOrSlug]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        return res.json({ success: true, data: mapSqlRowToProduct(rows[0]) });
+      }
+
+      const [altRows]: any = await pool.query(
+        'SELECT * FROM productos WHERE id = ? LIMIT 1',
+        [idOrSlug]
+      );
+      if (Array.isArray(altRows) && altRows.length > 0) {
+        return res.json({ success: true, data: mapSqlRowToProduct(altRows[0]) });
+      }
+    } catch (sqlErr: any) {
+      console.warn('[GET /api/products/:idOrSlug MySQL Error]:', sqlErr.message);
     }
-    res.json({ success: true, data: product });
+
+    const fallback = db.getProductById(idOrSlug);
+    if (fallback) {
+      return res.json({ success: true, data: fallback });
+    }
+
+    res.status(404).json({ success: false, message: 'Producto no encontrado' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/products (o /api/products.php) - Crear o actualizar producto en MySQL
+// POST /api/products - Creación o actualización directa en MySQL
 router.post('/', async (req, res) => {
   try {
     const body = req.body;
-    const targetId = body.id || body.productId;
-    const existing = targetId ? (db.getProductById(targetId) || db.getProducts().find(p => p.id === targetId || p.slug === targetId)) : null;
-
-    if (targetId && existing) {
-      // Si el producto ya existe, actualizarlo para evitar duplicación
-      let rawImages: string[] = [];
-      if (Array.isArray(body.images) && body.images.length > 0) {
-        rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
-        rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
-        try {
-          const parsed = JSON.parse(body.imagenes);
-          if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-        } catch {}
-      }
-      if (rawImages.length === 0 && (body.image || body.imagen)) {
-        const single = body.image || body.imagen;
-        if (typeof single === 'string' && single.trim()) rawImages.push(single.trim());
-      }
-      const finalImages = rawImages.length > 0 ? rawImages : (existing.images?.length > 0 ? existing.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800']);
-      const mainImage = finalImages[0];
-
-      const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
-        ? String(body.dropi_product_id).trim()
-        : (body.dropiProductId !== undefined && body.dropiProductId !== null
-          ? String(body.dropiProductId).trim()
-          : (existing.dropi_product_id !== undefined ? String(existing.dropi_product_id) : ''));
-
-      const provider = String(body.provider || existing.provider || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
-      const supplier = String(body.supplier || existing.supplier || (provider === 'derocha' ? 'DeRocha' : (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'direct' ? 'Bodega Directa' : 'Otro Proveedor'))));
-      const supplierSku = body.supplier_sku || body.supplierSku || existing.supplier_sku || null;
-      const supplierCost = Number(body.supplier_cost !== undefined ? body.supplier_cost : (body.costPrice !== undefined ? body.costPrice : (existing.supplier_cost || existing.costPrice || 0))) || 0;
-      const suggestedPrice = Number(body.suggested_price !== undefined ? body.suggested_price : (body.suggestedPrice !== undefined ? body.suggestedPrice : (existing.suggested_price || existing.compareAtPrice || 0))) || 0;
-
-      // Extracción estricta y preservación de Categoría (sin sobreescritura accidental)
-      const rawCategory = body.category || body.categoryName || body.categoria || existing.category || existing.categoryName || (existing as any)?.categoria;
-      const matchedCategory = rawCategory ? db.getCategories().find(c => 
-        c.name.toLowerCase() === String(rawCategory).toLowerCase() || 
-        c.id.toLowerCase() === String(rawCategory).toLowerCase() ||
-        c.slug.toLowerCase() === String(rawCategory).toLowerCase() ||
-        String(rawCategory).toLowerCase().includes(c.name.toLowerCase()) ||
-        c.name.toLowerCase().includes(String(rawCategory).toLowerCase())
-      ) : null;
-      const categoryName = rawCategory ? (matchedCategory?.name || String(rawCategory).trim()) : (existing.categoryName || 'General');
-      const categoryId = body.categoryId || body.categoria_id || matchedCategory?.id || existing.categoryId || 'cat-general';
-
-      if (dropiProductId) {
-        dropiBackupService.saveDropiId(targetId, dropiProductId);
-      }
-
-      // Persistir físicamente en MySQL cPanel de inmediato
-      try {
-        const titleStr = body.title || body.nombre || existing.title || 'Producto';
-        const priceVal = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing.price || 0));
-        const stockVal = body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10));
-        const descVal = body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing.description || ''));
-        const slugVal = body.slug || existing.slug || targetId;
-
-        await pool.query(`
-          INSERT INTO products (
-            id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            title = VALUES(title),
-            name = VALUES(name),
-            slug = VALUES(slug),
-            price = VALUES(price),
-            supplier_cost = VALUES(supplier_cost),
-            suggested_price = VALUES(suggested_price),
-            stock = VALUES(stock),
-            description = VALUES(description),
-            category = VALUES(category),
-            category_id = VALUES(category_id),
-            dropi_product_id = VALUES(dropi_product_id),
-            provider = VALUES(provider),
-            supplier = VALUES(supplier),
-            supplier_sku = VALUES(supplier_sku),
-            images = VALUES(images),
-            updated_at = NOW()
-        `, [
-          targetId, titleStr, titleStr, slugVal, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
-          categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(finalImages)
-        ]);
-
-        await pool.query(`
-          INSERT INTO productos (
-            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-          ON DUPLICATE KEY UPDATE
-            nombre = VALUES(nombre),
-            precio = VALUES(precio),
-            supplier_cost = VALUES(supplier_cost),
-            suggested_price = VALUES(suggested_price),
-            stock = VALUES(stock),
-            descripcion = VALUES(descripcion),
-            categoria = VALUES(categoria),
-            category = VALUES(category),
-            category_id = VALUES(category_id),
-            dropi_product_id = VALUES(dropi_product_id),
-            provider = VALUES(provider),
-            supplier = VALUES(supplier),
-            supplier_sku = VALUES(supplier_sku),
-            imagen = VALUES(imagen),
-            imagenes = VALUES(imagenes),
-            updated_at = NOW()
-        `, [
-          targetId, titleStr, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
-          categoryName, categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(finalImages)
-        ]);
-      } catch (sqlErr: any) {
-        console.warn('[MySQL Save Product Error]:', sqlErr.message);
-      }
-
-      const updated = {
-        ...existing,
-        ...body,
-        id: targetId,
-        title: body.title || body.nombre || existing.title || 'Producto',
-        description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing.description || '')),
-        price: body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing.price || 0)),
-        costPrice: supplierCost,
-        supplier_cost: supplierCost,
-        suggested_price: suggestedPrice,
-        category: categoryName,
-        categoria: categoryName,
-        categoryName: categoryName,
-        categoryId: categoryId,
-        categoria_id: categoryId,
-        stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10)),
-        images: finalImages,
-        dropi_product_id: dropiProductId || undefined,
-        dropiProductId: dropiProductId || undefined,
-        provider,
-        supplier,
-        supplier_sku: supplierSku || undefined,
-        updatedAt: new Date().toISOString()
-      };
-
-      const saved = db.saveProduct(updated);
-      cpanelDbService.saveProduct({
-        ...saved,
-        imagen: mainImage,
-        imagenes: finalImages,
-        dropi_product_id: dropiProductId,
-        dropiProductId: dropiProductId
-      } as any).catch(() => {});
-
-      return res.status(200).json({ success: true, message: 'Producto actualizado en MySQL (cPanel)', data: saved });
-    }
-
-    const id = targetId || `prod-${Date.now()}`;
-    const price = Number(body.price !== undefined ? body.price : body.precio) || 0;
-    const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price || body.supplier_cost)) || 0;
-    const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : (body.compare_price || body.suggested_price)) || (price > 0 ? Math.round(price * 1.35) : 0);
-    const discountPercentage = Number(body.discountPercentage) || (compareAtPrice > price && compareAtPrice > 0 ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0);
-    const marginAmount = price - costPrice;
-    const marginPercentage = costPrice > 0 ? Math.round((marginAmount / costPrice) * 1000) / 10 : 0;
+    const id = body.id || body.productId || `prod-${Date.now()}`;
+    const title = (body.title || body.nombre || body.name || 'Nuevo Producto').trim();
+    const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
 
     let rawImages: string[] = [];
     if (Array.isArray(body.images) && body.images.length > 0) {
@@ -300,7 +257,6 @@ router.post('/', async (req, res) => {
         if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
       } catch {}
     }
-
     if (rawImages.length === 0 && (body.image || body.imagen)) {
       const single = body.image || body.imagen;
       if (typeof single === 'string' && single.trim()) rawImages.push(single.trim());
@@ -309,109 +265,65 @@ router.post('/', async (req, res) => {
     const validImages = rawImages.length > 0 ? rawImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
     const mainImage = validImages[0];
 
-    const dropiProductId = body.dropi_product_id !== undefined && body.dropi_product_id !== null
+    const price = Number(body.price !== undefined ? body.price : body.precio) || 0;
+    const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price || body.supplier_cost)) || 0;
+    const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : (body.compare_price || body.suggested_price)) || (price > 0 ? Math.round(price * 1.35) : 0);
+    const stock = Number(body.stock !== undefined ? body.stock : (body.inventario !== undefined ? body.inventario : 10));
+    const description = body.description !== undefined ? body.description : (body.descripcion || '');
+
+    const rawCategory = body.category || body.categoryName || body.categoria;
+    const category = rawCategory ? String(rawCategory).trim() : 'General';
+    const categoryId = body.categoryId || body.categoria_id || 'cat-general';
+
+    const dropiProductId = (body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== '')
       ? String(body.dropi_product_id).trim()
-      : (body.dropiProductId !== undefined && body.dropiProductId !== null
+      : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
         ? String(body.dropiProductId).trim()
-        : (body.dropi_id !== undefined && body.dropi_id !== null ? String(body.dropi_id).trim() : ''));
+        : null);
 
-    const provider = String(body.provider || body.supplier || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
-    const supplier = String(body.supplier || (provider === 'derocha' ? 'DeRocha' : (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'direct' ? 'Bodega Directa' : 'Otro Proveedor'))));
+    const provider = String(body.provider || body.supplier_type || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
+    const supplier = String(body.supplier || body.supplier_name || (provider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa')));
     const supplierSku = body.supplier_sku || body.supplierSku || body.sku || null;
-    const supplierCost = Number(body.supplier_cost !== undefined ? body.supplier_cost : costPrice) || 0;
-    const suggestedPrice = Number(body.suggested_price !== undefined ? body.suggested_price : compareAtPrice) || 0;
 
-    const title = (body.title || body.nombre || body.name || 'Nuevo Producto').trim();
-    const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
-
-    // Extracción estricta y preservación de Categoría (sin sobreescritura accidental)
-    const rawCategory = body.category || body.categoryName || body.categoria || body.category_name;
-    const matchedCategory = rawCategory ? db.getCategories().find(c => 
-      c.name.toLowerCase() === String(rawCategory).toLowerCase() || 
-      c.id.toLowerCase() === String(rawCategory).toLowerCase() ||
-      c.slug.toLowerCase() === String(rawCategory).toLowerCase() ||
-      String(rawCategory).toLowerCase().includes(c.name.toLowerCase()) ||
-      c.name.toLowerCase().includes(String(rawCategory).toLowerCase())
-    ) : null;
-    const categoryName = rawCategory ? (matchedCategory?.name || String(rawCategory).trim()) : 'General';
-    const categoryId = body.categoryId || body.categoria_id || matchedCategory?.id || 'cat-general';
-
-    const product = {
-      id,
-      title,
-      name: title,
-      slug,
-      description: body.description !== undefined ? body.description : (body.descripcion || ''),
-      shortDescription: body.shortDescription || body.descripcion_corta || '',
-      price,
-      costPrice: supplierCost,
-      supplier_cost: supplierCost,
-      suggested_price: suggestedPrice,
-      provider,
-      supplier,
-      supplier_sku: supplierSku || undefined,
-      compareAtPrice,
-      discountPercentage,
-      marginAmount,
-      marginPercentage,
-      stock: Number(body.stock !== undefined ? body.stock : (body.inventario !== undefined ? body.inventario : 10)),
-      active: body.active !== false && body.activo !== false,
-      featured: Boolean(body.featured || body.destacado),
-      images: validImages,
-      warrantyInfo: body.warrantyInfo || '30 días de garantía oficial Zavela Store.',
-      tags: Array.isArray(body.tags) ? body.tags : ['tendencia', 'calidad'],
-      weightKg: Number(body.weightKg || body.peso) || 0.5,
-      categoryId,
-      categoryName,
-      category: categoryName,
-      categoria: categoryName,
-      categoria_id: categoryId,
-      warehouseCity: body.warehouseCity || 'Bogotá D.C.',
-      brand: body.brand || 'Zavela Store',
-      dropi_product_id: dropiProductId || undefined,
-      dropiProductId: dropiProductId || undefined,
-      variants: Array.isArray(body.variants) ? body.variants : [],
-      createdAt: body.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // 1. Guardar copia en respaldo persistente si tiene ID de Dropi
+    // 1. Guardar dropiId si corresponde
     if (dropiProductId) {
       dropiBackupService.saveDropiId(id, dropiProductId);
     }
 
-    // 2. Guardar físicamente en MySQL cPanel
-    try {
-      await pool.query(`
-        INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-        ON DUPLICATE KEY UPDATE
-          title = VALUES(title),
-          name = VALUES(name),
-          slug = VALUES(slug),
-          price = VALUES(price),
-          supplier_cost = VALUES(supplier_cost),
-          suggested_price = VALUES(suggested_price),
-          stock = VALUES(stock),
-          description = VALUES(description),
-          category = VALUES(category),
-          category_id = VALUES(category_id),
-          dropi_product_id = VALUES(dropi_product_id),
-          provider = VALUES(provider),
-          supplier = VALUES(supplier),
-          supplier_sku = VALUES(supplier_sku),
-          images = VALUES(images),
-          updated_at = NOW()
-      `, [
-        id, title, title, slug, price, supplierCost, suggestedPrice, product.stock, product.description,
-        categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(validImages)
-      ]);
+    // 2. Inserción directa en MySQL física tabla products
+    const imagesJson = JSON.stringify(validImages);
+    await pool.query(`
+      INSERT INTO products (
+        id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      ON DUPLICATE KEY UPDATE
+        title = VALUES(title),
+        name = VALUES(name),
+        slug = VALUES(slug),
+        price = VALUES(price),
+        supplier_cost = VALUES(supplier_cost),
+        suggested_price = VALUES(suggested_price),
+        stock = VALUES(stock),
+        description = VALUES(description),
+        category = VALUES(category),
+        category_id = VALUES(category_id),
+        dropi_product_id = VALUES(dropi_product_id),
+        provider = VALUES(provider),
+        supplier = VALUES(supplier),
+        supplier_sku = VALUES(supplier_sku),
+        images = VALUES(images),
+        updated_at = NOW()
+    `, [
+      id, title, title, slug, price, costPrice, compareAtPrice, stock, description,
+      category, categoryId, dropiProductId, provider, supplier, supplierSku, imagesJson
+    ]);
 
+    // Inserción en tabla productos para retrocompatibilidad
+    try {
       await pool.query(`
         INSERT INTO productos (
           id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
@@ -430,191 +342,335 @@ router.post('/', async (req, res) => {
           imagenes = VALUES(imagenes),
           updated_at = NOW()
       `, [
-        id, title, price, supplierCost, suggestedPrice, product.stock, product.description,
-        categoryName, categoryName, categoryId, dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(validImages)
+        id, title, price, costPrice, compareAtPrice, stock, description,
+        category, category, categoryId, dropiProductId, provider, supplier, supplierSku, mainImage, imagesJson
       ]);
-    } catch (sqlErr: any) {
-      console.warn('[MySQL Save Product Error]:', sqlErr.message);
-    }
+    } catch {}
 
-    // 3. Guardar localmente
-    const saved = db.saveProduct({
-      ...product,
-      dropi_product_id: dropiProductId || undefined,
-      dropiProductId: dropiProductId || undefined
-    });
+    const productRecord = {
+      id,
+      title,
+      name: title,
+      slug,
+      price,
+      costPrice,
+      supplier_cost: costPrice,
+      compareAtPrice,
+      suggested_price: compareAtPrice,
+      stock,
+      description,
+      category,
+      categoryName: category,
+      categoryId,
+      dropi_product_id: dropiProductId || '',
+      dropiProductId: dropiProductId || '',
+      provider,
+      supplier,
+      supplier_sku: supplierSku || undefined,
+      image: mainImage,
+      images: validImages,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-    // 4. Sincronizar de forma asíncrona con MySQL en cPanel vía servicio remoto
-    cpanelDbService.saveProduct({
-      ...saved,
-      imagen: mainImage,
-      imagenes: validImages,
-      dropi_product_id: dropiProductId,
-      dropiProductId: dropiProductId
-    } as any).catch(err => {
-      console.warn('[cPanel Sync] Advertencia al sincronizar producto en MySQL cPanel:', err.message);
-    });
+    // Sincronizar copia en memoria
+    db.saveProduct(productRecord as any);
+    cpanelDbService.saveProduct(productRecord as any).catch(() => {});
 
     res.status(201).json({
       success: true,
-      message: 'Producto guardado en MySQL (cPanel)',
-      data: saved
+      message: 'Producto guardado físicamente en MySQL con éxito',
+      data: productRecord
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST /api/products/bulk-import - Importación y Cotización Masiva desde Dropi
-router.post(['/bulk-import', '/bulk_import'], async (req, res) => {
+// PUT /api/products/:id - Actualización directa en MySQL
+router.put('/:id', async (req, res) => {
   try {
-    const rawItems = req.body.items || req.body.products || req.body;
-    if (!Array.isArray(rawItems) || rawItems.length === 0) {
-      return res.status(400).json({ success: false, message: 'Se requiere una lista de productos para importar' });
+    const id = req.params.id || req.body.id;
+    const body = req.body;
+
+    let rawImages: string[] = [];
+    if (Array.isArray(body.images) && body.images.length > 0) {
+      rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
+      rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+      try {
+        const parsed = JSON.parse(body.imagenes);
+        if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+      } catch {}
+    }
+    if (rawImages.length === 0 && (body.image || body.imagen)) {
+      const single = body.image || body.imagen;
+      if (typeof single === 'string' && single.trim()) rawImages.push(single.trim());
+    }
+
+    const title = (body.title || body.nombre || body.name || 'Producto').trim();
+    const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
+    const price = Number(body.price !== undefined ? body.price : body.precio) || 0;
+    const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price || body.supplier_cost)) || 0;
+    const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : (body.compare_price || body.suggested_price)) || (price > 0 ? Math.round(price * 1.35) : 0);
+    const stock = Number(body.stock !== undefined ? body.stock : (body.inventario !== undefined ? body.inventario : 10));
+    const description = body.description !== undefined ? body.description : (body.descripcion || '');
+
+    const rawCategory = body.category || body.categoryName || body.categoria;
+    const category = rawCategory ? String(rawCategory).trim() : 'General';
+    const categoryId = body.categoryId || body.categoria_id || 'cat-general';
+
+    const dropiProductId = (body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== '')
+      ? String(body.dropi_product_id).trim()
+      : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
+        ? String(body.dropiProductId).trim()
+        : null);
+
+    const provider = String(body.provider || body.supplier_type || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
+    const supplier = String(body.supplier || body.supplier_name || (provider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa')));
+    const supplierSku = body.supplier_sku || body.supplierSku || body.sku || null;
+
+    if (dropiProductId) {
+      dropiBackupService.saveDropiId(id, dropiProductId);
+    } else {
+      dropiBackupService.removeDropiId(id);
+    }
+
+    const validImages = rawImages.length > 0 ? rawImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+    const mainImage = validImages[0];
+    const imagesJson = JSON.stringify(validImages);
+
+    // Actualización física en MySQL tabla products
+    await pool.query(`
+      INSERT INTO products (
+        id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        title = VALUES(title),
+        name = VALUES(name),
+        slug = VALUES(slug),
+        price = VALUES(price),
+        supplier_cost = VALUES(supplier_cost),
+        suggested_price = VALUES(suggested_price),
+        stock = VALUES(stock),
+        description = VALUES(description),
+        category = VALUES(category),
+        category_id = VALUES(category_id),
+        dropi_product_id = VALUES(dropi_product_id),
+        provider = VALUES(provider),
+        supplier = VALUES(supplier),
+        supplier_sku = VALUES(supplier_sku),
+        images = VALUES(images),
+        updated_at = NOW()
+    `, [
+      id, title, title, slug, price, costPrice, compareAtPrice, stock, description,
+      category, categoryId, dropiProductId, provider, supplier, supplierSku, imagesJson
+    ]);
+
+    try {
+      await pool.query(`
+        INSERT INTO productos (
+          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          nombre = VALUES(nombre),
+          precio = VALUES(precio),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          stock = VALUES(stock),
+          descripcion = VALUES(descripcion),
+          categoria = VALUES(categoria),
+          category = VALUES(category),
+          category_id = VALUES(category_id),
+          dropi_product_id = VALUES(dropi_product_id),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          supplier_sku = VALUES(supplier_sku),
+          imagen = VALUES(imagen),
+          imagenes = VALUES(imagenes),
+          updated_at = NOW()
+      `, [
+        id, title, price, costPrice, compareAtPrice, stock, description,
+        category, category, categoryId, dropiProductId, provider, supplier, supplierSku, mainImage, imagesJson
+      ]);
+    } catch {}
+
+    const updatedProduct = {
+      id,
+      title,
+      name: title,
+      slug,
+      price,
+      costPrice,
+      supplier_cost: costPrice,
+      compareAtPrice,
+      suggested_price: compareAtPrice,
+      stock,
+      description,
+      category,
+      categoryName: category,
+      categoryId,
+      dropi_product_id: dropiProductId || '',
+      dropiProductId: dropiProductId || '',
+      provider,
+      supplier,
+      supplier_sku: supplierSku || undefined,
+      image: mainImage,
+      images: validImages,
+      active: true,
+      updatedAt: new Date().toISOString()
+    };
+
+    db.saveProduct(updatedProduct as any);
+    cpanelDbService.saveProduct(updatedProduct as any).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Producto actualizado físicamente en MySQL',
+      data: updatedProduct
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/products/:id - Eliminación definitiva en la base de datos física MySQL
+router.delete('/:id?', async (req, res) => {
+  try {
+    const id = req.params.id || (req.query.id as string);
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID de producto no proporcionado' });
+    }
+
+    // 1. Borrado físico definitivo en MySQL (tablas products y productos)
+    try {
+      await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+      await pool.query('DELETE FROM products WHERE id = ?', [id]);
+      await pool.query('DELETE FROM productos WHERE id = ?', [id]);
+      await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+      console.log(`[MySQL] ✓ Producto ${id} eliminado permanentemente de MySQL.`);
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Delete Product Warning]:', sqlErr.message);
+      try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
+    }
+
+    // 2. Desactivar y purgar completamente el ID de respaldo
+    dropiBackupService.removeDropiId(id);
+
+    // 3. Purgar en memoria local y en cPanel
+    db.deleteProduct(id);
+    cpanelDbService.deleteProduct(id).catch(() => {});
+
+    db.addLog({
+      type: 'PRODUCT_UPDATE',
+      action: 'Producto Eliminado',
+      details: `Producto con ID ${id} fue eliminado permanentemente de MySQL.`,
+      status: 'info'
+    });
+
+    res.json({
+      success: true,
+      message: `Producto ${id} eliminado correctamente y de forma permanente de MySQL.`
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/products/bulk-import - Importador masivo de Dropi a MySQL
+router.post('/bulk-import', async (req, res) => {
+  try {
+    const { products } = req.body;
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ success: false, message: 'No se enviaron productos para importar' });
     }
 
     const savedProducts: any[] = [];
     const backupEntries: Record<string, string> = {};
 
-    for (let i = 0; i < rawItems.length; i++) {
-      const item = rawItems[i];
-      const name = (item.name || item.title || item.nombre || 'Producto Importado Dropi').trim();
-      
-      // Normalizar slug (minúsculas, sin tildes ni caracteres especiales, con guiones)
-      const rawSlug = (item.slug || name)
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
-      
-      const id = item.id || `prod-dropi-${Date.now()}-${i}`;
-      const slug = rawSlug || id;
-      const description = item.description || item.descripcion || '';
-      
-      let images = Array.isArray(item.images) && item.images.length > 0 
-        ? item.images.filter((img: any) => typeof img === 'string' && img.trim())
-        : (item.image ? [item.image] : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800']);
-      if (images.length === 0) {
-        images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
-      }
+    for (const item of products) {
+      const id = item.id || `prod-dropi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+      const name = item.name || item.title || 'Producto Dropi';
+      const slug = item.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const price = Number(item.price || item.suggested_price || 0);
+      const costPrice = Number(item.cost_price || item.costPrice || 0);
+      const suggestedPrice = Number(item.suggested_price || price);
+      const dropiProductId = String(item.dropi_product_id || item.numeric_id || '').trim();
+      const description = item.description || '';
+      const stock = Number(item.stock || 50);
+      const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+      const imagesJson = JSON.stringify(images);
       const mainImage = images[0];
 
-      const price = Number(item.price !== undefined ? item.price : item.precio) || 0;
-      const costPrice = Number(item.cost_price !== undefined ? item.cost_price : (item.costPrice !== undefined ? item.costPrice : item.costo)) || 0;
-      const dropiProductId = String(item.dropi_product_id || item.dropiProductId || item.dropi_id || item.id || '').trim();
-      const estimatedShipping = Number(item.estimated_shipping !== undefined ? item.estimated_shipping : (item.estimatedShippingCost !== undefined ? item.estimatedShippingCost : 21730)) || 21730;
-      const totalOperatingCost = costPrice + estimatedShipping;
-      const realNetProfit = price - totalOperatingCost;
-      const realNetMarginPercentage = totalOperatingCost > 0 ? Math.round((realNetProfit / totalOperatingCost) * 1000) / 10 : 0;
-      const compareAtPrice = Number(item.compareAtPrice) || (price > 0 ? Math.round(price * 1.35) : 0);
-      const discountPercentage = compareAtPrice > price ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
-      const suggestedPrice = Number(item.suggested_price || item.suggestedPrice || price || 0);
-
-      const product = {
-        id,
-        title: name,
-        name,
-        nombre: name,
-        slug,
-        description,
-        shortDescription: item.shortDescription || description.slice(0, 160),
-        price,
-        costPrice,
-        cost_price: costPrice,
-        compareAtPrice,
-        discountPercentage,
-        marginAmount: realNetProfit,
-        marginPercentage: realNetMarginPercentage,
-        realNetProfit,
-        realNetMarginPercentage,
-        estimatedShippingCost: estimatedShipping,
-        shipping_cost: 0, // Envío gratis al cliente
-        shippingCost: 0,
-        totalOperatingCost,
-        stock: Number(item.stock) || 25,
-        active: true,
-        status: 'active',
-        featured: Boolean(item.featured),
-        images,
-        warrantyInfo: item.warrantyInfo || '30 días de garantía oficial Zavela Store.',
-        tags: Array.isArray(item.tags) ? item.tags : ['dropi', 'tendencia', 'calidad'],
-        weightKg: Number(item.weightKg) || 0.5,
-        categoryId: item.categoryId || item.category_id || 'cat-general',
-        categoryName: item.categoryName || item.category_name || item.category || 'General',
-        warehouseCity: item.warehouseCity || item.warehouse || 'Bogotá D.C.',
-        brand: item.brand || 'Zavela Store',
-        dropi_product_id: dropiProductId,
-        dropiProductId,
-        variants: Array.isArray(item.variants) ? item.variants : [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      // 1. Guardar en mapa de respaldo persistente
       if (dropiProductId) {
         backupEntries[id] = dropiProductId;
         dropiBackupService.saveDropiId(id, dropiProductId);
       }
 
-      // 2. Guardar en base de datos local
-      const saved = db.saveProduct(product);
-      savedProducts.push(saved);
-
-      // 3. Guardar físicamente en MySQL en ambas tablas
-      try {
-        const imagesJson = JSON.stringify(images);
-        const rawPayloadJson = item.raw_payload ? JSON.stringify(item.raw_payload) : null;
-        await pool.query(`
-          INSERT INTO products (
-            id, title, name, slug, price, cost_price, supplier_cost, suggested_price,
-            dropi_product_id, description, images, shipping_cost, stock, raw_dropi_payload
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            title = VALUES(title),
-            name = VALUES(name),
-            slug = VALUES(slug),
-            price = VALUES(price),
-            cost_price = VALUES(cost_price),
-            supplier_cost = VALUES(supplier_cost),
-            suggested_price = VALUES(suggested_price),
-            dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), products.dropi_product_id),
-            images = VALUES(images),
-            stock = VALUES(stock),
-            raw_dropi_payload = COALESCE(VALUES(raw_dropi_payload), products.raw_dropi_payload)
-        `, [id, name, name, slug, price, costPrice, costPrice, suggestedPrice, dropiProductId, description, imagesJson, product.stock, rawPayloadJson]);
-      } catch (err: any) {
-        console.warn('[MySQL products bulk-import warning]:', err.message);
-      }
+      await pool.query(`
+        INSERT INTO products (
+          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          name = VALUES(name),
+          price = VALUES(price),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          stock = VALUES(stock),
+          description = VALUES(description),
+          dropi_product_id = VALUES(dropi_product_id),
+          images = VALUES(images),
+          updated_at = NOW()
+      `, [id, name, name, slug, price, costPrice, suggestedPrice, stock, description, dropiProductId || null, imagesJson]);
 
       try {
-        const imagesJson = JSON.stringify(images);
         await pool.query(`
-          INSERT INTO productos (id, nombre, precio, dropi_product_id, descripcion, imagen, imagenes, stock)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO productos (
+            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, imagen, imagenes, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, ?, NOW(), NOW())
           ON DUPLICATE KEY UPDATE
             nombre = VALUES(nombre),
             precio = VALUES(precio),
-            dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), productos.dropi_product_id),
+            supplier_cost = VALUES(supplier_cost),
+            suggested_price = VALUES(suggested_price),
+            stock = VALUES(stock),
+            descripcion = VALUES(descripcion),
+            dropi_product_id = VALUES(dropi_product_id),
             imagen = VALUES(imagen),
             imagenes = VALUES(imagenes),
-            stock = VALUES(stock)
-        `, [id, name, price, dropiProductId, description, mainImage, imagesJson, product.stock]);
-      } catch (err: any) {
-        console.warn('[MySQL productos bulk-import warning]:', err.message);
-      }
+            updated_at = NOW()
+        `, [id, name, price, costPrice, suggestedPrice, stock, description, dropiProductId || null, mainImage, imagesJson]);
+      } catch {}
 
-      // 4. Sincronizar asíncronamente con cPanel
-      cpanelDbService.saveProduct({
-        ...saved,
-        imagen: mainImage,
-        imagenes: images,
+      const prodRecord = {
+        id,
+        title: name,
+        slug,
+        price,
+        costPrice,
+        supplier_cost: costPrice,
+        compareAtPrice: suggestedPrice,
+        suggested_price: suggestedPrice,
+        stock,
+        description,
         dropi_product_id: dropiProductId,
-        dropiProductId
-      } as any).catch(() => {});
+        dropiProductId,
+        provider: 'dropi',
+        supplier: 'Dropi Colombia',
+        image: mainImage,
+        images,
+        active: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      db.saveProduct(prodRecord as any);
+      savedProducts.push(prodRecord);
     }
 
-    // Guardado en lote en archivo de respaldo persistente
     if (Object.keys(backupEntries).length > 0) {
       dropiBackupService.saveBulk(backupEntries);
     }
@@ -623,122 +679,7 @@ router.post(['/bulk-import', '/bulk_import'], async (req, res) => {
       success: true,
       count: savedProducts.length,
       data: savedProducts,
-      message: `Se importaron ${savedProducts.length} productos de Dropi exitosamente con persistencia en MySQL y respaldo local.`
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// PUT /api/products/:id - Actualizar producto
-router.put('/:id', async (req, res) => {
-  try {
-    const id = req.params.id || req.body.id;
-    let existing = db.getProductById(id);
-    const body = req.body;
-
-    let finalImages = existing?.images || [];
-    if (Array.isArray(body.images) && body.images.length > 0) {
-      const filtered = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      if (filtered.length > 0) finalImages = filtered;
-    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
-      const filtered = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      if (filtered.length > 0) finalImages = filtered;
-    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
-      try {
-        const parsed = JSON.parse(body.imagenes);
-        if (Array.isArray(parsed) && parsed.length > 0) finalImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-      } catch {}
-    } else if (body.image || body.imagen) {
-      const single = (body.image || body.imagen).trim();
-      if (single) {
-        finalImages = [single, ...(existing?.images?.filter((i: string) => i !== single) || [])];
-      }
-    }
-
-    if (finalImages.length === 0) {
-      finalImages = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
-    }
-    const mainImage = finalImages[0];
-
-    const rawIncomingDropi = body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== ''
-      ? String(body.dropi_product_id).trim()
-      : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
-        ? String(body.dropiProductId).trim()
-        : (body.dropi_id !== undefined && body.dropi_id !== null && String(body.dropi_id).trim() !== ''
-          ? String(body.dropi_id).trim()
-          : ''));
-
-    const dropiMap = dropiBackupService.getBackupMap();
-    const existingDropi = existing?.dropi_product_id ? String(existing.dropi_product_id).trim() : (dropiMap[id] || '');
-    const dropiProductId = rawIncomingDropi !== '' ? rawIncomingDropi : existingDropi;
-
-    // 1. Guardar de emergencia en respaldo persistente server/data/dropi_backup.json
-    if (dropiProductId) {
-      dropiBackupService.saveDropiId(id, dropiProductId);
-    }
-
-    // 2. Guardar directamente con consulta SQL en la base de datos física (UPDATE products SET dropi_product_id = ?)
-    try {
-      await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
-    } catch (e: any) {
-      console.warn('[MySQL products UPDATE dropi_product_id]:', e.message);
-    }
-    try {
-      await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
-    } catch (e: any) {
-      console.warn('[MySQL productos UPDATE dropi_product_id]:', e.message);
-    }
-
-    const updated = {
-      ...existing,
-      ...body,
-      id,
-      title: body.title || body.nombre || existing?.title || 'Producto',
-      description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing?.description || '')),
-      price: body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0)),
-      stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing?.stock ?? 10)),
-      images: finalImages,
-      dropi_product_id: dropiProductId,
-      dropiProductId: dropiProductId,
-      updatedAt: new Date().toISOString()
-    };
-
-    const saved = db.saveProduct(updated);
-
-    cpanelDbService.saveProduct({
-      ...saved,
-      imagen: mainImage,
-      imagenes: finalImages,
-      dropi_product_id: dropiProductId,
-      dropiProductId: dropiProductId
-    } as any).catch(err => {
-      console.warn('[cPanel Sync] Advertencia al actualizar en cPanel MySQL:', err.message);
-    });
-
-    res.json({
-      success: true,
-      message: 'Producto actualizado en MySQL (cPanel)',
-      data: saved
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// DELETE /api/products/:id o /api/products.php?id=... - Eliminar producto
-router.delete('/:id?', async (req, res) => {
-  try {
-    const id = req.params.id || req.query.id as string;
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'ID de producto no proporcionado' });
-    }
-
-    const [result]: any = await pool.query('DELETE FROM productos WHERE id = ?', [id]);
-
-    res.json({
-      success: true,
-      message: `Producto ${id} eliminado correctamente de MySQL`
+      message: `Se importaron ${savedProducts.length} productos con persistencia real en MySQL.`
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

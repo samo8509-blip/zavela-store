@@ -946,21 +946,7 @@
     }
   ],
   "orders": [],
-  "customers": [
-    {
-      "id": "cust-1791897682255",
-      "firstName": "Andres",
-      "lastName": "Perez",
-      "email": "andres@test.com",
-      "phone": "3129876543",
-      "department": "Antioquia",
-      "city": "Medellin",
-      "address": "Carrera 43A # 1-50",
-      "totalOrders": 1,
-      "totalSpent": 124200,
-      "createdAt": "2026-10-13T13:21:22.255Z"
-    }
-  ],
+  "customers": [],
   "settings": {
     "id": "set-1",
     "storeName": "Zavela Store",
@@ -1718,6 +1704,14 @@
   },
   "logs": [
     {
+      "id": "log-1791899299522-rwvjs",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Eliminado",
+      "details": "Producto con ID prod-reloj-test-101 fue eliminado permanentemente de MySQL.",
+      "status": "info",
+      "createdAt": "2026-10-13T13:48:19.522Z"
+    },
+    {
       "id": "log-1791897695579-fjls9",
       "type": "ORDER_DELETED",
       "orderId": "ord-1791897682234",
@@ -2446,5 +2440,7 @@
       "postUrl": "https://tiktok.com/@zavelastore_oficial/video/sample2"
     }
   ],
-  "deletedProductIds": []
+  "deletedProductIds": [
+    "prod-reloj-test-101"
+  ]
 }
