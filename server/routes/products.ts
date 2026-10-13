@@ -159,14 +159,72 @@ router.post('/', async (req, res) => {
           ? String(body.dropiProductId).trim()
           : (existing.dropi_product_id !== undefined ? String(existing.dropi_product_id) : ''));
 
+      const provider = String(body.provider || existing.provider || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
+      const supplier = String(body.supplier || existing.supplier || (provider === 'derocha' ? 'DeRocha' : (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'direct' ? 'Bodega Directa' : 'Otro Proveedor'))));
+      const supplierSku = body.supplier_sku || body.supplierSku || existing.supplier_sku || null;
+      const supplierCost = Number(body.supplier_cost !== undefined ? body.supplier_cost : (body.costPrice !== undefined ? body.costPrice : (existing.supplier_cost || existing.costPrice || 0))) || 0;
+      const suggestedPrice = Number(body.suggested_price !== undefined ? body.suggested_price : (body.suggestedPrice !== undefined ? body.suggestedPrice : (existing.suggested_price || existing.compareAtPrice || 0))) || 0;
+
       if (dropiProductId) {
         dropiBackupService.saveDropiId(targetId, dropiProductId);
-        try {
-          await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, targetId]);
-        } catch {}
-        try {
-          await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, targetId]);
-        } catch {}
+      }
+
+      // Persistir físicamente en MySQL cPanel de inmediato
+      try {
+        const titleStr = body.title || body.nombre || existing.title || 'Producto';
+        const priceVal = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing.price || 0));
+        const stockVal = body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10));
+        const descVal = body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing.description || ''));
+        const slugVal = body.slug || existing.slug || targetId;
+
+        await pool.query(`
+          INSERT INTO products (
+            id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, supplier_sku, images, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            name = VALUES(name),
+            slug = VALUES(slug),
+            price = VALUES(price),
+            supplier_cost = VALUES(supplier_cost),
+            suggested_price = VALUES(suggested_price),
+            stock = VALUES(stock),
+            description = VALUES(description),
+            dropi_product_id = VALUES(dropi_product_id),
+            provider = VALUES(provider),
+            supplier = VALUES(supplier),
+            supplier_sku = VALUES(supplier_sku),
+            images = VALUES(images),
+            updated_at = NOW()
+        `, [
+          targetId, titleStr, titleStr, slugVal, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
+          dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(finalImages)
+        ]);
+
+        await pool.query(`
+          INSERT INTO productos (
+            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE
+            nombre = VALUES(nombre),
+            precio = VALUES(precio),
+            supplier_cost = VALUES(supplier_cost),
+            suggested_price = VALUES(suggested_price),
+            stock = VALUES(stock),
+            descripcion = VALUES(descripcion),
+            dropi_product_id = VALUES(dropi_product_id),
+            provider = VALUES(provider),
+            supplier = VALUES(supplier),
+            supplier_sku = VALUES(supplier_sku),
+            imagen = VALUES(imagen),
+            imagenes = VALUES(imagenes),
+            updated_at = NOW()
+        `, [
+          targetId, titleStr, priceVal, supplierCost, suggestedPrice, stockVal, descVal,
+          dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(finalImages)
+        ]);
+      } catch (sqlErr: any) {
+        console.warn('[MySQL Save Product Error]:', sqlErr.message);
       }
 
       const updated = {
@@ -176,10 +234,16 @@ router.post('/', async (req, res) => {
         title: body.title || body.nombre || existing.title || 'Producto',
         description: body.description !== undefined ? body.description : (body.descripcion !== undefined ? body.descripcion : (existing.description || '')),
         price: body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing.price || 0)),
+        costPrice: supplierCost,
+        supplier_cost: supplierCost,
+        suggested_price: suggestedPrice,
         stock: body.stock !== undefined ? Number(body.stock) : (body.inventario !== undefined ? Number(body.inventario) : (existing.stock ?? 10)),
         images: finalImages,
-        dropi_product_id: dropiProductId,
-        dropiProductId: dropiProductId,
+        dropi_product_id: dropiProductId || undefined,
+        dropiProductId: dropiProductId || undefined,
+        provider,
+        supplier,
+        supplier_sku: supplierSku || undefined,
         updatedAt: new Date().toISOString()
       };
 
@@ -197,8 +261,8 @@ router.post('/', async (req, res) => {
 
     const id = targetId || `prod-${Date.now()}`;
     const price = Number(body.price !== undefined ? body.price : body.precio) || 0;
-    const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price)) || 0;
-    const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : body.compare_price) || (price > 0 ? Math.round(price * 1.35) : 0);
+    const costPrice = Number(body.costPrice !== undefined ? body.costPrice : (body.costo || body.cost_price || body.supplier_cost)) || 0;
+    const compareAtPrice = Number(body.compareAtPrice !== undefined ? body.compareAtPrice : (body.compare_price || body.suggested_price)) || (price > 0 ? Math.round(price * 1.35) : 0);
     const discountPercentage = Number(body.discountPercentage) || (compareAtPrice > price && compareAtPrice > 0 ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0);
     const marginAmount = price - costPrice;
     const marginPercentage = costPrice > 0 ? Math.round((marginAmount / costPrice) * 1000) / 10 : 0;
@@ -229,17 +293,29 @@ router.post('/', async (req, res) => {
         ? String(body.dropiProductId).trim()
         : (body.dropi_id !== undefined && body.dropi_id !== null ? String(body.dropi_id).trim() : ''));
 
+    const provider = String(body.provider || body.supplier || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
+    const supplier = String(body.supplier || (provider === 'derocha' ? 'DeRocha' : (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'direct' ? 'Bodega Directa' : 'Otro Proveedor'))));
+    const supplierSku = body.supplier_sku || body.supplierSku || body.sku || null;
+    const supplierCost = Number(body.supplier_cost !== undefined ? body.supplier_cost : costPrice) || 0;
+    const suggestedPrice = Number(body.suggested_price !== undefined ? body.suggested_price : compareAtPrice) || 0;
+
     const title = (body.title || body.nombre || body.name || 'Nuevo Producto').trim();
     const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
 
     const product = {
       id,
       title,
+      name: title,
       slug,
       description: body.description !== undefined ? body.description : (body.descripcion || ''),
       shortDescription: body.shortDescription || body.descripcion_corta || '',
       price,
-      costPrice,
+      costPrice: supplierCost,
+      supplier_cost: supplierCost,
+      suggested_price: suggestedPrice,
+      provider,
+      supplier,
+      supplier_sku: supplierSku || undefined,
       compareAtPrice,
       discountPercentage,
       marginAmount,
@@ -255,31 +331,78 @@ router.post('/', async (req, res) => {
       categoryName: body.categoryName || body.categoria || 'General',
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
-      dropi_product_id: dropiProductId,
+      dropi_product_id: dropiProductId || undefined,
+      dropiProductId: dropiProductId || undefined,
       variants: Array.isArray(body.variants) ? body.variants : [],
       createdAt: body.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    // 1. Guardar copia en respaldo persistente y en MySQL física
+    // 1. Guardar copia en respaldo persistente si tiene ID de Dropi
     if (dropiProductId) {
       dropiBackupService.saveDropiId(id, dropiProductId);
-      try {
-        await pool.query('UPDATE products SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
-      } catch {}
-      try {
-        await pool.query('UPDATE productos SET dropi_product_id = ? WHERE id = ?', [dropiProductId, id]);
-      } catch {}
     }
 
-    // 2. Guardar localmente
+    // 2. Guardar físicamente en MySQL cPanel
+    try {
+      await pool.query(`
+        INSERT INTO products (
+          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, supplier_sku, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          name = VALUES(name),
+          slug = VALUES(slug),
+          price = VALUES(price),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          stock = VALUES(stock),
+          description = VALUES(description),
+          dropi_product_id = VALUES(dropi_product_id),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          supplier_sku = VALUES(supplier_sku),
+          images = VALUES(images),
+          updated_at = NOW()
+      `, [
+        id, title, title, slug, price, supplierCost, suggestedPrice, product.stock, product.description,
+        dropiProductId || null, provider, supplier, supplierSku, JSON.stringify(validImages)
+      ]);
+
+      await pool.query(`
+        INSERT INTO productos (
+          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE
+          nombre = VALUES(nombre),
+          precio = VALUES(precio),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          stock = VALUES(stock),
+          descripcion = VALUES(descripcion),
+          dropi_product_id = VALUES(dropi_product_id),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          supplier_sku = VALUES(supplier_sku),
+          imagen = VALUES(imagen),
+          imagenes = VALUES(imagenes),
+          updated_at = NOW()
+      `, [
+        id, title, price, supplierCost, suggestedPrice, product.stock, product.description,
+        dropiProductId || null, provider, supplier, supplierSku, mainImage, JSON.stringify(validImages)
+      ]);
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Save Product Error]:', sqlErr.message);
+    }
+
+    // 3. Guardar localmente
     const saved = db.saveProduct({
       ...product,
-      dropi_product_id: dropiProductId,
-      dropiProductId: dropiProductId
+      dropi_product_id: dropiProductId || undefined,
+      dropiProductId: dropiProductId || undefined
     });
 
-    // 3. Sincronizar de forma asíncrona con MySQL en cPanel
+    // 4. Sincronizar de forma asíncrona con MySQL en cPanel vía servicio remoto
     cpanelDbService.saveProduct({
       ...saved,
       imagen: mainImage,
@@ -344,6 +467,7 @@ router.post(['/bulk-import', '/bulk_import'], async (req, res) => {
       const realNetMarginPercentage = totalOperatingCost > 0 ? Math.round((realNetProfit / totalOperatingCost) * 1000) / 10 : 0;
       const compareAtPrice = Number(item.compareAtPrice) || (price > 0 ? Math.round(price * 1.35) : 0);
       const discountPercentage = compareAtPrice > price ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
+      const suggestedPrice = Number(item.suggested_price || item.suggestedPrice || price || 0);
 
       const product = {
         id,
@@ -398,18 +522,25 @@ router.post(['/bulk-import', '/bulk_import'], async (req, res) => {
       // 3. Guardar físicamente en MySQL en ambas tablas
       try {
         const imagesJson = JSON.stringify(images);
+        const rawPayloadJson = item.raw_payload ? JSON.stringify(item.raw_payload) : null;
         await pool.query(`
-          INSERT INTO products (id, title, name, slug, price, cost_price, dropi_product_id, description, images, shipping_cost, stock)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+          INSERT INTO products (
+            id, title, name, slug, price, cost_price, supplier_cost, suggested_price,
+            dropi_product_id, description, images, shipping_cost, stock, raw_dropi_payload
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
           ON DUPLICATE KEY UPDATE
             title = VALUES(title),
             name = VALUES(name),
+            slug = VALUES(slug),
             price = VALUES(price),
             cost_price = VALUES(cost_price),
+            supplier_cost = VALUES(supplier_cost),
+            suggested_price = VALUES(suggested_price),
             dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), products.dropi_product_id),
             images = VALUES(images),
-            stock = VALUES(stock)
-        `, [id, name, name, slug, price, costPrice, dropiProductId, description, imagesJson, product.stock]);
+            stock = VALUES(stock),
+            raw_dropi_payload = COALESCE(VALUES(raw_dropi_payload), products.raw_dropi_payload)
+        `, [id, name, name, slug, price, costPrice, costPrice, suggestedPrice, dropiProductId, description, imagesJson, product.stock, rawPayloadJson]);
       } catch (err: any) {
         console.warn('[MySQL products bulk-import warning]:', err.message);
       }

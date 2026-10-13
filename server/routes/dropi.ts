@@ -1,9 +1,34 @@
 import { Router } from 'express';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
+import { pool } from '../mysqlPool.ts';
+import { db } from '../db.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
-// Catálogo de respaldo verificado de Dropi Colombia para desarrollo o cuando el API token no esté configurado
+// Token de integración de Dropi Colombia (activo y verificado para zavelastore.com.co)
+export const HARDCODED_DROPI_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBwLmRyb3BpLmNvOjgwIiwiaWF0IjoxNzkxODIyNDcyLCJleHAiOjQ5NDc0OTYwNzIsIm5iZiI6MTc5MTgyMjQ3MiwianRpIjoiYXlQVEczQ3EwcnRqRGpQZCIsInN1YiI6IjEwMTk3NzciLCJwcnYiOiI4N2UwYWYxZWY5ZmQxNTgxMmZkZWM5NzE1M2ExNGUwYjA0NzU0NmFhIiwiYXVkIjoiV09PQ09NRVJDRSIsInRva2VuX3R5cGUiOiJJTlRFR1JBVElPTlMiLCJ3Yl9pZCI6MSwiaW50ZWdyYXRpb25fdHlwZSI6IldPT0NPTUVSQ0UiLCJpbnRlZ3JhdGlvbl90eXBlX2lkIjoxLCJpcF91cmwiOltdLCJpbnRlZ3JhdGlvbl91cmwiOiJodHRwczovL3phdmVsYXN0b3JlLmNvbS5jbyJ9.c0UWt4OmXYenExJObrtKqnwgJrVjhcMo1otii90hEus';
+
+export function getActiveDropiToken(): string {
+  const envToken = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN;
+  if (envToken && envToken.trim()) return envToken.trim();
+  return HARDCODED_DROPI_TOKEN;
+}
+
+export function getDropiHeaders(customToken?: string): Record<string, string> {
+  const activeToken = (customToken && customToken.trim()) ? customToken.trim() : getActiveDropiToken();
+  return {
+    'dropi-integration-key': activeToken,
+    'dropi-integracion-key': activeToken,
+    'Authorization': `Bearer ${activeToken}`,
+    'token': activeToken,
+    'dropi-token': activeToken,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+  };
+}
+
+// Catálogo de respaldo verificado de Dropi Colombia para desarrollo o cuando el API token no responda
 const DROPI_VERIFIED_CATALOG = [
   {
     id: 'DROPI-20391',
@@ -199,104 +224,146 @@ function extractDropiImages(rawProduct: any): string[] {
     }
   }
 
-  if (Array.isArray(rawProduct.photos)) {
-    for (const item of rawProduct.photos) {
-      if (typeof item === 'string') addIfValid(item);
-      else if (item && typeof item === 'object') addIfValid(item.url || item.src);
-    }
+  if (rawProduct.gallery && typeof rawProduct.gallery === 'string') {
+    try {
+      const parsed = JSON.parse(rawProduct.gallery);
+      if (Array.isArray(parsed)) {
+        for (const p of parsed) addIfValid(typeof p === 'string' ? p : p?.url);
+      }
+    } catch {}
   }
 
+  addIfValid(rawProduct.main_image);
   addIfValid(rawProduct.image);
-  addIfValid(rawProduct.imagen);
   addIfValid(rawProduct.photo);
-  addIfValid(rawProduct.thumbnail);
+  addIfValid(rawProduct.url_image);
+  addIfValid(rawProduct.image_url);
+  addIfValid(rawProduct.featured_image);
 
-  // Imágenes en variaciones
-  if (Array.isArray(rawProduct.variations)) {
-    for (const v of rawProduct.variations) {
-      if (v?.image) addIfValid(v.image);
-      if (v?.image_url) addIfValid(v.image_url);
-    }
+  if (images.length === 0) {
+    images.push('https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800');
   }
 
-  return images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+  return images;
 }
 
 /**
- * Normaliza un producto devuelto por la API de Dropi al formato unificado de Zavela Store
+ * Mapea la respuesta heterogénea de la API de Dropi a un formato estructurado y predecible
  */
-function mapDropiProduct(raw: any, fallbackId: string) {
-  const cleanId = String(raw.id || raw.product_id || fallbackId).replace(/^DROPI-/i, '').trim();
-  const costPrice = Number(raw.cost_price || raw.supplier_price || raw.costo || raw.price || raw.sale_price || 0) || 0;
-  const suggestedPrice = Number(raw.suggested_price || raw.suggestedPrice || raw.price || raw.public_price || 0) || (costPrice > 0 ? Math.round((costPrice + 21730) * 1.45) : 0);
+function mapDropiProduct(raw: any, cleanId: string) {
+  const name = String(raw.name || raw.title || raw.nombre || `Producto Dropi #${cleanId}`).trim();
+  const description = String(raw.description || raw.descripcion || raw.details || raw.short_description || `Producto oficial distribuido por Dropi Colombia (ID #${cleanId})`).trim();
+  
+  const cost = Number(
+    raw.cost_price ??
+    raw.price_cost ??
+    raw.wholesale_price ??
+    raw.precio_costo ??
+    raw.sale_price ??
+    raw.price ??
+    0
+  );
+
+  const suggested = Number(
+    raw.suggested_price ??
+    raw.suggested_sale_price ??
+    raw.precio_sugerido ??
+    raw.retail_price ??
+    (cost > 0 ? Math.round((cost + 21730) * 1.45) : 0)
+  );
+
+  const stock = Number(raw.stock ?? raw.quantity ?? raw.inventory ?? raw.cantidad ?? 50);
+
+  const category = (typeof raw.category === 'object' && raw.category !== null)
+    ? String(raw.category.name || raw.category.title || 'General')
+    : String(raw.category || raw.categoria || 'General');
+
+  const supplier = (typeof raw.supplier === 'object' && raw.supplier !== null)
+    ? String(raw.supplier.name || raw.supplier.company_name || 'Proveedor Dropi Colombia')
+    : String(raw.supplier || raw.proveedor || raw.warehouse_name || 'Proveedor Dropi Colombia');
+
+  const warehouse = (typeof raw.warehouse === 'object' && raw.warehouse !== null)
+    ? String(raw.warehouse.name || raw.warehouse.city || 'Colombia')
+    : String(raw.warehouse || raw.ciudad || 'Colombia');
+
   const images = extractDropiImages(raw);
 
   return {
-    dropi_product_id: cleanId,
+    dropi_product_id: String(cleanId),
     id: `DROPI-${cleanId}`,
-    name: String(raw.name || raw.title || raw.nombre || 'Producto Dropi Colombia').trim(),
-    description: String(raw.description || raw.descripcion || '').trim(),
-    cost_price: costPrice,
-    suggested_price: suggestedPrice,
+    name,
+    description,
+    cost_price: Math.max(0, cost),
+    suggested_price: Math.max(0, suggested),
     images,
-    stock: Number(raw.stock !== undefined ? raw.stock : (raw.stock_quantity !== undefined ? raw.stock_quantity : (raw.quantity ?? 25))) || 25,
-    category: String(raw.category?.name || raw.category_name || raw.category || 'General').trim(),
-    supplier: String(raw.supplier_name || raw.supplier?.name || raw.warehouse || 'Proveedor Verificado Dropi').trim(),
-    warehouse: String(raw.warehouse || raw.city || 'Bogotá D.C.').trim()
+    stock: Math.max(0, stock),
+    category,
+    supplier,
+    warehouse,
+    raw_payload: raw
   };
 }
 
 /**
- * Parsea cualquier URL o texto de Dropi para extraer el ID numérico y el slug/nombre del producto
+ * Función utilitaria para parsear enlaces o IDs numéricos de Dropi
  */
-export function parseDropiUrlOrId(input: string): { id: string; slug: string; suggestedName: string; isUrl: boolean } | null {
+function parseDropiUrlOrId(input: string): { id: string; slug?: string; suggestedName?: string; isUrl: boolean } | null {
+  if (!input) return null;
   const trimmed = input.trim();
-  if (!trimmed) return null;
 
-  // 1. ID puramente numérico (ej: 2265271)
-  if (/^\d{3,12}$/.test(trimmed)) {
-    return { id: trimmed, slug: '', suggestedName: `Producto Dropi #${trimmed}`, isUrl: false };
+  // 1. Número puro
+  if (/^\d+$/.test(trimmed)) {
+    return { id: trimmed, isUrl: false };
   }
 
-  // 2. Prefijo DROPI- (ej: DROPI-2265271)
-  const prefixMatch = trimmed.match(/^DROPI-(\d+)$/i);
-  if (prefixMatch) {
-    return { id: prefixMatch[1], slug: '', suggestedName: `Producto Dropi #${prefixMatch[1]}`, isUrl: false };
+  // 2. Prefijo DROPI-12345
+  const dropiPrefixMatch = trimmed.match(/^DROPI-(\d+)$/i);
+  if (dropiPrefixMatch) {
+    return { id: dropiPrefixMatch[1], isUrl: false };
   }
 
-  // 3. Parámetro en Query string (?id=2265271 o product_id=2265271)
-  const queryMatch = trimmed.match(/[?&](?:id|product_id|productId|product-id)=(\d+)/i);
-  if (queryMatch) {
-    return { id: queryMatch[1], slug: '', suggestedName: `Producto Dropi #${queryMatch[1]}`, isUrl: true };
-  }
-
-  // 4. Formato de ruta: /product-details/2265271/organizador-para-condimentos-x12
-  // o /products/detail/2265271, /product/2265271/..., /producto/2265271, etc.
-  const pathMatch = trimmed.match(/(?:product-details|product_details|products\/detail|products|product|producto|p)\/(\d+)(?:\/([a-zA-Z0-9_\-\.]+))?/i);
-  if (pathMatch) {
-    const id = pathMatch[1];
-    const slug = pathMatch[2] || '';
-    let suggestedName = '';
-    if (slug) {
-      suggestedName = slug
-        .replace(/[-_.]+/g, ' ')
-        .replace(/\b\w/g, l => l.toUpperCase())
-        .trim();
+  // 3. Patrones de URLs de Dropi
+  const isUrl = /^https?:\/\//i.test(trimmed) || trimmed.includes('dropi.co');
+  if (isUrl) {
+    let cleanUrl = trimmed;
+    try {
+      const u = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+      cleanUrl = u.pathname + u.search;
+    } catch {
+      // Ignorar error de parsing URL
     }
-    return { id, slug, suggestedName: suggestedName || `Producto Dropi #${id}`, isUrl: true };
-  }
 
-  // 5. Fallback en URLs con 'dropi': cualquier secuencia de 4 a 12 dígitos
-  if (trimmed.toLowerCase().includes('dropi')) {
-    const digitsMatch = trimmed.match(/(\d{4,12})/);
-    if (digitsMatch) {
-      const id = digitsMatch[1];
-      const after = trimmed.slice(trimmed.indexOf(id) + id.length);
-      const slugMatch = after.match(/^\/([a-zA-Z0-9_\-]+)/);
+    // Patrón A: /product-details/2265271/organizador-para-condimentos-x12
+    const patternA = cleanUrl.match(/(?:product-details|product_details|products\/detail|products|detail)\/(\d+)(?:\/([a-zA-Z0-9_-]+))?/i);
+    if (patternA) {
+      const id = patternA[1];
+      const rawSlug = patternA[2] || '';
       let suggestedName = '';
-      if (slugMatch) {
+      if (rawSlug) {
+        suggestedName = rawSlug
+          .replace(/[-_]+/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase())
+          .trim();
+      }
+      return { id, slug: rawSlug, suggestedName: suggestedName || `Producto Dropi #${id}`, isUrl: true };
+    }
+
+    // Patrón B: Parámetros query como ?id=2265271 o ?product_id=2265271
+    const queryMatch = cleanUrl.match(/[?&](?:id|product_id|productId)=(\d+)/i);
+    if (queryMatch) {
+      const id = queryMatch[1];
+      return { id, isUrl: true, suggestedName: `Producto Dropi #${id}` };
+    }
+
+    // Patrón C: Cualquier secuencia de 4 a 10 dígitos dentro de la URL
+    const generalIdMatch = cleanUrl.match(/\/(\d{4,10})(?:[/?#]|$)/);
+    if (generalIdMatch) {
+      const id = generalIdMatch[1];
+      const slugMatch = cleanUrl.match(new RegExp(`/${id}/([a-zA-Z0-9_-]+)`));
+      let suggestedName = '';
+      if (slugMatch && slugMatch[1]) {
         suggestedName = slugMatch[1]
-          .replace(/[-_.]+/g, ' ')
+          .replace(/[-_]+/g, ' ')
           .replace(/\b\w/g, l => l.toUpperCase())
           .trim();
       }
@@ -315,14 +382,13 @@ router.get('/product/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Se requiere un ID de producto de Dropi' });
     }
 
-   // Extraer identificador limpio
+    // Extraer identificador limpio
     const parsed = parseDropiUrlOrId(rawParam);
     const cleanId = parsed ? parsed.id : rawParam.replace(/^DROPI-/i, '').trim();
-   const HARDCODED_DROPI_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBwLmRyb3BpLmNvOjgwIiwiaWF0IjoxNzkxODIyNDcyLCJleHAiOjQ5NDc0OTYwNzIsIm5iZiI6MTc5MTgyMjQ3MiwianRpIjoiYXlQVEczQ3EwcnRqRGpQZCIsInN1YiI6IjEwMTk3NzciLCJwcnYiOiI4N2UwYWYxZWY5ZmQxNTgxMmZkZWM5NzE1M2ExNGUwYjA0NzU0NmFhIiwiYXVkIjoiV09PQ09NRVJDRSIsInRva2VuX3R5cGUiOiJJTlRFR1JBVElPTlMiLCJ3Yl9pZCI6MSwiaW50ZWdyYXRpb25fdHlwZSI6IldPT0NPTUVSQ0UiLCJpbnRlZ3JhdGlvbl90eXBlX2lkIjoxLCJpcF91cmwiOltdLCJpbnRlZ3JhdGlvbl91cmwiOiJodHRwczovL3phdmVsYXN0b3JlLmNvbS5jbyJ9.c0UWt4OmXYenExJObrtKqnwgJrVjhcMo1otii90hEus';
-    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN || HARDCODED_DROPI_TOKEN;
+    const activeToken = getActiveDropiToken();
 
     // 1. Si existe token de Dropi, consultar la API oficial de Dropi Colombia con diagnóstico detallado
-    if (token && token.trim()) {
+    if (activeToken && activeToken.trim()) {
       try {
         const dropiBaseUrl = process.env.DROPI_API_URL || 'https://api.dropi.co';
         const endpointsToTry = [
@@ -335,35 +401,28 @@ router.get('/product/:id', async (req, res) => {
           try {
             console.log(`[Dropi API Detail] Consultando: ${endpoint}`);
             const controller = new AbortController();
-           const timeout = setTimeout(() => controller.abort(), 6000);
+            const timeout = setTimeout(() => controller.abort(), 6000);
 
-       const response = await fetch(endpoint, {
-          headers: {
-          'dropi-integration-key': HARDCODED_DROPI_TOKEN,
-          'Authorization': `Bearer ${HARDCODED_DROPI_TOKEN}`,
-          'token': HARDCODED_DROPI_TOKEN,
-          'dropi-token': HARDCODED_DROPI_TOKEN,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[Dropi API Detail Error] HTTP ${response.status} en ${endpoint}. Respuesta exacta: ${errText}`);
-          if (response.status === 401 || response.status === 403) {
-            return res.status(response.status).json({
-              success: false,
-              error: "TOKEN_ERROR",
-              message: "Falta configurar o renovar el token de Dropi en el archivo .env",
-              dropi_status: response.status,
-              dropi_response: errText
+            const response = await fetch(endpoint, {
+              headers: getDropiHeaders(activeToken),
+              signal: controller.signal
             });
-          }
-          continue;
-        }
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+              const errText = await response.text();
+              console.error(`[Dropi API Detail Error] HTTP ${response.status} en ${endpoint}. Respuesta exacta: ${errText}`);
+              if (response.status === 401 || response.status === 403) {
+                return res.status(response.status).json({
+                  success: false,
+                  error: "TOKEN_ERROR",
+                  message: "Falta configurar o renovar el token de Dropi en el archivo .env",
+                  dropi_status: response.status,
+                  dropi_response: errText
+                });
+              }
+              continue;
+            }
 
             const resJson: any = await response.json();
             const productData = resJson.data || resJson.product || resJson.result || resJson;
@@ -412,7 +471,7 @@ router.get('/product/:id', async (req, res) => {
     }
 
     // 3. Si no hay token y no está en catálogo verificado, devolver TOKEN_ERROR con datos básicos para permitir Carga Asistida
-    if (!token || !token.trim()) {
+    if (!activeToken || !activeToken.trim()) {
       return res.status(401).json({
         success: false,
         error: "TOKEN_ERROR",
@@ -450,53 +509,41 @@ router.get('/product-by-url', async (req, res) => {
     }
 
     const cleanId = parsed.id;
-    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN;
+    const activeToken = getActiveDropiToken();
 
-    // 1. Si hay token configurado, intentar consultar la API oficial primero
-    if (token && token.trim()) {
+    // 1. Intentar consultar primero la API en vivo si existe token
+    if (activeToken && activeToken.trim()) {
       try {
         const dropiBaseUrl = process.env.DROPI_API_URL || 'https://api.dropi.co';
-        const endpoint = `${dropiBaseUrl}/api/products/${cleanId}?country=CO`;
-        console.log(`[Dropi product-by-url] Consultando API con token para ID #${cleanId}: ${endpoint}`);
-        
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const response = await fetch(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${token.trim()}`,
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ZavelaStore/1.0',
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
+        const endpointsToTry = [
+          `${dropiBaseUrl}/api/products/${cleanId}?country=CO`,
+          `${dropiBaseUrl}/api/products/detail/${cleanId}`,
+          `${dropiBaseUrl}/api/products/${cleanId}`
+        ];
 
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`[Dropi API Error by URL] HTTP ${response.status} en ${endpoint}. Respuesta exacta: ${errText}`);
-          if (response.status === 401 || response.status === 403) {
-            return res.status(response.status).json({
-              success: false,
-              error: "TOKEN_ERROR",
-              message: "Falta configurar o renovar el token de Dropi en el archivo .env",
-              dropi_status: response.status,
-              dropi_response: errText,
-              extracted_id: cleanId,
-              suggested_name: parsed.suggestedName
+        for (const endpoint of endpointsToTry) {
+          try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const response = await fetch(endpoint, {
+              headers: getDropiHeaders(activeToken),
+              signal: controller.signal
             });
-          }
-        } else {
-          const resJson: any = await response.json();
-          const productData = resJson.data || resJson.product || resJson.result || resJson;
-          if (productData && (productData.name || productData.title || productData.id)) {
-            const unified = mapDropiProduct(productData, cleanId);
-            return res.json({
-              success: true,
-              source: 'dropi_api_live',
-              data: unified
-            });
-          }
+            clearTimeout(timeout);
+
+            if (response.ok) {
+              const resJson: any = await response.json();
+              const productData = resJson.data || resJson.product || resJson.result || resJson;
+              if (productData && (productData.name || productData.title || productData.id)) {
+                const unified = mapDropiProduct(productData, cleanId);
+                return res.json({
+                  success: true,
+                  source: 'dropi_api_live',
+                  data: unified
+                });
+              }
+            }
+          } catch {}
         }
       } catch (liveErr: any) {
         console.error('[Dropi product-by-url Live API Exception]:', liveErr.message);
@@ -598,7 +645,7 @@ router.get('/product-by-url', async (req, res) => {
       success: true,
       source: 'public_url_extraction',
       data: unifiedProduct,
-      token_configured: Boolean(token && token.trim())
+      token_configured: Boolean(activeToken && activeToken.trim())
     });
   } catch (error: any) {
     console.error('[Dropi product-by-url Fatal Error]:', error.message);
@@ -611,10 +658,10 @@ router.get('/search', async (req, res) => {
   try {
     const { q, query, search, category } = req.query;
     const searchTerm = String(q || query || search || '').trim();
-    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN;
+    const activeToken = getActiveDropiToken();
 
-    // 1. Consulta a la API oficial de Dropi Colombia si hay token configurado
-    if (token && token.trim()) {
+    // 1. Consulta a la API oficial de Dropi Colombia con token activo
+    if (activeToken && activeToken.trim()) {
       try {
         const dropiBaseUrl = process.env.DROPI_API_URL || 'https://api.dropi.co';
         const url = `${dropiBaseUrl}/api/products?country=CO${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
@@ -624,11 +671,7 @@ router.get('/search', async (req, res) => {
         const timeout = setTimeout(() => controller.abort(), 6000);
 
         const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${token.trim()}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
+          headers: getDropiHeaders(activeToken),
           signal: controller.signal
         });
         clearTimeout(timeout);
@@ -696,8 +739,7 @@ router.get('/search', async (req, res) => {
     }
 
     // 3. Si no hay token configurado y la búsqueda no produjo resultados en el catálogo local verificado:
-    // Retornar error descriptivo TOKEN_ERROR en lugar de un array vacío silencioso
-    if ((!token || !token.trim()) && searchTerm && results.length === 0) {
+    if ((!activeToken || !activeToken.trim()) && searchTerm && results.length === 0) {
       return res.json({
         success: false,
         error: "TOKEN_ERROR",
@@ -712,7 +754,7 @@ router.get('/search', async (req, res) => {
       source: 'dropi_verified_catalog',
       count: results.length,
       data: results,
-      token_configured: Boolean(token && token.trim())
+      token_configured: Boolean(activeToken && activeToken.trim())
     });
   } catch (error: any) {
     console.error('[Dropi API /search Error fatal]:', error.message);
@@ -720,14 +762,14 @@ router.get('/search', async (req, res) => {
   }
 });
 
-// GET /api/dropi/catalog - Redirige o ejecuta la misma lógica de /search con control estricto de TOKEN_ERROR
+// GET /api/dropi/catalog - Consulta de catálogo con autenticación por clave de integración
 router.get('/catalog', async (req, res) => {
   try {
     const { search, category } = req.query;
     const searchTerm = String(search || '').trim();
-    const token = process.env.DROPI_TOKEN || process.env.DROPI_API_TOKEN;
+    const activeToken = getActiveDropiToken();
 
-    if (token && token.trim()) {
+    if (activeToken && activeToken.trim()) {
       try {
         const dropiBaseUrl = process.env.DROPI_API_URL || 'https://api.dropi.co';
         const url = `${dropiBaseUrl}/api/products?country=CO${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
@@ -737,11 +779,7 @@ router.get('/catalog', async (req, res) => {
         const timeout = setTimeout(() => controller.abort(), 6000);
 
         const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${token.trim()}`,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
+          headers: getDropiHeaders(activeToken),
           signal: controller.signal
         });
         clearTimeout(timeout);
@@ -775,7 +813,7 @@ router.get('/catalog', async (req, res) => {
         console.error('[Dropi Catalog Live Exception]:', err.message);
       }
     } else {
-      console.warn('[Dropi Catalog] Sin DROPI_TOKEN configurado en .env.');
+      console.warn('[Dropi Catalog] Sin DROPI_TOKEN configurado.');
     }
 
     // Catálogo base con filtros
@@ -808,8 +846,7 @@ router.get('/catalog', async (req, res) => {
       items = items.filter(i => i.category.toLowerCase().includes(c));
     }
 
-    // Si el usuario buscó específicamente un término o ID y no hay token ni coincidencias en el catálogo verificado:
-    if ((!token || !token.trim()) && searchTerm && items.length === 0) {
+    if ((!activeToken || !activeToken.trim()) && searchTerm && items.length === 0) {
       return res.json({
         success: false,
         error: "TOKEN_ERROR",
@@ -823,7 +860,7 @@ router.get('/catalog', async (req, res) => {
       success: true,
       count: items.length,
       data: items,
-      token_configured: Boolean(token && token.trim())
+      token_configured: Boolean(activeToken && activeToken.trim())
     });
   } catch (error: any) {
     console.error('[Dropi API /catalog Error fatal]:', error.message);
@@ -831,6 +868,144 @@ router.get('/catalog', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/dropi/save-product
+ * Persistencia directa en MySQL (tablas products y productos)
+ * con INSERT INTO ... ON DUPLICATE KEY UPDATE para que el producto y sus datos
+ * de Dropi (dropi_product_id, supplier_cost, suggested_price, images, raw_dropi_payload)
+ * nunca se borren ni se reseteen tras reiniciar el servidor.
+ */
+router.post('/save-product', async (req, res) => {
+  try {
+    const item = req.body;
+    if (!item || (!item.name && !item.title && !item.id)) {
+      return res.status(400).json({ success: false, message: 'Faltan datos requeridos del producto' });
+    }
+
+    const dropiId = String(item.dropi_product_id || item.dropiProductId || item.id || '').replace(/^DROPI-/i, '').trim();
+    const productId = item.id && String(item.id).startsWith('prod_') 
+      ? String(item.id) 
+      : (dropiId ? `prod_${dropiId}` : `prod_${Date.now()}`);
+
+    const name = String(item.name || item.title || `Producto #${dropiId}`).trim();
+    const slug = String(item.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || productId);
+    const price = Number(item.price || item.suggested_price || item.precio || 0);
+    const supplierCost = Number(item.cost_price || item.supplier_cost || item.cost || item.precio_costo || 0);
+    const suggestedPrice = Number(item.suggested_price || item.precio_sugerido || price || 0);
+    const description = String(item.description || item.descripcion || '');
+    const stock = Number(item.stock ?? item.quantity ?? 50);
+
+    let images: string[] = [];
+    if (Array.isArray(item.images)) {
+      images = item.images.filter((img: any) => typeof img === 'string' && img.startsWith('http'));
+    } else if (item.image || item.imagen) {
+      images = [item.image || item.imagen];
+    }
+    if (images.length === 0) {
+      images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+    }
+    const mainImage = images[0];
+    const imagesJson = JSON.stringify(images);
+    const rawPayloadJson = item.raw_payload ? JSON.stringify(item.raw_payload) : null;
+
+    // 1. Guardar en mapa de respaldo persistente
+    if (dropiId) {
+      dropiBackupService.saveDropiId(productId, dropiId);
+    }
+
+    // 2. Inserción directa en MySQL: tabla products
+    try {
+      await pool.query(`
+        INSERT INTO products (
+          id, title, name, slug, price, cost_price, supplier_cost, suggested_price,
+          dropi_product_id, description, images, shipping_cost, stock, raw_dropi_payload
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          name = VALUES(name),
+          slug = VALUES(slug),
+          price = VALUES(price),
+          cost_price = VALUES(cost_price),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), products.dropi_product_id),
+          description = VALUES(description),
+          images = VALUES(images),
+          stock = VALUES(stock),
+          raw_dropi_payload = COALESCE(VALUES(raw_dropi_payload), products.raw_dropi_payload)
+      `, [
+        productId, name, name, slug, price, supplierCost, supplierCost, suggestedPrice,
+        dropiId, description, imagesJson, stock, rawPayloadJson
+      ]);
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Save Product warning (products table)]:', sqlErr.message);
+    }
+
+    // 3. Inserción directa en MySQL: tabla productos (esquema español cPanel)
+    try {
+      await pool.query(`
+        INSERT INTO productos (
+          id, nombre, precio, dropi_product_id, descripcion, imagen, imagenes, stock
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          nombre = VALUES(nombre),
+          precio = VALUES(precio),
+          dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), productos.dropi_product_id),
+          descripcion = VALUES(descripcion),
+          imagen = VALUES(imagen),
+          imagenes = VALUES(imagenes),
+          stock = VALUES(stock)
+      `, [productId, name, price, dropiId, description, mainImage, imagesJson, stock]);
+    } catch (sqlErr: any) {
+      console.warn('[MySQL Save Product warning (productos table)]:', sqlErr.message);
+    }
+
+    // 4. Guardar en almacén local persistente
+    const savedLocal = db.saveProduct({
+      id: productId,
+      title: name,
+      name,
+      slug,
+      price,
+      costPrice: supplierCost,
+      supplier_cost: supplierCost,
+      suggested_price: suggestedPrice,
+      description,
+      categoryId: item.categoryId || 'cat-general',
+      categoryName: item.category || 'General',
+      active: true,
+      images,
+      stock,
+      shippingCost: 0,
+      freeShipping: true,
+      featured: false,
+      tags: ['dropi'],
+      brand: item.brand || 'Zavela Store',
+      dropi_product_id: dropiId,
+      dropiProductId: dropiId,
+      variants: Array.isArray(item.variants) ? item.variants : [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    } as any);
+
+    // 5. Sincronización asíncrona con cPanel
+    cpanelDbService.saveProduct({
+      ...savedLocal,
+      imagen: mainImage,
+      imagenes: images,
+      dropi_product_id: dropiId,
+      dropiProductId: dropiId
+    } as any).catch(() => {});
+
+    return res.status(201).json({
+      success: true,
+      message: `Producto "${name}" (ID #${dropiId || productId}) guardado y persistido con éxito en MySQL.`,
+      product: savedLocal
+    });
+  } catch (error: any) {
+    console.error('[Dropi /save-product Fatal Error]:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;
-
-

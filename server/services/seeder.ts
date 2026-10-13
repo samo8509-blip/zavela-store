@@ -79,7 +79,7 @@ export async function runCleanupAndDisableSeeders(poolInstance?: mysql.Pool | nu
     // Filtrar productos demo residuales
     const currentProducts = db.getProducts();
     const cleanProducts = currentProducts.filter(prod => {
-      const title = (prod.title || prod.name || '').toLowerCase();
+      const title = (prod.title || (prod as any).name || '').toLowerCase();
       if (title.includes('esfera inflable') || title.includes('proyector laser') || title.includes('producto prueba')) {
         return false;
       }

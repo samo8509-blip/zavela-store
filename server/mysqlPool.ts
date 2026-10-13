@@ -76,6 +76,9 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         stock INT NOT NULL DEFAULT 10,
         description LONGTEXT NULL,
         dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
+        provider VARCHAR(100) NULL DEFAULT 'dropi',
+        supplier VARCHAR(100) NULL DEFAULT 'dropi',
+        supplier_sku VARCHAR(100) NULL DEFAULT NULL,
         images LONGTEXT NULL,
         raw_dropi_payload LONGTEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -96,6 +99,9 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         stock INT NOT NULL DEFAULT 10,
         descripcion LONGTEXT NULL,
         dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
+        provider VARCHAR(100) NULL DEFAULT 'dropi',
+        supplier VARCHAR(100) NULL DEFAULT 'dropi',
+        supplier_sku VARCHAR(100) NULL DEFAULT NULL,
         imagen VARCHAR(500) NULL,
         imagenes LONGTEXT NULL,
         raw_dropi_payload LONGTEXT NULL,
@@ -125,12 +131,18 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     };
 
     await ensureColumn('products', 'dropi_product_id', 'VARCHAR(100) NULL DEFAULT NULL');
+    await ensureColumn('products', 'provider', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('products', 'supplier', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('products', 'supplier_sku', 'VARCHAR(100) NULL DEFAULT NULL');
     await ensureColumn('products', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'images', 'LONGTEXT NULL');
     await ensureColumn('products', 'raw_dropi_payload', 'LONGTEXT NULL');
 
     await ensureColumn('productos', 'dropi_product_id', 'VARCHAR(100) NULL DEFAULT NULL');
+    await ensureColumn('productos', 'provider', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('productos', 'supplier', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('productos', 'supplier_sku', 'VARCHAR(100) NULL DEFAULT NULL');
     await ensureColumn('productos', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'imagenes', 'LONGTEXT NULL');

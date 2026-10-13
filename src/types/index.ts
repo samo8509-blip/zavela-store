@@ -424,10 +424,17 @@ export interface StoreSettings {
 export interface Product {
   id: string;
   title: string;
+  name?: string;
   slug: string;
   description: string;
   shortDescription?: string;
   price: number; // Precio de venta
+  supplier_cost?: number;
+  suggested_price?: number;
+  provider?: 'dropi' | 'derocha' | 'direct' | 'other' | string;
+  supplier?: string;
+  supplier_sku?: string;
+  raw_dropi_payload?: any;
   // Financial & Dropi Cost Breakdown
   costPrice?: number; // Costo base del producto/proveedor
   estimatedShippingCost?: number; // Costo estimado de flete/envío

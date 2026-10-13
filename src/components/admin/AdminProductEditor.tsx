@@ -33,7 +33,10 @@ import {
   Zap,
   HelpCircle,
   Info,
-  ArrowRight
+  ArrowRight,
+  Building2,
+  Store,
+  Boxes
 } from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -64,17 +67,42 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [categoryId, setCategoryId] = useState(product?.categoryId || categories[0]?.id || '');
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
+  
+  // Proveedor y Logística (Dropi, DeRocha, Bodegas directas, Otros)
+  const [provider, setProvider] = useState<'dropi' | 'derocha' | 'direct' | 'other'>(() => {
+    const raw = (product as any)?.provider || (product as any)?.supplier;
+    if (raw) {
+      const lower = String(raw).toLowerCase();
+      if (lower.includes('derocha')) return 'derocha';
+      if (lower.includes('direct') || lower.includes('bodega') || lower.includes('fabricante')) return 'direct';
+      if (lower.includes('dropi')) return 'dropi';
+      return 'other';
+    }
+    return (product?.dropi_product_id || (product as any)?.dropiProductId) ? 'dropi' : 'dropi';
+  });
+  const [customSupplierName, setCustomSupplierName] = useState<string>(
+    (product as any)?.supplier || (product as any)?.providerName || ''
+  );
+  const [supplierSku, setSupplierSku] = useState<string>(
+    (product as any)?.supplier_sku || (product as any)?.supplierSku || (product as any)?.sku || ''
+  );
+
   const [dropiProductId, setDropiProductId] = useState<string>(
     product?.dropi_product_id ? String(product.dropi_product_id) : (product?.dropiProductId ? String(product.dropiProductId) : ((product as any)?.dropi_id ? String((product as any).dropi_id) : ''))
   );
   
   // Financials & Dropi Operational Costs
-  const [costPrice, setCostPrice] = useState<number>(product?.costPrice || 45000);
+  const [costPrice, setCostPrice] = useState<number>(
+    product?.costPrice || (product as any)?.supplier_cost || 45000
+  );
+  const [suggestedPrice, setSuggestedPrice] = useState<number>(
+    (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
+  );
   const [estimatedShippingCost, setEstimatedShippingCost] = useState<number>(
     product?.estimatedShippingCost !== undefined ? product.estimatedShippingCost : 16500
   );
   const [dropiFee, setDropiFee] = useState<number>(
-    product?.dropiFee !== undefined ? product.dropiFee : 4000
+    product?.dropiFee !== undefined ? product.dropiFee : (provider === 'dropi' ? 4000 : 0)
   );
   const [price, setPrice] = useState<number>(product?.price || 89900);
   const [compareAtPrice, setCompareAtPrice] = useState<number>(product?.compareAtPrice || 119900);
@@ -531,9 +559,20 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const selectedCat = categories.find(c => c.id === categoryId);
       const targetId = currentProductId ? String(currentProductId) : (product?.id ? String(product.id) : undefined);
 
+      const effectiveSupplier = provider === 'derocha'
+        ? 'DeRocha'
+        : (provider === 'dropi'
+          ? 'Dropi Colombia'
+          : (provider === 'direct' ? 'Bodega Directa' : (customSupplierName.trim() || 'Otro Proveedor')));
+
+      const effectiveDropiId = provider === 'dropi'
+        ? (dropiProductId.trim() || undefined)
+        : (dropiProductId.trim() || undefined);
+
       const payload: Partial<Product> = {
         ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
+        name: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         shortDescription: shortDescription.trim(),
         description: description.trim(),
@@ -541,9 +580,14 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         categoryName: selectedCat?.name || 'General',
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
-        dropi_product_id: dropiProductId.trim() || '',
-        dropiProductId: dropiProductId.trim() || '',
-        dropi_id: dropiProductId.trim() || '',
+        provider,
+        supplier: effectiveSupplier,
+        supplier_sku: supplierSku.trim() || undefined,
+        supplier_cost: costPrice,
+        suggested_price: suggestedPrice || compareAtPrice,
+        dropi_product_id: effectiveDropiId,
+        dropiProductId: effectiveDropiId,
+        dropi_id: effectiveDropiId,
         price,
         costPrice,
         estimatedShippingCost,
@@ -618,88 +662,238 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         </div>
       </div>
 
-      {/* ⚡ Mapeo con Dropi Colombia - Ubicado en la parte superior para agilizar el ingreso de datos */}
-      <div className="bg-gradient-to-br from-cyan-50/90 via-sky-50/80 to-indigo-50/70 p-6 rounded-3xl border-2 border-cyan-300 shadow-md space-y-4">
+      {/* 🏢 Gestión de Proveedor & Logística (Dropi, DeRocha, Bodegas directas, Otros) */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-3xl border-2 border-indigo-500/30 text-white shadow-xl space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-2xl bg-cyan-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
-              DP
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 text-slate-950 font-black text-sm flex items-center justify-center shadow-md">
+              <Boxes className="w-5 h-5 text-slate-950" />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-sm text-slate-900">Mapeo con Dropi Colombia</h3>
-                <span className="text-[10px] text-cyan-800 bg-cyan-100 font-bold px-2 py-0.5 rounded-md border border-cyan-300">
-                  ⚡ Conexión Directa Dropi
+                <h3 className="font-extrabold text-sm text-white">Gestión de Proveedor & Bodega de Origen</h3>
+                <span className="text-[10px] text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 font-bold px-2.5 py-0.5 rounded-full">
+                  {provider === 'dropi' ? '⚡ Dropshipping Dropi' : (provider === 'derocha' ? '📦 Bodega DeRocha' : (provider === 'direct' ? '🏭 Bodega Directa' : '🏷️ Proveedor Externo'))}
                 </span>
               </div>
-              <p className="text-xs text-slate-600">
-                Ingresa primero el ID de Dropi para vincular el catálogo y automatizar despachos contra entrega
+              <p className="text-xs text-slate-400">
+                Selecciona la fuente del producto para adaptar la logística de despacho y el código de enlace correspondiente.
               </p>
             </div>
           </div>
-          <span className={`text-xs font-bold px-3.5 py-1 rounded-full border shadow-2xs ${
-            dropiProductId 
-              ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
-              : 'bg-amber-100 text-amber-800 border-amber-300'
+
+          <span className={`text-xs font-bold px-3.5 py-1.5 rounded-full border shadow-xs ${
+            provider === 'dropi'
+              ? (dropiProductId ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40')
+              : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
           }`}>
-            {dropiProductId ? `✓ Dropi ID: ${dropiProductId}` : '⚠ Sin ID Dropi'}
+            {provider === 'dropi' 
+              ? (dropiProductId ? `✓ Dropi ID: ${dropiProductId}` : '⚠ Requiere ID Dropi')
+              : `✓ Proveedor: ${provider === 'derocha' ? 'DeRocha' : (provider === 'direct' ? 'Bodega Directa' : (customSupplierName || 'Externo'))}`}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-800 mb-1">
-              ID de Producto en Dropi (<code className="font-mono text-cyan-800">dropi_product_id</code>) *
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={dropiProductId}
-                onChange={(e) => setDropiProductId(e.target.value)}
-                placeholder="Ej. 2240082 o ID numérico de Dropi Colombia"
-                className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-white border border-cyan-300 rounded-xl focus:border-cyan-600 focus:ring-2 focus:ring-cyan-500/20 outline-hidden font-mono font-bold text-slate-900 shadow-xs"
-              />
-              {dropiProductId && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-xs font-bold flex items-center gap-1">
-                  <Check className="w-4 h-4" />
-                  <span>Listo</span>
-                </div>
-              )}
+        {/* Selector de Proveedor en Tabs/Botones */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              setProvider('dropi');
+              if (dropiFee === 0) setDropiFee(4000);
+            }}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              provider === 'dropi'
+                ? 'bg-gradient-to-br from-cyan-600/30 to-blue-600/30 border-cyan-400 text-white ring-2 ring-cyan-500/30'
+                : 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300">
+                <Zap className="w-4 h-4" />
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200">
+                API Dropi
+              </span>
             </div>
-          </div>
+            <div className="font-extrabold text-xs text-white">Dropi Colombia</div>
+            <p className="text-[11px] text-slate-400 line-clamp-1">Mapeo con catálogo y despacho automático</p>
+          </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const text = await navigator.clipboard.readText();
-                  if (text) setDropiProductId(text.trim());
-                } catch {
-                  // Ignore clipboard read errors
-                }
-              }}
-              className="flex-1 py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs shadow-xs cursor-pointer text-center"
-              title="Pegar ID copiado desde Dropi"
-            >
-              📋 Pegar ID
-            </button>
-            {dropiProductId && (
-              <button
-                type="button"
-                onClick={() => setDropiProductId('')}
-                className="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs cursor-pointer"
-                title="Limpiar ID"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setProvider('derocha')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              provider === 'derocha'
+                ? 'bg-gradient-to-br from-amber-600/30 to-orange-600/30 border-amber-400 text-white ring-2 ring-amber-500/30'
+                : 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300">
+                <Store className="w-4 h-4" />
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
+                DeRocha
+              </span>
+            </div>
+            <div className="font-extrabold text-xs text-white">DeRocha Bodega</div>
+            <p className="text-[11px] text-slate-400 line-clamp-1">Proveedor mayorista nacional independiente</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProvider('direct')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              provider === 'direct'
+                ? 'bg-gradient-to-br from-emerald-600/30 to-teal-600/30 border-emerald-400 text-white ring-2 ring-emerald-500/30'
+                : 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-300">
+                <Building2 className="w-4 h-4" />
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200">
+                Propio
+              </span>
+            </div>
+            <div className="font-extrabold text-xs text-white">Bodega Directa</div>
+            <p className="text-[11px] text-slate-400 line-clamp-1">Fabricante o stock propio de Zavela Store</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setProvider('other')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              provider === 'other'
+                ? 'bg-gradient-to-br from-purple-600/30 to-pink-600/30 border-purple-400 text-white ring-2 ring-purple-500/30'
+                : 'bg-slate-800/60 border-slate-700/80 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300">
+                <Tag className="w-4 h-4" />
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-200">
+                Externo
+              </span>
+            </div>
+            <div className="font-extrabold text-xs text-white">Otro Proveedor</div>
+            <p className="text-[11px] text-slate-400 line-clamp-1">Importador o distribuidor independiente</p>
+          </button>
         </div>
 
-        <p className="text-[11px] text-slate-500 leading-relaxed">
-          💡 Este ID vincula automáticamente el producto con la API de Dropi para cotizaciones de flete y despachos contra entrega al presionar <strong>"Revisar y Enviar a Dropi"</strong> en las órdenes.
-        </p>
+        {/* Campos Condicionales según el Proveedor */}
+        {provider === 'dropi' ? (
+          <div className="bg-slate-900/90 p-4 rounded-2xl border border-cyan-500/40 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-cyan-200 mb-1">
+                  ID de Producto en Dropi (<code className="font-mono text-cyan-400">dropi_product_id</code>) *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={dropiProductId}
+                    onChange={(e) => setDropiProductId(e.target.value)}
+                    placeholder="Ej. 2240082 o ID numérico del producto en Dropi Colombia"
+                    className="w-full pl-3.5 pr-20 py-2.5 text-xs bg-slate-950 border border-cyan-400/50 rounded-xl focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 outline-hidden font-mono font-bold text-white shadow-xs"
+                  />
+                  {dropiProductId && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-xs font-bold flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      <span>Listo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      if (text) setDropiProductId(text.trim());
+                    } catch {}
+                  }}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-200 border border-cyan-500/30 font-bold text-xs shadow-xs cursor-pointer text-center"
+                  title="Pegar ID copiado desde Dropi"
+                >
+                  📋 Pegar ID
+                </button>
+                {dropiProductId && (
+                  <button
+                    type="button"
+                    onClick={() => setDropiProductId('')}
+                    className="py-2.5 px-3 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 font-bold text-xs cursor-pointer"
+                    title="Limpiar ID"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[11px] text-cyan-300/80 leading-relaxed">
+              💡 Este ID vincula automáticamente el producto con la API oficial de Dropi para cotizaciones de flete y envíos automáticos con pago contra entrega.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-slate-900/90 p-4 rounded-2xl border border-indigo-500/40 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 bg-emerald-950/50 px-3 py-2 rounded-xl border border-emerald-500/30">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>
+                Producto independiente de <strong>{provider === 'derocha' ? 'DeRocha Bodega' : (provider === 'direct' ? 'Bodega Directa' : 'Proveedor Externo')}</strong>. No requiere ID de Dropi y se mantendrá permanentemente seguro en tu base de datos cPanel MySQL sin ser sobreescrito ni eliminado.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {provider === 'other' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Nombre del Proveedor o Distribuidor
+                  </label>
+                  <input
+                    type="text"
+                    value={customSupplierName}
+                    onChange={(e) => setCustomSupplierName(e.target.value)}
+                    placeholder="Ej. Importaciones Andinas, Bodega Central..."
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-hidden text-white"
+                  />
+                </div>
+              )}
+
+              <div className={provider === 'other' ? '' : 'md:col-span-2'}>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Código de Referencia / SKU del Proveedor (Opcional)
+                </label>
+                <input
+                  type="text"
+                  value={supplierSku}
+                  onChange={(e) => setSupplierSku(e.target.value)}
+                  placeholder="Ej. DR-8820, REF-CALI-01 o código de barras de la bodega"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 outline-hidden font-mono text-white"
+                />
+              </div>
+            </div>
+
+            {/* Opción desplegable si también cuenta con ID Dropi */}
+            <details className="text-xs text-slate-400 cursor-pointer pt-1">
+              <summary className="hover:text-cyan-300 select-none">
+                + Vincular también un ID de Dropi secundario (opcional)
+              </summary>
+              <div className="mt-2.5 pt-2 border-t border-slate-800">
+                <input
+                  type="text"
+                  value={dropiProductId}
+                  onChange={(e) => setDropiProductId(e.target.value)}
+                  placeholder="ID Dropi opcional (si existe versión en Dropi)"
+                  className="w-full max-w-sm px-3.5 py-2 text-xs bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"
+                />
+              </div>
+            </details>
+          </div>
+        )}
       </div>
 
       {/* Financial & Profit Margin Live Card */}
