@@ -263,6 +263,20 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // 8. Tabla usuarios_admin (Autenticación Master Admin en MySQL cPanel)
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS usuarios_admin (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(150) NOT NULL,
+        email VARCHAR(150) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        rol VARCHAR(50) DEFAULT 'master',
+        activo TINYINT(1) DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
     // 7. Sincronizar respaldos de IDs Dropi desde dropi_backup.json sin sobreescribir datos reales
     const dropiMap = dropiBackupService.getBackupMap();
     if (Object.keys(dropiMap).length > 0) {

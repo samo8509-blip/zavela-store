@@ -26,8 +26,6 @@ interface AdminLoginModalProps {
   defaultRole?: 'admin' | 'advisor';
 }
 
-export const ADMIN_USERNAME = 'Sergio Martinez';
-export const ADMIN_PASSWORD = '@Seramo1985';
 export const AUTH_STORAGE_KEY = 'zavela_admin_session';
 export const ADVISOR_STORAGE_KEY = 'zavela_advisor_session';
 
@@ -146,64 +144,37 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
     try {
       if (role === 'admin') {
-        // 1. Obtener clave personalizada en LocalStorage
-        let customPass: string | null = null;
-        let customUser: string | null = null;
-        try {
-          customPass = localStorage.getItem('zavela_admin_password');
-          customUser = localStorage.getItem('zavela_admin_username');
-        } catch {}
+        // Autenticación oficial contra MySQL cPanel (tabla `usuarios_admin` y credenciales de respaldo env)
+        const response = await fetch('/api/auth/admin-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identifier: cleanUser,
+            password: cleanPass
+          })
+        });
 
-        // 2. Verificar inicialmente con credenciales locales o por defecto
-        let isUserValid = cleanUser.toLowerCase() === (customUser || ADMIN_USERNAME).toLowerCase() || cleanUser.toLowerCase() === ADMIN_USERNAME.toLowerCase();
-        let isPassValid = cleanPass === (customPass || ADMIN_PASSWORD) || cleanPass === ADMIN_PASSWORD;
+        const data = await response.json().catch(() => null);
 
-        // 3. Si no coincide con local, consultar Cloud Firestore en tiempo real
-        if (!isUserValid || !isPassValid) {
-          try {
-            const fsSettings = await getFirestoreSettings();
-            if (fsSettings) {
-              if (fsSettings.adminPassword && cleanPass === fsSettings.adminPassword) {
-                isPassValid = true;
-                try {
-                  localStorage.setItem('zavela_admin_password', fsSettings.adminPassword);
-                } catch {}
-              }
-              if (fsSettings.adminUsername && cleanUser.toLowerCase() === fsSettings.adminUsername.toLowerCase()) {
-                isUserValid = true;
-                try {
-                  localStorage.setItem('zavela_admin_username', fsSettings.adminUsername);
-                } catch {}
-              }
-            }
-          } catch (e) {
-            console.warn('Error al verificar credenciales con Firestore:', e);
-          }
-        }
-
-        // 4. Si aún no valida, verificar si es un usuario administrador registrado en el sistema
-        if (!isUserValid || !isPassValid) {
-          try {
-            const adminRes = await fetch('/api/admin/advisors/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ username: cleanUser, password: cleanPass })
-            });
-            const adminJson = await adminRes.json();
-            if (adminJson.success && adminJson.data && (adminJson.data.role === 'admin' || adminJson.data.id?.startsWith('ADM-'))) {
-              isUserValid = true;
-              isPassValid = true;
-            }
-          } catch (e) {}
-        }
-
-        if (isUserValid && isPassValid) {
+        if (response.ok && data?.success && data?.authenticated) {
           setAdminAuthenticated(rememberMe);
+          if (data.token) {
+            try {
+              localStorage.setItem('zavela_admin_token', data.token);
+              sessionStorage.setItem('zavela_admin_token', data.token);
+            } catch {}
+          }
+          if (data.user) {
+            try {
+              localStorage.setItem('zavela_admin_user', JSON.stringify(data.user));
+              sessionStorage.setItem('zavela_admin_user', JSON.stringify(data.user));
+            } catch {}
+          }
           setIsLoading(false);
           onSuccess();
         } else {
           setIsLoading(false);
-          setError('Usuario o contraseña de Administrador incorrectos. Verifica tus datos.');
+          setError(data?.message || 'Usuario o contraseña de Master Admin incorrectos. Verifica tus credenciales.');
         }
       } else {
         // Validate Advisor credentials against backend
