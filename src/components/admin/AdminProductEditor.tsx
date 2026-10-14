@@ -64,35 +64,47 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
   const [description, setDescription] = useState(product?.description || '');
-  // Inicialización fiel de Categoría (evita sobreescritura accidental con la primera categoría de la lista)
-  const initialCategory = (() => {
-    if (!product) return categories[0]?.id || '';
-    // 1. Coincidencia exacta con ID de categoría
-    if (product.categoryId && categories.some(c => c.id === product.categoryId)) {
-      return product.categoryId;
-    }
-    // 2. Coincidencia por ID o Slug
-    const candidateId = product.categoryId || (product as any).categoria_id;
+  // Función auxiliar para resolución canónica de categoría en el editor
+  const resolveCategoryForEditor = (prod: Product | null | undefined, cats: Category[]): string => {
+    if (!prod) return cats[0]?.id || '';
+
+    // 1. Coincidencia exacta con ID de categoría o slug
+    const candidateId = prod.categoryId || (prod as any).category_id || (prod as any).categoria_id;
     if (candidateId) {
-      const bySlugOrId = categories.find(c => c.id === candidateId || c.slug === candidateId);
-      if (bySlugOrId) return bySlugOrId.id;
+      const match = cats.find(c => c.id === candidateId || c.slug === candidateId);
+      if (match) return match.id;
     }
-    // 3. Coincidencia por Nombre de Categoría (ej: "Artículos Navideños y Diciembre", "Halloween & Disfraces")
-    const rawCat = (product as any).category || product.categoryName || (product as any).categoria;
+
+    // 2. Coincidencia por Nombre de Categoría (con normalización ignorando emojis y símbolos)
+    const rawCat = (prod as any).categoria || (prod as any).category || prod.categoryName;
     if (rawCat) {
-      const clean = String(rawCat).trim().toLowerCase();
-      const found = categories.find(c => 
-        c.name.toLowerCase() === clean || 
-        c.slug.toLowerCase() === clean ||
-        c.id.toLowerCase() === clean ||
-        clean.includes(c.name.toLowerCase()) ||
-        c.name.toLowerCase().includes(clean)
-      );
+      const clean = String(rawCat).toLowerCase().replace(/^[^\w\s]+/, '').trim();
+      const found = cats.find(c => {
+        const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+        return c.id.toLowerCase() === clean ||
+               c.slug.toLowerCase() === clean ||
+               cClean === clean ||
+               cClean.includes(clean) ||
+               clean.includes(cClean);
+      });
       if (found) return found.id;
     }
-    return product.categoryId || (product as any).category || categories[0]?.id || '';
-  })();
-  const [categoryId, setCategoryId] = useState<string>(initialCategory);
+
+    return candidateId || (prod as any).category || cats[0]?.id || '';
+  };
+
+  const [categoryId, setCategoryId] = useState<string>(() => resolveCategoryForEditor(product, categories));
+
+  // Sincronizar categoryId si product o categories cambian o se cargan dinámicamente
+  useEffect(() => {
+    if (product) {
+      const resolved = resolveCategoryForEditor(product, categories);
+      if (resolved) {
+        setCategoryId(resolved);
+      }
+    }
+  }, [product, categories]);
+
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
   
@@ -597,30 +609,37 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         ? (dropiProductId.trim() || undefined)
         : (dropiProductId.trim() || undefined);
 
-        const catNameResolved = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || 'General';
-        const payload: Partial<Product> = {
+      const catNameResolved = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || 'General';
+      const validImages = images.filter(img => Boolean(img && img.trim()));
+      const mainImage = validImages.length > 0 ? validImages[0] : '';
+      const payload: Partial<Product> = {
         ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
         name: title.trim(),
+        nombre: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         shortDescription: shortDescription.trim(),
         description: description.trim(),
-        categoryId: categoryId || categories[0]?.id,
+        descripcion: description.trim(),
+        categoryId: categoryId || selectedCat?.id || categories[0]?.id,
+        category_id: categoryId || selectedCat?.id || categories[0]?.id,
         categoryName: catNameResolved,
         category: catNameResolved,
         categoria: catNameResolved,
-        categoria_id: categoryId || categories[0]?.id,
+        categoria_id: categoryId || selectedCat?.id || categories[0]?.id,
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
         provider,
         supplier: effectiveSupplier,
         supplier_sku: supplierSku.trim() || undefined,
         supplier_cost: costPrice,
+        costo: costPrice,
         suggested_price: suggestedPrice || compareAtPrice,
         dropi_product_id: effectiveDropiId,
         dropiProductId: effectiveDropiId,
         dropi_id: effectiveDropiId,
         price,
+        precio: price,
         costPrice,
         estimatedShippingCost,
         dropiFee,
@@ -633,10 +652,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         marginPercentage: Math.round(marginPercentage * 10) / 10,
         stock,
         weightKg,
-        active,
+        active: active ? 1 : 0,
         featured,
         warrantyInfo,
-        images: images.filter(img => Boolean(img && img.trim())),
+        image: mainImage,
+        imagen: mainImage,
+        images: validImages,
+        imagenes: validImages,
         variants: variants || [],
         tags: tags || [],
         publishToSocial,

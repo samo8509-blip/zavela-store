@@ -219,20 +219,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSettings = async (updatedSettings: Partial<StoreSettings>) => {
     try {
-      // 1. Guardar en Cloud Firestore para persistencia permanente
-      await saveFirestoreSettings(updatedSettings).catch(e => console.warn('Firestore settings save warning:', e));
-
-      // 2. Guardar en servidor local
+      // 1. Guardar y persistir físicamente en cPanel MySQL (tabla configuraciones y banners)
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedSettings)
       });
-      if (!res.ok) throw new Error('Error al actualizar ajustes');
+      if (!res.ok) throw new Error('Error al actualizar ajustes en MySQL');
+      
+      // Sincronizar estado local en memoria
+      await saveFirestoreSettings(updatedSettings).catch(() => {});
       await fetchAdminData();
-      showToast('Configuraciones y WhatsApp guardados exitosamente.');
+      showToast('Configuración guardada con éxito en cPanel MySQL');
     } catch (err: any) {
-      alert(err.message || 'Error al guardar');
+      alert(err.message || 'Error al guardar en cPanel MySQL');
       throw err;
     }
   };

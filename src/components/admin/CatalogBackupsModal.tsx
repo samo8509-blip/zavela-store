@@ -18,6 +18,7 @@ import {
 
 export interface CatalogBackupItem {
   id: number;
+  nombre?: string;
   nombre_respaldo: string;
   total_productos: number;
   origen: string;
@@ -54,10 +55,14 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
   const fetchBackups = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/backups');
+      const res = await fetch('/api/backups');
       const data = await res.json();
-      if (data.success && Array.isArray(data.data)) {
-        setBackups(data.data);
+      const list = data.backups || data.data || [];
+      if (data.success && Array.isArray(list)) {
+        setBackups(list.map((b: any) => ({
+          ...b,
+          nombre_respaldo: b.nombre_respaldo || b.nombre || `Respaldo #${b.id}`
+        })));
       } else {
         setBackups([]);
       }
@@ -80,7 +85,7 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
   const handleCreateBackup = async () => {
     setIsCreating(true);
     try {
-      const res = await fetch('/api/admin/backups/create', {
+      const res = await fetch('/api/backups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +94,7 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`Respaldo creado con éxito (${data.data?.total_productos || totalCurrentProducts} productos guardados).`, 'success');
+        showToast(`Respaldo creado con éxito (${data.backup?.total_productos || data.data?.total_productos || totalCurrentProducts} productos guardados).`, 'success');
         await fetchBackups();
       } else {
         throw new Error(data.message || 'Error al generar el respaldo');
@@ -103,8 +108,9 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
   };
 
   const handleRestoreBackup = async (backup: CatalogBackupItem) => {
+    const backupName = backup.nombre_respaldo || backup.nombre || `Respaldo #${backup.id}`;
     const confirmed = window.confirm(
-      `¿Estás seguro de restaurar este respaldo?\n\n"${backup.nombre_respaldo}"\nContiene: ${backup.total_productos} productos.\n\n` +
+      `¿Estás seguro de restaurar este respaldo?\n\n"${backupName}"\nContiene: ${backup.total_productos} productos.\n\n` +
       `Se restablecerán los productos, imágenes, variantes y códigos Dropi guardados en esta copia en MySQL. Esta acción actualizará tu tienda.`
     );
 
@@ -112,7 +118,7 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
 
     setRestoringId(backup.id);
     try {
-      const res = await fetch(`/api/admin/backups/${backup.id}/restore`, {
+      const res = await fetch(`/api/backups/${backup.id}/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -134,15 +140,16 @@ export const CatalogBackupsModal: React.FC<CatalogBackupsModalProps> = ({
   };
 
   const handleDeleteBackup = async (backup: CatalogBackupItem) => {
+    const backupName = backup.nombre_respaldo || backup.nombre || `Respaldo #${backup.id}`;
     const confirmed = window.confirm(
-      `¿Deseas eliminar el respaldo "${backup.nombre_respaldo}"?\nEsta acción no se puede deshacer.`
+      `¿Deseas eliminar el respaldo "${backupName}"?\nEsta acción no se puede deshacer.`
     );
 
     if (!confirmed) return;
 
     setDeletingId(backup.id);
     try {
-      const res = await fetch(`/api/admin/backups/${backup.id}`, {
+      const res = await fetch(`/api/backups/${backup.id}`, {
         method: 'DELETE'
       });
       const data = await res.json();

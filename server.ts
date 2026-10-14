@@ -13,6 +13,7 @@ import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
 import paymentsRouter from './server/routes/payments.ts';
 import dropiRouter from './server/routes/dropi.ts';
+import backupsRouter from './server/routes/backups.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
@@ -49,6 +50,8 @@ async function startServer() {
   });
 
   // Mount API Endpoints
+  app.use('/api/backups', backupsRouter);
+  app.use('/api/admin/backups', backupsRouter);
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/admin', adminRouter);

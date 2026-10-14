@@ -125,9 +125,9 @@ export const AdminHeroBanners: React.FC<AdminHeroBannersProps> = ({
         heroBanners: banners,
         heroBannerStyle: bannerStyle
       });
-      alert('Carrusel de banners y estilo guardados con éxito en Cloud Firestore.');
+      alert('Configuración guardada con éxito en cPanel MySQL');
     } catch (err: any) {
-      alert('Error al guardar carrusel.');
+      alert('Error al guardar carrusel en cPanel MySQL.');
     } finally {
       setIsSaving(false);
     }
@@ -345,7 +345,7 @@ export const AdminHeroBanners: React.FC<AdminHeroBannersProps> = ({
           className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md cursor-pointer transition-all"
         >
           <Check className="w-4 h-4" />
-          <span>{isSaving ? 'Guardando en Firestore...' : 'Guardar Todos los Cambios'}</span>
+          <span>{isSaving ? 'Guardando en cPanel MySQL...' : 'Guardar Todos los Cambios'}</span>
         </button>
       </div>
 

@@ -225,12 +225,31 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const lowStockCount = localProducts.filter(p => (p.active ?? true) && p.stock <= 5).length;
+  const isProductActive = (p: Product | any): boolean => {
+    return Boolean(p.active === 1 || p.active === true || p.status === 'active' || p.estado === 'activo');
+  };
+
+  const lowStockCount = localProducts.filter(p => isProductActive(p) && p.stock <= 5).length;
 
   const filteredProducts = localProducts.filter((p) => {
-    if (selectedCategory !== 'all' && p.categoryId !== selectedCategory) return false;
-    if (statusFilter === 'active' && !p.active) return false;
-    if (statusFilter === 'inactive' && p.active) return false;
+    if (selectedCategory !== 'all') {
+      const pCatId = String(p.categoryId || (p as any).category_id || (p as any).categoria_id || '').toLowerCase();
+      const pCatName = String(p.categoryName || (p as any).category || (p as any).categoria || '').toLowerCase().replace(/^[^\w\s]+/, '').trim();
+      
+      const selCatObj = categories.find(c => c.id === selectedCategory || c.slug === selectedCategory);
+      const selCatName = selCatObj ? selCatObj.name.toLowerCase().replace(/^[^\w\s]+/, '').trim() : '';
+      const selCatSlug = selCatObj?.slug?.toLowerCase() || '';
+
+      const matches = pCatId === selectedCategory.toLowerCase() ||
+        (selCatSlug && pCatId === selCatSlug) ||
+        (selCatName && pCatName === selCatName) ||
+        (selCatName && pCatName.includes(selCatName)) ||
+        (selCatName && selCatName.includes(pCatName));
+
+      if (!matches) return false;
+    }
+    if (statusFilter === 'active' && !isProductActive(p)) return false;
+    if (statusFilter === 'inactive' && isProductActive(p)) return false;
     if (statusFilter === 'low_stock' && p.stock > 5) return false;
 
     if (!search) return true;
@@ -239,6 +258,8 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
       p.title.toLowerCase().includes(q) ||
       p.slug.toLowerCase().includes(q) ||
       p.categoryName?.toLowerCase().includes(q) ||
+      ((p as any).category && String((p as any).category).toLowerCase().includes(q)) ||
+      ((p as any).categoria && String((p as any).categoria).toLowerCase().includes(q)) ||
       p.tags?.some(t => t.toLowerCase().includes(q)) ||
       Boolean((p.dropi_product_id || (p as any).dropiProductId || (p as any).dropi_id) && String(p.dropi_product_id || (p as any).dropiProductId || (p as any).dropi_id).toLowerCase().includes(q))
     );
@@ -283,7 +304,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Select inactive only
   const handleSelectInactive = () => {
-    const inactiveIds = localProducts.filter(p => !p.active).map(p => p.id);
+    const inactiveIds = localProducts.filter(p => !isProductActive(p)).map(p => p.id);
     setSelectedProductIds(inactiveIds);
     setShowQuickSelectMenu(false);
     showToast(`Seleccionados ${inactiveIds.length} productos inactivos/ocultos.`);
@@ -373,14 +394,39 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   const handleToggleActive = async (product: Product) => {
     setIsProcessing(product.id);
-    const newActiveState = !product.active;
-    try {
-      await updateCpanelProduct(product.id, { active: newActiveState });
+    const currentlyActive = isProductActive(product);
+    const newActiveState = !currentlyActive;
 
-      showToast(newActiveState ? 'Producto activado en cPanel MySQL.' : 'Producto pausado / ocultado en cPanel MySQL.');
+    // Actualización inmediata en UI local
+    setLocalProducts(prev => prev.map(p => {
+      if (p.id === product.id) {
+        return {
+          ...p,
+          active: Boolean(newActiveState),
+          status: newActiveState ? 'active' : 'inactive',
+          estado: newActiveState ? 'activo' : 'inactivo'
+        };
+      }
+      return p;
+    }));
+
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(product.id)}/toggle-active`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: newActiveState ? 1 : 0 })
+      });
+
+      if (!res.ok) {
+        await updateCpanelProduct(product.id, { active: newActiveState });
+      }
+
+      showToast(newActiveState ? 'Visible / Activo: Producto activado en cPanel MySQL.' : 'Oculto: Producto pausado / ocultado en cPanel MySQL.');
       onRefresh();
     } catch (err: any) {
       showToast(err.message || 'Error al actualizar estado en cPanel MySQL', 'error');
+      // Revertir si falló
+      setLocalProducts(prev => prev.map(p => p.id === product.id ? product : p));
     } finally {
       setIsProcessing(null);
     }
@@ -703,7 +749,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 >
                   <span>Seleccionar inactivos/ocultos</span>
                   <span className="font-mono text-[10px] text-amber-600 font-bold">
-                    ({products.filter(p => !p.active).length})
+                    ({products.filter(p => !isProductActive(p)).length})
                   </span>
                 </button>
                 <button
@@ -747,7 +793,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 statusFilter === 'active' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Activos ({products.filter(p => p.active).length})
+              Activos ({products.filter(p => isProductActive(p)).length})
             </button>
             <button
               onClick={() => setStatusFilter('inactive')}
@@ -755,7 +801,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 statusFilter === 'inactive' ? 'bg-white text-rose-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Inactivos ({products.filter(p => !p.active).length})
+              Inactivos ({products.filter(p => !isProductActive(p)).length})
             </button>
             <button
               onClick={() => setStatusFilter('low_stock')}
@@ -909,7 +955,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
                       <td className="px-4 py-3">
                         <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
-                          {p.categoryName || 'General'}
+                          {p.categoryName || (p as any).category || (p as any).categoria || 'General'}
                         </span>
                       </td>
 
@@ -962,28 +1008,33 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                       </td>
 
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleToggleActive(p)}
-                          disabled={isBusy}
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
-                            p.active 
-                              ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' 
-                              : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
-                          }`}
-                          title="Haz clic para alternar visibilidad pública"
-                        >
-                          {p.active ? (
-                            <>
-                              <Eye className="w-3 h-3 text-emerald-600" />
-                              <span>Activo</span>
-                            </>
-                          ) : (
-                            <>
-                              <EyeOff className="w-3 h-3 text-rose-600" />
-                              <span>Oculto</span>
-                            </>
-                          )}
-                        </button>
+                        {(() => {
+                          const isActive = isProductActive(p);
+                          return (
+                            <button
+                              onClick={() => handleToggleActive(p)}
+                              disabled={isBusy}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1 ${
+                                isActive 
+                                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' 
+                                  : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                              }`}
+                              title="Haz clic para alternar visibilidad pública"
+                            >
+                              {isActive ? (
+                                <>
+                                  <Eye className="w-3 h-3 text-emerald-600" />
+                                  <span>Visible / Activo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="w-3 h-3 text-rose-600" />
+                                  <span>Oculto</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       <td className="px-4 py-3 text-right">

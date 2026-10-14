@@ -154,10 +154,12 @@ export class CpanelDbService {
       imagenes: imagesJson,
       variants: variantsList,
       variantes: JSON.stringify(variantsList),
-      category: (product as any).category || product.categoryName || (product as any).categoria || '',
+      category: (product as any).categoria || (product as any).category || product.categoryName || '',
       categoria: (product as any).categoria || (product as any).category || product.categoryName || '',
-      categoryName: product.categoryName || (product as any).category || (product as any).categoria || '',
-      categoryId: product.categoryId || '',
+      categoryName: (product as any).categoria || product.categoryName || (product as any).category || '',
+      categoryId: product.categoryId || (product as any).category_id || '',
+      category_id: product.categoryId || (product as any).category_id || '',
+      categoria_id: product.categoryId || (product as any).category_id || '',
       dropi_product_id: dropiId,
       dropiProductId: dropiId,
       dropi_id: dropiId,
@@ -632,17 +634,29 @@ export class CpanelDbService {
       stock: Number(v.stock !== undefined ? v.stock : 10)
     }));
 
-    // Preservar categoría original sin forzar a cat-1
-    const rawCatStr = item.category || item.categoria || item.categoryName || item.categoryId || '';
-    const matchedCat = rawCatStr ? db.getCategories().find(c => 
-      c.name.toLowerCase() === String(rawCatStr).toLowerCase() || 
-      c.id.toLowerCase() === String(rawCatStr).toLowerCase() ||
-      c.slug.toLowerCase() === String(rawCatStr).toLowerCase() ||
-      String(rawCatStr).toLowerCase().includes(c.name.toLowerCase()) ||
-      c.name.toLowerCase().includes(String(rawCatStr).toLowerCase())
-    ) : null;
+    // Preservar categoría original sin forzar a General ni cat-1
+    let rawCatStr = '';
+    if (item.categoria && String(item.categoria).trim() && String(item.categoria).trim().toLowerCase() !== 'general') {
+      rawCatStr = String(item.categoria).trim();
+    } else if (item.category && String(item.category).trim() && String(item.category).trim().toLowerCase() !== 'general') {
+      rawCatStr = String(item.category).trim();
+    } else if (item.categoryName && String(item.categoryName).trim() && String(item.categoryName).trim().toLowerCase() !== 'general') {
+      rawCatStr = String(item.categoryName).trim();
+    } else {
+      rawCatStr = item.categoria || item.category || item.categoryName || item.categoryId || '';
+    }
+
+    const matchedCat = rawCatStr ? db.getCategories().find(c => {
+      const clean = String(rawCatStr).toLowerCase().replace(/^[^\w\s]+/, '').trim();
+      const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+      return c.id.toLowerCase() === clean ||
+             c.slug.toLowerCase() === clean ||
+             cClean === clean ||
+             cClean.includes(clean) ||
+             clean.includes(cClean);
+    }) : null;
     const categoryName = rawCatStr ? (matchedCat?.name || String(rawCatStr).trim()) : 'General';
-    const categoryId = item.categoryId || item.categoria_id || matchedCat?.id || 'cat-general';
+    const categoryId = item.categoryId || item.categoria_id || item.category_id || matchedCat?.id || 'cat-general';
 
     return {
       id: String(item.id || `prod-${Math.random().toString(36).substring(2, 7)}`),

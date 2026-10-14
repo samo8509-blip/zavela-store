@@ -1,84 +1,117 @@
-// Firestore Settings Service (Modular SDK v9+)
-// Persistencia y sincronización en tiempo real de configuraciones de la tienda y WhatsApp AI Agent
+// cPanel MySQL Settings Service (100% Independiente de Firestore)
+// Persistencia en la tabla `configuraciones` y `banners` de MySQL cPanel
 
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  onSnapshot, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { db } from '../lib/firebase.ts';
 import { StoreSettings } from '../types/index.ts';
 
-const SETTINGS_COLLECTION = 'settings';
-const GENERAL_SETTINGS_DOC = 'general';
+const SETTINGS_API_URL = '/api/admin/settings';
+const LOCAL_STORAGE_KEY = 'zavela_store_settings_cache';
+
+// Listeners activos para reactividad sin Firebase
+const settingsListeners: Set<(settings: StoreSettings) => void> = new Set();
+let cachedSettings: StoreSettings | null = null;
+
+function notifyListeners(settings: StoreSettings) {
+  cachedSettings = settings;
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(settings));
+  } catch {}
+  settingsListeners.forEach(listener => {
+    try {
+      listener(settings);
+    } catch (err) {
+      console.warn('[cPanel Settings Listener Warning]:', err);
+    }
+  });
+}
 
 /**
- * Obtiene la configuración de la tienda guardada en Firestore
+ * Obtiene la configuración de la tienda guardada en MySQL cPanel
  */
 export async function getFirestoreSettings(): Promise<StoreSettings | null> {
   try {
-    const docRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      return docSnap.data() as StoreSettings;
+    const res = await fetch(SETTINGS_API_URL);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} al consultar configuraciones`);
     }
-    return null;
+    const json = await res.json();
+    if (json.success && json.data) {
+      cachedSettings = json.data;
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(json.data));
+      } catch {}
+      return json.data as StoreSettings;
+    }
+    return cachedSettings;
   } catch (error) {
-    console.warn('Error al leer configuraciones de Firestore:', error);
-    return null;
+    console.warn('[cPanel MySQL] Error al leer configuraciones desde servidor:', error);
+    if (!cachedSettings) {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (raw) cachedSettings = JSON.parse(raw);
+      } catch {}
+    }
+    return cachedSettings;
   }
 }
 
 /**
- * Guarda o actualiza las configuraciones globales de la tienda en Cloud Firestore
+ * Guarda o actualiza las configuraciones globales de la tienda en MySQL cPanel
  */
 export async function saveFirestoreSettings(settings: Partial<StoreSettings>): Promise<void> {
   try {
-    const docRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    
-    // Limpiar campos undefined antes de guardar
-    const cleanData: Record<string, any> = {};
-    for (const [key, val] of Object.entries(settings)) {
-      if (val !== undefined) {
-        cleanData[key] = val;
-      }
+    const res = await fetch(SETTINGS_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} al guardar configuraciones`);
     }
 
-    cleanData.updatedAt = serverTimestamp();
-
-    await setDoc(docRef, cleanData, { merge: true });
-    console.log('✅ Configuraciones y número de WhatsApp guardados en Cloud Firestore');
+    const json = await res.json();
+    const updated = json.data || { ...cachedSettings, ...settings };
+    notifyListeners(updated as StoreSettings);
+    console.log('✅ Configuración guardada con éxito en cPanel MySQL');
   } catch (error) {
-    console.error('Error al guardar configuraciones en Firestore:', error);
+    console.error('[cPanel MySQL] Error al guardar configuraciones en MySQL:', error);
     throw error;
   }
 }
 
 /**
- * Escucha cambios en tiempo real en las configuraciones de la tienda
+ * Escucha cambios en tiempo real en las configuraciones de la tienda (Local & cPanel Poll)
  */
 export function subscribeToFirestoreSettings(
   onUpdate: (settings: StoreSettings) => void,
-  onError?: (error: Error) => void
+  _onError?: (error: Error) => void
 ): () => void {
-  const docRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
+  settingsListeners.add(onUpdate);
 
-  const unsubscribe = onSnapshot(
-    docRef,
-    (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as StoreSettings;
-        onUpdate(data);
-      }
-    },
-    (error) => {
-      console.warn('Error en listener de configuraciones Firestore:', error);
-      if (onError) onError(error);
-    }
-  );
+  // Entregar inmediatamente la copia en caché si existe
+  if (cachedSettings) {
+    onUpdate(cachedSettings);
+  } else {
+    getFirestoreSettings().then(st => {
+      if (st) onUpdate(st);
+    }).catch(() => {});
+  }
 
-  return unsubscribe;
+  // Polling silencioso cada 45 segundos para sincronización entre pestañas/dispositivos
+  const interval = setInterval(async () => {
+    try {
+      const fresh = await getFirestoreSettings();
+      if (fresh) onUpdate(fresh);
+    } catch {}
+  }, 45000);
+
+  return () => {
+    settingsListeners.delete(onUpdate);
+    clearInterval(interval);
+  };
 }
+
+// Aliases canónicos para nueva arquitectura
+export const getCpanelSettings = getFirestoreSettings;
+export const saveCpanelSettings = saveFirestoreSettings;
+export const subscribeToCpanelSettings = subscribeToFirestoreSettings;

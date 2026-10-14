@@ -625,8 +625,12 @@ export default function App() {
   };
 
   // Cart Handlers
-  const handleAddToCart = (product: Product, variant?: ProductVariant, quantity: number = 1) => {
+  const handleAddToCart = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
     registerProductObservation(product);
+    const effectivePrice = unitPrice !== undefined && unitPrice > 0 ? unitPrice : product.price;
+    const effectiveProduct = unitPrice !== undefined && unitPrice > 0 ? { ...product, price: effectivePrice } : product;
+    const effectiveVariant = variant && unitPrice !== undefined && unitPrice > 0 ? { ...variant, price: effectivePrice } : variant;
+
     setCartItems(prev => {
       const existingIdx = prev.findIndex(
         item => item.product.id === product.id && item.variant?.id === variant?.id
@@ -635,17 +639,23 @@ export default function App() {
       if (existingIdx >= 0) {
         const updated = [...prev];
         updated[existingIdx].quantity += quantity;
+        if (unitPrice !== undefined && unitPrice > 0) {
+          updated[existingIdx].product = effectiveProduct;
+          if (updated[existingIdx].variant) {
+            updated[existingIdx].variant = effectiveVariant;
+          }
+        }
         return updated;
       }
 
-      return [...prev, { product, variant, quantity }];
+      return [...prev, { product: effectiveProduct, variant: effectiveVariant, quantity }];
     });
 
     showToast(`¡"${product.title}" agregado al carrito!`);
   };
 
-  const handleBuyNow = (product: Product, variant?: ProductVariant, quantity: number = 1) => {
-    handleAddToCart(product, variant, quantity);
+  const handleBuyNow = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
+    handleAddToCart(product, variant, quantity, unitPrice);
     setIsCartOpen(false);
     setSelectedProduct(null);
     setIsCheckoutOpen(true);

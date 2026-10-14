@@ -63,14 +63,25 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const url = isEdit ? `${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(targetId!)}` : API_ADMIN_PRODUCTS_URL;
   const method = isEdit ? 'PUT' : 'POST';
 
+  const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
+  const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
+
+  const fullPayload = {
+    ...productData,
+    ...(targetId ? { id: targetId } : {}),
+    categoria: catValue,
+    category: catValue,
+    categoryName: catValue,
+    categoryId: catIdValue,
+    category_id: catIdValue,
+    categoria_id: catIdValue
+  };
+
   try {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...productData,
-        ...(targetId ? { id: targetId } : {})
-      })
+      body: JSON.stringify(fullPayload)
     });
 
     if (!res.ok) {

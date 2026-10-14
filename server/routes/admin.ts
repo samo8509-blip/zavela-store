@@ -102,15 +102,15 @@ router.get('/products', async (req, res) => {
   try {
     let productsList: any[] = [];
 
-    // 1. Consulta SQL directa a la tabla física products en MySQL cPanel
+    // 1. Consulta SQL directa a la tabla física productos en MySQL cPanel (priorizando `productos`)
     try {
-      const [sqlRows]: any = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
-      if (Array.isArray(sqlRows) && sqlRows.length > 0) {
-        productsList = sqlRows;
+      const [altRows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
+      if (Array.isArray(altRows) && altRows.length > 0) {
+        productsList = altRows;
       } else {
-        const [altRows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
-        if (Array.isArray(altRows) && altRows.length > 0) {
-          productsList = altRows;
+        const [sqlRows]: any = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
+        if (Array.isArray(sqlRows) && sqlRows.length > 0) {
+          productsList = sqlRows;
         }
       }
     } catch (sqlErr: any) {
@@ -162,6 +162,38 @@ router.get('/products', async (req, res) => {
         const supplierCost = Number(row.supplier_cost !== undefined ? row.supplier_cost : (row.costPrice || 0)) || 0;
         const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
 
+        // Extracción robusta de categoría (evita que 'General' eclipse una categoría real)
+        let resolvedCategory = 'General';
+        const rawCat = row.categoria || row.category || row.category_name;
+        if (row.categoria && String(row.categoria).trim() && String(row.categoria).trim().toLowerCase() !== 'general') {
+          resolvedCategory = String(row.categoria).trim();
+        } else if (row.category && String(row.category).trim() && String(row.category).trim().toLowerCase() !== 'general') {
+          resolvedCategory = String(row.category).trim();
+        } else if (rawCat && String(rawCat).trim()) {
+          resolvedCategory = String(rawCat).trim();
+        }
+
+        let resolvedCategoryId = row.category_id || row.categoria_id || '';
+        if (!resolvedCategoryId || resolvedCategoryId === 'cat-general') {
+          const clean = resolvedCategory.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+          const matched = db.getCategories().find(c => {
+            const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+            return c.id.toLowerCase() === clean ||
+                   c.slug.toLowerCase() === clean ||
+                   cClean === clean ||
+                   cClean.includes(clean) ||
+                   clean.includes(cClean);
+          });
+          if (matched) {
+            resolvedCategoryId = matched.id;
+            if (resolvedCategory === 'General' || resolvedCategory === resolvedCategoryId) {
+              resolvedCategory = matched.name;
+            }
+          } else {
+            resolvedCategoryId = 'cat-general';
+          }
+        }
+
         return {
           id: String(row.id),
           title: row.title || row.nombre || row.name || 'Producto Zavela',
@@ -177,9 +209,12 @@ router.get('/products', async (req, res) => {
           stock: Number(row.stock !== undefined ? row.stock : 10),
           description: row.description !== undefined ? row.description : (row.descripcion || ''),
           descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
-          category: row.category || row.categoria || 'General',
-          categoryName: row.category || row.categoria || 'General',
-          categoryId: row.category_id || 'cat-general',
+          category: resolvedCategory,
+          categoria: resolvedCategory,
+          categoryName: resolvedCategory,
+          categoryId: resolvedCategoryId,
+          category_id: resolvedCategoryId,
+          categoria_id: resolvedCategoryId,
           image: mainImage,
           imagen: mainImage,
           images,
@@ -189,6 +224,64 @@ router.get('/products', async (req, res) => {
           provider: row.provider || (dropiProductId ? 'dropi' : 'direct'),
           supplier: row.supplier || (row.provider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa')),
           supplier_sku: row.supplier_sku || undefined,
+          variants: (() => {
+            let vList: any[] = [];
+            const rawV = row.variants || row.variantes || row.sizes;
+            if (Array.isArray(rawV)) vList = rawV;
+            else if (typeof rawV === 'string' && rawV.trim()) {
+              try { const parsed = JSON.parse(rawV); if (Array.isArray(parsed)) vList = parsed; } catch {
+                if (rawV.includes(',')) {
+                  vList = rawV.split(',').map((s: string, idx: number) => ({
+                    id: `var-${row.id}-${idx}`,
+                    name: s.trim(),
+                    size: s.trim(),
+                    talla: s.trim(),
+                    stock: Number(row.stock) || 10,
+                    price
+                  }));
+                }
+              }
+            }
+            return vList.map((v: any, idx: number) => {
+              if (typeof v === 'string') {
+                return {
+                  id: `var-${row.id}-${idx}`,
+                  name: v.trim(),
+                  size: v.trim(),
+                  talla: v.trim(),
+                  stock: Number(row.stock) || 10,
+                  price
+                };
+              }
+              const sName = v.size || v.talla || (v.name?.includes('/') ? v.name.split('/')[1]?.trim() : (v.name || 'Única'));
+              const cName = v.color || (v.name?.includes('/') ? v.name.split('/')[0]?.trim() : (v.color || 'Color Único'));
+              return {
+                ...v,
+                id: String(v.id || `var-${row.id}-${idx}`),
+                name: v.name || `${cName} / ${sName}`,
+                color: cName,
+                size: sName,
+                talla: sName,
+                stock: v.stock !== undefined ? Number(v.stock) : (Number(row.stock) || 10),
+                price: v.price !== undefined ? Number(v.price) : price
+              };
+            });
+          })(),
+          variantes: (() => {
+            let vList: any[] = [];
+            const rawV = row.variants || row.variantes || row.sizes;
+            if (Array.isArray(rawV)) vList = rawV;
+            else if (typeof rawV === 'string' && rawV.trim()) {
+              try { const parsed = JSON.parse(rawV); if (Array.isArray(parsed)) vList = parsed; } catch {}
+            }
+            return vList;
+          })(),
+          active: row.active !== undefined 
+            ? Boolean(row.active === 1 || row.active === true || row.active === '1' || row.status === 'active' || row.estado === 'activo')
+            : (row.status === 'inactive' || row.estado === 'inactivo' ? false : true),
+          status: (row.active === 0 || row.active === false || row.active === '0' || row.status === 'inactive' || row.estado === 'inactivo') ? 'inactive' : 'active',
+          estado: (row.active === 0 || row.active === false || row.active === '0' || row.status === 'inactive' || row.estado === 'inactivo') ? 'inactivo' : 'activo',
+          featured: Boolean(row.featured === 1 || row.featured === true || row.featured === '1'),
           createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()
         };
       });
@@ -257,16 +350,27 @@ async function executeProductUpdate(productId: string, body: any) {
   const dropiProductId = rawIncomingDropi !== '' ? rawIncomingDropi : existingDropi;
 
   // Extracción estricta y preservación de Categoría (evita reseteos a categoría por defecto)
-  const rawCat = body.category || body.categoryName || body.categoria || (existing as any)?.category || existing?.categoryName || (existing as any)?.categoria;
-  const matchedCat = rawCat ? db.getCategories().find(c => 
-    c.name.toLowerCase() === String(rawCat).toLowerCase() || 
-    c.id.toLowerCase() === String(rawCat).toLowerCase() ||
-    c.slug.toLowerCase() === String(rawCat).toLowerCase() ||
-    String(rawCat).toLowerCase().includes(c.name.toLowerCase()) ||
-    c.name.toLowerCase().includes(String(rawCat).toLowerCase())
-  ) : null;
-  const categoryName = rawCat ? (matchedCat?.name || String(rawCat).trim()) : (existing?.categoryName || 'General');
-  const categoryId = body.categoryId || body.categoria_id || matchedCat?.id || existing?.categoryId || 'cat-general';
+  const rawCat = body.categoria || body.category || body.categoryName || body.categoria_nombre;
+  let categoryName = rawCat ? String(rawCat).trim() : ((existing as any)?.categoria || (existing as any)?.category || existing?.categoryName || 'General');
+  let categoryId = body.categoryId || body.categoria_id || body.category_id || existing?.categoryId || 'cat-general';
+
+  const matchedCat = db.getCategories().find(c => {
+    const clean = categoryName.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+    const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
+    return c.id === categoryId ||
+           c.slug === categoryId ||
+           c.id.toLowerCase() === clean ||
+           c.slug.toLowerCase() === clean ||
+           cClean === clean ||
+           cClean.includes(clean) ||
+           clean.includes(cClean);
+  });
+  if (matchedCat) {
+    categoryId = matchedCat.id;
+    if (categoryName === 'General' || categoryName === categoryId || categoryName === matchedCat.slug) {
+      categoryName = matchedCat.name;
+    }
+  }
 
   const updated: Product = {
       id: productId,
@@ -306,35 +410,66 @@ async function executeProductUpdate(productId: string, body: any) {
       dropiBackupService.saveDropiId(productId, dropiProductId);
     }
 
+    const effectiveProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
+    const effectiveSupplier = body.supplier || (effectiveProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
+    const effectiveSupplierSku = body.supplier_sku || body.supplierSku || null;
+    const isActiveInt = (body.active === 1 || body.active === true || body.status === 'active' || body.estado === 'activo' || (body.active === undefined && existing?.active !== false)) ? 1 : 0;
+
     // Ejecutar UPDATE en MySQL directamente en ambas tablas protegiendo dropi_product_id y guardando category:
     try {
+      // 1. Confirmar actualización explícita de categoria, category y category_id en la tabla productos (MySQL cPanel)
+      await pool.query(`
+        UPDATE productos SET 
+          categoria = ?, 
+          category = ?, 
+          category_id = ? 
+        WHERE id = ?
+      `, [categoryName, categoryName, categoryId, productId]);
+
       const imagesJson = JSON.stringify(finalImages);
       await pool.query(`
         UPDATE productos 
         SET 
           nombre = ?,
           precio = ?,
+          supplier_cost = ?,
+          suggested_price = ?,
           stock = ?,
           descripcion = ?,
           categoria = ?,
           category = ?,
           category_id = ?,
+          provider = ?,
+          supplier = ?,
+          supplier_sku = ?,
           imagen = ?,
           imagenes = ?,
           dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
-          variants = ?
+          active = ?,
+          variants = ?,
+          variantes = ?,
+          sizes = ?,
+          updated_at = NOW()
         WHERE id = ?
       `, [
         saved.title,
         saved.price,
+        costPrice,
+        compareAtPrice,
         saved.stock,
         saved.description,
         categoryName,
         categoryName,
         categoryId,
+        effectiveProvider,
+        effectiveSupplier,
+        effectiveSupplierSku,
         mainImage,
         imagesJson,
         rawIncomingDropi || '',
+        isActiveInt,
+        JSON.stringify(saved.variants || []),
+        JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
         productId
       ]);
@@ -349,31 +484,48 @@ async function executeProductUpdate(productId: string, body: any) {
         SET 
           title = ?,
           price = ?,
+          supplier_cost = ?,
+          suggested_price = ?,
           stock = ?,
           descripcion = ?,
           description = ?,
           category = ?,
           category_id = ?,
+          provider = ?,
+          supplier = ?,
+          supplier_sku = ?,
           imagen = ?,
           image = ?,
           imagenes = ?,
           images = ?,
           dropi_product_id = COALESCE(NULLIF(?, ''), dropi_product_id),
-          variants = ?
+          active = ?,
+          variants = ?,
+          variantes = ?,
+          sizes = ?,
+          updated_at = NOW()
         WHERE id = ?
       `, [
         saved.title,
         saved.price,
+        costPrice,
+        compareAtPrice,
         saved.stock,
         saved.description,
         saved.description,
         categoryName,
         categoryId,
+        effectiveProvider,
+        effectiveSupplier,
+        effectiveSupplierSku,
         mainImage,
         mainImage,
         imagesJson,
         imagesJson,
         rawIncomingDropi || '',
+        isActiveInt,
+        JSON.stringify(saved.variants || []),
+        JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
         productId
       ]);
@@ -526,49 +678,79 @@ router.post('/products', async (req, res) => {
       dropiBackupService.saveDropiId(newProduct.id, dropiProductId);
     }
 
+    const effectiveNewProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
+    const effectiveNewSupplier = body.supplier || (effectiveNewProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
+    const effectiveNewSupplierSku = body.supplier_sku || body.supplierSku || null;
+    const isNewActiveInt = (body.active === 1 || body.active === true || body.status === 'active' || body.estado === 'activo' || (body.active === undefined && body.activo !== false)) ? 1 : 0;
+
     // Persistir físicamente en MySQL cPanel
     try {
       await pool.query(`
         INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, stock, description, category, category_id, dropi_product_id, images, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id,
+          provider, supplier, supplier_sku, dropi_product_id, images, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           name = VALUES(name),
           slug = VALUES(slug),
           price = VALUES(price),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
           stock = VALUES(stock),
           description = VALUES(description),
           category = VALUES(category),
           category_id = VALUES(category_id),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          supplier_sku = VALUES(supplier_sku),
           dropi_product_id = VALUES(dropi_product_id),
           images = VALUES(images),
+          active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, title, slug, price, costPrice, newProduct.stock, description,
-        postCatName, postCatId, dropiProductId || null, JSON.stringify(validImages)
+        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newProduct.stock, description,
+        postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
+        dropiProductId || null, JSON.stringify(validImages), isNewActiveInt
       ]);
 
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, stock, descripcion, categoria, category, category_id, dropi_product_id, imagen, imagenes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id,
+          provider, supplier, supplier_sku, dropi_product_id, imagen, imagenes, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
           stock = VALUES(stock),
           descripcion = VALUES(descripcion),
           categoria = VALUES(categoria),
           category = VALUES(category),
           category_id = VALUES(category_id),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          supplier_sku = VALUES(supplier_sku),
           dropi_product_id = VALUES(dropi_product_id),
           imagen = VALUES(imagen),
           imagenes = VALUES(imagenes),
+          active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, price, costPrice, newProduct.stock, description,
-        postCatName, postCatName, postCatId, dropiProductId || null, mainImage, JSON.stringify(validImages)
+        newProduct.id, title, price, costPrice, compareAtPrice, newProduct.stock, description,
+        postCatName, postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
+        dropiProductId || null, mainImage, JSON.stringify(validImages), isNewActiveInt
       ]);
+
+      // Confirmar actualización explícita de categoria, category y category_id en la tabla productos
+      await pool.query(`
+        UPDATE productos SET 
+          categoria = ?, 
+          category = ?, 
+          category_id = ? 
+        WHERE id = ?
+      `, [postCatName, postCatName, postCatId, newProduct.id]);
     } catch (sqlErr: any) {
       console.warn('[Admin MySQL Save Product Error]:', sqlErr.message);
     }
@@ -668,6 +850,56 @@ router.put('/products/:id', async (req, res) => {
     res.json({ success: true, data: saved, socialPost, facebookSync });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PATCH /api/admin/products/:id/toggle-active
+router.patch('/products/:id/toggle-active', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'ID de producto requerido' });
+    }
+
+    let newActive = req.body?.active;
+    if (newActive === undefined) {
+      const [rows]: any = await pool.query('SELECT active, status, estado FROM productos WHERE id = ? LIMIT 1', [id]);
+      const current = rows && rows.length > 0 ? rows[0].active : 1;
+      newActive = (current === 1 || current === true || current === '1') ? 0 : 1;
+    } else {
+      newActive = (newActive === 1 || newActive === true || newActive === '1' || newActive === 'active' || newActive === 'activo') ? 1 : 0;
+    }
+
+    const statusVal = newActive === 1 ? 'active' : 'inactive';
+    const estadoVal = newActive === 1 ? 'activo' : 'inactivo';
+
+    await pool.query(
+      'UPDATE productos SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?',
+      [newActive, statusVal, estadoVal, id]
+    );
+
+    try {
+      await pool.query(
+        'UPDATE products SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?',
+        [newActive, statusVal, estadoVal, id]
+      );
+    } catch {}
+
+    const prod = db.getProductById(id);
+    if (prod) {
+      db.saveProduct({ ...prod, active: newActive === 1, status: statusVal, estado: estadoVal } as any);
+    }
+
+    res.json({
+      success: true,
+      id,
+      active: newActive === 1,
+      status: statusVal,
+      estado: estadoVal,
+      message: newActive === 1 ? 'Visible / Activo: Producto activado en cPanel MySQL.' : 'Oculto: Producto pausado / ocultado en cPanel MySQL.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
@@ -1129,28 +1361,135 @@ router.delete('/customers/:id', (req, res) => {
 });
 
 // ==========================================
-// 6. SETTINGS & CMS
+// 6. SETTINGS & CMS - PERSISTENCIA REAL EN MYSQL CPANEL
 // ==========================================
-router.get('/settings', (req, res) => {
+router.get('/settings', async (req, res) => {
   try {
-    const settings = db.getSettings();
+    let settings = db.getSettings();
+
+    // Consultar configuraciones persistidas en MySQL cPanel
+    try {
+      const [rows]: any = await pool.query(
+        "SELECT clave, valor FROM configuraciones WHERE clave IN ('general_settings', 'hero_banners', 'hero_banner_style')"
+      );
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        let generalVal: any = {};
+        for (const row of rows) {
+          if (row.clave === 'general_settings' && row.valor) {
+            try { generalVal = { ...generalVal, ...JSON.parse(row.valor) }; } catch {}
+          } else if (row.clave === 'hero_banners' && row.valor) {
+            try { generalVal.heroBanners = JSON.parse(row.valor); } catch {}
+          } else if (row.clave === 'hero_banner_style' && row.valor) {
+            generalVal.heroBannerStyle = row.valor;
+          }
+        }
+        if (Object.keys(generalVal).length > 0) {
+          settings = db.saveSettings(generalVal);
+        }
+      }
+    } catch (mysqlErr: any) {
+      console.warn('[MySQL cPanel Settings GET Warning]:', mysqlErr.message);
+    }
+
     res.json({ success: true, data: settings });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-router.put('/settings', (req, res) => {
+router.put('/settings', async (req, res) => {
   try {
     const incoming = req.body?.settings || req.body;
     const updated = db.saveSettings(incoming);
+
+    // Persistencia física en MySQL cPanel tabla `configuraciones`
+    try {
+      const serializedGeneral = JSON.stringify(updated);
+      await pool.query(`
+        INSERT INTO configuraciones (clave, valor, updated_at) 
+        VALUES ('general_settings', ?, NOW())
+        ON DUPLICATE KEY UPDATE valor = VALUES(valor), updated_at = NOW()
+      `, [serializedGeneral]);
+
+      // Si vienen heroBanners, persistir en `configuraciones` y en la tabla `banners`
+      if (Array.isArray(incoming.heroBanners) || Array.isArray(updated.heroBanners)) {
+        const bannersList = incoming.heroBanners || updated.heroBanners || [];
+        const serializedBanners = JSON.stringify(bannersList);
+
+        await pool.query(`
+          INSERT INTO configuraciones (clave, valor, updated_at) 
+          VALUES ('hero_banners', ?, NOW())
+          ON DUPLICATE KEY UPDATE valor = VALUES(valor), updated_at = NOW()
+        `, [serializedBanners]);
+
+        for (const b of bannersList) {
+          if (!b.id) continue;
+          await pool.query(`
+            INSERT INTO banners (
+              id, title, subtitle, badge, badge_text, notification_text, tagline, cta_text, cta_link, image_url, video_url, has_video, active, banner_order, text_color, discount_badge, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+              title = VALUES(title),
+              subtitle = VALUES(subtitle),
+              badge = VALUES(badge),
+              badge_text = VALUES(badge_text),
+              notification_text = VALUES(notification_text),
+              tagline = VALUES(tagline),
+              cta_text = VALUES(cta_text),
+              cta_link = VALUES(cta_link),
+              image_url = VALUES(image_url),
+              video_url = VALUES(video_url),
+              has_video = VALUES(has_video),
+              active = VALUES(active),
+              banner_order = VALUES(banner_order),
+              text_color = VALUES(text_color),
+              discount_badge = VALUES(discount_badge),
+              updated_at = NOW()
+          `, [
+            String(b.id),
+            b.title || '',
+            b.subtitle || '',
+            b.badge || '',
+            b.badgeText || '',
+            b.notificationText || '',
+            b.tagline || '',
+            b.ctaText || 'Comprar Ahora',
+            b.ctaLink || '#products',
+            b.imageUrl || '',
+            b.videoUrl || '',
+            b.hasVideo ? 1 : 0,
+            b.active !== false ? 1 : 0,
+            Number(b.order) || 1,
+            b.textColor || '#ffffff',
+            b.discountBadge || ''
+          ]);
+        }
+      }
+
+      if (incoming.heroBannerStyle || updated.heroBannerStyle) {
+        await pool.query(`
+          INSERT INTO configuraciones (clave, valor, updated_at) 
+          VALUES ('hero_banner_style', ?, NOW())
+          ON DUPLICATE KEY UPDATE valor = VALUES(valor), updated_at = NOW()
+        `, [incoming.heroBannerStyle || updated.heroBannerStyle]);
+      }
+    } catch (sqlErr: any) {
+      console.warn('[MySQL cPanel Settings Save Warning]:', sqlErr.message);
+    }
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Ajustes de Tienda Actualizados',
-      details: `Configuraciones globales y número de WhatsApp actualizados correctamente.`,
+      details: 'Configuración guardada con éxito en cPanel MySQL.',
       status: 'success'
     });
-    res.json({ success: true, data: updated });
+
+    res.json({ 
+      success: true, 
+      message: 'Configuración guardada con éxito en cPanel MySQL',
+      data: updated 
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

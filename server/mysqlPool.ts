@@ -145,6 +145,8 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     await ensureColumn('products', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'images', 'LONGTEXT NULL');
     await ensureColumn('products', 'raw_dropi_payload', 'LONGTEXT NULL');
+    await ensureColumn('products', 'variants', 'LONGTEXT NULL');
+    await ensureColumn('products', 'variantes', 'LONGTEXT NULL');
 
     await ensureColumn('productos', 'dropi_product_id', 'VARCHAR(100) NULL DEFAULT NULL');
     await ensureColumn('productos', 'provider', "VARCHAR(100) NULL DEFAULT 'dropi'");
@@ -157,6 +159,19 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     await ensureColumn('productos', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'imagenes', 'LONGTEXT NULL');
     await ensureColumn('productos', 'raw_dropi_payload', 'LONGTEXT NULL');
+    await ensureColumn('productos', 'variants', 'LONGTEXT NULL');
+    await ensureColumn('productos', 'variantes', 'LONGTEXT NULL');
+    await ensureColumn('productos', 'sizes', 'LONGTEXT NULL');
+    await ensureColumn('productos', 'active', 'TINYINT(1) NOT NULL DEFAULT 1');
+    await ensureColumn('productos', 'status', "VARCHAR(50) NOT NULL DEFAULT 'active'");
+    await ensureColumn('productos', 'estado', "VARCHAR(50) NOT NULL DEFAULT 'activo'");
+
+    await ensureColumn('products', 'active', 'TINYINT(1) NOT NULL DEFAULT 1');
+    await ensureColumn('products', 'status', "VARCHAR(50) NOT NULL DEFAULT 'active'");
+    await ensureColumn('products', 'estado', "VARCHAR(50) NOT NULL DEFAULT 'activo'");
+    await ensureColumn('products', 'variants', 'LONGTEXT NULL');
+    await ensureColumn('products', 'variantes', 'LONGTEXT NULL');
+    await ensureColumn('products', 'sizes', 'LONGTEXT NULL');
 
     // 4. Tabla `advisors` (y `asesores`): NO SOBREESCRIBIR ni insertar asesores automáticos si ya existe
     await p.query(`
@@ -179,11 +194,34 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
-    // 5. Tabla de configuraciones
+    // 5. Tabla de configuraciones y banners en MySQL cPanel
     await p.query(`
       CREATE TABLE IF NOT EXISTS configuraciones (
         clave VARCHAR(64) NOT NULL PRIMARY KEY,
         valor LONGTEXT NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS banners (
+        id VARCHAR(64) NOT NULL PRIMARY KEY,
+        title VARCHAR(255) NULL,
+        subtitle TEXT NULL,
+        badge VARCHAR(100) NULL,
+        badge_text VARCHAR(100) NULL,
+        notification_text VARCHAR(255) NULL,
+        tagline VARCHAR(255) NULL,
+        cta_text VARCHAR(100) NULL,
+        cta_link VARCHAR(255) NULL,
+        image_url LONGTEXT NULL,
+        video_url LONGTEXT NULL,
+        has_video TINYINT(1) DEFAULT 0,
+        active TINYINT(1) DEFAULT 1,
+        banner_order INT DEFAULT 1,
+        text_color VARCHAR(50) NULL,
+        discount_badge VARCHAR(100) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
@@ -208,6 +246,20 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         items LONGTEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // 7. Tabla catalogo_backups (Respaldos de emergencia del catálogo en MySQL cPanel)
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS catalogo_backups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        nombre_respaldo VARCHAR(255) NULL,
+        total_productos INT NOT NULL DEFAULT 0,
+        snapshot_json LONGTEXT NOT NULL,
+        datos_json LONGTEXT NULL,
+        origen VARCHAR(50) DEFAULT 'manual',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
@@ -490,3 +542,5 @@ export const pool = {
     return this.query(sql, params);
   }
 };
+
+export const getPool = () => pool;
