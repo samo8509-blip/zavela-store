@@ -589,14 +589,21 @@ export const ComboCustomizerModal: React.FC<ComboCustomizerModalProps> = ({
                                     border: swatch.border ? `1px solid ${swatch.border}` : '1px solid rgba(255,255,255,0.2)'
                                   }}
                                 />
-                                <span>{colorName}</span>
+                                <span className="font-semibold">
+                                  {colorName}
+                                  {hasStock && matchVariant?.stock !== undefined && (
+                                    <span className="text-[11px] font-mono text-emerald-400 font-normal ml-1">
+                                      ({matchVariant.stock} un.)
+                                    </span>
+                                  )}
+                                </span>
 
                                 {isSelected && hasStock && (
                                   <Check className="w-3.5 h-3.5 text-red-400 shrink-0" />
                                 )}
 
                                 {!hasStock && (
-                                  <span className="text-[9px] uppercase font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-800/60 no-underline ml-1">
+                                  <span className="text-[9px] uppercase font-bold text-rose-400 bg-rose-950/90 px-1.5 py-0.5 rounded border border-rose-800/80 no-underline ml-1">
                                     Agotado
                                   </span>
                                 )}

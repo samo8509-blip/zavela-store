@@ -64,6 +64,8 @@ import { ExclusividadZavela } from './components/ExclusividadZavela.tsx';
 import { CustomSubpageView } from './components/CustomSubpageView.tsx';
 import { DEFAULT_CUSTOM_SUBPAGES } from './utils/exclusivityPresets.ts';
 import { registerProductObservation } from './services/commerceMindClient.ts';
+import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.tsx';
+import { resolveActiveSeasonalTheme } from './utils/seasonalThemes.ts';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
 import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
@@ -117,6 +119,7 @@ export default function App() {
 
   // Settings State
   const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Interactive Modals State
@@ -973,7 +976,13 @@ export default function App() {
   }
 
   return (
-    <div id="zavela-app-root" translate="no" className={`min-h-screen ${activePalette.classes.pageBg} text-slate-900 flex flex-col font-sans selection:bg-sky-200 selection:text-sky-900 notranslate transition-colors duration-300`}>
+    <div id="zavela-app-root" translate="no" className={`min-h-screen ${activePalette.classes.pageBg} text-slate-900 flex flex-col font-sans selection:bg-sky-200 selection:text-sky-900 notranslate transition-colors duration-300 relative`}>
+      
+      {/* Dynamic Seasonal & Festive Atmosphere Particles (Snow, Bats, Hearts, Petals, Sparks) */}
+      <SeasonalThemeAtmosphere 
+        themeId={seasonalThemeInfo.activeThemeId}
+        enabled={seasonalThemeInfo.particlesEnabled}
+      />
       
       {/* Barra Fija de Modo de Pruebas Privado para Administrador o Bypass */}
       {settings?.maintenanceMode && (isAdminAuthenticated || isBypassValid) && (
@@ -1043,6 +1052,7 @@ export default function App() {
       {/* Header with Top Sticky Category Nav Bar (Visible on store and other views) */}
       {currentView !== 'exclusividad' && (
         <Header
+          settings={settings}
           categories={categories}
           selectedCategoryId={selectedCategoryId}
           onSelectCategoryId={(catId) => {

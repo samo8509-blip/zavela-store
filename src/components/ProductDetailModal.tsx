@@ -1146,8 +1146,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <div className="mt-2.5 pt-2 border-t border-emerald-500/40 flex items-center justify-between gap-2 flex-wrap">
                         <div className="text-[11px] text-emerald-100">
                           {quantity === 2 
-                            ? '10% de descuento en la segunda unidad y flete unificado.' 
-                            : '14% de descuento total en tu combo y despacho prioritario contra entrega.'}
+                            ? '10% de descuento en la segunda unidad con envío ya incluido.' 
+                            : '14% de descuento total en tu combo y despacho prioritario contra entrega con envío ya incluido.'}
                         </div>
                         <button
                           type="button"

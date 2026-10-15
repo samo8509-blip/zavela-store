@@ -200,6 +200,23 @@ export interface ThemeStylesSettings {
   darkThemeIntensity?: string;
 }
 
+export type SeasonalThemeId = 
+  | 'standard-light'
+  | 'standard-cyber'
+  | 'san-valentin'
+  | 'madre'
+  | 'amor-amistad'
+  | 'halloween'
+  | 'navidad-fin-ano';
+
+export interface SeasonalThemeConfig {
+  activeTheme: SeasonalThemeId;
+  autoCalendar: boolean;
+  particlesEnabled: boolean;
+  customHolidayMessage?: string;
+  glowEnabled?: boolean;
+}
+
 export interface SocialLinksConfig {
   instagram?: string;
   tiktok?: string;
@@ -414,6 +431,8 @@ export interface StoreSettings {
   footerSettings?: FooterSettings;
   globalTexts?: GlobalTextsCMS;
   themeStyles?: ThemeStylesSettings;
+  seasonalTheme?: SeasonalThemeId;
+  seasonalThemeConfig?: SeasonalThemeConfig;
   socialMarketingSettings?: SocialMarketingSettings;
   luckyWheel?: LuckyWheelSettings;
   gamificationGame?: GamificationGameSettings;

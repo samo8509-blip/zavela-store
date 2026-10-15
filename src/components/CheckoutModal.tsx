@@ -232,7 +232,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
           sku: item.variant?.sku,
           quantity: item.quantity,
-          unitPrice: item.variant?.price || item.product.price
+          unitPrice: item.variant?.price || item.product.price,
+          comboInfo: item.comboInfo,
+          comboGarmentLabel: item.comboGarmentLabel
         }))
       };
 
@@ -598,7 +600,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         </span>
                       </div>
                       <div className="text-[11px] text-emerald-800 font-medium leading-tight mt-0.5">
-                        Tu flete se cobra una sola vez para todo el paquete y no se multiplica por cada unidad adicional.
+                        El valor del envío se cubre una sola vez para todo el paquete con despacho prioritario.
                       </div>
                     </div>
                   </div>

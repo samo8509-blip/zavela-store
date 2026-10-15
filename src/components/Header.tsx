@@ -15,13 +15,16 @@ import {
   Sparkles,
   Gem
 } from 'lucide-react';
-import { Category, CartItem, Product, CustomSubpage } from '../types/index.ts';
+import { Category, CartItem, Product, CustomSubpage, StoreSettings } from '../types/index.ts';
 import { ZavelaLogo } from './ZavelaLogo.tsx';
 import { TopCategoryNav } from './TopCategoryNav.tsx';
 import { TRUST_PALETTES } from '../utils/themePalettes.ts';
 import { CustomerUser } from '../utils/customerAuthManager.ts';
+import { SeasonalLogoWrapper } from './SeasonalThemeOrnaments.tsx';
+import { resolveActiveSeasonalTheme } from '../utils/seasonalThemes.ts';
 
 interface HeaderProps {
+  settings?: StoreSettings | null;
   categories?: Category[];
   selectedCategory?: string;
   selectedCategoryId?: string;
@@ -58,6 +61,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  settings,
   categories = [],
   selectedCategory = 'todos',
   selectedCategoryId = 'all',
@@ -93,6 +97,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPaletteModal
 }) => {
   const currentPalette = TRUST_PALETTES.find(p => p.id === activePaletteId) || TRUST_PALETTES[0];
+  const seasonalInfo = resolveActiveSeasonalTheme(settings);
+  const activeSeasonalThemeId = seasonalInfo.activeThemeId;
   const [isCustomerMenuOpen, setIsCustomerMenuOpen] = useState(false);
   const customerMenuRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +144,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[11px] font-medium tracking-wide text-slate-200">
               Envíos a toda Colombia • <strong className="text-emerald-400 font-bold uppercase">Pago Contra Entrega</strong> (Pagas al recibir en efectivo)
             </span>
+            {activeSeasonalThemeId !== 'standard-light' && activeSeasonalThemeId !== 'standard-cyber' && (
+              <span 
+                style={{
+                  backgroundColor: `${seasonalInfo.themeDef.primaryColor}22`,
+                  borderColor: `${seasonalInfo.themeDef.primaryColor}55`,
+                  color: seasonalInfo.themeDef.accentColor || '#facc15'
+                }}
+                className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ml-2 animate-pulse"
+              >
+                <span>{seasonalInfo.themeDef.icon}</span>
+                <span>{seasonalInfo.themeDef.shortName}</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4 text-slate-300 text-[11px]">
@@ -245,7 +264,13 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center gap-2 text-left cursor-pointer group focus:outline-none"
               aria-label="Ir a la página principal de Zavela Store"
             >
-              <ZavelaLogo size="md" showSlogan={true} theme="light" />
+              <SeasonalLogoWrapper
+                themeId={activeSeasonalThemeId}
+                size="md"
+                glowEnabled={settings?.themeStyles?.neonGlowEnabled ?? (activeSeasonalThemeId !== 'standard-light')}
+              >
+                <ZavelaLogo size="md" showSlogan={true} theme="light" />
+              </SeasonalLogoWrapper>
             </button>
 
             {/* Desktop Nav Links */}
