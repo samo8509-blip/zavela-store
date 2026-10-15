@@ -64,19 +64,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
   const [description, setDescription] = useState(product?.description || '');
-  // Función auxiliar para resolución canónica de categoría en el editor
-  const resolveCategoryForEditor = (prod: Product | null | undefined, cats: Category[]): string => {
+  // --- Helpers canónicos de precarga y resolución para edición ---
+  const resolveCategoryForEditor = (prod: any, cats: Category[]): string => {
     if (!prod) return cats[0]?.id || '';
 
-    // 1. Coincidencia exacta con ID de categoría o slug
-    const candidateId = prod.categoryId || (prod as any).category_id || (prod as any).categoria_id;
-    if (candidateId) {
-      const match = cats.find(c => c.id === candidateId || c.slug === candidateId);
-      if (match) return match.id;
-    }
-
-    // 2. Coincidencia por Nombre de Categoría (con normalización ignorando emojis y símbolos)
-    const rawCat = (prod as any).categoria || (prod as any).category || prod.categoryName;
+    // 1. Mapear categoría desde product.categoria o product.category
+    const rawCat = prod.categoria || prod.category || prod.categoryName || prod.categoryId || prod.category_id || prod.categoria_id;
     if (rawCat) {
       const clean = String(rawCat).toLowerCase().replace(/^[^\w\s]+/, '').trim();
       const found = cats.find(c => {
@@ -88,38 +81,132 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                clean.includes(cClean);
       });
       if (found) return found.id;
+
+      const idMatch = cats.find(c => c.id === rawCat || c.slug === rawCat);
+      if (idMatch) return idMatch.id;
     }
 
-    return candidateId || (prod as any).category || cats[0]?.id || '';
+    const candidateId = prod.categoryId || prod.category_id || prod.categoria_id;
+    if (candidateId) {
+      const match = cats.find(c => c.id === candidateId || c.slug === candidateId);
+      if (match) return match.id;
+    }
+
+    return (prod.categoria || prod.category || prod.categoryId || cats[0]?.id || '');
+  };
+
+  const resolveSupplierCost = (prod: any): number => {
+    if (!prod) return 45000;
+    // Mapear costo de proveedor desde product.supplier_cost o product.costo_proveedor
+    const cost = prod.supplier_cost !== undefined && prod.supplier_cost !== null && prod.supplier_cost !== ''
+      ? prod.supplier_cost
+      : (prod.costo_proveedor !== undefined && prod.costo_proveedor !== null && prod.costo_proveedor !== ''
+        ? prod.costo_proveedor
+        : (prod.costPrice !== undefined && prod.costPrice !== null && prod.costPrice !== ''
+          ? prod.costPrice
+          : (prod.costo !== undefined && prod.costo !== null && prod.costo !== '' ? prod.costo : 45000)));
+    const num = Number(cost);
+    return isNaN(num) ? 45000 : num;
+  };
+
+  const resolveProviderForEditor = (prod: any): 'dropi' | 'derocha' | 'direct' | 'other' => {
+    if (!prod) return 'dropi';
+    // Mapear proveedor desde product.provider o product.supplier a las tarjetas
+    const raw = prod.provider || prod.supplier || prod.proveedor;
+    if (raw) {
+      const lower = String(raw).toLowerCase().trim();
+      if (lower.includes('derocha')) return 'derocha';
+      if (lower.includes('direct') || lower.includes('bodega') || lower.includes('fabricante') || lower.includes('propio')) return 'direct';
+      if (lower.includes('dropi')) return 'dropi';
+      return 'other';
+    }
+    if (prod.dropi_product_id || prod.dropiProductId || prod.dropi_id) {
+      return 'dropi';
+    }
+    return 'dropi';
+  };
+
+  const resolveDropiProductId = (prod: any): string => {
+    if (!prod) return '';
+    // Mapear ID de Dropi desde product.dropi_product_id
+    const rawId = prod.dropi_product_id !== undefined && prod.dropi_product_id !== null
+      ? prod.dropi_product_id
+      : (prod.dropiProductId !== undefined && prod.dropiProductId !== null
+        ? prod.dropiProductId
+        : (prod.dropi_id !== undefined && prod.dropi_id !== null ? prod.dropi_id : ''));
+    return String(rawId || '').trim();
+  };
+
+  const parseProductGallery = (prod: any): string[] => {
+    if (!prod) {
+      return ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+    }
+
+    let gallery: string[] = [];
+
+    // Cargar galería de fotos secundarias: si product.imagenes es string JSON, usar JSON.parse(product.imagenes); si es array, asignarlo directamente
+    if (prod.imagenes !== undefined && prod.imagenes !== null) {
+      if (typeof prod.imagenes === 'string') {
+        const trimmed = prod.imagenes.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              gallery = parsed.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+            }
+          } catch (e) {
+            console.warn('[AdminProductEditor] Error al parsear product.imagenes:', e);
+          }
+        } else if (trimmed.includes(',')) {
+          gallery = trimmed.split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else if (trimmed.startsWith('http')) {
+          gallery = [trimmed];
+        }
+      } else if (Array.isArray(prod.imagenes)) {
+        gallery = prod.imagenes.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+      }
+    }
+
+    // Fallback con product.images si la lista está vacía
+    if (gallery.length === 0 && prod.images !== undefined && prod.images !== null) {
+      if (typeof prod.images === 'string') {
+        const trimmed = prod.images.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              gallery = parsed.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+            }
+          } catch {}
+        } else if (trimmed.includes(',')) {
+          gallery = trimmed.split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else if (trimmed.startsWith('http')) {
+          gallery = [trimmed];
+        }
+      } else if (Array.isArray(prod.images)) {
+        gallery = prod.images.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+      }
+    }
+
+    // Fallback con imagen principal
+    if (gallery.length === 0) {
+      const single = prod.image || prod.imagen || prod.main_image || prod.featured_image;
+      if (single && typeof single === 'string' && single.trim().length > 0) {
+        gallery = [single.trim()];
+      }
+    }
+
+    return gallery.length > 0
+      ? gallery
+      : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
   };
 
   const [categoryId, setCategoryId] = useState<string>(() => resolveCategoryForEditor(product, categories));
-
-  // Sincronizar categoryId si product o categories cambian o se cargan dinámicamente
-  useEffect(() => {
-    if (product) {
-      const resolved = resolveCategoryForEditor(product, categories);
-      if (resolved) {
-        setCategoryId(resolved);
-      }
-    }
-  }, [product, categories]);
-
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
   
   // Proveedor y Logística (Dropi, DeRocha, Bodegas directas, Otros)
-  const [provider, setProvider] = useState<'dropi' | 'derocha' | 'direct' | 'other'>(() => {
-    const raw = (product as any)?.provider || (product as any)?.supplier;
-    if (raw) {
-      const lower = String(raw).toLowerCase();
-      if (lower.includes('derocha')) return 'derocha';
-      if (lower.includes('direct') || lower.includes('bodega') || lower.includes('fabricante')) return 'direct';
-      if (lower.includes('dropi')) return 'dropi';
-      return 'other';
-    }
-    return (product?.dropi_product_id || (product as any)?.dropiProductId) ? 'dropi' : 'dropi';
-  });
+  const [provider, setProvider] = useState<'dropi' | 'derocha' | 'direct' | 'other'>(() => resolveProviderForEditor(product));
   const [customSupplierName, setCustomSupplierName] = useState<string>(
     (product as any)?.supplier || (product as any)?.providerName || ''
   );
@@ -127,14 +214,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     (product as any)?.supplier_sku || (product as any)?.supplierSku || (product as any)?.sku || ''
   );
 
-  const [dropiProductId, setDropiProductId] = useState<string>(
-    product?.dropi_product_id ? String(product.dropi_product_id) : (product?.dropiProductId ? String(product.dropiProductId) : ((product as any)?.dropi_id ? String((product as any).dropi_id) : ''))
-  );
+  const [dropiProductId, setDropiProductId] = useState<string>(() => resolveDropiProductId(product));
   
   // Financials & Dropi Operational Costs
-  const [costPrice, setCostPrice] = useState<number>(
-    product?.costPrice || (product as any)?.supplier_cost || 45000
-  );
+  const [costPrice, setCostPrice] = useState<number>(() => resolveSupplierCost(product));
   const [suggestedPrice, setSuggestedPrice] = useState<number>(
     (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
   );
@@ -142,11 +225,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     product?.estimatedShippingCost !== undefined ? product.estimatedShippingCost : 16500
   );
   const [dropiFee, setDropiFee] = useState<number>(
-    product?.dropiFee !== undefined ? product.dropiFee : (provider === 'dropi' ? 4000 : 0)
+    product?.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0)
   );
-  const [price, setPrice] = useState<number>(product?.price || 89900);
+  const [price, setPrice] = useState<number>(product?.price || (product as any)?.precio || 89900);
   const [compareAtPrice, setCompareAtPrice] = useState<number>(product?.compareAtPrice || 119900);
-  const [stock, setStock] = useState<number>(product?.stock ?? 25);
+  const [stock, setStock] = useState<number>(product?.stock ?? (product as any)?.inventario ?? 25);
   const [weightKg, setWeightKg] = useState<number>(product?.weightKg || 0.5);
   const [active, setActive] = useState<boolean>(product?.active !== false);
   const [featured, setFeatured] = useState<boolean>(Boolean(product?.featured));
@@ -155,11 +238,66 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   );
 
   // Gallery
-  const [images, setImages] = useState<string[]>(
-    product?.images && product.images.length > 0 
-      ? product.images 
-      : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80']
-  );
+  const [images, setImages] = useState<string[]>(() => parseProductGallery(product));
+
+  // Precarga y sincronización integral cuando product o categories cambian al abrir el editor
+  useEffect(() => {
+    if (product) {
+      setTitle(product.title || (product as any).nombre || (product as any).name || '');
+      setSlug(product.slug || '');
+      setShortDescription(product.shortDescription || '');
+      setDescription(product.description || (product as any).descripcion || '');
+      setCategoryId(resolveCategoryForEditor(product, categories));
+      setBrand(product.brand || 'Zavela Store');
+      setWarehouseCity(product.warehouseCity || 'Bogotá D.C.');
+      setProvider(resolveProviderForEditor(product));
+      setCustomSupplierName((product as any).supplier || (product as any).providerName || '');
+      setSupplierSku((product as any).supplier_sku || (product as any).supplierSku || (product as any).sku || '');
+      setDropiProductId(resolveDropiProductId(product));
+      setCostPrice(resolveSupplierCost(product));
+      setSuggestedPrice(
+        (product as any).suggested_price || (product as any).suggestedPrice || product.compareAtPrice || (Number(product.price) ? Number(product.price) + 20000 : 119900)
+      );
+      setEstimatedShippingCost(product.estimatedShippingCost !== undefined ? product.estimatedShippingCost : 16500);
+      setDropiFee(product.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0));
+      setPrice(product.price || (product as any).precio || 89900);
+      setCompareAtPrice(product.compareAtPrice || 119900);
+      setStock(product.stock ?? (product as any).inventario ?? 25);
+      setWeightKg(product.weightKg || 0.5);
+      setActive(product.active !== false);
+      setFeatured(Boolean(product.featured));
+      setWarrantyInfo(product.warrantyInfo || '30 días de garantía oficial Zavela Store por defectos de fábrica.');
+      setImages(parseProductGallery(product));
+
+      if (product.variants && Array.isArray(product.variants)) {
+        setVariants(product.variants.map(v => {
+          let color = v.color;
+          let size = v.size || (v as any).talla;
+          if (!color && v.name) {
+            if (v.name.includes(' / ')) {
+              const parts = v.name.split(' / ');
+              color = parts[0]?.trim();
+              size = size || parts[1]?.trim();
+            } else {
+              color = v.name;
+            }
+          }
+          return {
+            ...v,
+            color: color || v.name || 'Único',
+            size: size || 'Única',
+            talla: size || 'Única',
+            dropi_variation_id: v.dropi_variation_id || (v as any).dropiVariationId
+          };
+        }));
+      }
+
+      if (product.tags && Array.isArray(product.tags)) {
+        setTags(product.tags);
+      }
+    }
+  }, [product, categories]);
+
   const [galleryTab, setGalleryTab] = useState<'upload' | 'url'>('upload');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [isProcessingImages, setIsProcessingImages] = useState(false);
@@ -587,8 +725,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setTags(tags.filter(item => item !== t));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     if (!title.trim()) {
       alert('Por favor indica un título para el producto.');
       return;
@@ -596,7 +736,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     setIsSaving(true);
     try {
-      const selectedCat = categories.find(c => c.id === categoryId);
+      const selectedCat = categories.find(c => c.id === categoryId || c.slug === categoryId);
       const targetId = currentProductId ? String(currentProductId) : (product?.id ? String(product.id) : undefined);
 
       const effectiveSupplier = provider === 'derocha'
@@ -605,14 +745,34 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           ? 'Dropi Colombia'
           : (provider === 'direct' ? 'Bodega Directa' : (customSupplierName.trim() || 'Otro Proveedor')));
 
-      const effectiveDropiId = provider === 'dropi'
-        ? (dropiProductId.trim() || undefined)
-        : (dropiProductId.trim() || undefined);
+      const proveedorSeleccionado = provider === 'other' ? (customSupplierName.trim() || 'Otro Proveedor') : effectiveSupplier;
 
-      const catNameResolved = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || 'General';
-      const validImages = images.filter(img => Boolean(img && img.trim()));
-      const mainImage = validImages.length > 0 ? validImages[0] : '';
+      const idDropi = dropiProductId && dropiProductId.trim() ? dropiProductId.trim() : null;
+      const skuProveedor = supplierSku && supplierSku.trim() ? supplierSku.trim() : null;
+      const costoProveedor = Number(costPrice) || 0;
+      const precioVenta = Number(price) || 0;
+      const precioSugerido = Number(suggestedPrice) || precioVenta || 0;
+
+      const categoriaSeleccionada = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || (selectedCat?.id) || categoryId || 'General';
+
+      const validImages = images.filter(img => Boolean(img && typeof img === 'string' && img.trim()));
+      const arregloDeFotos = validImages.length > 0 ? validImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
+      const mainImage = arregloDeFotos[0] || '';
+
       const payload: Partial<Product> = {
+        // --- Campos explícitamente requeridos en el cuerpo del request ---
+        images: arregloDeFotos,
+        imagenes: JSON.stringify(arregloDeFotos),
+        supplier_cost: costoProveedor,
+        suggested_price: precioSugerido,
+        provider: proveedorSeleccionado,
+        supplier: proveedorSeleccionado,
+        dropi_product_id: idDropi,
+        supplier_sku: skuProveedor,
+        categoria: categoriaSeleccionada,
+        category: categoriaSeleccionada,
+
+        // --- Atributos complementarios para persistencia total en MySQL cPanel y Store ---
         ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
         name: title.trim(),
@@ -623,48 +783,56 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         descripcion: description.trim(),
         categoryId: categoryId || selectedCat?.id || categories[0]?.id,
         category_id: categoryId || selectedCat?.id || categories[0]?.id,
-        categoryName: catNameResolved,
-        category: catNameResolved,
-        categoria: catNameResolved,
+        categoryName: categoriaSeleccionada,
         categoria_id: categoryId || selectedCat?.id || categories[0]?.id,
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
-        provider,
-        supplier: effectiveSupplier,
-        supplier_sku: supplierSku.trim() || undefined,
-        supplier_cost: costPrice,
-        costo: costPrice,
-        suggested_price: suggestedPrice || compareAtPrice,
-        dropi_product_id: effectiveDropiId,
-        dropiProductId: effectiveDropiId,
-        dropi_id: effectiveDropiId,
-        price,
-        precio: price,
-        costPrice,
+        costo_proveedor: costoProveedor,
+        costo: costoProveedor,
+        costPrice: costoProveedor,
+        price: precioVenta,
+        precio: precioVenta,
+        dropiProductId: idDropi,
+        dropi_id: idDropi,
         estimatedShippingCost,
         dropiFee,
         totalOperatingCost,
         realNetProfit,
         realNetMarginPercentage: Math.round(realNetMarginPercentage * 10) / 10,
-        compareAtPrice,
+        compareAtPrice: Number(compareAtPrice) || precioSugerido,
         discountPercentage,
         marginAmount: grossProfitCOP,
         marginPercentage: Math.round(marginPercentage * 10) / 10,
-        stock,
-        weightKg,
+        stock: Number(stock) || 0,
+        weightKg: Number(weightKg) || 0.5,
         active: active ? 1 : 0,
         featured,
         warrantyInfo,
         image: mainImage,
         imagen: mainImage,
-        images: validImages,
-        imagenes: validImages,
         variants: variants || [],
         tags: tags || [],
         publishToSocial,
         publishToFacebook
       } as any;
 
+      // Al guardar los cambios, si es edición enviar explícitamente por PUT /api/products/:id
+      if (isEditing && targetId) {
+        try {
+          const directPutRes = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!directPutRes.ok) {
+            console.warn('[AdminProductEditor] PUT /api/products/:id devolvió status:', directPutRes.status);
+          }
+        } catch (putErr) {
+          console.warn('[AdminProductEditor] Nota en PUT /api/products/:id:', putErr);
+        }
+      }
+
+      // Propagar al handler superior (onSave) para actualizar el estado del dashboard y sincronizar
       await onSave(payload);
     } catch (err: any) {
       alert(err.message || 'Error al guardar el producto.');
@@ -672,6 +840,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       setIsSaving(false);
     }
   };
+
+  const handleSubmit = handleSave;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

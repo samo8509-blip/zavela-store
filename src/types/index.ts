@@ -481,6 +481,10 @@ export interface Product {
   publishToFacebook?: boolean;
   publishToSocial?: boolean;
 
+  // Status & Visibility
+  status?: string;
+  estado?: string;
+
   createdAt?: string;
   updatedAt?: string;
 }
