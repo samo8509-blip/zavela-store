@@ -96,34 +96,28 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   const resolveSupplierCost = (prod: any): number => {
-    if (!prod) return 45000;
-    // Mapear costo de proveedor desde product.supplier_cost o product.costo_proveedor
-    const cost = prod.supplier_cost !== undefined && prod.supplier_cost !== null && prod.supplier_cost !== ''
-      ? prod.supplier_cost
-      : (prod.costo_proveedor !== undefined && prod.costo_proveedor !== null && prod.costo_proveedor !== ''
-        ? prod.costo_proveedor
-        : (prod.costPrice !== undefined && prod.costPrice !== null && prod.costPrice !== ''
-          ? prod.costPrice
-          : (prod.costo !== undefined && prod.costo !== null && prod.costo !== '' ? prod.costo : 45000)));
-    const num = Number(cost);
-    return isNaN(num) ? 45000 : num;
+    if (!prod) return 0;
+    // Asigna al input de costo el valor de:
+    // Number(product.supplier_cost ?? product.costo_proveedor ?? product.costPrice ?? 0)
+    // Evita que si viene un número válido se sobreescriba con 0.
+    const rawVal = prod.supplier_cost ?? prod.costo_proveedor ?? prod.costPrice ?? 0;
+    const num = Number(rawVal);
+    return isNaN(num) ? 0 : num;
   };
 
   const resolveProviderForEditor = (prod: any): 'dropi' | 'derocha' | 'direct' | 'other' => {
-    if (!prod) return 'dropi';
-    // Mapear proveedor desde product.provider o product.supplier a las tarjetas
-    const raw = prod.provider || prod.supplier || prod.proveedor;
+    if (!prod) return 'derocha';
+    // Proveedor: Asegúrate de leer product.provider || product.supplier || (product.dropi_product_id ? 'dropi' : 'DeRocha')
+    // Si el producto tiene 'DeRocha' o cualquier otro valor distinto a dropi, selecciona visualmente la tarjeta correspondiente y NO fuerces 'dropi' por defecto.
+    const raw = prod.provider || prod.supplier || (prod.dropi_product_id ? 'dropi' : 'DeRocha');
     if (raw) {
       const lower = String(raw).toLowerCase().trim();
       if (lower.includes('derocha')) return 'derocha';
+      if (lower === 'dropi' || lower.includes('dropi')) return 'dropi';
       if (lower.includes('direct') || lower.includes('bodega') || lower.includes('fabricante') || lower.includes('propio')) return 'direct';
-      if (lower.includes('dropi')) return 'dropi';
       return 'other';
     }
-    if (prod.dropi_product_id || prod.dropiProductId || prod.dropi_id) {
-      return 'dropi';
-    }
-    return 'dropi';
+    return (prod.dropi_product_id ? 'dropi' : 'derocha');
   };
 
   const resolveDropiProductId = (prod: any): string => {
@@ -144,18 +138,18 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     let gallery: string[] = [];
 
-    // Cargar galería de fotos secundarias: si product.imagenes es string JSON, usar JSON.parse(product.imagenes); si es array, asignarlo directamente
+    // * Si viene product.imagenes como string, haz JSON.parse(product.imagenes).
     if (prod.imagenes !== undefined && prod.imagenes !== null) {
       if (typeof prod.imagenes === 'string') {
         const trimmed = prod.imagenes.trim();
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
           try {
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) {
               gallery = parsed.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
             }
           } catch (e) {
-            console.warn('[AdminProductEditor] Error al parsear product.imagenes:', e);
+            console.warn('[AdminProductEditor] Error en JSON.parse(product.imagenes):', e);
           }
         } else if (trimmed.includes(',')) {
           gallery = trimmed.split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -167,28 +161,30 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       }
     }
 
-    // Fallback con product.images si la lista está vacía
+    // * Si viene product.images como array, úsalo.
     if (gallery.length === 0 && prod.images !== undefined && prod.images !== null) {
-      if (typeof prod.images === 'string') {
+      if (Array.isArray(prod.images)) {
+        gallery = prod.images.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+      } else if (typeof prod.images === 'string') {
         const trimmed = prod.images.trim();
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
           try {
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) {
               gallery = parsed.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
             }
-          } catch {}
+          } catch (e) {
+            console.warn('[AdminProductEditor] Error en JSON.parse(product.images):', e);
+          }
         } else if (trimmed.includes(',')) {
           gallery = trimmed.split(',').map((s: string) => s.trim()).filter(Boolean);
         } else if (trimmed.startsWith('http')) {
           gallery = [trimmed];
         }
-      } else if (Array.isArray(prod.images)) {
-        gallery = prod.images.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
       }
     }
 
-    // Fallback con imagen principal
+    // * Carga todas las imágenes en el estado de la galería para que no se reduzca a 1 sola foto.
     if (gallery.length === 0) {
       const single = prod.image || prod.imagen || prod.main_image || prod.featured_image;
       if (single && typeof single === 'string' && single.trim().length > 0) {
@@ -243,6 +239,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   // Precarga y sincronización integral cuando product o categories cambian al abrir el editor
   useEffect(() => {
     if (product) {
+      // 3. Muestra un mensaje en consola con el producto recibido al cargar para poder auditarlo
+      console.log('[AdminProductEditor] Producto recibido al cargar:', product);
+
       setTitle(product.title || (product as any).nombre || (product as any).name || '');
       setSlug(product.slug || '');
       setShortDescription(product.shortDescription || '');
@@ -251,7 +250,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       setBrand(product.brand || 'Zavela Store');
       setWarehouseCity(product.warehouseCity || 'Bogotá D.C.');
       setProvider(resolveProviderForEditor(product));
-      setCustomSupplierName((product as any).supplier || (product as any).providerName || '');
+      setCustomSupplierName((product as any).supplier || (product as any).providerName || (product as any).proveedor || '');
       setSupplierSku((product as any).supplier_sku || (product as any).supplierSku || (product as any).sku || '');
       setDropiProductId(resolveDropiProductId(product));
       setCostPrice(resolveSupplierCost(product));
@@ -739,40 +738,27 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const selectedCat = categories.find(c => c.id === categoryId || c.slug === categoryId);
       const targetId = currentProductId ? String(currentProductId) : (product?.id ? String(product.id) : undefined);
 
-      const effectiveSupplier = provider === 'derocha'
-        ? 'DeRocha'
-        : (provider === 'dropi'
-          ? 'Dropi Colombia'
-          : (provider === 'direct' ? 'Bodega Directa' : (customSupplierName.trim() || 'Otro Proveedor')));
+      const selectedProvider = provider === 'dropi'
+        ? 'dropi'
+        : (provider === 'derocha'
+          ? 'DeRocha'
+          : (provider === 'direct'
+            ? 'Bodega Directa'
+            : (customSupplierName.trim() || 'Otro Proveedor')));
 
-      const proveedorSeleccionado = provider === 'other' ? (customSupplierName.trim() || 'Otro Proveedor') : effectiveSupplier;
-
-      const idDropi = dropiProductId && dropiProductId.trim() ? dropiProductId.trim() : null;
+      const dropiId = dropiProductId && dropiProductId.trim() ? dropiProductId.trim() : null;
       const skuProveedor = supplierSku && supplierSku.trim() ? supplierSku.trim() : null;
       const costoProveedor = Number(costPrice) || 0;
       const precioVenta = Number(price) || 0;
-      const precioSugerido = Number(suggestedPrice) || precioVenta || 0;
+      const precioSugerido = Number(suggestedPrice) || Number(precioVenta) || 0;
 
-      const categoriaSeleccionada = selectedCat?.name || (categories.find(c => c.slug === categoryId)?.name) || (selectedCat?.id) || categoryId || 'General';
+      const selectedCategory = selectedCat?.name || (categories.find(c => c.id === categoryId || c.slug === categoryId)?.name) || (selectedCat?.id) || categoryId || (product as any)?.categoria || (product as any)?.category || 'General';
 
       const validImages = images.filter(img => Boolean(img && typeof img === 'string' && img.trim()));
-      const arregloDeFotos = validImages.length > 0 ? validImages : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'];
-      const mainImage = arregloDeFotos[0] || '';
+      const galleryImages = validImages.length > 0 ? validImages : (images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80']);
+      const mainImage = galleryImages[0] || '';
 
-      const payload: Partial<Product> = {
-        // --- Campos explícitamente requeridos en el cuerpo del request ---
-        images: arregloDeFotos,
-        imagenes: JSON.stringify(arregloDeFotos),
-        supplier_cost: costoProveedor,
-        suggested_price: precioSugerido,
-        provider: proveedorSeleccionado,
-        supplier: proveedorSeleccionado,
-        dropi_product_id: idDropi,
-        supplier_sku: skuProveedor,
-        categoria: categoriaSeleccionada,
-        category: categoriaSeleccionada,
-
-        // --- Atributos complementarios para persistencia total en MySQL cPanel y Store ---
+      const basePayload: any = {
         ...(targetId ? { id: targetId } : {}),
         title: title.trim(),
         name: title.trim(),
@@ -783,17 +769,19 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         descripcion: description.trim(),
         categoryId: categoryId || selectedCat?.id || categories[0]?.id,
         category_id: categoryId || selectedCat?.id || categories[0]?.id,
-        categoryName: categoriaSeleccionada,
+        categoryName: selectedCategory,
         categoria_id: categoryId || selectedCat?.id || categories[0]?.id,
         brand: brand.trim() || 'Zavela Store',
         warehouseCity: warehouseCity.trim() || 'Bogotá D.C.',
-        costo_proveedor: costoProveedor,
-        costo: costoProveedor,
-        costPrice: costoProveedor,
+        costo_proveedor: Number(costoProveedor) || 0,
+        costo: Number(costoProveedor) || 0,
+        costPrice: Number(costoProveedor) || 0,
         price: precioVenta,
         precio: precioVenta,
-        dropiProductId: idDropi,
-        dropi_id: idDropi,
+        dropiProductId: selectedProvider === 'dropi' ? (dropiId || null) : null,
+        dropi_id: selectedProvider === 'dropi' ? (dropiId || null) : null,
+        supplier_sku: skuProveedor,
+        supplierSku: skuProveedor,
         estimatedShippingCost,
         dropiFee,
         totalOperatingCost,
@@ -814,7 +802,24 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         tags: tags || [],
         publishToSocial,
         publishToFacebook
-      } as any;
+      };
+
+      // Payload final que incluye explícitamente los campos solicitados
+      const payload = {
+        ...basePayload,
+        provider: selectedProvider,
+        supplier: selectedProvider,
+        supplier_cost: Number(costoProveedor) || 0,
+        suggested_price: Number(precioSugerido) || Number(precioVenta) || 0,
+        dropi_product_id: selectedProvider === 'dropi' ? (dropiId || null) : null,
+        images: galleryImages,
+        imagenes: JSON.stringify(galleryImages),
+        categoria: selectedCategory,
+        category: selectedCategory
+      };
+
+      // 3. Muestra un mensaje en consola (console.log) con el payload enviado al guardar para auditarlo
+      console.log('[AdminProductEditor] Payload enviado al guardar:', payload);
 
       // Al guardar los cambios, si es edición enviar explícitamente por PUT /api/products/:id
       if (isEditing && targetId) {
@@ -824,9 +829,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          if (!directPutRes.ok) {
-            console.warn('[AdminProductEditor] PUT /api/products/:id devolvió status:', directPutRes.status);
-          }
+          const resData = await directPutRes.json().catch(() => null);
+          console.log('[AdminProductEditor] Respuesta de PUT /api/products/:id:', directPutRes.status, resData);
         } catch (putErr) {
           console.warn('[AdminProductEditor] Nota en PUT /api/products/:id:', putErr);
         }
