@@ -33,6 +33,7 @@ import { CommerceMindRecommendationsCarousel } from './CommerceMindRecommendatio
 import { registerProductObservation } from '../services/commerceMindClient.ts';
 import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
 import { extractProductImages } from '../utils/imageUtils.ts';
+import { ComboCustomizerModal } from './ComboCustomizerModal.tsx';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -42,6 +43,17 @@ interface ProductDetailModalProps {
   onClose: () => void;
   onAddToCart: (product: Product, variant?: ProductVariant, quantity?: number, unitPrice?: number) => void;
   onBuyNow: (product: Product, variant?: ProductVariant, quantity?: number, unitPrice?: number) => void;
+  onAddComboToCart?: (
+    product: Product,
+    items: {
+      variant?: ProductVariant;
+      quantity: number;
+      unitPrice: number;
+      garmentLabel: string;
+      comboInfo: string;
+    }[],
+    actionType: 'cart' | 'buy_now'
+  ) => void;
   onOpenAuthorCertificate?: () => void;
   isSocialClosing?: boolean;
   onOpenLuckyWheel?: () => void;
@@ -94,6 +106,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onAddToCart,
   onBuyNow,
+  onAddComboToCart,
   onOpenAuthorCertificate,
   isSocialClosing = false,
   onOpenLuckyWheel,
@@ -105,6 +118,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [sizeError, setSizeError] = useState<boolean>(false);
   const [quantity, setQuantity] = useState(1);
+  const [isComboModalOpen, setIsComboModalOpen] = useState(false);
+  const [comboActionType, setComboActionType] = useState<'cart' | 'buy_now'>('cart');
   const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
@@ -423,6 +438,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Validaciones antes de añadir al carrito o comprar
   const handleValidateAndAddToCart = () => {
     if (isOutOfStock) return;
+    
+    // Si la cantidad es 2 o más, activar modal "Personaliza tu Combo" (Opción B)
+    if (quantity >= 2) {
+      setComboActionType('cart');
+      setIsComboModalOpen(true);
+      return;
+    }
+
     if (hasDistinctSizes && !selectedSize) {
       setSizeError(true);
       return;
@@ -434,12 +457,45 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleValidateAndBuyNow = () => {
     if (isOutOfStock) return;
+
+    // Si la cantidad es 2 o más, activar modal "Personaliza tu Combo" (Opción B)
+    if (quantity >= 2) {
+      setComboActionType('buy_now');
+      setIsComboModalOpen(true);
+      return;
+    }
+
     if (hasDistinctSizes && !selectedSize) {
       setSizeError(true);
       return;
     }
     setSizeError(false);
     onBuyNow(product, selectedVariant, quantity, currentPricing.unitEffectivePrice);
+    onClose();
+  };
+
+  const handleConfirmComboCustomizer = (
+    items: {
+      variant?: ProductVariant;
+      quantity: number;
+      unitPrice: number;
+      garmentLabel: string;
+      comboInfo: string;
+    }[],
+    action: 'cart' | 'buy_now'
+  ) => {
+    if (onAddComboToCart) {
+      onAddComboToCart(product, items, action);
+    } else {
+      items.forEach((item, idx) => {
+        if (idx === items.length - 1 && action === 'buy_now') {
+          onBuyNow(product, item.variant, item.quantity, item.unitPrice);
+        } else {
+          onAddToCart(product, item.variant, item.quantity, item.unitPrice);
+        }
+      });
+    }
+    setIsComboModalOpen(false);
     onClose();
   };
 
@@ -1053,7 +1109,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       }`}
                     >
                       <ShoppingBag className="w-4 h-4 text-white" />
-                      <span>{isOutOfStock ? 'AGOTADO' : 'AGREGAR AL CARRITO'}</span>
+                      <span>
+                        {isOutOfStock 
+                          ? 'AGOTADO' 
+                          : quantity >= 2 
+                            ? `🛍️ AGREGAR COMBO (${quantity} UNIDADES)` 
+                            : 'AGREGAR AL CARRITO'}
+                      </span>
                     </button>
                   </div>
 
@@ -1081,10 +1143,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="text-[11px] text-emerald-100 mt-1.5 pt-1.5 border-t border-emerald-500/40">
-                        {quantity === 2 
-                          ? '10% de descuento en la segunda unidad y flete unificado para todo el pedido.' 
-                          : '14% de descuento total en tu combo y despacho prioritario contra entrega.'}
+                      <div className="mt-2.5 pt-2 border-t border-emerald-500/40 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="text-[11px] text-emerald-100">
+                          {quantity === 2 
+                            ? '10% de descuento en la segunda unidad y flete unificado.' 
+                            : '14% de descuento total en tu combo y despacho prioritario contra entrega.'}
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-customize-combo-shortcut"
+                          onClick={() => {
+                            setComboActionType('cart');
+                            setIsComboModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>🛍️ Personalizar Combo ({quantity} Prendas)</span>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1101,7 +1177,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     }`}
                   >
                     <Zap className="w-4 h-4 fill-white text-white" />
-                    <span>{isOutOfStock ? 'PRODUCTO AGOTADO' : 'COMPRAR AHORA (PAGO CONTRA ENTREGA)'}</span>
+                    <span>
+                      {isOutOfStock 
+                        ? 'PRODUCTO AGOTADO' 
+                        : quantity >= 2 
+                          ? `⚡ COMPRAR COMBO (${quantity} UNIDADES) - PAGO EN CASA` 
+                          : 'COMPRAR AHORA (PAGO CONTRA ENTREGA)'}
+                    </span>
                   </button>
 
                   {/* Share & Ruleta Options */}
@@ -1562,6 +1644,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         initialMode={shareInitialMode}
         onClose={() => setIsShareOpen(false)}
         isLuckyWheelEnabled={isLuckyWheelEnabled}
+      />
+
+      {/* Modal Emergente "Personaliza tu Combo" (Opción B) */}
+      <ComboCustomizerModal
+        isOpen={isComboModalOpen}
+        onClose={() => setIsComboModalOpen(false)}
+        product={product}
+        quantity={quantity}
+        discountedTotal={currentPricing.discountedTotal}
+        savings={currentPricing.savings}
+        unitEffectivePrice={currentPricing.unitEffectivePrice}
+        actionType={comboActionType}
+        initialSelectedSize={selectedSize}
+        initialSelectedColor={selectedColor}
+        onConfirmCombo={handleConfirmComboCustomizer}
       />
     </>
   );

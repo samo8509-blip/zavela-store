@@ -661,6 +661,64 @@ export default function App() {
     setIsCheckoutOpen(true);
   };
 
+  // Combo Cart Handler ("Personaliza tu Combo" - Opción B)
+  const handleAddComboToCart = (
+    product: Product,
+    comboItems: {
+      variant?: ProductVariant;
+      quantity: number;
+      unitPrice: number;
+      garmentLabel: string;
+      comboInfo: string;
+    }[],
+    actionType: 'cart' | 'buy_now' = 'cart'
+  ) => {
+    registerProductObservation(product);
+
+    setCartItems(prev => {
+      let updated = [...prev];
+      for (const item of comboItems) {
+        const effectivePrice = item.unitPrice > 0 ? item.unitPrice : product.price;
+        const effectiveProduct = { ...product, price: effectivePrice };
+        const effectiveVariant = item.variant ? { ...item.variant, price: effectivePrice } : undefined;
+
+        const existingIdx = updated.findIndex(
+          i => i.product.id === product.id && i.variant?.id === item.variant?.id
+        );
+
+        if (existingIdx >= 0) {
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: updated[existingIdx].quantity + item.quantity,
+            comboInfo: updated[existingIdx].comboInfo 
+              ? `${updated[existingIdx].comboInfo}, ${item.garmentLabel}` 
+              : item.comboInfo
+          };
+        } else {
+          updated.push({
+            product: effectiveProduct,
+            variant: effectiveVariant,
+            quantity: item.quantity,
+            comboInfo: item.comboInfo,
+            comboGarmentLabel: item.garmentLabel
+          });
+        }
+      }
+      return updated;
+    });
+
+    if (actionType === 'buy_now') {
+      setIsCartOpen(false);
+      setSelectedProduct(null);
+      setIsCheckoutOpen(true);
+      showToast(`¡Combo (${comboItems.length} prendas) listo! Abriendo pedido contra entrega...`);
+    } else {
+      setSelectedProduct(null);
+      setIsCartOpen(true);
+      showToast(`¡Combo (${comboItems.length} prendas) personalizado y agregado al carrito!`);
+    }
+  };
+
   // Custom & Exclusivity Cart Handlers
   const handleAddCustomCartItem = (item: CartItem) => {
     registerProductObservation(item.product);
@@ -1602,6 +1660,7 @@ export default function App() {
           onClose={() => setSelectedProduct(null)}
           onAddToCart={handleAddToCart}
           onBuyNow={handleBuyNow}
+          onAddComboToCart={handleAddComboToCart}
           onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
           isSocialClosing={isSocialClosingLink}
           onOpenLuckyWheel={() => openLuckyWheel('social_closing')}

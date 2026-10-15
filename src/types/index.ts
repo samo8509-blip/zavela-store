@@ -611,6 +611,8 @@ export interface CartItem {
   variant?: ProductVariant;
   quantity: number;
   customPlate?: CustomPlateSelection;
+  comboInfo?: string;
+  comboGarmentLabel?: string;
 }
 
 export interface CheckoutFormData {

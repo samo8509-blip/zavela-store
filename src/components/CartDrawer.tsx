@@ -145,6 +145,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           {item.variant.name}
                         </span>
                       )}
+                      {item.comboInfo && (
+                        <span className="text-[10px] text-red-700 font-bold bg-red-50 px-2 py-0.5 rounded-md inline-block mt-1 ml-1 border border-red-200">
+                          🛍️ {item.comboInfo}
+                        </span>
+                      )}
                       <div className="font-mono font-black text-sm text-slate-900 mt-1">
                         {formatCOP(price)}
                       </div>
