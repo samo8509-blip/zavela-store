@@ -128,6 +128,16 @@ export default function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
+  // Dynamic Browser Tab Title Management (Home vs Product)
+  useEffect(() => {
+    if (selectedProduct) {
+      const prodName = selectedProduct.title || selectedProduct.name || 'Producto';
+      document.title = `${prodName} | Zavela Store Colombia`;
+    } else {
+      document.title = 'Zavela Store Colombia | Tecnología, Hogar y Tendencias';
+    }
+  }, [selectedProduct]);
+
   // Cart State with LocalStorage Persistence
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {

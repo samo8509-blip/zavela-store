@@ -74,6 +74,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         supplier_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         suggested_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        shipping_cost DECIMAL(10,2) NOT NULL DEFAULT 16500.00,
         stock INT NOT NULL DEFAULT 10,
         description LONGTEXT NULL,
         dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
@@ -99,6 +100,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         precio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         supplier_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         suggested_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        shipping_cost DECIMAL(10,2) NOT NULL DEFAULT 16500.00,
         stock INT NOT NULL DEFAULT 10,
         descripcion LONGTEXT NULL,
         categoria VARCHAR(255) NULL,
@@ -144,6 +146,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     await ensureColumn('products', 'category_id', 'VARCHAR(100) NULL');
     await ensureColumn('products', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('products', 'shipping_cost', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
     await ensureColumn('products', 'images', 'LONGTEXT NULL');
     await ensureColumn('products', 'raw_dropi_payload', 'LONGTEXT NULL');
     await ensureColumn('products', 'variants', 'LONGTEXT NULL');
@@ -158,6 +161,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     await ensureColumn('productos', 'category_id', 'VARCHAR(100) NULL');
     await ensureColumn('productos', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('productos', 'shipping_cost', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
     await ensureColumn('productos', 'imagenes', 'LONGTEXT NULL');
     await ensureColumn('productos', 'raw_dropi_payload', 'LONGTEXT NULL');
     await ensureColumn('productos', 'variants', 'LONGTEXT NULL');

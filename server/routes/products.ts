@@ -82,6 +82,8 @@ function mapSqlRowToProduct(row: any): any {
     supplier_cost: supplierCost,
     compareAtPrice: suggestedPrice,
     suggested_price: suggestedPrice,
+    shipping_cost: row.shipping_cost !== undefined && row.shipping_cost !== null ? Number(row.shipping_cost) : 16500,
+    estimatedShippingCost: row.shipping_cost !== undefined && row.shipping_cost !== null ? Number(row.shipping_cost) : 16500,
     discountPercentage: (suggestedPrice > price && suggestedPrice > 0) ? Math.round(((suggestedPrice - price) / suggestedPrice) * 100) : 0,
     stock: Number(row.stock !== undefined ? row.stock : 10),
     description: row.description || row.descripcion || '',
@@ -579,7 +581,8 @@ router.put('/:id', async (req, res) => {
       dropi_product_id, dropiProductId,
       supplier_sku,
       categoria, category,
-      active, status
+      active, status,
+      shipping_cost, estimatedShippingCost
     } = req.body;
 
     const finalName = nombre || name || title;
@@ -590,6 +593,7 @@ router.put('/:id', async (req, res) => {
     const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
     const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
     const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
+    const finalShippingCost = parseFloat(shipping_cost ?? estimatedShippingCost) || 16500;
     const finalProvider = provider || supplier || 'DeRocha';
     const finalSupplier = finalProvider;
     const effectiveDropiId = dropi_product_id || dropiProductId;
@@ -609,18 +613,20 @@ router.put('/:id', async (req, res) => {
         imagenes = ?,
         supplier_cost = ?,
         suggested_price = ?,
+        shipping_cost = ?,
         provider = ?,
         supplier = ?,
         dropi_product_id = ?,
         supplier_sku = ?,
         categoria = ?,
         category = ?,
-        active = ?
+        active = ?,
+        updated_at = NOW()
       WHERE id = ?
     `;
     const values = [
       finalName, finalPrice, finalStock, finalDesc, finalImage,
-      finalImages, finalCost, finalSuggested, finalProvider, finalSupplier,
+      finalImages, finalCost, finalSuggested, finalShippingCost, finalProvider, finalSupplier,
       finalDropiId, finalSku, finalCat, finalCat, finalActive,
       targetId
     ];
@@ -641,12 +647,12 @@ router.put('/:id', async (req, res) => {
           await activeDb.query(`
             INSERT INTO productos (
               id, nombre, precio, stock, descripcion, imagen, imagenes,
-              supplier_cost, suggested_price, provider, supplier, dropi_product_id,
+              supplier_cost, suggested_price, shipping_cost, provider, supplier, dropi_product_id,
               supplier_sku, categoria, category, active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-            finalCost, finalSuggested, finalProvider, finalSupplier, finalDropiId,
+            finalCost, finalSuggested, finalShippingCost, finalProvider, finalSupplier, finalDropiId,
             finalSku, finalCat, finalCat, finalActive
           ]);
         }

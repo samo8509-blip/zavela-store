@@ -33,7 +33,14 @@ import { CommerceMindRecommendationsCarousel } from './CommerceMindRecommendatio
 import { registerProductObservation } from '../services/commerceMindClient.ts';
 import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
 import { extractProductImages } from '../utils/imageUtils.ts';
-import { ComboCustomizerModal } from './ComboCustomizerModal.tsx';
+import { SameWarehouseRecommendations } from './SameWarehouseRecommendations.tsx';
+
+export interface ComboSelection {
+  talla: string;
+  color: string;
+  dropi_id?: string | number;
+  stock?: number;
+}
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -118,8 +125,34 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [sizeError, setSizeError] = useState<boolean>(false);
   const [quantity, setQuantity] = useState(1);
-  const [isComboModalOpen, setIsComboModalOpen] = useState(false);
+  const [showComboModal, setShowComboModal] = useState<boolean>(false);
+  const [comboSelections, setComboSelections] = useState<ComboSelection[]>([]);
   const [comboActionType, setComboActionType] = useState<'cart' | 'buy_now'>('cart');
+
+  // Redimensionar comboSelections cada vez que quantity cambie a un valor N (donde N >= 2)
+  useEffect(() => {
+    if (quantity >= 2) {
+      setComboSelections(prev => {
+        const updated: ComboSelection[] = [];
+        for (let i = 0; i < quantity; i++) {
+          if (prev[i]) {
+            updated.push(prev[i]);
+          } else {
+            updated.push({ talla: '', color: '', dropi_id: undefined, stock: undefined });
+          }
+        }
+        return updated;
+      });
+    } else {
+      setComboSelections([]);
+    }
+  }, [quantity]);
+
+  // Limpiar selecciones al cambiar de producto
+  useEffect(() => {
+    setComboSelections([]);
+    setShowComboModal(false);
+  }, [product?.id]);
   const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
@@ -137,6 +170,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   useEffect(() => {
     setActiveImageIndex(0);
   }, [product?.id]);
+
+  // Dynamic Browser Tab Title & Recent Views Tracker
+  useEffect(() => {
+    if (product) {
+      const prodTitle = product.title || product.name || 'Producto';
+      document.title = `${prodTitle} | Zavela Store Colombia`;
+
+      try {
+        const rawRecent = localStorage.getItem('zavela_recent_views');
+        let list: string[] = rawRecent ? JSON.parse(rawRecent) : [];
+        if (!Array.isArray(list)) list = [];
+        const filtered = list.filter((id: any) => String(id) !== String(product.id));
+        const updated = [String(product.id), ...filtered].slice(0, 30);
+        localStorage.setItem('zavela_recent_views', JSON.stringify(updated));
+      } catch {}
+    }
+
+    return () => {
+      document.title = 'Zavela Store Colombia | Tecnología, Hogar y Tendencias';
+    };
+  }, [product?.id, product?.title, product?.name]);
 
   // Touch swipe support for smooth mobile photo navigation
   const touchStartX = useRef<number | null>(null);
@@ -435,14 +489,69 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     };
   }, [baseUnitPrice, quantity]);
 
+  const isAllComboSelected = Boolean(
+    quantity >= 2 && 
+    comboSelections.length === quantity && 
+    comboSelections.every(p => p.talla?.trim() && p.color?.trim())
+  );
+
+  const handleConfirmCombo = (action: 'cart' | 'buy_now' = comboActionType) => {
+    if (!isAllComboSelected) return;
+
+    const items = comboSelections.map((sel, idx) => {
+      const matched = allVariants.find(v => {
+        const vSize = (v.size || v.talla || '').trim().toUpperCase();
+        const vColor = extractVariantColor(v).trim().toLowerCase();
+        return vSize === sel.talla.trim().toUpperCase() && vColor === sel.color.trim().toLowerCase();
+      }) || allVariants.find(v => {
+        return (v.size || v.talla || '').trim().toUpperCase() === sel.talla.trim().toUpperCase();
+      }) || {
+        id: `var-${product.id}-${idx}`,
+        name: `${product.title} - ${sel.talla} / ${sel.color}`,
+        size: sel.talla,
+        talla: sel.talla,
+        color: sel.color,
+        stock: sel.stock || 10,
+        price: currentPricing.unitEffectivePrice,
+        dropi_variation_id: sel.dropi_id
+      };
+
+      return {
+        variant: matched,
+        quantity: 1,
+        unitPrice: currentPricing.unitEffectivePrice,
+        garmentLabel: `Prenda ${idx + 1} de ${quantity} (Talla ${sel.talla} - ${sel.color})`,
+        comboInfo: `Combo ${quantity}x (Talla: ${sel.talla}, Color: ${sel.color})`
+      };
+    });
+
+    if (onAddComboToCart) {
+      onAddComboToCart(product, items, action);
+    } else {
+      items.forEach((item, idx) => {
+        if (idx === items.length - 1 && action === 'buy_now') {
+          onBuyNow(product, item.variant, item.quantity, item.unitPrice);
+        } else {
+          onAddToCart(product, item.variant, item.quantity, item.unitPrice);
+        }
+      });
+    }
+
+    setShowComboModal(false);
+  };
+
   // Validaciones antes de añadir al carrito o comprar
   const handleValidateAndAddToCart = () => {
     if (isOutOfStock) return;
     
-    // Si la cantidad es 2 o más, activar modal "Personaliza tu Combo" (Opción B)
+    // Si la cantidad es 2 o más y alguna prenda no tiene talla o color asignado: interceptar
     if (quantity >= 2) {
-      setComboActionType('cart');
-      setIsComboModalOpen(true);
+      if (!isAllComboSelected) {
+        setComboActionType('cart');
+        setShowComboModal(true);
+        return;
+      }
+      handleConfirmCombo('cart');
       return;
     }
 
@@ -458,10 +567,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleValidateAndBuyNow = () => {
     if (isOutOfStock) return;
 
-    // Si la cantidad es 2 o más, activar modal "Personaliza tu Combo" (Opción B)
+    // Si la cantidad es 2 o más y alguna prenda no tiene talla o color asignado: interceptar
     if (quantity >= 2) {
-      setComboActionType('buy_now');
-      setIsComboModalOpen(true);
+      if (!isAllComboSelected) {
+        setComboActionType('buy_now');
+        setShowComboModal(true);
+        return;
+      }
+      handleConfirmCombo('buy_now');
       return;
     }
 
@@ -471,31 +584,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
     setSizeError(false);
     onBuyNow(product, selectedVariant, quantity, currentPricing.unitEffectivePrice);
-    onClose();
-  };
-
-  const handleConfirmComboCustomizer = (
-    items: {
-      variant?: ProductVariant;
-      quantity: number;
-      unitPrice: number;
-      garmentLabel: string;
-      comboInfo: string;
-    }[],
-    action: 'cart' | 'buy_now'
-  ) => {
-    if (onAddComboToCart) {
-      onAddComboToCart(product, items, action);
-    } else {
-      items.forEach((item, idx) => {
-        if (idx === items.length - 1 && action === 'buy_now') {
-          onBuyNow(product, item.variant, item.quantity, item.unitPrice);
-        } else {
-          onAddToCart(product, item.variant, item.quantity, item.unitPrice);
-        }
-      });
-    }
-    setIsComboModalOpen(false);
     onClose();
   };
 
@@ -1119,6 +1207,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </button>
                   </div>
 
+                  {/* Resumen Visual de la Selección Confirmada de Combo */}
+                  {quantity >= 2 && isAllComboSelected && (
+                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-medium text-emerald-900">
+                          {comboSelections.map((item, idx) => `✓ Prenda ${idx + 1}: Talla ${item.talla} - ${item.color}`).join(' | ')}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setComboActionType('cart');
+                          setShowComboModal(true);
+                        }}
+                        className="text-[11px] text-emerald-700 hover:text-emerald-900 underline font-black cursor-pointer shrink-0"
+                      >
+                        Modificar
+                      </button>
+                    </div>
+                  )}
+
                   {/* 💰 CRO Tarjeta Promocional Dinámica por Cantidad (quantity >= 2) */}
                   {quantity >= 2 && (
                     <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
@@ -1154,7 +1264,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           id="btn-customize-combo-shortcut"
                           onClick={() => {
                             setComboActionType('cart');
-                            setIsComboModalOpen(true);
+                            setShowComboModal(true);
                           }}
                           className="px-3 py-1.5 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
                         >
@@ -1163,6 +1273,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* Botón Verde: PERSONALIZAR COMBO (X PRENDAS) */}
+                  {quantity >= 2 && (
+                    <button
+                      type="button"
+                      id="btn-personalizar-combo-verde"
+                      onClick={() => {
+                        setComboActionType('cart');
+                        setShowComboModal(true);
+                      }}
+                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg active:scale-98 cursor-pointer border border-emerald-400/50"
+                    >
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>🛍️ PERSONALIZAR COMBO ({quantity} PRENDAS)</span>
+                      {isAllComboSelected ? (
+                        <span className="bg-emerald-800/90 text-emerald-100 text-[10px] px-2 py-0.5 rounded-full font-bold ml-1">
+                          ✓ Listo
+                        </span>
+                      ) : (
+                        <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
+                          Elegir Tallas / Colores
+                        </span>
+                      )}
+                    </button>
                   )}
 
                   {/* Fast Buy Now (Pago Contra Entrega) Button */}
@@ -1245,6 +1380,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Sugerencias de Compra Cruzada: Misma Bodega / Mismo Despacho (Productos Reales MySQL) */}
+                  <SameWarehouseRecommendations
+                    currentProduct={product}
+                    allProducts={allProducts}
+                    onAddToCart={(item, qty, variant) => {
+                      onAddToCart(item, variant, qty);
+                    }}
+                    onSelectProduct={onSelectProduct}
+                    cartItems={cartItems}
+                  />
 
                 </div>
               </div>
@@ -1646,20 +1792,284 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         isLuckyWheelEnabled={isLuckyWheelEnabled}
       />
 
-      {/* Modal Emergente "Personaliza tu Combo" (Opción B) */}
-      <ComboCustomizerModal
-        isOpen={isComboModalOpen}
-        onClose={() => setIsComboModalOpen(false)}
-        product={product}
-        quantity={quantity}
-        discountedTotal={currentPricing.discountedTotal}
-        savings={currentPricing.savings}
-        unitEffectivePrice={currentPricing.unitEffectivePrice}
-        actionType={comboActionType}
-        initialSelectedSize={selectedSize}
-        initialSelectedColor={selectedColor}
-        onConfirmCombo={handleConfirmComboCustomizer}
-      />
+      {/* 3. ESTRUCTURA Y RENDERIZADO DEL MODAL (VENTANA EMERGENTE): Personaliza tu Combo */}
+      {showComboModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setShowComboModal(false)}
+        >
+          <div 
+            className="bg-[#0f172a] text-white rounded-3xl max-w-2xl w-full border border-slate-700 shadow-2xl flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/95">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                    <span>🛍️ Personaliza tu Combo ({quantity} Unidades)</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Selecciona individualmente la talla y el color según el inventario real disponible de cada prenda.
+                  </p>
+                </div>
+              </div>
+
+              {/* Botón de cierre "✕" */}
+              <button
+                type="button"
+                onClick={() => setShowComboModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                aria-label="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenedor con scroll vertical que itera sobre comboSelections */}
+            <div className="max-h-[80vh] overflow-y-auto p-4 sm:p-6 space-y-5 scrollbar-thin">
+              {/* Shortcut opcional: replicar Prenda 1 a todas las demás prendas */}
+              {quantity > 1 && comboSelections[0]?.talla && comboSelections[0]?.color && (
+                <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs">
+                  <span className="text-slate-300 font-medium">
+                    ¿Quieres que todas las prendas tengan la misma talla y color de la Prenda 1?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = comboSelections[0];
+                      if (!first?.talla || !first?.color) return;
+                      setComboSelections(prev => prev.map(() => ({
+                        talla: first.talla,
+                        color: first.color,
+                        dropi_id: first.dropi_id,
+                        stock: first.stock
+                      })));
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>⚡ Replicar Prenda 1 a todas</span>
+                  </button>
+                </div>
+              )}
+
+              {comboSelections.map((item, index) => {
+                const availableSizes = distinctSizes.length > 0 
+                  ? distinctSizes 
+                  : (allVariants.some(v => extractVariantSize(v) && extractVariantSize(v) !== 'Única')
+                      ? Array.from(new Set(allVariants.map(v => extractVariantSize(v)).filter(Boolean)))
+                      : ['S', 'M', 'L', 'XL']);
+
+                // Variantes reales que coinciden con la talla seleccionada
+                const sizeVariants = item.talla
+                  ? allVariants.filter(v => {
+                      const vSize = extractVariantSize(v).toUpperCase();
+                      return vSize === item.talla.trim().toUpperCase();
+                    })
+                  : [];
+
+                // Lista de colores reales basada estrictamente en la base de datos (sin mock data)
+                const realColorList = distinctColors.length > 0
+                  ? distinctColors
+                  : (sizeVariants.length > 0
+                      ? Array.from(new Set(sizeVariants.map(v => extractVariantColor(v)).filter(Boolean)))
+                      : (allVariants.length > 0 
+                          ? Array.from(new Set(allVariants.map(v => extractVariantColor(v)).filter(Boolean)))
+                          : []));
+
+                const colorsForSize = realColorList.length > 0 
+                  ? realColorList 
+                  : ['Color Único'];
+
+                return (
+                  <div 
+                    key={index} 
+                    className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-sm"
+                  >
+                    {/* Encabezado de prenda: "Prenda [index + 1] de [quantity]" */}
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-xl bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                          {index + 1}
+                        </span>
+                        <span className="font-black text-sm text-white tracking-wide">
+                          Prenda {index + 1} de {quantity}
+                        </span>
+                      </div>
+
+                      {item.talla && item.color ? (
+                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Talla {item.talla} • {item.color}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 rounded-full">
+                          Pendiente de selección
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Fila 1 - Selección de Talla */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-300">
+                        1. Selecciona la Talla:
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {availableSizes.map(sz => {
+                          const isSelected = item.talla.toUpperCase() === sz.toUpperCase();
+                          return (
+                            <button
+                              key={sz}
+                              type="button"
+                              onClick={() => {
+                                setComboSelections(prev => {
+                                  const next = [...prev];
+                                  next[index] = {
+                                    ...next[index],
+                                    talla: sz,
+                                    color: '', // Limpiar color previamente elegido al cambiar talla
+                                    dropi_id: undefined,
+                                    stock: undefined
+                                  };
+                                  return next;
+                                });
+                              }}
+                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+                                isSelected
+                                  ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30 ring-2 ring-red-400/40 scale-102'
+                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Fila 2 - Selección de Color basada en Inventario Real */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                        <span>2. Selecciona el Color:</span>
+                        {item.talla && (
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            (Inventario disponible para Talla {item.talla})
+                          </span>
+                        )}
+                      </div>
+
+                      {!item.talla ? (
+                        <p className="text-xs text-slate-500 italic py-1">
+                          👆 Selecciona primero la talla arriba para consultar los colores con inventario real.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {colorsForSize.map(col => {
+                            // Buscar variante en array real según talla y color
+                            const matchVariant = sizeVariants.find(v => 
+                              extractVariantColor(v).toLowerCase() === col.toLowerCase()
+                            ) || (allVariants.length === 1 ? allVariants[0] : undefined);
+                            
+                            // Stock real de la base de datos
+                            const stockCount = matchVariant?.stock !== undefined 
+                              ? Number(matchVariant.stock) 
+                              : (matchVariant ? 10 : 0);
+
+                            const hasStock = Boolean(matchVariant && stockCount > 0);
+                            const isSelected = item.color.toLowerCase() === col.toLowerCase();
+                            const swatch = getColorSwatchInfo(col);
+
+                            return (
+                              <button
+                                key={col}
+                                type="button"
+                                disabled={!hasStock}
+                                onClick={() => {
+                                  if (!hasStock) return;
+                                  setComboSelections(prev => {
+                                    const next = [...prev];
+                                    next[index] = {
+                                      ...next[index],
+                                      color: col,
+                                      dropi_id: matchVariant?.dropi_variation_id || matchVariant?.id,
+                                      stock: stockCount
+                                    };
+                                    return next;
+                                  });
+                                }}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                                  !hasStock
+                                    ? 'opacity-40 line-through bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed'
+                                    : isSelected
+                                      ? 'bg-slate-800 text-white border-red-500 ring-2 ring-red-500/40 shadow-sm scale-102'
+                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700 cursor-pointer'
+                                }`}
+                              >
+                                <span 
+                                  className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" 
+                                  style={{ backgroundColor: swatch.bg }}
+                                />
+                                <span>{col}</span>
+                                {hasStock ? (
+                                  <span className="text-[10px] text-emerald-400 font-mono font-normal">
+                                    ({stockCount} disp.)
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-red-950/80 text-red-400 border border-red-800/60 px-1.5 py-0.5 rounded font-normal uppercase">
+                                    Agotado
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer with Action Button */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/95 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-left w-full sm:w-auto">
+                <span className="text-xs text-slate-400 block font-medium">Total de tu Combo ({quantity} Unidades):</span>
+                <span className="text-base sm:text-lg font-black text-white font-mono">
+                  {formatCOP(currentPricing.discountedTotal)}
+                </span>
+                {currentPricing.savings > 0 && (
+                  <span className="ml-2 text-xs text-emerald-400 font-bold">
+                    (Ahorras {formatCOP(currentPricing.savings)})
+                  </span>
+                )}
+              </div>
+
+              {/* Botón inferior destacado */}
+              <button
+                type="button"
+                id="btn-confirm-combo-modal"
+                disabled={!isAllComboSelected}
+                onClick={() => handleConfirmCombo(comboActionType)}
+                className={`w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                  !isAllComboSelected
+                    ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed opacity-75'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer active:scale-98'
+                }`}
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>
+                  {!isAllComboSelected
+                    ? `CONFIRMAR COMBO (FALTAN ${quantity - comboSelections.filter(p => p.talla && p.color).length} POR ELEGIR)`
+                    : `CONFIRMAR COMBO (${formatCOP(currentPricing.discountedTotal)})`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

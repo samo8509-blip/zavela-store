@@ -206,6 +206,8 @@ router.get('/products', async (req, res) => {
           supplier_cost: supplierCost,
           compareAtPrice: suggestedPrice,
           suggested_price: suggestedPrice,
+          shipping_cost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : 16500),
+          estimatedShippingCost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : 16500),
           stock: Number(row.stock !== undefined ? row.stock : 10),
           description: row.description !== undefined ? row.description : (row.descripcion || ''),
           descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
@@ -292,6 +294,111 @@ router.get('/products', async (req, res) => {
   }
 });
 
+// GET /api/admin/products/:id - Consulta de lectura individual explícita con shipping_cost
+router.get('/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let foundRow: any = null;
+
+    try {
+      const [altRows]: any = await pool.query(
+        'SELECT id, nombre, precio, supplier_cost, suggested_price, shipping_cost, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, raw_dropi_payload, variants, active, status, estado, created_at, updated_at FROM productos WHERE id = ? LIMIT 1',
+        [id]
+      );
+      if (Array.isArray(altRows) && altRows.length > 0) {
+        foundRow = altRows[0];
+      } else {
+        const [sqlRows]: any = await pool.query(
+          'SELECT id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, stock, description, dropi_product_id, provider, supplier, supplier_sku, category, category_id, images, raw_dropi_payload, variants, active, status, estado, created_at, updated_at FROM products WHERE id = ? OR slug = ? LIMIT 1',
+          [id, id]
+        );
+        if (Array.isArray(sqlRows) && sqlRows.length > 0) {
+          foundRow = sqlRows[0];
+        }
+      }
+    } catch (sqlErr: any) {
+      console.warn('[Admin GET /products/:id MySQL Error]:', sqlErr.message);
+    }
+
+    if (foundRow) {
+      const dropiMap = dropiBackupService.getBackupMap();
+      const dropiId = foundRow.dropi_product_id !== undefined && foundRow.dropi_product_id !== null && String(foundRow.dropi_product_id).trim() !== ''
+        ? String(foundRow.dropi_product_id).trim()
+        : (dropiMap[String(foundRow.id)] || '');
+
+      let images: string[] = [];
+      if (Array.isArray(foundRow.images) && foundRow.images.length > 0) images = foundRow.images;
+      else if (Array.isArray(foundRow.imagenes) && foundRow.imagenes.length > 0) images = foundRow.imagenes;
+      else if (typeof foundRow.imagenes === 'string' && foundRow.imagenes.trim()) {
+        try { images = JSON.parse(foundRow.imagenes); } catch { images = [foundRow.imagenes]; }
+      } else if (typeof foundRow.images === 'string' && foundRow.images.trim()) {
+        try { images = JSON.parse(foundRow.images); } catch { images = [foundRow.images]; }
+      } else if (foundRow.imagen) images = [foundRow.imagen];
+      else if (foundRow.image) images = [foundRow.image];
+
+      const price = Number(foundRow.price !== undefined ? foundRow.price : foundRow.precio) || 0;
+      const supplierCost = Number(foundRow.supplier_cost !== undefined ? foundRow.supplier_cost : (foundRow.costPrice || 0)) || 0;
+      const suggestedPrice = Number(foundRow.suggested_price !== undefined ? foundRow.suggested_price : (foundRow.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
+      const shippingCost = Number(foundRow.shipping_cost !== undefined && foundRow.shipping_cost !== null ? foundRow.shipping_cost : 16500);
+
+      const productData = {
+        id: String(foundRow.id),
+        title: foundRow.title || foundRow.nombre || foundRow.name || 'Producto Zavela',
+        name: foundRow.title || foundRow.nombre || foundRow.name || 'Producto Zavela',
+        nombre: foundRow.title || foundRow.nombre || foundRow.name || 'Producto Zavela',
+        slug: foundRow.slug || String(foundRow.id),
+        price,
+        precio: price,
+        costPrice: supplierCost,
+        supplier_cost: supplierCost,
+        compareAtPrice: suggestedPrice,
+        suggested_price: suggestedPrice,
+        shipping_cost: shippingCost,
+        estimatedShippingCost: shippingCost,
+        stock: Number(foundRow.stock !== undefined ? foundRow.stock : 10),
+        description: foundRow.description !== undefined ? foundRow.description : (foundRow.descripcion || ''),
+        descripcion: foundRow.description !== undefined ? foundRow.description : (foundRow.descripcion || ''),
+        category: foundRow.categoria || foundRow.category || 'General',
+        categoria: foundRow.categoria || foundRow.category || 'General',
+        categoryName: foundRow.categoria || foundRow.category || 'General',
+        categoryId: foundRow.category_id || foundRow.categoria_id || 'cat-general',
+        category_id: foundRow.category_id || foundRow.categoria_id || 'cat-general',
+        categoria_id: foundRow.category_id || foundRow.categoria_id || 'cat-general',
+        image: images[0] || '',
+        imagen: images[0] || '',
+        images,
+        imagenes: images,
+        dropi_product_id: dropiId,
+        dropiProductId: dropiId,
+        provider: foundRow.provider || (dropiId ? 'dropi' : 'direct'),
+        supplier: foundRow.supplier || (dropiId ? 'Dropi Colombia' : 'Bodega Directa'),
+        supplier_sku: foundRow.supplier_sku || undefined,
+        active: foundRow.active !== undefined 
+          ? Boolean(foundRow.active === 1 || foundRow.active === true || foundRow.active === '1')
+          : true
+      };
+
+      return res.json({ success: true, data: productData });
+    }
+
+    const fallback = db.getProductById(id);
+    if (fallback) {
+      return res.json({ 
+        success: true, 
+        data: {
+          ...fallback,
+          shipping_cost: (fallback as any).shipping_cost || fallback.estimatedShippingCost || 16500,
+          estimatedShippingCost: (fallback as any).shipping_cost || fallback.estimatedShippingCost || 16500
+        } 
+      });
+    }
+
+    res.status(404).json({ success: false, message: 'Producto no encontrado' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Helper para ejecutar UPDATE unificado en productos (evita duplicación)
 async function executeProductUpdate(productId: string, body: any) {
   let existing = db.getProductById(productId);
@@ -302,6 +409,7 @@ async function executeProductUpdate(productId: string, body: any) {
 
   const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
   const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
+  const shippingCost = parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : ((existing as any)?.shipping_cost || existing?.estimatedShippingCost || 16500))) || 16500;
   const marginAmount = price - costPrice;
   const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
   const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
@@ -399,6 +507,8 @@ async function executeProductUpdate(productId: string, body: any) {
       warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || existing?.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
+      shipping_cost: shippingCost,
+      estimatedShippingCost: shippingCost,
       variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -434,6 +544,7 @@ async function executeProductUpdate(productId: string, body: any) {
           precio = ?,
           supplier_cost = ?,
           suggested_price = ?,
+          shipping_cost = ?,
           stock = ?,
           descripcion = ?,
           categoria = ?,
@@ -456,6 +567,7 @@ async function executeProductUpdate(productId: string, body: any) {
         saved.price,
         costPrice,
         compareAtPrice,
+        shippingCost,
         saved.stock,
         saved.description,
         categoryName,
@@ -486,6 +598,7 @@ async function executeProductUpdate(productId: string, body: any) {
           price = ?,
           supplier_cost = ?,
           suggested_price = ?,
+          shipping_cost = ?,
           stock = ?,
           descripcion = ?,
           description = ?,
@@ -510,6 +623,7 @@ async function executeProductUpdate(productId: string, body: any) {
         saved.price,
         costPrice,
         compareAtPrice,
+        shippingCost,
         saved.stock,
         saved.description,
         saved.description,

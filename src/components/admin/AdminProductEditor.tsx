@@ -217,9 +217,15 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [suggestedPrice, setSuggestedPrice] = useState<number>(
     (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
   );
-  const [estimatedShippingCost, setEstimatedShippingCost] = useState<number>(
-    product?.estimatedShippingCost !== undefined ? product.estimatedShippingCost : 16500
-  );
+  const [shippingCost, setShippingCost] = useState<number>(() => {
+    const raw = (product as any)?.shipping_cost !== undefined 
+      ? (product as any)?.shipping_cost 
+      : product?.estimatedShippingCost;
+    return Number(raw) || 16500;
+  });
+  const estimatedShippingCost = shippingCost;
+  const setEstimatedShippingCost = setShippingCost;
+
   const [dropiFee, setDropiFee] = useState<number>(
     product?.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0)
   );
@@ -257,7 +263,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       setSuggestedPrice(
         (product as any).suggested_price || (product as any).suggestedPrice || product.compareAtPrice || (Number(product.price) ? Number(product.price) + 20000 : 119900)
       );
-      setEstimatedShippingCost(product.estimatedShippingCost !== undefined ? product.estimatedShippingCost : 16500);
+      setShippingCost(Number((product as any)?.shipping_cost !== undefined ? (product as any).shipping_cost : product?.estimatedShippingCost) || 16500);
       setDropiFee(product.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0));
       setPrice(product.price || (product as any).precio || 89900);
       setCompareAtPrice(product.compareAtPrice || 119900);
@@ -782,7 +788,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         dropi_id: selectedProvider === 'dropi' ? (dropiId || null) : null,
         supplier_sku: skuProveedor,
         supplierSku: skuProveedor,
-        estimatedShippingCost,
+        shipping_cost: Number(shippingCost),
+        estimatedShippingCost: Number(shippingCost),
         dropiFee,
         totalOperatingCost,
         realNetProfit,
@@ -807,6 +814,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       // Payload final que incluye explícitamente los campos solicitados
       const payload = {
         ...basePayload,
+        shipping_cost: Number(shippingCost),
+        estimatedShippingCost: Number(shippingCost),
         provider: selectedProvider,
         supplier: selectedProvider,
         supplier_cost: Number(costoProveedor) || 0,
@@ -819,7 +828,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       };
 
       // 3. Muestra un mensaje en consola (console.log) con el payload enviado al guardar para auditarlo
-      console.log('[AdminProductEditor] Payload enviado al guardar:', payload);
+      console.log('[AdminProductEditor] Payload enviado al guardar (con shipping_cost):', payload);
 
       // Al guardar los cambios, si es edición enviar explícitamente por PUT /api/products/:id
       if (isEditing && targetId) {
