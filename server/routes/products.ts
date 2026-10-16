@@ -581,23 +581,23 @@ router.put('/:id', async (req, res) => {
       dropi_product_id, dropiProductId,
       supplier_sku,
       categoria, category,
-      active, status,
-      shipping_cost, flete_envio, flete, estimatedShippingCost, shippingCost, costo_envio, fleteEnvio
-    } = req.body;
+    active, status,
+    shipping_cost, flete_envio, flete, estimatedShippingCost
+  } = req.body;
 
-    const targetId = req.params.id;
-    const finalName = nombre || name || title;
-    const finalPrice = Number(precio ?? price ?? 0);
-    const finalStock = Number(stock ?? 0);
-    const finalDesc = descripcion || description || '';
-    const finalImage = imagen || image || '';
-    const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
-    const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
-    const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
-    const rawShipping = req.body.shippingCost ?? req.body.shipping_cost ?? req.body.flete ?? req.body.flete_envio ?? req.body.costo_envio ?? req.body.estimatedShippingCost;
+  const targetId = req.params.id;
+  const finalName = nombre || name || title;
+  const finalPrice = Number(precio ?? price ?? 0);
+  const finalStock = Number(stock ?? 0);
+  const finalDesc = descripcion || description || '';
+  const finalImage = imagen || image || '';
+  const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
+  const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
+  const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
+
+  const rawShipping = req.body.shippingCost ?? shipping_cost ?? flete ?? flete_envio ?? req.body.costo_envio ?? estimatedShippingCost;
   const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
   const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
-    const finalProvider = provider || supplier || 'DeRocha';
     const finalSupplier = finalProvider;
     const effectiveDropiId = dropi_product_id || dropiProductId;
     const finalDropiId = (finalProvider === 'dropi' && effectiveDropiId) ? String(effectiveDropiId).trim() : null;
