@@ -811,12 +811,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         publishToFacebook
       };
 
-      // Payload final que incluye explícitamente los campos solicitados
-      const payload = {
+      const formData: any = {
         ...basePayload,
-        shipping_cost: valorFlete,
-        flete_envio: valorFlete,
-        estimatedShippingCost: valorFlete,
         provider: selectedProvider,
         supplier: selectedProvider,
         supplier_cost: Number(costoProveedor) || 0,
@@ -828,15 +824,26 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         category: selectedCategory
       };
 
-      // Registro de red y consola para auditar el payload enviado
-      console.log('[AdminProductEditor] Enviando payload al guardar (con valorFlete):', { shipping_cost: valorFlete, flete_envio: valorFlete });
+      // Asegurar extracción del número digitado en el input
+      const shippingValue = Number(formData.flete ?? formData.shipping_cost ?? shippingCost ?? 16500);
+
+      const payloadFinal = {
+        ...formData,
+        shipping_cost: shippingValue,
+        flete_envio: shippingValue,
+        flete: shippingValue, // Mantiene compatibilidad
+        estimatedShippingCost: shippingValue
+      };
+
+      // Log explícito en consola para auditar en DevTools
+      console.log('Payload al guardar:', payloadFinal);
 
       // Al guardar los cambios, si es edición enviar por PUT /api/products/:id esperando obligatoriamente la respuesta
       if (isEditing && targetId) {
         const response = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payloadFinal)
         });
 
         if (!response.ok) {
@@ -848,7 +855,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       }
 
       // Propagar al handler superior (onSave) para actualizar el estado del dashboard y sincronizar
-      await onSave(payload);
+      await onSave(payloadFinal);
     } catch (err: any) {
       alert(err.message || 'Error al guardar el producto.');
     } finally {

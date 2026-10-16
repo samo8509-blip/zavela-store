@@ -25,23 +25,28 @@ export const API_ENDPOINTS = {
  * y esperando la confirmación de la respuesta HTTP 200 { success: true }
  */
 export async function saveProductToCpanel(productData: any): Promise<{ success: boolean; data?: any; shipping_cost?: number }> {
-  const valorFlete = parseFloat(String(productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 16500)) || 16500;
-  const payload = {
+  // Asegurar extracción del número digitado en el input
+  const shippingValue = Number(productData.flete ?? productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 16500);
+
+  const payloadFinal = {
     ...productData,
     id: String(productData.id || productData.slug || `prod-${Date.now()}`),
-    shipping_cost: valorFlete,
-    flete_envio: valorFlete,
-    estimatedShippingCost: valorFlete,
+    shipping_cost: shippingValue,
+    flete_envio: shippingValue,
+    flete: shippingValue, // Mantiene compatibilidad
+    estimatedShippingCost: shippingValue,
     costPrice: Number(productData.costPrice ?? productData.costo_proveedor ?? productData.supplier_cost ?? 0),
     price: Number(productData.price ?? productData.precio ?? 0)
   };
 
+  console.log('Payload al guardar:', payloadFinal);
+
   // 1. Guardar primero en el endpoint local /api/products/:id
-  const targetId = payload.id;
+  const targetId = payloadFinal.id;
   const localRes = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payloadFinal)
   });
 
   if (!localRes.ok) {
@@ -58,7 +63,7 @@ export async function saveProductToCpanel(productData: any): Promise<{ success: 
     fetch(API_ENDPOINTS.productsPhp, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payloadFinal),
       signal: controller.signal
     }).catch(() => null).finally(() => clearTimeout(timeout));
   } catch {}

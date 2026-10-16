@@ -66,9 +66,16 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
   const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
 
-  const fullPayload = {
+  // Asegurar extracción del número digitado en el input
+  const shippingValue = Number((productData as any).flete ?? productData.shipping_cost ?? (productData as any).flete_envio ?? productData.estimatedShippingCost ?? 16500);
+
+  const payloadFinal = {
     ...productData,
     ...(targetId ? { id: targetId } : {}),
+    shipping_cost: shippingValue,
+    flete_envio: shippingValue,
+    flete: shippingValue, // Mantiene compatibilidad
+    estimatedShippingCost: shippingValue,
     categoria: catValue,
     category: catValue,
     categoryName: catValue,
@@ -77,11 +84,13 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
     categoria_id: catIdValue
   };
 
+  console.log('Payload al guardar:', payloadFinal);
+
   try {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fullPayload)
+      body: JSON.stringify(payloadFinal)
     });
 
     if (!res.ok) {

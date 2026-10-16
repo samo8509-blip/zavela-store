@@ -246,19 +246,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const endpoint = isEdit ? `/api/admin/products/${encodeURIComponent(targetId!)}` : '/api/admin/products';
       const method = isEdit ? 'PUT' : 'POST';
 
-      const valorFlete = parseFloat(String(productData.shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500)) || 16500;
-      const payload = {
+      // Asegurar extracción del número digitado en el input
+      const shippingValue = Number((productData as any).flete ?? productData.shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500);
+
+      const payloadFinal = {
         ...productData,
-        shipping_cost: valorFlete,
-        flete_envio: valorFlete,
-        estimatedShippingCost: valorFlete,
+        shipping_cost: shippingValue,
+        flete_envio: shippingValue,
+        flete: shippingValue, // Mantiene compatibilidad
+        estimatedShippingCost: shippingValue,
         ...(targetId ? { id: targetId } : {})
       };
+
+      console.log('Payload al guardar:', payloadFinal);
 
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payloadFinal)
       });
 
       if (!res.ok) {
@@ -267,7 +272,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
 
       const resData = await res.json();
-      const savedProductResult = resData.data || payload;
+      const savedProductResult = resData.data || payloadFinal;
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
       const finalDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
 
