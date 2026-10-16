@@ -92,7 +92,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
       const directController = new AbortController();
       const directTimeout = setTimeout(() => directController.abort(), 3500);
 
-      const res = await fetch('http://api.zavelastore.com.co/api.php?action=clientes', {
+      const res = await fetch('https://api.zavelastore.com.co/api.php?action=clientes', {
         headers: { 'Accept': 'application/json' },
         signal: directController.signal
       });
@@ -255,8 +255,8 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
         body: JSON.stringify(payload)
       });
 
-      // 2. Intento directo a cPanel HTTP
-      fetch('http://api.zavelastore.com.co/api.php?action=clientes', {
+      // 2. Intento directo a cPanel HTTPS
+      fetch('https://api.zavelastore.com.co/api.php?action=clientes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

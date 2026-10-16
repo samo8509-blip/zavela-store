@@ -117,7 +117,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+        const res = await fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
           headers: { 'Accept': 'application/json' },
           signal: controller.signal
         });

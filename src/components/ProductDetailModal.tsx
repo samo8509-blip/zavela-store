@@ -130,6 +130,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [comboSelections, setComboSelections] = useState<ComboSelection[]>([]);
   const [comboActionType, setComboActionType] = useState<'cart' | 'buy_now'>('cart');
 
+  const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
+
   // Redimensionar comboSelections cada vez que quantity cambie a un valor N (donde N >= 2)
   useEffect(() => {
     if (quantity >= 2) {
@@ -166,10 +170,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [product?.id]);
-
-  const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
-  const [isShareOpen, setIsShareOpen] = useState(false);
-  const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
   
   const modalScrollRef = useRef<HTMLDivElement>(null);
   const relatedSliderRef = useRef<HTMLDivElement>(null);

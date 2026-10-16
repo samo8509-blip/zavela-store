@@ -344,8 +344,8 @@ export async function registerCustomer(data: CustomerRegistrationData): Promise<
     console.warn('[cPanel Customer Sync via backend warning]:', err);
   });
 
-  // 2. Intento de POST directo a http://api.zavelastore.com.co/api.php?action=clientes
-  fetch('http://api.zavelastore.com.co/api.php?action=clientes', {
+  // 2. Intento de POST directo a https://api.zavelastore.com.co/api.php?action=clientes
+  fetch('https://api.zavelastore.com.co/api.php?action=clientes', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(cpanelPayload)

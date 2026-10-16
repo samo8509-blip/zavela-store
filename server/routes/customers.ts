@@ -11,7 +11,7 @@ const router = Router();
  */
 router.get('/', async (req, res) => {
   try {
-    // 1. Intento de consulta en cPanel MySQL (http://api.zavelastore.com.co/api.php?action=clientes)
+    // 1. Intento de consulta en cPanel MySQL (https://api.zavelastore.com.co/api.php?action=clientes)
     const remoteCustomers = await cpanelDbService.fetchCustomers();
     if (remoteCustomers && remoteCustomers.length > 0) {
       return res.json({
@@ -107,7 +107,7 @@ router.post('/', async (req, res) => {
       totalSpent: 0
     });
 
-    // 2. Sincronizar de inmediato con MySQL cPanel (http://api.zavelastore.com.co/api.php?action=clientes)
+    // 2. Sincronizar de inmediato con MySQL cPanel (https://api.zavelastore.com.co/api.php?action=clientes)
     let cpanelResult = null;
     try {
       cpanelResult = await cpanelDbService.createCustomer({

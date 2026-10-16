@@ -85,7 +85,7 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+      const res = await fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
         headers: { 'Accept': 'application/json' },
         signal: controller.signal
       });
@@ -168,8 +168,8 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
         body: JSON.stringify(payload)
       });
 
-      // 2. Guardar directo a cPanel HTTP
-      fetch('http://api.zavelastore.com.co/api.php?action=asesores', {
+      // 2. Guardar directo a cPanel HTTPS
+      fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -190,7 +190,7 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
 
     try {
       // Direct delete to cPanel (DELETE /action=asesores&id=...)
-      fetch(`http://api.zavelastore.com.co/api.php?action=asesores&id=${encodeURIComponent(id)}`, {
+      fetch(`https://api.zavelastore.com.co/api.php?action=asesores&id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       }).catch(() => null);
 

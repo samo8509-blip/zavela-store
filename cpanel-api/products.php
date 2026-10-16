@@ -197,6 +197,8 @@ function formatProductOutput($row) {
         $variants = is_array($decodedVars) ? $decodedVars : [];
     }
 
+    $shippingCost = (float)($row['shipping_cost'] ?? $row['flete_envio'] ?? 16500);
+
     return [
         'id'                 => (string)$row['id'],
         'title'              => $title,
@@ -213,6 +215,9 @@ function formatProductOutput($row) {
         'discountPercentage' => (int)($row['discount_percentage'] ?? 0),
         'marginAmount'       => $marginAmount,
         'marginPercentage'   => $marginPercentage,
+        'shipping_cost'      => $shippingCost,
+        'flete_envio'        => $shippingCost,
+        'estimatedShippingCost' => $shippingCost,
         'stock'              => $stock,
         'active'             => $active,
         'featured'           => $featured,
@@ -355,12 +360,14 @@ try {
 
             $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'] ?? null;
 
+            $shippingCost = (float)($data['shipping_cost'] ?? $data['flete_envio'] ?? $data['estimatedShippingCost'] ?? 16500);
+
             if ($tableName === 'productos') {
                 // Guardado específico en la tabla 'productos' (MySQL cPanel)
                 $sql = "INSERT INTO productos (
-                    id, nombre, precio, stock, descripcion, imagen, imagenes, dropi_product_id, created_at
+                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, dropi_product_id, created_at
                 ) VALUES (
-                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :dropi_product_id, NOW()
+                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :dropi_product_id, NOW()
                 ) ON DUPLICATE KEY UPDATE
                     nombre = VALUES(nombre),
                     precio = VALUES(precio),
@@ -368,6 +375,7 @@ try {
                     descripcion = VALUES(descripcion),
                     imagen = VALUES(imagen),
                     imagenes = VALUES(imagenes),
+                    shipping_cost = VALUES(shipping_cost),
                     dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), dropi_product_id)";
 
                 $stmt = $pdo->prepare($sql);
@@ -379,6 +387,7 @@ try {
                     ':descripcion'      => $description,
                     ':imagen'           => $mainImage,
                     ':imagenes'         => $imagesJson,
+                    ':shipping_cost'    => $shippingCost,
                     ':dropi_product_id' => $dropiId
                 ]);
             } else {
@@ -396,11 +405,11 @@ try {
 
                 $sql = "INSERT INTO products (
                     id, title, slug, description, short_description, price, cost_price, compare_price,
-                    discount_percentage, stock, active, featured, images, warranty_info, tags,
+                    discount_percentage, stock, active, featured, images, shipping_cost, warranty_info, tags,
                     category_id, category_name, warehouse_city, brand, dropi_id, variants, weight_kg, updated_at
                 ) VALUES (
                     :id, :title, :slug, :description, :short_description, :price, :cost_price, :compare_price,
-                    :discount_percentage, :stock, :active, :featured, :images, :warranty_info, :tags,
+                    :discount_percentage, :stock, :active, :featured, :images, :shipping_cost, :warranty_info, :tags,
                     :category_id, :category_name, :warehouse_city, :brand, :dropi_id, :variants, :weight_kg, NOW()
                 ) ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
@@ -415,6 +424,7 @@ try {
                     active = VALUES(active),
                     featured = VALUES(featured),
                     images = VALUES(images),
+                    shipping_cost = VALUES(shipping_cost),
                     warranty_info = VALUES(warranty_info),
                     tags = VALUES(tags),
                     category_id = VALUES(category_id),
@@ -441,6 +451,7 @@ try {
                     ':active'              => $active,
                     ':featured'            => $featured,
                     ':images'              => $imagesJson,
+                    ':shipping_cost'       => $shippingCost,
                     ':warranty_info'       => $warrantyInfo,
                     ':tags'                => $tagsJson,
                     ':category_id'         => $categoryId,
@@ -458,11 +469,14 @@ try {
             $fetchStmt->execute([':id' => $id]);
             $savedRow = $fetchStmt->fetch();
 
+            header('Content-Type: application/json');
             echo json_encode([
-                'success' => true,
-                'message' => 'Producto guardado exitosamente en MySQL (cPanel)',
-                'data'    => formatProductOutput($savedRow)
+                'success'       => true,
+                'message'       => 'Producto guardado',
+                'shipping_cost' => $shippingCost,
+                'data'          => formatProductOutput($savedRow)
             ]);
+            exit;
             break;
 
         // =====================================================================
@@ -581,12 +595,16 @@ try {
                 exit();
             }
 
+            $finalShipping = (float)($updatedRow['shipping_cost'] ?? $updatedRow['flete_envio'] ?? 16500);
+
+            header('Content-Type: application/json');
             echo json_encode([
-                'success' => true,
-                'message' => 'Producto actualizado en MySQL (cPanel)',
-                'data'    => formatProductOutput($updatedRow)
+                'success'       => true,
+                'message'       => 'Producto guardado',
+                'shipping_cost' => $finalShipping,
+                'data'          => formatProductOutput($updatedRow)
             ]);
-            break;
+            exit;
 
         // =====================================================================
         // DELETE: Eliminar producto por ?id=

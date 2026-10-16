@@ -1,7 +1,7 @@
 import { Product, Order, ProductVariant } from '../../src/types/index.ts';
 import { db, isTestProduct } from '../db.ts';
 
-const DEFAULT_CPANEL_API_URL = 'http://api.zavelastore.com.co/api.php';
+const DEFAULT_CPANEL_API_URL = 'https://api.zavelastore.com.co/api.php';
 
 /**
  * CpanelDbService: Servicio cliente para consumir la API PHP con base de datos MySQL en cPanel
