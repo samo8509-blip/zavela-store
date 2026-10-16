@@ -406,7 +406,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
                     const isSelected = idx === safeIndex;
                     return (
                       <button
-                        key={item.product.id}
+                        key={item.product.id || item.product.slug || `hero-best-${idx}`}
                         onClick={() => handleSelectBanner(idx)}
                         className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer shrink-0 border ${
                           isSelected 

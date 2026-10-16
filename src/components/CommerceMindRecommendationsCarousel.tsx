@@ -257,7 +257,7 @@ export const CommerceMindRecommendationsCarousel: React.FC<CommerceMindRecommend
 
               return (
                 <div
-                  key={`${product.id}-${idx}`}
+                  key={product.id || product.slug || `cm-rec-${idx}`}
                   className="w-64 sm:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 hover:border-indigo-400 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between overflow-hidden group/card"
                 >
                   {/* Top Image Container */}

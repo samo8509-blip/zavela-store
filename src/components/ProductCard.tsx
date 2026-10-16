@@ -12,6 +12,26 @@ interface ProductCardProps {
   onBuyNow: (product: Product, e?: React.MouseEvent) => void;
 }
 
+const getCategoryBadgeStyle = (category?: string) => {
+  const norm = (category || '').toLowerCase();
+  if (norm.includes('juguet') || norm.includes('niñ') || norm.includes('infant') || norm.includes('juego')) {
+    return { bg: 'bg-purple-100 text-purple-900 border-purple-300', emoji: '🧸' };
+  }
+  if (norm.includes('belleza') || norm.includes('cosmet') || norm.includes('cuidado') || norm.includes('facial') || norm.includes('maquill') || norm.includes('capilar')) {
+    return { bg: 'bg-pink-100 text-pink-900 border-pink-300', emoji: '✨' };
+  }
+  if (norm.includes('hogar') || norm.includes('cocina') || norm.includes('casa') || norm.includes('decor')) {
+    return { bg: 'bg-amber-100 text-amber-900 border-amber-300', emoji: '🏠' };
+  }
+  if (norm.includes('tecno') || norm.includes('gadget') || norm.includes('audio') || norm.includes('reloj') || norm.includes('electr') || norm.includes('smart')) {
+    return { bg: 'bg-blue-100 text-blue-900 border-blue-300', emoji: '⚡' };
+  }
+  if (norm.includes('moda') || norm.includes('calzad') || norm.includes('ropa') || norm.includes('bolso') || norm.includes('faja') || norm.includes('vestid')) {
+    return { bg: 'bg-emerald-100 text-emerald-900 border-emerald-300', emoji: '👗' };
+  }
+  return { bg: 'bg-slate-100 text-slate-800 border-slate-300', emoji: '🏷️' };
+};
+
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onSelectProduct,
@@ -24,6 +44,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const productImages = extractProductImages(product);
   const mainImage = productImages[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
+
+  const categoryLabel = product.categoryName || (product as any).category || (product as any).categoria || 'Catálogo General';
+  const categoryStyle = getCategoryBadgeStyle(categoryLabel);
 
   // Helper to extract clean bullet points or key features from description
   const cleanSummary = product.shortDescription || (() => {
@@ -54,17 +77,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       onClick={() => onSelectProduct(product)}
       className="group bg-white rounded-2xl border border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-visible cursor-pointer relative"
     >
-      {/* Window-like Header bar */}
-      <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between rounded-t-2xl">
-        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-700 flex items-center gap-1">
-          <Sparkles className="w-3 h-3 text-sky-600 animate-pulse" />
-          {product.categoryName || 'Zavela CO'}
+      {/* Window-like Header bar with High-Visibility Category Tag */}
+      <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between rounded-t-2xl">
+        <span className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${categoryStyle.bg}`}>
+          <span>{categoryStyle.emoji}</span>
+          <span className="truncate max-w-[140px]">{categoryLabel}</span>
         </span>
         <div className="flex gap-1.5 items-center">
-          <span className="text-[10px] font-mono text-slate-500 font-semibold">
+          <span className="text-[10px] font-mono text-slate-500 font-semibold truncate max-w-[90px]">
             {product.brand || 'Zavela'}
           </span>
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs" />
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs shrink-0" />
         </div>
       </div>
 
@@ -168,7 +191,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <div className="flex flex-wrap gap-1 mt-1.5">
               {keyHighlights.map((hl, idx) => (
                 <span 
-                  key={idx}
+                  key={`${product.id}-hl-${idx}`}
                   className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
                 >
                   ✓ {hl}
@@ -248,10 +271,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Pricing Monospace & Savings Indicator */}
           <div className="pt-1 space-y-1">
-            <div className="flex items-baseline gap-2 flex-wrap">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-2xl font-mono font-black text-slate-900 tracking-tight">
                 {formatCOP(product.price)}
               </span>
+              <span className="text-xs font-mono font-bold text-slate-500">COP</span>
               {product.compareAtPrice && product.compareAtPrice > product.price && (
                 <span className="text-xs text-slate-400 line-through font-mono">
                   {formatCOP(product.compareAtPrice)}

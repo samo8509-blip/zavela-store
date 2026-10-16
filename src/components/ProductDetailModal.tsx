@@ -34,6 +34,7 @@ import { registerProductObservation } from '../services/commerceMindClient.ts';
 import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
 import { extractProductImages } from '../utils/imageUtils.ts';
 import { SameWarehouseRecommendations } from './SameWarehouseRecommendations.tsx';
+import { parseProductDescription } from '../utils/descriptionParser.ts';
 
 export interface ComboSelection {
   talla: string;
@@ -148,11 +149,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   }, [quantity]);
 
-  // Limpiar selecciones al cambiar de producto
+  // Limpiar y reiniciar exhaustivamente todo el estado local al cambiar de producto
   useEffect(() => {
+    setActiveImageIndex(0);
+    setSelectedVariant(undefined);
+    setSelectedColor('');
+    setSelectedSize('');
+    setSizeError(false);
+    setQuantity(1);
     setComboSelections([]);
     setShowComboModal(false);
+    setActiveTab('desc');
+    setIsShareOpen(false);
+
+    if (modalScrollRef.current) {
+      modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
   }, [product?.id]);
+
   const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
@@ -166,10 +180,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return extractProductImages(product);
   }, [product]);
 
-  // Reset active image when product changes
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [product?.id]);
+  // Resumen ejecutivo y viñetas visuales (Cero Párrafos Densos)
+  const parsedDesc = useMemo(() => {
+    return parseProductDescription(
+      product?.description || product?.shortDescription,
+      product?.title,
+      product?.categoryName
+    );
+  }, [product?.id, product?.description, product?.shortDescription, product?.title, product?.categoryName]);
 
   // Dynamic Browser Tab Title & Recent Views Tracker
   useEffect(() => {
@@ -605,11 +623,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   const handleSelectRelated = (relatedProd: Product) => {
+    // 1. Desacoplamiento & limpieza inmediata de estado local previo
+    setActiveImageIndex(0);
+    setSelectedVariant(undefined);
+    setSelectedColor('');
+    setSelectedSize('');
+    setSizeError(false);
+    setQuantity(1);
+    setComboSelections([]);
+    setShowComboModal(false);
+    setActiveTab('desc');
+    setIsShareOpen(false);
+
+    // 2. Scroll al tope de la ficha
+    if (modalScrollRef.current) {
+      modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    // 3. Notificar al componente padre
     if (onSelectProduct) {
       onSelectProduct(relatedProd);
-    }
-    if (modalScrollRef.current) {
-      modalScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -692,7 +725,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   >
                     {imagesList.map((img, index) => (
                       <button
-                        key={index}
+                        key={`${product.id}-thumb-${index}`}
                         type="button"
                         id={`btn-thumbnail-${index}`}
                         onClick={() => setActiveImageIndex(index)}
@@ -790,7 +823,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     >
                       {imagesList.map((_, index) => (
                         <button
-                          key={index}
+                          key={`${product.id}-dot-${index}`}
                           type="button"
                           id={`btn-gallery-dot-${index}`}
                           onClick={() => setActiveImageIndex(index)}
@@ -857,13 +890,48 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Short excerpt description */}
-                  <div className="text-slate-600 text-xs sm:text-sm leading-relaxed">
-                    {product.shortDescription || (
-                      product.description 
-                        ? product.description.split('.').slice(0, 2).join('. ') + '.' 
-                        : 'Producto de alta gama con garantía oficial y pago seguro contra entrega en toda Colombia.'
-                    )}
+                  {/* Bloque de Resumen Visual & Viñetas Clave (Cero Párrafos Densos) */}
+                  <div className="space-y-2.5">
+                    <p className="text-slate-700 text-xs sm:text-sm leading-relaxed font-medium">
+                      {parsedDesc.leadSentence}
+                    </p>
+
+                    {/* 3 a 4 Viñetas clave con íconos limpios */}
+                    <div className="grid grid-cols-1 gap-1.5 pt-0.5">
+                      {parsedDesc.keyBullets.map((bullet, bIdx) => {
+                        const icons = [
+                          <CheckCircle2 key="1" className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />,
+                          <Sparkles key="2" className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />,
+                          <ShieldCheck key="3" className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />,
+                          <Zap key="4" className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                        ];
+                        return (
+                          <div
+                            key={`${product.id}-bullet-${bIdx}`}
+                            className="flex items-start gap-2 text-xs text-slate-700 font-normal bg-slate-50/90 px-2.5 py-1.5 rounded-xl border border-slate-200/80"
+                          >
+                            {icons[bIdx % icons.length]}
+                            <span className="leading-snug">{bullet}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Acordeón desplegable para información técnica extensa */}
+                    <details className="group border border-slate-200 rounded-xl bg-white overflow-hidden transition-all duration-200 mt-2">
+                      <summary className="flex items-center justify-between p-2.5 sm:p-3 cursor-pointer font-bold text-xs text-slate-800 hover:text-red-600 hover:bg-slate-50 select-none list-none transition-colors">
+                        <span className="flex items-center gap-1.5">
+                          <Sliders className="w-3.5 h-3.5 text-red-600" />
+                          <span>Ver detalles completos y especificaciones</span>
+                        </span>
+                        <span className="text-slate-400 group-open:rotate-180 transition-transform duration-200 text-[10px]">
+                          ▼
+                        </span>
+                      </summary>
+                      <div className="p-3 pt-1 border-t border-slate-100 text-slate-600 text-xs leading-relaxed whitespace-pre-line font-normal max-h-52 overflow-y-auto">
+                        {parsedDesc.fullCleanDescription}
+                      </div>
+                    </details>
                   </div>
 
                   {/* Pricing Block */}
@@ -1388,7 +1456,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     onAddToCart={(item, qty, variant) => {
                       onAddToCart(item, variant, qty);
                     }}
-                    onSelectProduct={onSelectProduct}
+                    onSelectProduct={handleSelectRelated}
                     cartItems={cartItems}
                   />
 
@@ -1494,20 +1562,57 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {/* Tab 1: Descripción Completa */}
                 {activeTab === 'desc' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="w-full space-y-3">
+                    <div className="w-full space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                          Detalles & Descripción Oficial del Producto
+                          Detalles & Resumen Ejecutivo del Producto
                         </h3>
                         <span className="text-[11px] font-mono text-slate-400">
                           SKU: #{skuNumber}
                         </span>
                       </div>
 
-                      <div className="text-slate-800 text-sm sm:text-base leading-relaxed whitespace-pre-line font-normal w-full bg-slate-50/70 p-5 sm:p-6 rounded-2xl border border-slate-200">
-                        {product.description || 'Producto con altos estándares de calidad, despachado con garantía oficial y pago contra entrega en toda Colombia.'}
+                      {/* 3 a 4 Viñetas Destacadas con Íconos Limpios */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {parsedDesc.keyBullets.map((bullet, idx) => {
+                          const icons = [
+                            <CheckCircle2 key="1" className="w-5 h-5 text-emerald-600 shrink-0" />,
+                            <Sparkles key="2" className="w-5 h-5 text-amber-500 shrink-0" />,
+                            <ShieldCheck key="3" className="w-5 h-5 text-sky-600 shrink-0" />,
+                            <Zap key="4" className="w-5 h-5 text-red-600 shrink-0" />
+                          ];
+                          return (
+                            <div
+                              key={`${product.id}-tabbullet-${idx}`}
+                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-start gap-3 hover:border-red-200 transition-colors"
+                            >
+                              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 shrink-0">
+                                {icons[idx % icons.length]}
+                              </div>
+                              <div className="text-xs sm:text-sm text-slate-700 leading-snug font-medium pt-0.5">
+                                {bullet}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
+
+                      {/* Acordeón Desplegable para Información Técnica Extensa */}
+                      <details className="group border border-slate-200 rounded-2xl bg-slate-50/70 overflow-hidden transition-all duration-200">
+                        <summary className="flex items-center justify-between p-4 sm:p-5 cursor-pointer font-bold text-xs sm:text-sm text-slate-900 hover:text-red-600 hover:bg-slate-100 select-none list-none transition-colors">
+                          <span className="flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-red-600 shrink-0" />
+                            <span>Ver detalles completos y especificaciones técnicas</span>
+                          </span>
+                          <span className="text-slate-400 group-open:rotate-180 transition-transform duration-200 text-xs">
+                            ▼
+                          </span>
+                        </summary>
+                        <div className="p-5 sm:p-6 pt-2 border-t border-slate-200 text-slate-800 text-sm leading-relaxed whitespace-pre-line font-normal bg-white">
+                          {parsedDesc.fullCleanDescription}
+                        </div>
+                      </details>
                     </div>
 
                     {/* Quality Assurance Box */}

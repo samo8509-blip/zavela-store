@@ -140,7 +140,7 @@ export const ProductNotFoundModal: React.FC<ProductNotFoundModalProps> = ({
                   const img = prod.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800';
                   return (
                     <div
-                      key={prod.id}
+                      key={prod.id || prod.slug}
                       onClick={() => {
                         if (onSelectProduct) onSelectProduct(prod);
                         onClose();

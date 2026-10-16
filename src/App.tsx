@@ -1557,7 +1557,7 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                   {filteredProducts.map((product) => (
                     <ProductCard
-                      key={product.id}
+                      key={product.id || product.slug}
                       product={product}
                       onSelectProduct={(p) => {
                         setSelectedProduct(p);
@@ -1670,6 +1670,7 @@ export default function App() {
       {/* Product Detail Modal */}
       {selectedProduct && (
         <ProductDetailModal
+          key={selectedProduct.id || selectedProduct.slug || 'product-detail-modal'}
           product={selectedProduct}
           allProducts={products}
           cartItems={cartItems}

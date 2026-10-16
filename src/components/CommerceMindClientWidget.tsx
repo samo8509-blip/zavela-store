@@ -219,7 +219,7 @@ export const CommerceMindClientWidget: React.FC<CommerceMindClientWidgetProps> =
 
             return (
               <div
-                key={`${matchedProduct.id}-${idx}`}
+                key={matchedProduct.id || matchedProduct.slug || `cm-rec-${idx}`}
                 className="w-72 sm:w-80 shrink-0 bg-slate-950/90 border border-indigo-500/30 hover:border-indigo-400 rounded-2xl p-4 flex flex-col justify-between hover:shadow-xl hover:shadow-indigo-500/10 transition-all group"
               >
                 <div>

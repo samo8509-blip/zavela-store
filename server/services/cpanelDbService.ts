@@ -163,6 +163,8 @@ export class CpanelDbService {
       dropi_product_id: dropiId,
       dropiProductId: dropiId,
       dropi_id: dropiId,
+      shipping_cost: Number(product.shipping_cost !== undefined ? product.shipping_cost : ((product as any).estimatedShippingCost || 16500)),
+      estimatedShippingCost: Number(product.shipping_cost !== undefined ? product.shipping_cost : ((product as any).estimatedShippingCost || 16500)),
       updatedAt: product.updatedAt || new Date().toISOString()
     };
 

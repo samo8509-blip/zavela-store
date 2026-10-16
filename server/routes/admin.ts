@@ -783,10 +783,14 @@ router.post('/products', async (req, res) => {
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
+      shipping_cost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)) || 16500,
+      estimatedShippingCost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)) || 16500,
       variants: Array.isArray(body.variants) ? body.variants : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    const newShippingCost = newProduct.shipping_cost || 16500;
 
     if (dropiProductId) {
       dropiBackupService.saveDropiId(newProduct.id, dropiProductId);
@@ -801,9 +805,9 @@ router.post('/products', async (req, res) => {
     try {
       await pool.query(`
         INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id,
+          id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, stock, description, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, images, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           name = VALUES(name),
@@ -811,6 +815,7 @@ router.post('/products', async (req, res) => {
           price = VALUES(price),
           supplier_cost = VALUES(supplier_cost),
           suggested_price = VALUES(suggested_price),
+          shipping_cost = VALUES(shipping_cost),
           stock = VALUES(stock),
           description = VALUES(description),
           category = VALUES(category),
@@ -823,21 +828,22 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newProduct.stock, description,
+        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newShippingCost, newProduct.stock, description,
         postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, JSON.stringify(validImages), isNewActiveInt
       ]);
 
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id,
+          id, nombre, precio, supplier_cost, suggested_price, shipping_cost, stock, descripcion, categoria, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, imagen, imagenes, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
           supplier_cost = VALUES(supplier_cost),
           suggested_price = VALUES(suggested_price),
+          shipping_cost = VALUES(shipping_cost),
           stock = VALUES(stock),
           descripcion = VALUES(descripcion),
           categoria = VALUES(categoria),
@@ -852,7 +858,7 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, price, costPrice, compareAtPrice, newProduct.stock, description,
+        newProduct.id, title, price, costPrice, compareAtPrice, newShippingCost, newProduct.stock, description,
         postCatName, postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, mainImage, JSON.stringify(validImages), isNewActiveInt
       ]);

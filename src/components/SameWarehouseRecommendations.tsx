@@ -131,7 +131,7 @@ export const SameWarehouseRecommendations: React.FC<SameWarehouseRecommendations
 
           return (
             <div
-              key={item.id}
+              key={item.id || item.slug}
               onClick={() => onSelectProduct?.(item)}
               className="group p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-sky-300 hover:shadow-sm transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden"
             >

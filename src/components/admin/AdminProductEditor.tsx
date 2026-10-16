@@ -217,12 +217,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [suggestedPrice, setSuggestedPrice] = useState<number>(
     (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
   );
-  const [shippingCost, setShippingCost] = useState<number>(() => {
-    const raw = (product as any)?.shipping_cost !== undefined 
-      ? (product as any)?.shipping_cost 
-      : product?.estimatedShippingCost;
-    return Number(raw) || 16500;
-  });
+  const [shippingCost, setShippingCost] = useState<number>(16500);
   const estimatedShippingCost = shippingCost;
   const setEstimatedShippingCost = setShippingCost;
 
@@ -245,25 +240,26 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   // Precarga y sincronización integral cuando product o categories cambian al abrir el editor
   useEffect(() => {
     if (product) {
+      const productData = product;
       // 3. Muestra un mensaje en consola con el producto recibido al cargar para poder auditarlo
-      console.log('[AdminProductEditor] Producto recibido al cargar:', product);
+      console.log('[AdminProductEditor] Producto recibido al cargar:', productData);
 
-      setTitle(product.title || (product as any).nombre || (product as any).name || '');
-      setSlug(product.slug || '');
-      setShortDescription(product.shortDescription || '');
-      setDescription(product.description || (product as any).descripcion || '');
-      setCategoryId(resolveCategoryForEditor(product, categories));
-      setBrand(product.brand || 'Zavela Store');
-      setWarehouseCity(product.warehouseCity || 'Bogotá D.C.');
-      setProvider(resolveProviderForEditor(product));
-      setCustomSupplierName((product as any).supplier || (product as any).providerName || (product as any).proveedor || '');
-      setSupplierSku((product as any).supplier_sku || (product as any).supplierSku || (product as any).sku || '');
-      setDropiProductId(resolveDropiProductId(product));
-      setCostPrice(resolveSupplierCost(product));
+      setTitle(productData.title || (productData as any).nombre || (productData as any).name || '');
+      setSlug(productData.slug || '');
+      setShortDescription(productData.shortDescription || '');
+      setDescription(productData.description || (productData as any).descripcion || '');
+      setCategoryId(resolveCategoryForEditor(productData, categories));
+      setBrand(productData.brand || 'Zavela Store');
+      setWarehouseCity(productData.warehouseCity || 'Bogotá D.C.');
+      setProvider(resolveProviderForEditor(productData));
+      setCustomSupplierName((productData as any).supplier || (productData as any).providerName || (productData as any).proveedor || '');
+      setSupplierSku((productData as any).supplier_sku || (productData as any).supplierSku || (productData as any).sku || '');
+      setDropiProductId(resolveDropiProductId(productData));
+      setCostPrice(resolveSupplierCost(productData));
       setSuggestedPrice(
-        (product as any).suggested_price || (product as any).suggestedPrice || product.compareAtPrice || (Number(product.price) ? Number(product.price) + 20000 : 119900)
+        (productData as any).suggested_price || (productData as any).suggestedPrice || productData.compareAtPrice || (Number(productData.price) ? Number(productData.price) + 20000 : 119900)
       );
-      setShippingCost(Number((product as any)?.shipping_cost !== undefined ? (product as any).shipping_cost : product?.estimatedShippingCost) || 16500);
+      setShippingCost(Number(productData.shipping_cost !== undefined ? productData.shipping_cost : (productData as any).estimatedShippingCost) || 16500);
       setDropiFee(product.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0));
       setPrice(product.price || (product as any).precio || 89900);
       setCompareAtPrice(product.compareAtPrice || 119900);
@@ -1407,44 +1403,44 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   </div>
                   <input
                     type="number"
-                    value={estimatedShippingCost}
-                    onChange={(e) => setEstimatedShippingCost(Number(e.target.value))}
+                    value={shippingCost}
+                    onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 text-xs bg-white border border-sky-200 rounded-lg focus:border-sky-500 outline-hidden font-bold font-mono text-sky-900"
                     placeholder="16500"
                   />
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     <button
                       type="button"
-                      onClick={() => setEstimatedShippingCost(11000)}
-                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
-                        estimatedShippingCost === 11000 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
+                      onClick={() => setShippingCost(11000)}
+                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                        shippingCost === 11000 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
                       }`}
                     >
                       Bogotá $11k
                     </button>
                     <button
                       type="button"
-                      onClick={() => setEstimatedShippingCost(16500)}
-                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
-                        estimatedShippingCost === 16500 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
+                      onClick={() => setShippingCost(16500)}
+                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                        shippingCost === 16500 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
                       }`}
                     >
                       Nacional $16.5k
                     </button>
                     <button
                       type="button"
-                      onClick={() => setEstimatedShippingCost(28000)}
-                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
-                        estimatedShippingCost === 28000 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
+                      onClick={() => setShippingCost(25000)}
+                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                        shippingCost === 25000 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
                       }`}
                     >
-                      Especial $28k
+                      Especial $25k
                     </button>
                     <button
                       type="button"
-                      onClick={() => setEstimatedShippingCost(0)}
-                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
-                        estimatedShippingCost === 0 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
+                      onClick={() => setShippingCost(0)}
+                      className={`text-[9px] px-1.5 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                        shippingCost === 0 ? 'bg-sky-600 text-white' : 'bg-white text-sky-700 border border-sky-200 hover:bg-sky-50'
                       }`}
                     >
                       $0

@@ -122,8 +122,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               return (
                 <div 
-                  key={`${item.product.id}-${item.variant?.id || 'none'}-${idx}`}
-                  id={`cart-item-${item.product.id}`}
+                  key={`${item.product.id || item.product.slug}-${item.variant?.id || 'base'}-${idx}`}
+                  id={`cart-item-${item.product.id || item.product.slug}`}
                   className="flex gap-4 p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white relative shadow-xs hover:border-sky-300 transition-colors"
                 >
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 p-1 flex items-center justify-center">

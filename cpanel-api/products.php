@@ -515,6 +515,11 @@ try {
                     $params[':imagen'] = $img;
                 }
 
+                if (isset($inputData['shipping_cost']) || isset($inputData['estimatedShippingCost'])) {
+                    $fields[] = "shipping_cost = :shipping_cost";
+                    $params[':shipping_cost'] = (float)($inputData['shipping_cost'] ?? $inputData['estimatedShippingCost']);
+                }
+
                 if (!empty($fields)) {
                     $sql = "UPDATE productos SET " . implode(', ', $fields) . " WHERE id = :id";
                     $stmt = $pdo->prepare($sql);
@@ -536,7 +541,9 @@ try {
                     'stock'              => 'stock',
                     'active'             => 'active',
                     'featured'           => 'featured',
-                    'dropi_product_id'   => 'dropi_id'
+                    'dropi_product_id'   => 'dropi_id',
+                    'shipping_cost'      => 'shipping_cost',
+                    'estimatedShippingCost' => 'shipping_cost'
                 ];
 
                 foreach ($mapping as $jsonKey => $dbCol) {

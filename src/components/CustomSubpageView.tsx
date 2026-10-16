@@ -246,7 +246,7 @@ export const CustomSubpageView: React.FC<CustomSubpageViewProps> = ({
 
               return (
                 <div
-                  key={p.id}
+                  key={p.id || p.slug}
                   className="bg-white rounded-3xl border border-slate-200 shadow-md hover:shadow-xl transition flex flex-col justify-between overflow-hidden group hover:border-[#0084FF]/50"
                 >
                   <div className="relative aspect-square bg-slate-100 overflow-hidden">
