@@ -1808,6 +1808,14 @@
   },
   "logs": [
     {
+      "id": "log-1792153686294-0omam",
+      "type": "PRODUCT_UPDATE",
+      "action": "Producto Actualizado",
+      "details": "Producto actualizado: \"Producto Test Admin\" - Precio: $99,000 COP.",
+      "status": "success",
+      "createdAt": "2026-10-16T12:28:06.294Z"
+    },
+    {
       "id": "log-1791899299522-rwvjs",
       "type": "PRODUCT_UPDATE",
       "action": "Producto Eliminado",

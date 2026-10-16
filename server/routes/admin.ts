@@ -409,7 +409,7 @@ async function executeProductUpdate(productId: string, body: any) {
 
   const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
   const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
-  const shippingCost = parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : ((existing as any)?.shipping_cost || existing?.estimatedShippingCost || 16500))) || 16500;
+  const shippingCost = Number(body.shipping_cost ?? body.flete_envio ?? body.estimatedShippingCost ?? ((existing as any)?.shipping_cost || existing?.estimatedShippingCost || 16500)) || 16500;
   const marginAmount = price - costPrice;
   const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
   const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
@@ -561,7 +561,7 @@ async function executeProductUpdate(productId: string, body: any) {
           variantes = ?,
           sizes = ?,
           updated_at = NOW()
-        WHERE id = ?
+        WHERE id = ? OR slug = ?
       `, [
         saved.title,
         saved.price,
@@ -583,6 +583,7 @@ async function executeProductUpdate(productId: string, body: any) {
         JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
+        productId,
         productId
       ]);
     } catch (err: any) {
@@ -617,7 +618,7 @@ async function executeProductUpdate(productId: string, body: any) {
           variantes = ?,
           sizes = ?,
           updated_at = NOW()
-        WHERE id = ?
+        WHERE id = ? OR slug = ?
       `, [
         saved.title,
         saved.price,
@@ -641,6 +642,7 @@ async function executeProductUpdate(productId: string, body: any) {
         JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
         JSON.stringify(saved.variants || []),
+        productId,
         productId
       ]);
     } catch (err: any) {
@@ -943,14 +945,12 @@ router.put('/products/:id', async (req, res) => {
       socialPost = db.publishSocialPost({ productId: saved.id });
     }
 
-    const fbConfig = await metaGraphService.getEffectiveFacebookConfig();
-    const shouldPublishToFb = body.publishToFacebook === true || 
-      (body.publishToFacebook !== false && body.publishToFacebook !== 'false' && fbConfig.connected && fbConfig.autoPostEnabled);
-
-    if (shouldPublishToFb) {
+    // Publicación en Facebook no bloqueante con timeout para evitar colgar la petición
+    if (body.publishToFacebook === true) {
       try {
-        console.log(`[Facebook Sync v26.0] Publicando actualización de "${saved.title}" en Facebook Page...`);
-        facebookSync = await metaGraphService.publishProductToFacebook(saved);
+        const fbPromise = metaGraphService.publishProductToFacebook(saved);
+        const fbTimeout = new Promise(resolve => setTimeout(() => resolve({ success: false, message: 'Facebook publish timeout' }), 3500));
+        facebookSync = await Promise.race([fbPromise, fbTimeout]);
       } catch (fbErr: any) {
         console.error('[Facebook Sync Error]:', fbErr);
         facebookSync = {
@@ -967,9 +967,17 @@ router.put('/products/:id', async (req, res) => {
       status: 'success'
     });
 
-    res.json({ success: true, data: saved, socialPost, facebookSync });
+    return res.status(200).json({
+      success: true,
+      message: "Producto actualizado correctamente",
+      product: saved,
+      data: saved,
+      socialPost,
+      facebookSync
+    });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error al actualizar producto:", error);
+    return res.status(500).json({ success: false, error: error.message, message: error.message });
   }
 });
 

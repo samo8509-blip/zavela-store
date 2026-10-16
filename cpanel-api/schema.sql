@@ -84,3 +84,11 @@ CREATE TABLE IF NOT EXISTS `configuraciones` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`clave`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ==============================================================================
+-- Migraciones automáticas de seguridad de columnas
+-- ==============================================================================
+ALTER TABLE `productos` ADD COLUMN IF NOT EXISTS `shipping_cost` DECIMAL(10,2) NOT NULL DEFAULT 16500.00;
+ALTER TABLE `productos` ADD COLUMN IF NOT EXISTS `flete_envio` DECIMAL(10,2) NOT NULL DEFAULT 16500.00;
+ALTER TABLE `products` ADD COLUMN IF NOT EXISTS `shipping_cost` DECIMAL(10,2) NOT NULL DEFAULT 16500.00;
+ALTER TABLE `products` ADD COLUMN IF NOT EXISTS `flete_envio` DECIMAL(10,2) NOT NULL DEFAULT 16500.00;

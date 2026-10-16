@@ -811,6 +811,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const payload = {
         ...basePayload,
         shipping_cost: Number(shippingCost),
+        flete_envio: Number(shippingCost),
         estimatedShippingCost: Number(shippingCost),
         provider: selectedProvider,
         supplier: selectedProvider,
@@ -823,22 +824,23 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         category: selectedCategory
       };
 
-      // 3. Muestra un mensaje en consola (console.log) con el payload enviado al guardar para auditarlo
-      console.log('[AdminProductEditor] Payload enviado al guardar (con shipping_cost):', payload);
+      // Registro de red y consola para auditar el payload enviado
+      console.log('[AdminProductEditor] Enviando payload al guardar (con shipping_cost):', payload);
 
-      // Al guardar los cambios, si es edición enviar explícitamente por PUT /api/products/:id
+      // Al guardar los cambios, si es edición enviar por PUT /api/products/:id esperando obligatoriamente la respuesta
       if (isEditing && targetId) {
-        try {
-          const directPutRes = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const resData = await directPutRes.json().catch(() => null);
-          console.log('[AdminProductEditor] Respuesta de PUT /api/products/:id:', directPutRes.status, resData);
-        } catch (putErr) {
-          console.warn('[AdminProductEditor] Nota en PUT /api/products/:id:', putErr);
+        const response = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || errData.message || 'Error en el servidor al guardar');
         }
+        const resData = await response.json().catch(() => null);
+        console.log('[AdminProductEditor] ✓ Respuesta confirmada de PUT /api/products/:id:', resData);
       }
 
       // Propagar al handler superior (onSave) para actualizar el estado del dashboard y sincronizar

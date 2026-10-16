@@ -32,8 +32,9 @@ if (dbHost && dbUser && dbName) {
       database: dbName,
       port: dbPort,
       waitForConnections: true,
-      connectionLimit: 15,
+      connectionLimit: 10,
       queueLimit: 0,
+      connectTimeout: 4000,
       charset: 'utf8mb4'
     });
     console.log(`[MySQL cPanel] Pool de conexiones establecido con éxito en ${dbHost}:${dbPort}/${dbName}`);
@@ -162,6 +163,7 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     await ensureColumn('productos', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'shipping_cost', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
+    await ensureColumn('productos', 'flete_envio', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
     await ensureColumn('productos', 'imagenes', 'LONGTEXT NULL');
     await ensureColumn('productos', 'raw_dropi_payload', 'LONGTEXT NULL');
     await ensureColumn('productos', 'variants', 'LONGTEXT NULL');
@@ -538,7 +540,13 @@ export const pool = {
   async query(sql: string, params: any[] = []): Promise<[any, any]> {
     if (nativePool) {
       try {
-        const result = await nativePool.query(sql, params);
+        const queryTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout de consulta MySQL (4000ms agotados)')), 4000);
+        });
+        const result = await Promise.race([
+          nativePool.query(sql, params),
+          queryTimeout
+        ]);
 
         const upper = sql.trim().toUpperCase();
         if (upper.startsWith('SELECT') && Array.isArray((result as any)[0])) {
@@ -603,6 +611,9 @@ function mapProductToSqlRow(p: any) {
     suggested_price: p.suggested_price ?? p.compareAtPrice ?? 0,
     compare_price: p.suggested_price ?? p.compareAtPrice ?? 0,
     compareAtPrice: p.compareAtPrice ?? p.suggested_price ?? 0,
+    shipping_cost: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
+    flete_envio: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
+    estimatedShippingCost: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
     stock: p.stock ?? 10,
     inventario: p.stock ?? 10,
     descripcion: p.description || '',

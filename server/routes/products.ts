@@ -582,9 +582,10 @@ router.put('/:id', async (req, res) => {
       supplier_sku,
       categoria, category,
       active, status,
-      shipping_cost, estimatedShippingCost
+      shipping_cost, flete_envio, estimatedShippingCost
     } = req.body;
 
+    const targetId = req.params.id;
     const finalName = nombre || name || title;
     const finalPrice = Number(precio ?? price ?? 0);
     const finalStock = Number(stock ?? 0);
@@ -593,7 +594,7 @@ router.put('/:id', async (req, res) => {
     const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
     const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
     const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
-    const finalShippingCost = parseFloat(shipping_cost ?? estimatedShippingCost) || 16500;
+    const shippingCost = Number(shipping_cost ?? flete_envio ?? estimatedShippingCost ?? 16500) || 16500;
     const finalProvider = provider || supplier || 'DeRocha';
     const finalSupplier = finalProvider;
     const effectiveDropiId = dropi_product_id || dropiProductId;
@@ -601,7 +602,6 @@ router.put('/:id', async (req, res) => {
     const finalSku = supplier_sku || null;
     const finalCat = categoria || category || 'General';
     const finalActive = (active === 1 || active === true || status === 'active') ? 1 : 0;
-    const targetId = req.params.id;
 
     const query = `
       UPDATE productos SET
@@ -622,29 +622,27 @@ router.put('/:id', async (req, res) => {
         category = ?,
         active = ?,
         updated_at = NOW()
-      WHERE id = ?
+      WHERE id = ? OR slug = ?
     `;
     const values = [
       finalName, finalPrice, finalStock, finalDesc, finalImage,
-      finalImages, finalCost, finalSuggested, finalShippingCost, finalProvider, finalSupplier,
+      finalImages, finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier,
       finalDropiId, finalSku, finalCat, finalCat, finalActive,
-      targetId
+      targetId, targetId
     ];
 
-    console.log('Ejecutando UPDATE en productos para ID:', targetId, values);
+    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shipping_cost:', shippingCost);
 
-    const activeDb = nativePool || pool;
-    const [result]: any = await activeDb.query(query, values);
-
-    console.log('Resultado UPDATE MySQL:', result);
+    // Usar pool centralizado resiliente (con query timeout y fallback local)
+    const [result]: any = await pool.query(query, values);
 
     // Si el registro no existía en productos, insertarlo para asegurar la integridad
     if (result && result.affectedRows === 0) {
       try {
-        const [existing]: any = await activeDb.query('SELECT id FROM productos WHERE id = ? LIMIT 1', [targetId]);
+        const [existing]: any = await pool.query('SELECT id FROM productos WHERE id = ? OR slug = ? LIMIT 1', [targetId, targetId]);
         if (!existing || existing.length === 0) {
           console.log(`[MySQL UPDATE] ID ${targetId} no existía en productos, insertando nuevo registro...`);
-          await activeDb.query(`
+          await pool.query(`
             INSERT INTO productos (
               id, nombre, precio, stock, descripcion, imagen, imagenes,
               supplier_cost, suggested_price, shipping_cost, provider, supplier, dropi_product_id,
@@ -652,7 +650,7 @@ router.put('/:id', async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-            finalCost, finalSuggested, finalShippingCost, finalProvider, finalSupplier, finalDropiId,
+            finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier, finalDropiId,
             finalSku, finalCat, finalCat, finalActive
           ]);
         }
@@ -666,68 +664,75 @@ router.put('/:id', async (req, res) => {
       dropiBackupService.saveDropiId(targetId, finalDropiId);
     }
 
-    // Sincronizar en memoria y respaldo local
-    try {
-      let parsedImages: string[] = [];
-      try {
-        parsedImages = typeof finalImages === 'string' ? JSON.parse(finalImages) : (Array.isArray(finalImages) ? finalImages : [finalImage]);
-      } catch {
-        parsedImages = finalImage ? [finalImage] : [];
-      }
-
-      const syncProduct = {
-        id: targetId,
-        title: finalName,
-        name: finalName,
-        nombre: finalName,
-        price: finalPrice,
-        precio: finalPrice,
-        stock: finalStock,
-        description: finalDesc,
-        descripcion: finalDesc,
-        image: finalImage || parsedImages[0] || '',
-        imagen: finalImage || parsedImages[0] || '',
-        images: parsedImages,
-        imagenes: parsedImages,
-        supplier_cost: finalCost,
-        costPrice: finalCost,
-        suggested_price: finalSuggested,
-        compareAtPrice: finalSuggested,
-        provider: finalProvider,
-        supplier: finalSupplier,
-        dropi_product_id: finalDropiId || undefined,
-        dropiProductId: finalDropiId || undefined,
-        supplier_sku: finalSku || undefined,
-        category: finalCat,
-        categoria: finalCat,
-        active: finalActive === 1,
-        status: finalActive === 1 ? 'active' : 'inactive',
-        estado: finalActive === 1 ? 'activo' : 'inactivo'
-      };
-      db.saveProduct(syncProduct as any);
-      cpanelDbService.saveProduct(syncProduct as any).catch(() => {});
-    } catch {}
-
     // Sincronizar tabla products en MySQL si existe
     try {
-      await activeDb.query(`
+      await pool.query(`
         UPDATE products SET
           name = ?, title = ?, price = ?, stock = ?, description = ?,
-          images = ?, supplier_cost = ?, suggested_price = ?, provider = ?, supplier = ?,
-          dropi_product_id = ?, supplier_sku = ?, category = ?, active = ?
-        WHERE id = ?
+          images = ?, supplier_cost = ?, suggested_price = ?, shipping_cost = ?, provider = ?, supplier = ?,
+          dropi_product_id = ?, supplier_sku = ?, category = ?, active = ?, updated_at = NOW()
+        WHERE id = ? OR slug = ?
       `, [
         finalName, finalName, finalPrice, finalStock, finalDesc,
-        finalImages, finalCost, finalSuggested, finalProvider, finalSupplier,
+        finalImages, finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier,
         finalDropiId, finalSku, finalCat, finalActive,
-        targetId
+        targetId, targetId
       ]);
     } catch {}
 
-    res.json({ success: true, message: 'Producto actualizado exitosamente en MySQL', updatedId: targetId });
-  } catch (err: any) {
-    console.error('[MySQL ERROR al actualizar producto]:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    // Sincronizar en memoria y respaldo local
+    let parsedImages: string[] = [];
+    try {
+      parsedImages = typeof finalImages === 'string' ? JSON.parse(finalImages) : (Array.isArray(finalImages) ? finalImages : [finalImage]);
+    } catch {
+      parsedImages = finalImage ? [finalImage] : [];
+    }
+
+    const updatedProduct = {
+      id: targetId,
+      title: finalName,
+      name: finalName,
+      nombre: finalName,
+      price: finalPrice,
+      precio: finalPrice,
+      stock: finalStock,
+      description: finalDesc,
+      descripcion: finalDesc,
+      image: finalImage || parsedImages[0] || '',
+      imagen: finalImage || parsedImages[0] || '',
+      images: parsedImages,
+      imagenes: parsedImages,
+      supplier_cost: finalCost,
+      costPrice: finalCost,
+      suggested_price: finalSuggested,
+      compareAtPrice: finalSuggested,
+      shipping_cost: shippingCost,
+      flete_envio: shippingCost,
+      estimatedShippingCost: shippingCost,
+      provider: finalProvider,
+      supplier: finalSupplier,
+      dropi_product_id: finalDropiId || undefined,
+      dropiProductId: finalDropiId || undefined,
+      supplier_sku: finalSku || undefined,
+      category: finalCat,
+      categoria: finalCat,
+      active: finalActive === 1,
+      status: finalActive === 1 ? 'active' : 'inactive',
+      estado: finalActive === 1 ? 'activo' : 'inactivo'
+    };
+
+    db.saveProduct(updatedProduct as any);
+    cpanelDbService.saveProduct(updatedProduct as any).catch(() => {});
+
+    // Responder siempre de inmediato para nunca dejar la petición en pending
+    return res.status(200).json({
+      success: true,
+      message: "Producto actualizado correctamente",
+      product: updatedProduct
+    });
+  } catch (error: any) {
+    console.error("Error al actualizar producto:", error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

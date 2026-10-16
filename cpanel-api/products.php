@@ -515,9 +515,9 @@ try {
                     $params[':imagen'] = $img;
                 }
 
-                if (isset($inputData['shipping_cost']) || isset($inputData['estimatedShippingCost'])) {
+                if (isset($inputData['shipping_cost']) || isset($inputData['flete_envio']) || isset($inputData['estimatedShippingCost'])) {
                     $fields[] = "shipping_cost = :shipping_cost";
-                    $params[':shipping_cost'] = (float)($inputData['shipping_cost'] ?? $inputData['estimatedShippingCost']);
+                    $params[':shipping_cost'] = (float)($inputData['shipping_cost'] ?? $inputData['flete_envio'] ?? $inputData['estimatedShippingCost']);
                 }
 
                 if (!empty($fields)) {
@@ -543,6 +543,7 @@ try {
                     'featured'           => 'featured',
                     'dropi_product_id'   => 'dropi_id',
                     'shipping_cost'      => 'shipping_cost',
+                    'flete_envio'        => 'shipping_cost',
                     'estimatedShippingCost' => 'shipping_cost'
                 ];
 

@@ -246,8 +246,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const endpoint = isEdit ? `/api/admin/products/${encodeURIComponent(targetId!)}` : '/api/admin/products';
       const method = isEdit ? 'PUT' : 'POST';
 
+      const shippingCost = Number(productData.shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500);
       const payload = {
         ...productData,
+        shipping_cost: shippingCost,
+        flete_envio: shippingCost,
+        estimatedShippingCost: shippingCost,
         ...(targetId ? { id: targetId } : {})
       };
 
