@@ -598,11 +598,11 @@ router.put('/:id', async (req, res) => {
   const rawShipping = req.body.shippingCost ?? shipping_cost ?? flete ?? flete_envio ?? req.body.costo_envio ?? estimatedShippingCost;
   const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
   const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
-    const finalSupplier = finalProvider;
-    const effectiveDropiId = dropi_product_id || dropiProductId;
-    const finalDropiId = (finalProvider === 'dropi' && effectiveDropiId) ? String(effectiveDropiId).trim() : null;
-    const finalSku = supplier_sku || null;
-    const finalCat = categoria || category || 'General';
+
+  const finalProvider = provider || supplier || 'DeRocha';
+  const finalSupplier = finalProvider;
+  const effectiveDropiId = dropi_product_id || dropiProductId;
+  const finalDropiId = (finalProvider === 'dropi' && effectiveDropiId) ? String(effectiveDropiId).trim() : null;
     const finalActive = (active === 1 || active === true || status === 'active') ? 1 : 0;
 
     const query = `
