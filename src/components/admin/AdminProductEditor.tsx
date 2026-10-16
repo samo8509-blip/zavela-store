@@ -217,7 +217,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [suggestedPrice, setSuggestedPrice] = useState<number>(
     (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
   );
-  const [shippingCost, setShippingCost] = useState<number>(16500);
+  const [shippingCost, setShippingCost] = useState<number>(() => {
+    return Number(product?.shipping_cost ?? (product as any)?.flete_envio ?? product?.estimatedShippingCost ?? 16500);
+  });
   const estimatedShippingCost = shippingCost;
   const setEstimatedShippingCost = setShippingCost;
 
@@ -259,7 +261,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       setSuggestedPrice(
         (productData as any).suggested_price || (productData as any).suggestedPrice || productData.compareAtPrice || (Number(productData.price) ? Number(productData.price) + 20000 : 119900)
       );
-      setShippingCost(Number(productData.shipping_cost !== undefined ? productData.shipping_cost : (productData as any).estimatedShippingCost) || 16500);
+      setShippingCost(Number((productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500));
       setDropiFee(product.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0));
       setPrice(product.price || (product as any).precio || 89900);
       setCompareAtPrice(product.compareAtPrice || 119900);
@@ -753,6 +755,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const costoProveedor = Number(costPrice) || 0;
       const precioVenta = Number(price) || 0;
       const precioSugerido = Number(suggestedPrice) || Number(precioVenta) || 0;
+      const valorFlete = parseFloat(String(shippingCost)) || 16500;
 
       const selectedCategory = selectedCat?.name || (categories.find(c => c.id === categoryId || c.slug === categoryId)?.name) || (selectedCat?.id) || categoryId || (product as any)?.categoria || (product as any)?.category || 'General';
 
@@ -784,8 +787,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         dropi_id: selectedProvider === 'dropi' ? (dropiId || null) : null,
         supplier_sku: skuProveedor,
         supplierSku: skuProveedor,
-        shipping_cost: Number(shippingCost),
-        estimatedShippingCost: Number(shippingCost),
+        shipping_cost: valorFlete,
+        flete_envio: valorFlete,
+        estimatedShippingCost: valorFlete,
         dropiFee,
         totalOperatingCost,
         realNetProfit,
@@ -810,9 +814,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       // Payload final que incluye explícitamente los campos solicitados
       const payload = {
         ...basePayload,
-        shipping_cost: Number(shippingCost),
-        flete_envio: Number(shippingCost),
-        estimatedShippingCost: Number(shippingCost),
+        shipping_cost: valorFlete,
+        flete_envio: valorFlete,
+        estimatedShippingCost: valorFlete,
         provider: selectedProvider,
         supplier: selectedProvider,
         supplier_cost: Number(costoProveedor) || 0,
@@ -825,7 +829,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       };
 
       // Registro de red y consola para auditar el payload enviado
-      console.log('[AdminProductEditor] Enviando payload al guardar (con shipping_cost):', payload);
+      console.log('[AdminProductEditor] Enviando payload al guardar (con valorFlete):', { shipping_cost: valorFlete, flete_envio: valorFlete });
 
       // Al guardar los cambios, si es edición enviar por PUT /api/products/:id esperando obligatoriamente la respuesta
       if (isEditing && targetId) {

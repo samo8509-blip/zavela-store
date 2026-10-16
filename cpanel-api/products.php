@@ -360,14 +360,18 @@ try {
 
             $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'] ?? null;
 
-            $shippingCost = (float)($data['shipping_cost'] ?? $data['flete_envio'] ?? $data['estimatedShippingCost'] ?? 16500);
+            // Capturar el flete priorizando shipping_cost, flete_envio, flete y default 16500.00
+            $flete = isset($data['shipping_cost']) ? floatval($data['shipping_cost']) : (
+                     isset($data['flete_envio']) ? floatval($data['flete_envio']) : (
+                     isset($data['flete']) ? floatval($data['flete']) : 16500.00
+                    ));
 
             if ($tableName === 'productos') {
                 // Guardado específico en la tabla 'productos' (MySQL cPanel)
                 $sql = "INSERT INTO productos (
-                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, dropi_product_id, created_at
+                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, flete_envio, dropi_product_id, created_at
                 ) VALUES (
-                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :dropi_product_id, NOW()
+                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :flete_envio, :dropi_product_id, NOW()
                 ) ON DUPLICATE KEY UPDATE
                     nombre = VALUES(nombre),
                     precio = VALUES(precio),
@@ -376,6 +380,7 @@ try {
                     imagen = VALUES(imagen),
                     imagenes = VALUES(imagenes),
                     shipping_cost = VALUES(shipping_cost),
+                    flete_envio = VALUES(flete_envio),
                     dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), dropi_product_id)";
 
                 $stmt = $pdo->prepare($sql);
@@ -387,7 +392,8 @@ try {
                     ':descripcion'      => $description,
                     ':imagen'           => $mainImage,
                     ':imagenes'         => $imagesJson,
-                    ':shipping_cost'    => $shippingCost,
+                    ':shipping_cost'    => $flete,
+                    ':flete_envio'      => $flete,
                     ':dropi_product_id' => $dropiId
                 ]);
             } else {
@@ -405,11 +411,11 @@ try {
 
                 $sql = "INSERT INTO products (
                     id, title, slug, description, short_description, price, cost_price, compare_price,
-                    discount_percentage, stock, active, featured, images, shipping_cost, warranty_info, tags,
+                    discount_percentage, stock, active, featured, images, shipping_cost, flete_envio, warranty_info, tags,
                     category_id, category_name, warehouse_city, brand, dropi_id, variants, weight_kg, updated_at
                 ) VALUES (
                     :id, :title, :slug, :description, :short_description, :price, :cost_price, :compare_price,
-                    :discount_percentage, :stock, :active, :featured, :images, :shipping_cost, :warranty_info, :tags,
+                    :discount_percentage, :stock, :active, :featured, :images, :shipping_cost, :flete_envio, :warranty_info, :tags,
                     :category_id, :category_name, :warehouse_city, :brand, :dropi_id, :variants, :weight_kg, NOW()
                 ) ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
@@ -425,6 +431,7 @@ try {
                     featured = VALUES(featured),
                     images = VALUES(images),
                     shipping_cost = VALUES(shipping_cost),
+                    flete_envio = VALUES(flete_envio),
                     warranty_info = VALUES(warranty_info),
                     tags = VALUES(tags),
                     category_id = VALUES(category_id),
@@ -451,7 +458,8 @@ try {
                     ':active'              => $active,
                     ':featured'            => $featured,
                     ':images'              => $imagesJson,
-                    ':shipping_cost'       => $shippingCost,
+                    ':shipping_cost'       => $flete,
+                    ':flete_envio'         => $flete,
                     ':warranty_info'       => $warrantyInfo,
                     ':tags'                => $tagsJson,
                     ':category_id'         => $categoryId,
@@ -465,7 +473,7 @@ try {
             }
 
             // Leer producto recién guardado
-            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
             $fetchStmt->execute([':id' => $id]);
             $savedRow = $fetchStmt->fetch();
 
@@ -473,7 +481,8 @@ try {
             echo json_encode([
                 'success'       => true,
                 'message'       => 'Producto guardado',
-                'shipping_cost' => $shippingCost,
+                'shipping_cost' => $flete,
+                'flete_envio'   => $flete,
                 'data'          => formatProductOutput($savedRow)
             ]);
             exit;
@@ -483,65 +492,91 @@ try {
         // PUT: Actualización de producto por ?id=
         // =====================================================================
         case 'PUT':
-            $id = $_GET['id'] ?? ($inputData['id'] ?? null);
+            $data = $inputData;
+            $id = $_GET['id'] ?? ($data['id'] ?? null);
             if (!$id) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
                 exit();
             }
 
-            if ($tableName === 'productos') {
-                $fields = [];
-                $params = [':id' => $id];
+            // Capturar el flete priorizando: shipping_cost -> flete_envio -> flete -> 16500.00
+            $flete = isset($data['shipping_cost']) ? floatval($data['shipping_cost']) : (
+                     isset($data['flete_envio']) ? floatval($data['flete_envio']) : (
+                     isset($data['flete']) ? floatval($data['flete']) : 16500.00
+                    ));
 
-                if (isset($inputData['nombre']) || isset($inputData['title'])) {
+            if ($tableName === 'productos') {
+                $fields = [
+                    "shipping_cost = :flete",
+                    "flete_envio = :flete"
+                ];
+                $params = [
+                    ':id'    => $id,
+                    ':flete' => $flete
+                ];
+
+                if (isset($data['nombre']) || isset($data['title']) || isset($data['name'])) {
                     $fields[] = "nombre = :nombre";
-                    $params[':nombre'] = $inputData['nombre'] ?? $inputData['title'];
+                    $params[':nombre'] = $data['nombre'] ?? $data['title'] ?? $data['name'];
                 }
-                if (isset($inputData['precio']) || isset($inputData['price'])) {
+                if (isset($data['precio']) || isset($data['price'])) {
                     $fields[] = "precio = :precio";
-                    $params[':precio'] = (float)($inputData['precio'] ?? $inputData['price']);
+                    $params[':precio'] = (float)($data['precio'] ?? $data['price']);
                 }
-                if (isset($inputData['stock']) || isset($inputData['inventario'])) {
+                if (isset($data['costo']) || isset($data['costPrice']) || isset($data['supplier_cost'])) {
+                    $fields[] = "supplier_cost = :supplier_cost";
+                    $params[':supplier_cost'] = (float)($data['costo'] ?? $data['costPrice'] ?? $data['supplier_cost']);
+                }
+                if (isset($data['suggested_price']) || isset($data['compareAtPrice']) || isset($data['compare_price'])) {
+                    $fields[] = "suggested_price = :suggested_price";
+                    $params[':suggested_price'] = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price']);
+                }
+                if (isset($data['stock']) || isset($data['inventario'])) {
                     $fields[] = "stock = :stock";
-                    $params[':stock'] = (int)($inputData['stock'] ?? $inputData['inventario']);
+                    $params[':stock'] = (int)($data['stock'] ?? $data['inventario']);
                 }
-                if (isset($inputData['descripcion']) || isset($inputData['description'])) {
+                if (isset($data['descripcion']) || isset($data['description'])) {
                     $fields[] = "descripcion = :descripcion";
-                    $params[':descripcion'] = $inputData['descripcion'] ?? $inputData['description'];
+                    $params[':descripcion'] = $data['descripcion'] ?? $data['description'];
                 }
-                if (isset($inputData['dropi_product_id']) || isset($inputData['dropiProductId']) || isset($inputData['dropi_id'])) {
+                if (isset($data['categoria']) || isset($data['category'])) {
+                    $fields[] = "categoria = :categoria, category = :categoria";
+                    $params[':categoria'] = $data['categoria'] ?? $data['category'];
+                }
+                if (isset($data['dropi_product_id']) || isset($data['dropiProductId']) || isset($data['dropi_id'])) {
                     $fields[] = "dropi_product_id = :dropi_product_id";
-                    $params[':dropi_product_id'] = $inputData['dropi_product_id'] ?? $inputData['dropiProductId'] ?? $inputData['dropi_id'];
+                    $params[':dropi_product_id'] = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'];
                 }
-                if (isset($inputData['images']) || isset($inputData['imagenes'])) {
-                    $raw = $inputData['images'] ?? $inputData['imagenes'];
+                if (isset($data['images']) || isset($data['imagenes'])) {
+                    $raw = $data['images'] ?? $data['imagenes'];
                     $arr = is_array($raw) ? $raw : json_decode($raw, true);
                     if (is_array($arr) && !empty($arr)) {
-                        $fields[] = "imagen = :imagen";
+                        $fields[] = "imagen = :imagen, imagenes = :imagenes";
                         $params[':imagen'] = $arr[0];
-                        $fields[] = "imagenes = :imagenes";
                         $params[':imagenes'] = json_encode($arr, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                     }
-                } else if (isset($inputData['imagen']) || isset($inputData['image'])) {
-                    $img = $inputData['imagen'] ?? $inputData['image'];
+                } else if (isset($data['imagen']) || isset($data['image'])) {
+                    $img = $data['imagen'] ?? $data['image'];
                     $fields[] = "imagen = :imagen";
                     $params[':imagen'] = $img;
                 }
 
-                if (isset($inputData['shipping_cost']) || isset($inputData['flete_envio']) || isset($inputData['estimatedShippingCost'])) {
-                    $fields[] = "shipping_cost = :shipping_cost";
-                    $params[':shipping_cost'] = (float)($inputData['shipping_cost'] ?? $inputData['flete_envio'] ?? $inputData['estimatedShippingCost']);
-                }
+                $fields[] = "updated_at = NOW()";
 
-                if (!empty($fields)) {
-                    $sql = "UPDATE productos SET " . implode(', ', $fields) . " WHERE id = :id";
-                    $stmt = $pdo->prepare($sql);
-                    $stmt->execute($params);
-                }
+                // Ejecución SQL asegurando shipping_cost = :flete y flete_envio = :flete por ID o slug
+                $sql = "UPDATE productos SET " . implode(', ', $fields) . " WHERE id = :id OR slug = :id";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
             } else {
-                $fieldsToUpdate = [];
-                $params = [':id' => $id];
+                $fieldsToUpdate = [
+                    "shipping_cost = :flete",
+                    "flete_envio = :flete"
+                ];
+                $params = [
+                    ':id'    => $id,
+                    ':flete' => $flete
+                ];
 
                 $mapping = [
                     'title'              => 'title',
@@ -556,14 +591,11 @@ try {
                     'active'             => 'active',
                     'featured'           => 'featured',
                     'dropi_product_id'   => 'dropi_id',
-                    'shipping_cost'      => 'shipping_cost',
-                    'flete_envio'        => 'shipping_cost',
-                    'estimatedShippingCost' => 'shipping_cost'
                 ];
 
                 foreach ($mapping as $jsonKey => $dbCol) {
-                    if (array_key_exists($jsonKey, $inputData)) {
-                        $val = $inputData[$jsonKey];
+                    if (array_key_exists($jsonKey, $data)) {
+                        $val = $data[$jsonKey];
                         if ($dbCol === 'active' || $dbCol === 'featured') {
                             $val = $val ? 1 : 0;
                         }
@@ -572,20 +604,18 @@ try {
                     }
                 }
 
-                if (isset($inputData['images']) && is_array($inputData['images'])) {
+                if (isset($data['images']) && is_array($data['images'])) {
                     $fieldsToUpdate[] = "images = :images";
-                    $params[':images'] = json_encode($inputData['images'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $params[':images'] = json_encode($data['images'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 }
 
-                if (!empty($fieldsToUpdate)) {
-                    $fieldsToUpdate[] = "updated_at = NOW()";
-                    $sql = "UPDATE products SET " . implode(', ', $fieldsToUpdate) . " WHERE id = :id";
-                    $stmt = $pdo->prepare($sql);
-                    $stmt->execute($params);
-                }
+                $fieldsToUpdate[] = "updated_at = NOW()";
+                $sql = "UPDATE products SET " . implode(', ', $fieldsToUpdate) . " WHERE id = :id OR slug = :id";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
             }
 
-            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
             $fetchStmt->execute([':id' => $id]);
             $updatedRow = $fetchStmt->fetch();
 
@@ -595,13 +625,14 @@ try {
                 exit();
             }
 
-            $finalShipping = (float)($updatedRow['shipping_cost'] ?? $updatedRow['flete_envio'] ?? 16500);
+            $finalShipping = (float)($updatedRow['shipping_cost'] ?? $updatedRow['flete_envio'] ?? $flete);
 
             header('Content-Type: application/json');
             echo json_encode([
                 'success'       => true,
                 'message'       => 'Producto guardado',
                 'shipping_cost' => $finalShipping,
+                'flete_envio'   => $finalShipping,
                 'data'          => formatProductOutput($updatedRow)
             ]);
             exit;

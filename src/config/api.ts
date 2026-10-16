@@ -25,10 +25,13 @@ export const API_ENDPOINTS = {
  * y esperando la confirmación de la respuesta HTTP 200 { success: true }
  */
 export async function saveProductToCpanel(productData: any): Promise<{ success: boolean; data?: any; shipping_cost?: number }> {
+  const valorFlete = parseFloat(String(productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 16500)) || 16500;
   const payload = {
     ...productData,
     id: String(productData.id || productData.slug || `prod-${Date.now()}`),
-    shipping_cost: Number(productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 16500),
+    shipping_cost: valorFlete,
+    flete_envio: valorFlete,
+    estimatedShippingCost: valorFlete,
     costPrice: Number(productData.costPrice ?? productData.costo_proveedor ?? productData.supplier_cost ?? 0),
     price: Number(productData.price ?? productData.precio ?? 0)
   };

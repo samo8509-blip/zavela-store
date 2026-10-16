@@ -582,7 +582,7 @@ router.put('/:id', async (req, res) => {
       supplier_sku,
       categoria, category,
       active, status,
-      shipping_cost, flete_envio, estimatedShippingCost
+      shipping_cost, flete_envio, flete, estimatedShippingCost
     } = req.body;
 
     const targetId = req.params.id;
@@ -594,7 +594,7 @@ router.put('/:id', async (req, res) => {
     const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
     const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
     const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
-    const shippingCost = Number(shipping_cost ?? flete_envio ?? estimatedShippingCost ?? 16500) || 16500;
+    const shippingCost = Number(shipping_cost ?? flete_envio ?? flete ?? estimatedShippingCost ?? 16500) || 16500;
     const finalProvider = provider || supplier || 'DeRocha';
     const finalSupplier = finalProvider;
     const effectiveDropiId = dropi_product_id || dropiProductId;
@@ -614,6 +614,7 @@ router.put('/:id', async (req, res) => {
         supplier_cost = ?,
         suggested_price = ?,
         shipping_cost = ?,
+        flete_envio = ?,
         provider = ?,
         supplier = ?,
         dropi_product_id = ?,
@@ -626,12 +627,12 @@ router.put('/:id', async (req, res) => {
     `;
     const values = [
       finalName, finalPrice, finalStock, finalDesc, finalImage,
-      finalImages, finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier,
+      finalImages, finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier,
       finalDropiId, finalSku, finalCat, finalCat, finalActive,
       targetId, targetId
     ];
 
-    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shipping_cost:', shippingCost);
+    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shipping_cost:', shippingCost, 'flete_envio:', shippingCost);
 
     // Usar pool centralizado resiliente (con query timeout y fallback local)
     const [result]: any = await pool.query(query, values);
@@ -645,12 +646,12 @@ router.put('/:id', async (req, res) => {
           await pool.query(`
             INSERT INTO productos (
               id, nombre, precio, stock, descripcion, imagen, imagenes,
-              supplier_cost, suggested_price, shipping_cost, provider, supplier, dropi_product_id,
+              supplier_cost, suggested_price, shipping_cost, flete_envio, provider, supplier, dropi_product_id,
               supplier_sku, categoria, category, active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-            finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier, finalDropiId,
+            finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier, finalDropiId,
             finalSku, finalCat, finalCat, finalActive
           ]);
         }
@@ -669,12 +670,12 @@ router.put('/:id', async (req, res) => {
       await pool.query(`
         UPDATE products SET
           name = ?, title = ?, price = ?, stock = ?, description = ?,
-          images = ?, supplier_cost = ?, suggested_price = ?, shipping_cost = ?, provider = ?, supplier = ?,
+          images = ?, supplier_cost = ?, suggested_price = ?, shipping_cost = ?, flete_envio = ?, provider = ?, supplier = ?,
           dropi_product_id = ?, supplier_sku = ?, category = ?, active = ?, updated_at = NOW()
         WHERE id = ? OR slug = ?
       `, [
         finalName, finalName, finalPrice, finalStock, finalDesc,
-        finalImages, finalCost, finalSuggested, shippingCost, finalProvider, finalSupplier,
+        finalImages, finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier,
         finalDropiId, finalSku, finalCat, finalActive,
         targetId, targetId
       ]);

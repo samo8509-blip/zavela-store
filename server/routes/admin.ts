@@ -409,7 +409,7 @@ async function executeProductUpdate(productId: string, body: any) {
 
   const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
   const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
-  const shippingCost = Number(body.shipping_cost ?? body.flete_envio ?? body.estimatedShippingCost ?? ((existing as any)?.shipping_cost || existing?.estimatedShippingCost || 16500)) || 16500;
+  const shippingCost = Number(body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? ((existing as any)?.shipping_cost || (existing as any)?.flete_envio || existing?.estimatedShippingCost || 16500)) || 16500;
   const marginAmount = price - costPrice;
   const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
   const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
@@ -508,6 +508,7 @@ async function executeProductUpdate(productId: string, body: any) {
       brand: body.brand || existing?.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
       shipping_cost: shippingCost,
+      flete_envio: shippingCost,
       estimatedShippingCost: shippingCost,
       variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -545,6 +546,7 @@ async function executeProductUpdate(productId: string, body: any) {
           supplier_cost = ?,
           suggested_price = ?,
           shipping_cost = ?,
+          flete_envio = ?,
           stock = ?,
           descripcion = ?,
           categoria = ?,
@@ -567,6 +569,7 @@ async function executeProductUpdate(productId: string, body: any) {
         saved.price,
         costPrice,
         compareAtPrice,
+        shippingCost,
         shippingCost,
         saved.stock,
         saved.description,
@@ -785,8 +788,9 @@ router.post('/products', async (req, res) => {
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
-      shipping_cost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)) || 16500,
-      estimatedShippingCost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)) || 16500,
+      shipping_cost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
+      flete_envio: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
+      estimatedShippingCost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
       variants: Array.isArray(body.variants) ? body.variants : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -807,9 +811,9 @@ router.post('/products', async (req, res) => {
     try {
       await pool.query(`
         INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, stock, description, category, category_id,
+          id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, flete_envio, stock, description, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, images, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           name = VALUES(name),
@@ -818,6 +822,7 @@ router.post('/products', async (req, res) => {
           supplier_cost = VALUES(supplier_cost),
           suggested_price = VALUES(suggested_price),
           shipping_cost = VALUES(shipping_cost),
+          flete_envio = VALUES(flete_envio),
           stock = VALUES(stock),
           description = VALUES(description),
           category = VALUES(category),
@@ -830,22 +835,23 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newShippingCost, newProduct.stock, description,
+        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newProduct.stock, description,
         postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, JSON.stringify(validImages), isNewActiveInt
       ]);
 
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, suggested_price, shipping_cost, stock, descripcion, categoria, category, category_id,
+          id, nombre, precio, supplier_cost, suggested_price, shipping_cost, flete_envio, stock, descripcion, categoria, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, imagen, imagenes, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
           supplier_cost = VALUES(supplier_cost),
           suggested_price = VALUES(suggested_price),
           shipping_cost = VALUES(shipping_cost),
+          flete_envio = VALUES(flete_envio),
           stock = VALUES(stock),
           descripcion = VALUES(descripcion),
           categoria = VALUES(categoria),
@@ -860,7 +866,7 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, price, costPrice, compareAtPrice, newShippingCost, newProduct.stock, description,
+        newProduct.id, title, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newProduct.stock, description,
         postCatName, postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, mainImage, JSON.stringify(validImages), isNewActiveInt
       ]);

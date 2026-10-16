@@ -457,6 +457,7 @@ export interface Product {
   // Financial & Dropi Cost Breakdown
   costPrice?: number; // Costo base del producto/proveedor
   shipping_cost?: number; // Flete de envío estimado canónico en MySQL
+  flete_envio?: number; // Flete de envío alias en MySQL cPanel
   estimatedShippingCost?: number; // Costo estimado de flete/envío
   dropiFee?: number; // Tarifa fija/recaudo plataforma Dropi
   totalOperatingCost?: number; // Costo total = Producto + Envío + Tarifa Dropi
