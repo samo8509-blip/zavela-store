@@ -582,7 +582,7 @@ router.put('/:id', async (req, res) => {
       supplier_sku,
       categoria, category,
       active, status,
-      shipping_cost, flete_envio, flete, estimatedShippingCost
+      shipping_cost, flete_envio, flete, estimatedShippingCost, shippingCost, costo_envio, fleteEnvio
     } = req.body;
 
     const targetId = req.params.id;
@@ -594,7 +594,9 @@ router.put('/:id', async (req, res) => {
     const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
     const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
     const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
-    const shippingCost = Number(shipping_cost ?? flete_envio ?? flete ?? estimatedShippingCost ?? 16500) || 16500;
+    const rawShipping = req.body.shippingCost ?? req.body.shipping_cost ?? req.body.flete ?? req.body.flete_envio ?? req.body.costo_envio ?? req.body.estimatedShippingCost;
+  const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
+  const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
     const finalProvider = provider || supplier || 'DeRocha';
     const finalSupplier = finalProvider;
     const effectiveDropiId = dropi_product_id || dropiProductId;
