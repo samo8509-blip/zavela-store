@@ -755,7 +755,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const costoProveedor = Number(costPrice) || 0;
       const precioVenta = Number(price) || 0;
       const precioSugerido = Number(suggestedPrice) || Number(precioVenta) || 0;
-      const valorFlete = parseFloat(String(shippingCost)) || 16500;
+     const valorFlete = (typeof shippingCost === 'number' && !isNaN(shippingCost) && shippingCost >= 0)
+  ? shippingCost
+  : (parseFloat(String(shippingCost).replace(/[^0-9.]/g, '')) || 0);
 
       const selectedCategory = selectedCat?.name || (categories.find(c => c.id === categoryId || c.slug === categoryId)?.name) || (selectedCat?.id) || categoryId || (product as any)?.categoria || (product as any)?.category || 'General';
 
@@ -810,29 +812,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         publishToSocial,
         publishToFacebook
       };
-
-      const formData: any = {
-        ...basePayload,
-        provider: selectedProvider,
-        supplier: selectedProvider,
-        supplier_cost: Number(costoProveedor) || 0,
-        suggested_price: Number(precioSugerido) || Number(precioVenta) || 0,
-        dropi_product_id: selectedProvider === 'dropi' ? (dropiId || null) : null,
-        images: galleryImages,
-        imagenes: JSON.stringify(galleryImages),
-        categoria: selectedCategory,
-        category: selectedCategory
-      };
-
-      // Asegurar extracción del número digitado en el input
-      const shippingValue = Number(formData.flete ?? formData.shipping_cost ?? shippingCost ?? 16500);
-
-      const payloadFinal = {
+const payloadFinal = {
         ...formData,
-        shipping_cost: shippingValue,
-        flete_envio: shippingValue,
-        flete: shippingValue, // Mantiene compatibilidad
-        estimatedShippingCost: shippingValue
+        shippingCost: valorFlete,
+        shipping_cost: valorFlete,
+        flete_envio: valorFlete,
+        flete: valorFlete,
+        estimatedShippingCost: valorFlete
       };
 
       // Log explícito en consola para auditar en DevTools
