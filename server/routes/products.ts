@@ -70,6 +70,12 @@ function mapSqlRowToProduct(row: any): any {
     }
   }
 
+  const parsedShipping = (() => {
+    const val = row.shipping_cost ?? row.flete_envio ?? row.flete ?? row.estimatedShippingCost;
+    const num = Number(val);
+    return (!isNaN(num) && num >= 0) ? num : 16500;
+  })();
+
   return {
     id: String(row.id),
     title: row.title || row.name || row.nombre || 'Producto Zavela',
@@ -82,8 +88,11 @@ function mapSqlRowToProduct(row: any): any {
     supplier_cost: supplierCost,
     compareAtPrice: suggestedPrice,
     suggested_price: suggestedPrice,
-    shipping_cost: row.shipping_cost !== undefined && row.shipping_cost !== null ? Number(row.shipping_cost) : 16500,
-    estimatedShippingCost: row.shipping_cost !== undefined && row.shipping_cost !== null ? Number(row.shipping_cost) : 16500,
+    shipping_cost: parsedShipping,
+    shippingCost: parsedShipping,
+    flete_envio: parsedShipping,
+    flete: parsedShipping,
+    estimatedShippingCost: parsedShipping,
     discountPercentage: (suggestedPrice > price && suggestedPrice > 0) ? Math.round(((suggestedPrice - price) / suggestedPrice) * 100) : 0,
     stock: Number(row.stock !== undefined ? row.stock : 10),
     description: row.description || row.descripcion || '',
@@ -186,7 +195,7 @@ router.get('/', async (req, res) => {
     let products: any[] = [];
     let queriedFromSql = false;
 
-    // 1. Consulta SQL directa a la tabla física en MySQL cPanel (priorizando `productos` y `products`)
+    // 1. Consulta SQL directa a la tabla física en MySQL cPanel
     try {
       if (nativePool) {
         let sqlRows: any = [];
@@ -230,10 +239,10 @@ router.get('/', async (req, res) => {
       }));
     }
 
-    // 2. Filtrar productos de prueba demo conocidos
+    // 3. Filtrar productos de prueba demo conocidos
     products = products.filter(p => !isTestProduct(p));
 
-    // 3. Filtros opcionales por categoría, búsqueda y precio
+    // 4. Filtros opcionales por categoría, búsqueda y precio
     if (category && typeof category === 'string' && category !== 'all' && category !== 'todas') {
       const catLower = category.toLowerCase().trim();
       products = products.filter(p => 
@@ -268,8 +277,6 @@ router.get('/', async (req, res) => {
       products.sort((a, b) => b.discountPercentage - a.discountPercentage);
     }
 
-    // Retorna EXCLUSIVAMENTE lo que existe físicamente en MySQL
-    // Si la tabla está vacía o tiene pocos productos, NO inyecta productos por defecto
     res.json({
       success: true,
       count: products.length,
@@ -390,11 +397,14 @@ router.post('/', async (req, res) => {
     const stock = Number(body.stock !== undefined ? body.stock : (body.inventario !== undefined ? body.inventario : 10));
     const description = body.description !== undefined ? body.description : (body.descripcion || '');
 
+    const rawShipping = body.shippingCost ?? body.shipping_cost ?? body.flete ?? body.flete_envio ?? body.estimatedShippingCost;
+    const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
+    const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
+
     const rawCategory = body.categoria || body.category || body.categoryName || body.categoria_nombre;
     let category = rawCategory ? String(rawCategory).trim() : 'General';
     let categoryId = body.categoryId || body.categoria_id || body.category_id || 'cat-general';
 
-    // Resolver con catálogo de categorías para garantizar coincidencia exacta de nombre y ID
     const matchedCategory = db.getCategories().find(c => {
       const clean = category.toLowerCase().replace(/^[^\w\s]+/, '').trim();
       const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
@@ -434,17 +444,15 @@ router.post('/', async (req, res) => {
     const variantsList = Array.isArray(rawVariants) ? rawVariants : [];
     const variantsJson = JSON.stringify(variantsList);
 
-    // 1. Guardar dropiId si corresponde
     if (dropiProductId) {
       dropiBackupService.saveDropiId(id, dropiProductId);
     }
 
-    // 2. Inserción directa en MySQL física tabla products
     const imagesJson = JSON.stringify(validImages);
     await pool.query(`
       INSERT INTO products (
-        id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, images, variants, variantes, sizes, active, status, estado, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, images, variants, variantes, sizes, active, status, estado, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       ON DUPLICATE KEY UPDATE
         title = VALUES(title),
         name = VALUES(name),
@@ -460,6 +468,8 @@ router.post('/', async (req, res) => {
         provider = VALUES(provider),
         supplier = VALUES(supplier),
         supplier_sku = VALUES(supplier_sku),
+        shipping_cost = VALUES(shipping_cost),
+        flete_envio = VALUES(flete_envio),
         images = VALUES(images),
         variants = VALUES(variants),
         variantes = VALUES(variantes),
@@ -470,16 +480,15 @@ router.post('/', async (req, res) => {
         updated_at = NOW()
     `, [
       id, title, title, slug, price, costPrice, compareAtPrice, stock, description,
-      category, categoryId, dropiProductId, provider, supplier, supplierSku, imagesJson,
+      category, categoryId, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, imagesJson,
       variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr
     ]);
 
-    // 3. Inserción y actualización explícita de categoría en la tabla productos (MySQL cPanel)
     try {
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, imagen, imagenes, variants, variantes, sizes, active, status, estado, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, flete, imagen, imagenes, variants, variantes, sizes, active, status, estado, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
@@ -494,6 +503,9 @@ router.post('/', async (req, res) => {
           provider = VALUES(provider),
           supplier = VALUES(supplier),
           supplier_sku = VALUES(supplier_sku),
+          shipping_cost = VALUES(shipping_cost),
+          flete_envio = VALUES(flete_envio),
+          flete = VALUES(flete),
           imagen = VALUES(imagen),
           imagenes = VALUES(imagenes),
           variants = VALUES(variants),
@@ -505,18 +517,9 @@ router.post('/', async (req, res) => {
           updated_at = NOW()
       `, [
         id, title, price, costPrice, compareAtPrice, stock, description,
-        category, category, categoryId, dropiProductId, provider, supplier, supplierSku, mainImage, imagesJson,
+        category, category, categoryId, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, shippingCost, mainImage, imagesJson,
         variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr
       ]);
-
-      // Confirmar actualización explícita de categoria, category y category_id en la tabla productos
-      await pool.query(`
-        UPDATE productos SET 
-          categoria = ?, 
-          category = ?, 
-          category_id = ? 
-        WHERE id = ?
-      `, [category, category, categoryId, id]);
     } catch {}
 
     const productRecord = {
@@ -534,6 +537,11 @@ router.post('/', async (req, res) => {
       category,
       categoryName: category,
       categoryId,
+      shippingCost,
+      shipping_cost: shippingCost,
+      flete_envio: shippingCost,
+      flete: shippingCost,
+      estimatedShippingCost: shippingCost,
       dropi_product_id: dropiProductId || '',
       dropiProductId: dropiProductId || '',
       provider,
@@ -551,7 +559,6 @@ router.post('/', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    // Sincronizar copia en memoria
     db.saveProduct(productRecord as any);
     cpanelDbService.saveProduct(productRecord as any).catch(() => {});
 
@@ -581,30 +588,31 @@ router.put('/:id', async (req, res) => {
       dropi_product_id, dropiProductId,
       supplier_sku,
       categoria, category,
-    active, status,
-    shipping_cost, flete_envio, flete, estimatedShippingCost
-  } = req.body;
+      active, status,
+      shipping_cost, flete_envio, flete, estimatedShippingCost
+    } = req.body;
 
-  const targetId = req.params.id;
-  const finalName = nombre || name || title;
-  const finalPrice = Number(precio ?? price ?? 0);
-  const finalStock = Number(stock ?? 0);
-  const finalDesc = descripcion || description || '';
-  const finalImage = imagen || image || '';
-  const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
-  const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
-  const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
+    const targetId = req.params.id;
+    const finalName = nombre || name || title;
+    const finalPrice = Number(precio ?? price ?? 0);
+    const finalStock = Number(stock ?? 0);
+    const finalDesc = descripcion || description || '';
+    const finalImage = imagen || image || '';
+    const finalImages = typeof imagenes === 'string' ? imagenes : JSON.stringify(images || (finalImage ? [finalImage] : []));
+    const finalCost = Number(supplier_cost ?? costo_proveedor ?? costPrice ?? 0);
+    const finalSuggested = Number(suggested_price ?? compareAtPrice ?? finalPrice);
 
-  const rawShipping = req.body.shippingCost ?? shipping_cost ?? flete ?? flete_envio ?? req.body.costo_envio ?? estimatedShippingCost;
-  const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
-  const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
-const finalProvider = provider || supplier || 'DeRocha';
-  const finalSupplier = finalProvider;
-  const effectiveDropiId = dropi_product_id || dropiProductId;
-  const finalDropiId = (finalProvider === 'dropi' && effectiveDropiId) ? String(effectiveDropiId).trim() : null;
-  const finalSku = supplier_sku || null;
-  const finalCat = categoria || category || 'General';
-  const finalActive = (active === 1 || active === true || status === 'active') ? 1 : 0;
+    const rawShipping = req.body.shippingCost ?? shipping_cost ?? flete ?? flete_envio ?? req.body.costo_envio ?? estimatedShippingCost;
+    const parsedShipping = typeof rawShipping === 'string' ? parseFloat(rawShipping.replace(/[^0-9.]/g, '')) : Number(rawShipping);
+    const shippingCost = (!isNaN(parsedShipping) && parsedShipping >= 0) ? parsedShipping : 16500;
+
+    const finalProvider = provider || supplier || 'DeRocha';
+    const finalSupplier = finalProvider;
+    const effectiveDropiId = dropi_product_id || dropiProductId;
+    const finalDropiId = (finalProvider === 'dropi' && effectiveDropiId) ? String(effectiveDropiId).trim() : null;
+    const finalSku = supplier_sku || null;
+    const finalCat = categoria || category || 'General';
+    const finalActive = (active === 1 || active === true || status === 'active') ? 1 : 0;
 
     const query = `
       UPDATE productos SET
@@ -618,6 +626,7 @@ const finalProvider = provider || supplier || 'DeRocha';
         suggested_price = ?,
         shipping_cost = ?,
         flete_envio = ?,
+        flete = ?,
         provider = ?,
         supplier = ?,
         dropi_product_id = ?,
@@ -630,14 +639,14 @@ const finalProvider = provider || supplier || 'DeRocha';
     `;
     const values = [
       finalName, finalPrice, finalStock, finalDesc, finalImage,
-      finalImages, finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier,
+      finalImages, finalCost, finalSuggested, shippingCost, shippingCost, shippingCost, finalProvider, finalSupplier,
       finalDropiId, finalSku, finalCat, finalCat, finalActive,
       targetId, targetId
     ];
 
-    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shipping_cost:', shippingCost, 'flete_envio:', shippingCost);
+    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shippingCost:', shippingCost);
 
-    // Usar pool centralizado resiliente (con query timeout y fallback local)
+    // Usar pool centralizado resiliente
     const [result]: any = await pool.query(query, values);
 
     // Si el registro no existía en productos, insertarlo para asegurar la integridad
@@ -649,12 +658,12 @@ const finalProvider = provider || supplier || 'DeRocha';
           await pool.query(`
             INSERT INTO productos (
               id, nombre, precio, stock, descripcion, imagen, imagenes,
-              supplier_cost, suggested_price, shipping_cost, flete_envio, provider, supplier, dropi_product_id,
+              supplier_cost, suggested_price, shipping_cost, flete_envio, flete, provider, supplier, dropi_product_id,
               supplier_sku, categoria, category, active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
             targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-            finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier, finalDropiId,
+            finalCost, finalSuggested, shippingCost, shippingCost, shippingCost, finalProvider, finalSupplier, finalDropiId,
             finalSku, finalCat, finalCat, finalActive
           ]);
         }
@@ -663,7 +672,6 @@ const finalProvider = provider || supplier || 'DeRocha';
       }
     }
 
-    // Sincronizar backup de Dropi si aplica
     if (finalDropiId) {
       dropiBackupService.saveDropiId(targetId, finalDropiId);
     }
@@ -684,7 +692,6 @@ const finalProvider = provider || supplier || 'DeRocha';
       ]);
     } catch {}
 
-    // Sincronizar en memoria y respaldo local
     let parsedImages: string[] = [];
     try {
       parsedImages = typeof finalImages === 'string' ? JSON.parse(finalImages) : (Array.isArray(finalImages) ? finalImages : [finalImage]);
@@ -710,8 +717,10 @@ const finalProvider = provider || supplier || 'DeRocha';
       costPrice: finalCost,
       suggested_price: finalSuggested,
       compareAtPrice: finalSuggested,
+      shippingCost: shippingCost,
       shipping_cost: shippingCost,
       flete_envio: shippingCost,
+      flete: shippingCost,
       estimatedShippingCost: shippingCost,
       provider: finalProvider,
       supplier: finalSupplier,
@@ -728,7 +737,6 @@ const finalProvider = provider || supplier || 'DeRocha';
     db.saveProduct(updatedProduct as any);
     cpanelDbService.saveProduct(updatedProduct as any).catch(() => {});
 
-    // Responder siempre de inmediato para nunca dejar la petición en pending
     return res.status(200).json({
       success: true,
       message: "Producto actualizado correctamente",
@@ -798,7 +806,6 @@ router.delete('/:id?', async (req, res) => {
       return res.status(400).json({ success: false, message: 'ID de producto no proporcionado' });
     }
 
-    // 1. Borrado físico definitivo en MySQL (tablas products y productos)
     try {
       await pool.query('SET FOREIGN_KEY_CHECKS = 0');
       await pool.query('DELETE FROM products WHERE id = ?', [id]);
@@ -810,10 +817,7 @@ router.delete('/:id?', async (req, res) => {
       try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
     }
 
-    // 2. Desactivar y purgar completamente el ID de respaldo
     dropiBackupService.removeDropiId(id);
-
-    // 3. Purgar en memoria local y en cPanel
     db.deleteProduct(id);
     cpanelDbService.deleteProduct(id).catch(() => {});
 
@@ -911,7 +915,7 @@ router.post('/bulk-import', async (req, res) => {
         stock,
         description,
         dropi_product_id: dropiProductId,
-        dropiProductId,
+        dropiProductId: dropiProductId,
         provider: 'dropi',
         supplier: 'Dropi Colombia',
         image: mainImage,
