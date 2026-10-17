@@ -317,25 +317,36 @@ router.post('/', async (req, res) => {
 
     const activeInt = (body.active === 0 || body.active === false || body.active === '0' || body.active === 'inactive' || body.active === 'inactivo') ? 0 : 1;
     const imagesJson = JSON.stringify(validImages);
+    
+    const statusStr = activeInt === 1 ? 'active' : 'inactive';
+    const estadoStr = activeInt === 1 ? 'activo' : 'inactivo';
+
+    let rawVariants = body.variants || body.variantes || body.sizes || [];
+    if (typeof rawVariants === 'string') {
+      try { rawVariants = JSON.parse(rawVariants); } catch { rawVariants = [rawVariants]; }
+    }
+    const variantsList = Array.isArray(rawVariants) ? rawVariants : [];
+    const variantsJson = JSON.stringify(variantsList);
 
     if (dropiProductId) dropiBackupService.saveDropiId(id, dropiProductId);
     
-    // Inserción exacta con las columnas que sabemos que existen
+    // Inserción exacta con TODAS las columnas de tu phpMyAdmin
     try {
       await pool.query(`
         INSERT INTO productos (
           id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, 
           dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, flete, 
-          imagen, imagenes, active, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          imagen, imagenes, variants, variantes, sizes, active, status, estado, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre), precio = VALUES(precio), supplier_cost = VALUES(supplier_cost), 
           suggested_price = VALUES(suggested_price), stock = VALUES(stock), descripcion = VALUES(descripcion), 
           categoria = VALUES(categoria), category = VALUES(category), dropi_product_id = VALUES(dropi_product_id), 
           provider = VALUES(provider), supplier = VALUES(supplier), supplier_sku = VALUES(supplier_sku), 
           shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete), 
-          imagen = VALUES(imagen), imagenes = VALUES(imagenes), active = VALUES(active), updated_at = NOW()
-      `, [id, title, price, costPrice, compareAtPrice, stock, description, category, category, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, shippingCost, mainImage, imagesJson, activeInt]);
+          imagen = VALUES(imagen), imagenes = VALUES(imagenes), variants = VALUES(variants), variantes = VALUES(variantes),
+          sizes = VALUES(sizes), active = VALUES(active), status = VALUES(status), estado = VALUES(estado), updated_at = NOW()
+      `, [id, title, price, costPrice, compareAtPrice, stock, description, category, category, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, shippingCost, mainImage, imagesJson, variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr]);
     } catch (e) { console.error('Error MYSQL en POST:', e); }
 
     const productRecord = {
@@ -381,28 +392,39 @@ router.put('/:id', async (req, res) => {
     const finalSku = supplier_sku || null;
     const finalCat = categoria || category || 'General';
     const finalActive = (active === 1 || active === true || status === 'active' || status === 'activo') ? 1 : 0;
+    
+    const statusStr = finalActive === 1 ? 'active' : 'inactive';
+    const estadoStr = finalActive === 1 ? 'activo' : 'inactivo';
+
+    let rawVariants = req.body.variants || req.body.variantes || req.body.sizes || [];
+    if (typeof rawVariants === 'string') {
+      try { rawVariants = JSON.parse(rawVariants); } catch { rawVariants = [rawVariants]; }
+    }
+    const variantsList = Array.isArray(rawVariants) ? rawVariants : [];
+    const variantsJson = JSON.stringify(variantsList);
 
     console.log('Actualizando MYSQL seguro. ID:', targetId, 'Proveedor:', finalProvider, 'Flete:', shippingCost);
 
-    // UPSERT SEGURO: Sólo con las columnas comprobadas de la base de datos (Sin status, estado, ni variantes que hacían fallar todo)
+    // UPSERT SEGURO: Con TODAS las columnas de la captura
     try {
       await pool.query(`
         INSERT INTO productos (
           id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category,
           dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, flete,
-          imagen, imagenes, active, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+          imagen, imagenes, variants, variantes, sizes, active, status, estado, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre), precio = VALUES(precio), supplier_cost = VALUES(supplier_cost),
           suggested_price = VALUES(suggested_price), stock = VALUES(stock), descripcion = VALUES(descripcion),
           categoria = VALUES(categoria), category = VALUES(category), dropi_product_id = VALUES(dropi_product_id),
           provider = VALUES(provider), supplier = VALUES(supplier), supplier_sku = VALUES(supplier_sku),
           shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete),
-          imagen = VALUES(imagen), imagenes = VALUES(imagenes), active = VALUES(active), updated_at = NOW()
+          imagen = VALUES(imagen), imagenes = VALUES(imagenes), variants = VALUES(variants), variantes = VALUES(variantes),
+          sizes = VALUES(sizes), active = VALUES(active), status = VALUES(status), estado = VALUES(estado), updated_at = NOW()
       `, [
         targetId, finalName, finalPrice, finalCost, finalSuggested, finalStock, finalDesc, finalCat, finalCat,
         finalDropiId, finalProvider, finalSupplier, finalSku, shippingCost, shippingCost, shippingCost,
-        finalImage, finalImages, finalActive
+        finalImage, finalImages, variantsJson, variantsJson, variantsJson, finalActive, statusStr, estadoStr
       ]);
       console.log('✅ MYSQL Actualizado con éxito.');
     } catch (e) {
@@ -441,8 +463,11 @@ router.patch('/:id/toggle-active', async (req, res) => {
       newActive = (newActive === 1 || newActive === true || newActive === '1' || newActive === 'active' || newActive === 'activo') ? 1 : 0;
     }
 
+    const statusStr = newActive === 1 ? 'active' : 'inactive';
+    const estadoStr = newActive === 1 ? 'activo' : 'inactivo';
+
     try {
-      await pool.query('UPDATE productos SET active = ?, updated_at = NOW() WHERE id = ?', [newActive, id]);
+      await pool.query('UPDATE productos SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?', [newActive, statusStr, estadoStr, id]);
     } catch(e){}
 
     const prod = db.getProductById(id);
@@ -513,10 +538,10 @@ router.post('/bulk-import', async (req, res) => {
       try {
         await pool.query(`
           INSERT INTO productos (
-            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, shipping_cost, flete_envio, flete, imagen, imagenes, active, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, ?, ?, ?, ?, 1, NOW())
+            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, shipping_cost, flete_envio, flete, imagen, imagenes, active, status, estado, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, ?, ?, ?, ?, 1, 'active', 'activo', NOW())
           ON DUPLICATE KEY UPDATE
-            nombre = VALUES(nombre), precio = VALUES(precio), supplier_cost = VALUES(supplier_cost), suggested_price = VALUES(suggested_price), stock = VALUES(stock), descripcion = VALUES(descripcion), dropi_product_id = VALUES(dropi_product_id), shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete), imagen = VALUES(imagen), imagenes = VALUES(imagenes), active = 1, updated_at = NOW()
+            nombre = VALUES(nombre), precio = VALUES(precio), supplier_cost = VALUES(supplier_cost), suggested_price = VALUES(suggested_price), stock = VALUES(stock), descripcion = VALUES(descripcion), dropi_product_id = VALUES(dropi_product_id), shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete), imagen = VALUES(imagen), imagenes = VALUES(imagenes), active = 1, status = 'active', estado = 'activo', updated_at = NOW()
         `, [id, name, price, costPrice, suggestedPrice, stock, description, dropiProductId || null, shippingCost, shippingCost, shippingCost, mainImage, imagesJson]);
       } catch (e) { console.error('Error importando:', e); }
 
