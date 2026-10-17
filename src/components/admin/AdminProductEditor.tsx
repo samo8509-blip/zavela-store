@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, 
   Trash2, 
-  Image as ImageIcon, 
+  ImageIcon, 
   DollarSign, 
   TrendingUp, 
   Tag, 
@@ -64,11 +64,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
   const [description, setDescription] = useState(product?.description || '');
+  
   // --- Helpers canónicos de precarga y resolución para edición ---
   const resolveCategoryForEditor = (prod: any, cats: Category[]): string => {
     if (!prod) return cats[0]?.id || '';
 
-    // 1. Mapear categoría desde product.categoria o product.category
     const rawCat = prod.categoria || prod.category || prod.categoryName || prod.categoryId || prod.category_id || prod.categoria_id;
     if (rawCat) {
       const clean = String(rawCat).toLowerCase().replace(/^[^\w\s]+/, '').trim();
@@ -97,9 +97,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const resolveSupplierCost = (prod: any): number => {
     if (!prod) return 0;
-    // Asigna al input de costo el valor de:
-    // Number(product.supplier_cost ?? product.costo_proveedor ?? product.costPrice ?? 0)
-    // Evita que si viene un número válido se sobreescriba con 0.
     const rawVal = prod.supplier_cost ?? prod.costo_proveedor ?? prod.costPrice ?? 0;
     const num = Number(rawVal);
     return isNaN(num) ? 0 : num;
@@ -107,8 +104,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const resolveProviderForEditor = (prod: any): 'dropi' | 'derocha' | 'direct' | 'other' => {
     if (!prod) return 'derocha';
-    // Proveedor: Asegúrate de leer product.provider || product.supplier || (product.dropi_product_id ? 'dropi' : 'DeRocha')
-    // Si el producto tiene 'DeRocha' o cualquier otro valor distinto a dropi, selecciona visualmente la tarjeta correspondiente y NO fuerces 'dropi' por defecto.
     const raw = prod.provider || prod.supplier || (prod.dropi_product_id ? 'dropi' : 'DeRocha');
     if (raw) {
       const lower = String(raw).toLowerCase().trim();
@@ -122,7 +117,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const resolveDropiProductId = (prod: any): string => {
     if (!prod) return '';
-    // Mapear ID de Dropi desde product.dropi_product_id
     const rawId = prod.dropi_product_id !== undefined && prod.dropi_product_id !== null
       ? prod.dropi_product_id
       : (prod.dropiProductId !== undefined && prod.dropiProductId !== null
@@ -138,7 +132,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     let gallery: string[] = [];
 
-    // * Si viene product.imagenes como string, haz JSON.parse(product.imagenes).
     if (prod.imagenes !== undefined && prod.imagenes !== null) {
       if (typeof prod.imagenes === 'string') {
         const trimmed = prod.imagenes.trim();
@@ -161,7 +154,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       }
     }
 
-    // * Si viene product.images como array, úsalo.
     if (gallery.length === 0 && prod.images !== undefined && prod.images !== null) {
       if (Array.isArray(prod.images)) {
         gallery = prod.images.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
@@ -184,7 +176,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       }
     }
 
-    // * Carga todas las imágenes en el estado de la galería para que no se reduzca a 1 sola foto.
     if (gallery.length === 0) {
       const single = prod.image || prod.imagen || prod.main_image || prod.featured_image;
       if (single && typeof single === 'string' && single.trim().length > 0) {
@@ -201,7 +192,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [brand, setBrand] = useState(product?.brand || 'Zavela Store');
   const [warehouseCity, setWarehouseCity] = useState(product?.warehouseCity || 'Bogotá D.C.');
   
-  // Proveedor y Logística (Dropi, DeRocha, Bodegas directas, Otros)
+  // Proveedor y Logística
   const [provider, setProvider] = useState<'dropi' | 'derocha' | 'direct' | 'other'>(() => resolveProviderForEditor(product));
   const [customSupplierName, setCustomSupplierName] = useState<string>(
     (product as any)?.supplier || (product as any)?.providerName || ''
@@ -217,9 +208,14 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [suggestedPrice, setSuggestedPrice] = useState<number>(
     (product as any)?.suggested_price || (product as any)?.suggestedPrice || product?.compareAtPrice || 119900
   );
+  
+  // SOLUCIÓN FLETE: Estado inicial extrae cualquier variante de flete disponible
   const [shippingCost, setShippingCost] = useState<number>(() => {
-    return Number(product?.shipping_cost ?? (product as any)?.flete_envio ?? product?.estimatedShippingCost ?? 16500);
+    const raw = (product as any)?.shippingCost ?? product?.shipping_cost ?? (product as any)?.flete ?? (product as any)?.flete_envio ?? product?.estimatedShippingCost;
+    const parsed = typeof raw === 'string' ? parseFloat(raw.replace(/[^0-9.]/g, '')) : Number(raw);
+    return (!isNaN(parsed) && parsed >= 0) ? parsed : 16500;
   });
+
   const estimatedShippingCost = shippingCost;
   const setEstimatedShippingCost = setShippingCost;
 
@@ -243,7 +239,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   useEffect(() => {
     if (product) {
       const productData = product;
-      // 3. Muestra un mensaje en consola con el producto recibido al cargar para poder auditarlo
       console.log('[AdminProductEditor] Producto recibido al cargar:', productData);
 
       setTitle(productData.title || (productData as any).nombre || (productData as any).name || '');
@@ -261,7 +256,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       setSuggestedPrice(
         (productData as any).suggested_price || (productData as any).suggestedPrice || productData.compareAtPrice || (Number(productData.price) ? Number(productData.price) + 20000 : 119900)
       );
-      setShippingCost(Number((productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500));
+      
+      // SOLUCIÓN FLETE: Carga segura dentro del useEffect
+      const loadedShipping = (productData as any).shippingCost ?? (productData as any).shipping_cost ?? (productData as any).flete ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost;
+      const parsedLoadedShipping = typeof loadedShipping === 'string' ? parseFloat(String(loadedShipping).replace(/[^0-9.]/g, '')) : Number(loadedShipping);
+      setShippingCost(!isNaN(parsedLoadedShipping) && parsedLoadedShipping >= 0 ? parsedLoadedShipping : 16500);
+
       setDropiFee(product.dropiFee !== undefined ? product.dropiFee : (resolveProviderForEditor(product) === 'dropi' ? 4000 : 0));
       setPrice(product.price || (product as any).precio || 89900);
       setCompareAtPrice(product.compareAtPrice || 119900);
@@ -408,7 +408,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setIsPublishingFbNow(true);
     setFbPublishNowResult(null);
 
-    // Construir el objeto completo del producto directamente desde los datos actuales del formulario
     const effectiveTitle = (title || '').trim() || product?.title || (product as any)?.nombre || (product as any)?.name || 'Producto Zavela Store Colombia';
     const effectiveSlug = (slug || '').trim() || effectiveTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     const validImages = images.filter(img => Boolean(img && img.trim()));
@@ -491,7 +490,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replaceFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Real-time Dropi & Operational Calculations
   const totalOperatingCost = Number(costPrice || 0) + Number(estimatedShippingCost || 0) + Number(dropiFee || 0);
   const realNetProfit = Number(price || 0) - totalOperatingCost;
   const realNetMarginPercentage = price > 0 ? ((realNetProfit / price) * 100) : 0;
@@ -503,7 +501,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
     : 0;
 
-  // Helper functions to auto-suggest sale price based on desired net profit or margin
   const applySuggestedNetProfit = (targetProfitCOP: number) => {
     const calculatedPrice = Math.round((totalOperatingCost + targetProfitCOP) / 100) * 100;
     setPrice(calculatedPrice);
@@ -532,15 +529,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const handleAddImage = () => {
     if (!newImageUrl.trim()) return;
-    
-    // Parse single or multiple URLs (separated by newlines, commas, or spaces)
     const rawTokens = newImageUrl
       .split(/[\n,]+/)
       .map(url => url.trim())
       .filter(url => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/')));
 
     if (rawTokens.length === 0) {
-      // If none had http, but text was entered, check if valid string
       if (newImageUrl.trim().startsWith('http')) {
         setImages([...images, newImageUrl.trim()]);
       } else {
@@ -550,7 +544,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     } else {
       setImages([...images, ...rawTokens]);
     }
-
     setNewImageUrl('');
   };
 
@@ -755,7 +748,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const costoProveedor = Number(costPrice) || 0;
       const precioVenta = Number(price) || 0;
       const precioSugerido = Number(suggestedPrice) || Number(precioVenta) || 0;
-     const valorFlete = (typeof shippingCost === 'number' && !isNaN(shippingCost) && shippingCost >= 0)
+      const valorFlete = (typeof shippingCost === 'number' && !isNaN(shippingCost) && shippingCost >= 0)
   ? shippingCost
   : (parseFloat(String(shippingCost).replace(/[^0-9.]/g, '')) || 0);
 
@@ -825,7 +818,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       };
 
       console.log('Payload al guardar:', payloadFinal);
-      // Al guardar los cambios, si es edición enviar por PUT /api/products/:id esperando obligatoriamente la respuesta
       if (isEditing && targetId) {
         const response = await fetch(`/api/products/${encodeURIComponent(targetId)}`, {
           method: 'PUT',
@@ -841,7 +833,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         console.log('[AdminProductEditor] ✓ Respuesta confirmada de PUT /api/products/:id:', resData);
       }
 
-      // Propagar al handler superior (onSave) para actualizar el estado del dashboard y sincronizar
       await onSave(payloadFinal);
     } catch (err: any) {
       alert(err.message || 'Error al guardar el producto.');
@@ -895,7 +886,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         </div>
       </div>
 
-      {/* 🏢 Gestión de Proveedor & Logística (Dropi, DeRocha, Bodegas directas, Otros) */}
+      {/* 🏢 Gestión de Proveedor & Logística */}
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-6 rounded-3xl border-2 border-indigo-500/30 text-white shadow-xl space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
@@ -1717,14 +1708,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </div>
             </div>
 
-            {/* Add Variant Form with 5 explicit fields */}
+            {/* Add Variant Form */}
             <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
               <div className="text-[11px] font-black uppercase tracking-wider text-slate-500">
                 Agregar Nueva Variante:
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                {/* 1. Color / Nombre Principal */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     1. Color / Nombre <span className="text-rose-500">*</span>
@@ -1738,7 +1728,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   />
                 </div>
 
-                {/* 2. Talla / Medida */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     2. Talla / Medida
@@ -1771,7 +1760,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Dropi Variation ID */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
                     <span>3. ID Variación Dropi</span>
@@ -1786,7 +1774,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   />
                 </div>
 
-                {/* 4. Stock */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     4. Stock
@@ -1801,7 +1788,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   />
                 </div>
 
-                {/* 5. SKU (Opcional) */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     5. SKU (Opcional)
@@ -1816,7 +1802,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 </div>
               </div>
 
-              {/* Botón Agregar */}
               <div className="flex justify-end pt-1">
                 <button
                   type="button"
@@ -1829,7 +1814,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </div>
             </div>
 
-            {/* Variants List with individual Delete and clear metrics */}
+            {/* Variants List */}
             {variants.length > 0 ? (
               <div className="space-y-2">
                 <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between">
@@ -1843,7 +1828,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   {variants.map((v) => {
                     const colorDisplay = v.color || (v.name?.includes(' / ') ? v.name.split(' / ')[0] : v.name) || 'Color Único';
                     const sizeDisplay = v.size || v.talla || (v.name?.includes(' / ') ? v.name.split(' / ')[1] : 'Única');
-                    const dropiIdDisplay = v.dropi_variation_id || v.dropiVariationId;
+                    const dropiIdDisplay = v.dropi_variation_id || (v as any).dropiVariationId;
 
                     return (
                       <div 
@@ -1851,7 +1836,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                         className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-slate-50/70 transition-colors"
                       >
                         <div className="flex flex-wrap items-center gap-2.5">
-                          {/* Color */}
                           <div className="flex items-center gap-1.5">
                             <span className="w-2.5 h-2.5 rounded-full bg-slate-900 ring-1 ring-slate-300 shrink-0"></span>
                             <span className="font-extrabold text-slate-900 text-xs">
@@ -1859,12 +1843,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                             </span>
                           </div>
 
-                          {/* Talla */}
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 text-[11px]">
                             Talla: {sizeDisplay}
                           </span>
 
-                          {/* Dropi Variation ID */}
                           {dropiIdDisplay ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[11px]">
                               📦 Dropi ID: #{dropiIdDisplay}
@@ -1875,7 +1857,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                             </span>
                           )}
 
-                          {/* Stock */}
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[11px] ${
                             v.stock > 0 
                               ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' 
@@ -1884,7 +1865,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                             Stock: {v.stock} un.
                           </span>
 
-                          {/* SKU */}
                           {v.sku && (
                             <span className="text-slate-400 font-mono text-[10px] hidden md:inline-block">
                               SKU: {v.sku}
@@ -1892,7 +1872,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                           )}
                         </div>
 
-                        {/* Botón Eliminar Individual */}
                         <div className="flex items-center justify-end">
                           <button
                             type="button"
@@ -2086,7 +2065,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </div>
             )}
 
-            {/* Images Grid with Replace, Reorder and Delete controls */}
+            {/* Images Grid */}
             <div className="grid grid-cols-2 gap-2.5 pt-1">
               {images.map((img, idx) => (
                 <div 
@@ -2139,13 +2118,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                     </button>
                   </div>
 
-                  {/* Bottom Hover Actions: Change & Reorder */}
+                  {/* Bottom Hover Actions */}
                   <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between gap-1 bg-slate-950/90 backdrop-blur-xs p-1 rounded-lg">
                     <button
                       type="button"
                       onClick={() => setReplaceModal({ index: idx, urlInput: '' })}
                       className="flex-1 flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-[9.5px] font-bold transition-colors cursor-pointer"
-                      title="Cambiar esta foto (desde PC o con Link)"
+                      title="Cambiar esta foto"
                     >
                       <RefreshCw className="w-2.5 h-2.5" />
                       <span>Cambiar</span>
@@ -2157,7 +2136,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                         onClick={() => handleMoveImage(idx, 'left')}
                         disabled={idx === 0}
                         className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Mover antes"
                       >
                         <ChevronLeft className="w-2.5 h-2.5" />
                       </button>
@@ -2166,7 +2144,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                         onClick={() => handleMoveImage(idx, 'right')}
                         disabled={idx === images.length - 1}
                         className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Mover después"
                       >
                         <ChevronRight className="w-2.5 h-2.5" />
                       </button>
@@ -2221,10 +2198,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
       </div>
 
-      {/* Facebook Business Page & Social Auto-Publishing Integration Card */}
+      {/* Facebook Business Page */}
       <div className="bg-gradient-to-r from-blue-900/10 via-[#1877F2]/10 to-purple-900/10 dark:from-blue-950/30 dark:via-blue-900/20 dark:to-purple-950/30 p-5 rounded-2xl border border-blue-200 dark:border-blue-800/60 shadow-xs space-y-4">
-        
-        {/* Header row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-[#1877F2] text-white flex items-center justify-center font-black text-xl shadow-md shadow-blue-500/20 shrink-0">
@@ -2266,10 +2241,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           </div>
         </div>
 
-        {/* Switches & Action Bar */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-blue-200/60 dark:border-blue-800/40">
           
-          {/* Switch Facebook */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-blue-100 dark:border-blue-900/30">
             <div>
               <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -2291,7 +2264,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             </label>
           </div>
 
-          {/* Switch Multi-red Social Boost */}
           <div className="flex items-center justify-between p-3 rounded-xl bg-white/70 dark:bg-slate-900/60 border border-purple-100 dark:border-purple-900/30">
             <div>
               <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -2315,7 +2287,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
         </div>
 
-        {/* Buttons: Preview & Instant Publish */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <button
             type="button"
@@ -2346,7 +2317,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           </button>
         </div>
 
-        {/* Result toast for immediate publication */}
         {fbPublishNowResult && (
           <div className={`p-3 rounded-xl border text-xs font-medium animate-in fade-in duration-200 ${
             fbPublishNowResult.success
@@ -2357,7 +2327,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           </div>
         )}
 
-        {/* Live Preview Box */}
         {showFbPreview && (
           <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 text-xs animate-in fade-in duration-200">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -2463,7 +2432,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </button>
             </div>
 
-            {/* Current Image Preview */}
             <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-slate-50 border border-slate-200">
               <div className="w-14 h-14 rounded-xl overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
                 <img
@@ -2480,10 +2448,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </div>
             </div>
 
-            {/* Choose method */}
             <div className="space-y-3 pt-1">
-              
-              {/* Option A: Upload from PC */}
               <div className="p-3 rounded-2xl border border-cyan-200 bg-cyan-50/50 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-cyan-950 flex items-center gap-1.5">
@@ -2506,7 +2471,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 </button>
               </div>
 
-              {/* Option B: Paste Dropi / Web URL */}
               <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
@@ -2539,7 +2503,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   </button>
                 </div>
               </div>
-
             </div>
 
             <div className="pt-2 flex justify-end">
@@ -2644,7 +2607,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         </div>
       )}
 
-      {/* Modal de Conexión y Vinculación de Facebook Page */}
       <FacebookPageConnectModal
         isOpen={isFbModalOpen}
         onClose={() => setIsFbModalOpen(false)}
