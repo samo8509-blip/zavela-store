@@ -19,9 +19,12 @@ function mapSqlRowToProduct(row: any): any {
     try { variants = JSON.parse(row.variantes); } catch { variants = []; }
   }
 
-  // EXTRACCIÓN BLINDADA (SIN VALORES FANTASMA)
-  const parsedShipping = Number(row.shipping_cost ?? row.flete_envio ?? row.flete ?? 0);
-  const parsedDropiFee = Number(row.dropi_fee ?? 0);
+ // EXTRACCIÓN BLINDADA DIRECTA DE LA BASE DE DATOS
+  let rawShipping = row.shipping_cost ?? row.flete_envio ?? row.flete;
+  let parsedShipping = (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') ? Number(rawShipping) : 0;
+  
+  let rawFee = row.dropi_fee ?? row.dropiFee;
+  let parsedDropiFee = (rawFee !== undefined && rawFee !== null && rawFee !== '') ? Number(rawFee) : 0;
 
   return {
     id: String(row.id),
