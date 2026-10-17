@@ -145,7 +145,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         provider,
         supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
         dropiProductId: provider === 'dropi' ? dropiProductId : null,
-        price, costPrice, compareAtPrice, shippingCost, dropiFee, stock, active, featured,
+       price, costPrice, compareAtPrice, shippingCost, dropiFee, dropi_fee: dropiFee, stock, active, featured,
         image: images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
         images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
         variants // Guardamos las variantes avanzadas
