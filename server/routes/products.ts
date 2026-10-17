@@ -70,7 +70,6 @@ router.post('/', async (req, res) => {
     const id = b.id || `prod-${Date.now()}`;
     const activeInt = b.active === false ? 0 : 1;
     
-    // ASIGNACIÓN BLINDADA A CERO SI VIENE VACÍO, JAMÁS 16500
     const shipping = b.shippingCost !== undefined && b.shippingCost !== null && b.shippingCost !== '' ? Number(b.shippingCost) : 0;
     const dropiFee = b.dropiFee !== undefined && b.dropiFee !== null && b.dropiFee !== '' ? Number(b.dropiFee) : 0;
     const variantsStr = b.variants ? JSON.stringify(b.variants) : '[]';
@@ -105,7 +104,6 @@ router.put('/:id', async (req, res) => {
     const targetId = req.params.id;
     const activeInt = b.active === false ? 0 : 1;
     
-    // ASIGNACIÓN BLINDADA
     const shipping = b.shippingCost !== undefined && b.shippingCost !== null && b.shippingCost !== '' ? Number(b.shippingCost) : 0;
     const dropiFee = b.dropiFee !== undefined && b.dropiFee !== null && b.dropiFee !== '' ? Number(b.dropiFee) : 0;
     const variantsStr = b.variants ? JSON.stringify(b.variants) : '[]';
@@ -146,8 +144,8 @@ router.post('/bulk-import', async (req, res) => {
   try {
     for (const item of req.body.products) {
       const id = item.id || `prod-${Date.now()}`;
-      const shipping = item.shippingCost !== undefined && item.shippingCost !== null && item.shippingCost !== '' ? Number(item.shippingCost) : 0;
-      const dropiFee = Number(item.dropiFee ?? 4000); 
+      const shipping = item.shippingCost !== undefined && item.shippingCost !== null && item.shippingCost !== '' ? Number(item.shippingCost) : (item.flete !== undefined ? Number(item.flete) : 0);
+      const dropiFee = item.dropiFee !== undefined && item.dropiFee !== null && item.dropiFee !== '' ? Number(item.dropiFee) : 0;
       
       await pool.query(`
         INSERT INTO productos (
