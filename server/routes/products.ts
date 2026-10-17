@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
         if (Array.isArray(rows)) products = rows.map(mapSqlRowToProduct);
       } catch (e) {}
     }
-    if (products.length === 0) products = db.getProducts();
+   // if (products.length === 0) products = db.getProducts();
     res.json({ success: true, count: products.length, data: products });
   } catch (error: any) { res.status(500).json({ success: false, message: error.message }); }
 });
