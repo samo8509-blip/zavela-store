@@ -40,10 +40,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
   const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
   const [stock, setStock] = useState(Number(product?.stock) || 20);
-  
   const [shippingCost, setShippingCost] = useState<number>(() => {
-    const raw = (product as any)?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete ?? 0;
-    return (!isNaN(Number(raw)) && Number(raw) >= 0) ? Number(raw) : 0;
+    const raw = (product as any)?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete;
+    const num = Number(raw);
+    // Si el valor guardado es el viejo 16500 predeterminado o no es válido, iniciamos en 0 para que tú pongas el tuyo libremente
+    if (isNaN(num) || num <= 0 || num === 16500) return 0;
+    return num;
   });
   
   const [dropiFee, setDropiFee] = useState<number>(() => {
@@ -145,7 +147,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         provider,
         supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
         dropiProductId: provider === 'dropi' ? dropiProductId : null,
-       price, costPrice, compareAtPrice, shippingCost, dropiFee, dropi_fee: dropiFee, stock, active, featured,
+       price, costPrice, compareAtPrice, shippingCost, shipping_cost: shippingCost, flete_envio: shippingCost, flete: shippingCost, dropiFee, dropi_fee: dropiFee, stock, active, featured,
         image: images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
         images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
         variants // Guardamos las variantes avanzadas
