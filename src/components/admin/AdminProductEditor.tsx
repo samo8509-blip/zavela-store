@@ -45,6 +45,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
     const num = Number(raw);
     if (isNaN(num) || num <= 0 || num === 16500) return 0;
     return num;
+  });
+  
   const [dropiFee, setDropiFee] = useState<number | ''>(() => {
     const raw = (product as any)?.dropiFee ?? (product as any)?.dropi_fee;
     if (raw === undefined || raw === null || raw === '') return '';
@@ -91,7 +93,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
 
   // CÁLCULOS
-  const totalOperatingCost = costPrice + shippingCost + dropiFee;
+  const totalOperatingCost = costPrice + shippingCost + (typeof dropiFee === 'number' ? dropiFee : 0);
   const realNetProfit = price - totalOperatingCost;
   const realNetMarginPercentage = price > 0 ? ((realNetProfit / price) * 100) : 0;
   const discountPercentage = (compareAtPrice > price) ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
@@ -146,7 +148,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         provider,
         supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
         dropiProductId: provider === 'dropi' ? dropiProductId : null,
-        price, costPrice, compareAtPrice, shippingCost, shipping_cost: shippingCost, flete_envio: shippingCost, flete: shippingCost, dropiFee, dropi_fee: dropiFee, stock, active, featured,
+        price, costPrice, compareAtPrice, shippingCost, shipping_cost: shippingCost, flete_envio: shippingCost, flete: shippingCost, dropiFee: dropiFee === '' ? 0 : dropiFee, dropi_fee: dropiFee === '' ? 0 : dropiFee, stock, active, featured,
         image: images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
         images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
         variants
@@ -206,8 +208,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
                 <input type="text" disabled={provider !== 'dropi'} value={dropiProductId} onChange={(e) => setDropiProductId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none disabled:cursor-not-allowed" placeholder={provider === 'dropi' ? "Ej. 2240082" : "Solo para Dropi"} />
               </div>
               <div className={`p-3 rounded-xl border transition-all ${provider === 'dropi' ? 'bg-slate-950 border-amber-500/50' : 'bg-slate-950/50 border-slate-800 opacity-50'}`}>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Comisión Dropi (\$)</label>
-                <div className={`p-3 rounded-xl border transition-all ${provider === 'dropi' ? 'bg-slate-950 border-amber-500/50' : 'bg-slate-950/50 border-slate-800 opacity-50'}`}>
                 <label className="block text-xs font-bold text-slate-300 mb-1">Comisión Dropi (\$)</label>
                 <input 
                   type="number" 
