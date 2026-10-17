@@ -15,7 +15,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const isEditing = Boolean(product?.id);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Estados Base con lectura robusta de la API/Base de datos
+  // Estados Base
   const [title, setTitle] = useState(product?.title || '');
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
@@ -35,7 +35,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
   const [provider, setProvider] = useState<'dropi'|'derocha'|'direct'|'other'>(resolveInitialProvider());
 
-  // PRECIOS Y COSTOS (Lectura blindada para evitar que vuelvan a 0)
+  // PRECIOS Y COSTOS (BLINDADOS CONTRA EL 16500)
   const [price, setPrice] = useState(Number(product?.price) || 0);
   const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
   const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
@@ -131,7 +131,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
     setVariants(variants.filter(v => v.id !== id));
   };
 
-  // GUARDADO BLINDADO
+  // GUARDADO SEGURO
   const handleSaveClick = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return alert('Ingresa un título.');
