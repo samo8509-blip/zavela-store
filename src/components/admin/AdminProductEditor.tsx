@@ -47,10 +47,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   });
   
   const [dropiFee, setDropiFee] = useState<number>(() => {
-    const raw = (product as any)?.dropiFee ?? (product as any)?.dropi_fee;
-    if (raw !== undefined && raw !== null) return Number(raw);
-    return resolveInitialProvider() === 'dropi' ? 4000 : 0;
-  });
+  const raw = (product as any)?.dropiFee ?? (product as any)?.dropi_fee;
+  return (!isNaN(Number(raw)) && Number(raw) >= 0) ? Number(raw) : 0;
+});
 
   const [active, setActive] = useState(product?.active !== false);
   const [featured, setFeatured] = useState(Boolean(product?.featured));
@@ -85,10 +84,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   // LÓGICA INTELIGENTE DE PROVEEDOR
   const handleProviderChange = (newProvider: 'dropi' | 'derocha' | 'direct' | 'other') => {
     setProvider(newProvider);
-    if (newProvider === 'dropi') {
-      if (dropiFee === 0) setDropiFee(4000); 
-    } else {
-      setDropiFee(0); 
+    if (newProvider !== 'dropi') {
       setDropiProductId(''); 
     }
   };
