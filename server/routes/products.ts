@@ -6,7 +6,6 @@ import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
-// Helper para convertir una fila SQL de MySQL en objeto Product estándar
 function mapSqlRowToProduct(row: any): any {
   let images: string[] = [];
   if (Array.isArray(row.images)) {
@@ -178,7 +177,6 @@ function mapSqlRowToProduct(row: any): any {
   };
 }
 
-// Desactivar endpoints de prueba
 router.all(['/test-product', '/seed', '/test'], (req, res) => {
   res.status(403).json({
     success: false,
@@ -186,10 +184,9 @@ router.all(['/test-product', '/seed', '/test'], (req, res) => {
   });
 });
 
-// GET /api/products
 router.get('/', async (req, res) => {
   try {
-    const { category, search, featured, sort, minPrice, maxPrice } = req.query;
+    const { category, search, sort, minPrice, maxPrice } = req.query;
 
     let products: any[] = [];
     let queriedFromSql = false;
@@ -199,17 +196,13 @@ router.get('/', async (req, res) => {
         let sqlRows: any = [];
         try {
           const [pRows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
-          if (Array.isArray(pRows) && pRows.length > 0) {
-            sqlRows = pRows;
-          }
+          if (Array.isArray(pRows) && pRows.length > 0) sqlRows = pRows;
         } catch {}
 
         if (!sqlRows || sqlRows.length === 0) {
           try {
             const [prodRows]: any = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
-            if (Array.isArray(prodRows)) {
-              sqlRows = prodRows;
-            }
+            if (Array.isArray(prodRows)) sqlRows = prodRows;
           } catch {}
         }
 
@@ -256,42 +249,25 @@ router.get('/', async (req, res) => {
       );
     }
 
-    if (minPrice) {
-      products = products.filter(p => p.price >= Number(minPrice));
-    }
-    if (maxPrice) {
-      products = products.filter(p => p.price <= Number(maxPrice));
-    }
+    if (minPrice) products = products.filter(p => p.price >= Number(minPrice));
+    if (maxPrice) products = products.filter(p => p.price <= Number(maxPrice));
 
-    if (sort === 'price_asc') {
-      products.sort((a, b) => a.price - b.price);
-    } else if (sort === 'price_desc') {
-      products.sort((a, b) => b.price - a.price);
-    } else if (sort === 'discount') {
-      products.sort((a, b) => b.discountPercentage - a.discountPercentage);
-    }
+    if (sort === 'price_asc') products.sort((a, b) => a.price - b.price);
+    else if (sort === 'price_desc') products.sort((a, b) => b.price - a.price);
+    else if (sort === 'discount') products.sort((a, b) => b.discountPercentage - a.discountPercentage);
 
-    res.json({
-      success: true,
-      count: products.length,
-      data: products
-    });
+    res.json({ success: true, count: products.length, data: products });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// GET /api/products/proxy-image
 router.get('/proxy-image', async (req, res) => {
   try {
     const imageUrl = req.query.url as string;
-    if (!imageUrl) {
-      return res.status(400).send('Image URL required');
-    }
+    if (!imageUrl) return res.status(400).send('Image URL required');
     const response = await fetch(imageUrl);
-    if (!response.ok) {
-      return res.status(response.status).send('Failed to fetch image');
-    }
+    if (!response.ok) return res.status(response.status).send('Failed to fetch image');
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     const buffer = Buffer.from(await response.arrayBuffer());
     res.setHeader('Content-Type', contentType);
@@ -303,7 +279,6 @@ router.get('/proxy-image', async (req, res) => {
   }
 });
 
-// GET /api/products/categories
 router.get('/categories', (req, res) => {
   try {
     const categories = db.getCategories();
@@ -322,35 +297,22 @@ router.get('/meta/categories', (req, res) => {
   }
 });
 
-// GET /api/products/:idOrSlug
 router.get('/:idOrSlug', async (req, res) => {
   try {
     const { idOrSlug } = req.params;
 
     try {
-      const [rows]: any = await pool.query(
-        'SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1',
-        [idOrSlug, idOrSlug]
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        return res.json({ success: true, data: mapSqlRowToProduct(rows[0]) });
-      }
+      const [rows]: any = await pool.query('SELECT * FROM products WHERE id = ? OR slug = ? LIMIT 1', [idOrSlug, idOrSlug]);
+      if (Array.isArray(rows) && rows.length > 0) return res.json({ success: true, data: mapSqlRowToProduct(rows[0]) });
 
-      const [altRows]: any = await pool.query(
-        'SELECT * FROM productos WHERE id = ? LIMIT 1',
-        [idOrSlug]
-      );
-      if (Array.isArray(altRows) && altRows.length > 0) {
-        return res.json({ success: true, data: mapSqlRowToProduct(altRows[0]) });
-      }
+      const [altRows]: any = await pool.query('SELECT * FROM productos WHERE id = ? LIMIT 1', [idOrSlug]);
+      if (Array.isArray(altRows) && altRows.length > 0) return res.json({ success: true, data: mapSqlRowToProduct(altRows[0]) });
     } catch (sqlErr: any) {
       console.warn('[GET /api/products/:idOrSlug MySQL Error]:', sqlErr.message);
     }
 
     const fallback = db.getProductById(idOrSlug);
-    if (fallback) {
-      return res.json({ success: true, data: fallback });
-    }
+    if (fallback) return res.json({ success: true, data: fallback });
 
     res.status(404).json({ success: false, message: 'Producto no encontrado' });
   } catch (error: any) {
@@ -358,7 +320,6 @@ router.get('/:idOrSlug', async (req, res) => {
   }
 });
 
-// POST /api/products
 router.post('/', async (req, res) => {
   try {
     const body = req.body;
@@ -367,11 +328,9 @@ router.post('/', async (req, res) => {
     const slug = body.slug || (title ? title.toLowerCase().replace(/[^a-z0-9]/g, '-') : id);
 
     let rawImages: string[] = [];
-    if (Array.isArray(body.images) && body.images.length > 0) {
-      rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-    } else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) {
-      rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
-    } else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
+    if (Array.isArray(body.images) && body.images.length > 0) rawImages = body.images.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    else if (Array.isArray(body.imagenes) && body.imagenes.length > 0) rawImages = body.imagenes.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
+    else if (typeof body.imagenes === 'string' && body.imagenes.trim()) {
       try {
         const parsed = JSON.parse(body.imagenes);
         if (Array.isArray(parsed)) rawImages = parsed.filter((img: any) => typeof img === 'string' && img.trim().length > 0);
@@ -399,29 +358,8 @@ router.post('/', async (req, res) => {
     let category = rawCategory ? String(rawCategory).trim() : 'General';
     let categoryId = body.categoryId || body.categoria_id || body.category_id || 'cat-general';
 
-    const matchedCategory = db.getCategories().find(c => {
-      const clean = category.toLowerCase().replace(/^[^\w\s]+/, '').trim();
-      const cClean = c.name.toLowerCase().replace(/^[^\w\s]+/, '').trim();
-      return c.id === categoryId ||
-             c.slug === categoryId ||
-             c.id.toLowerCase() === clean ||
-             c.slug.toLowerCase() === clean ||
-             cClean === clean ||
-             cClean.includes(clean) ||
-             clean.includes(cClean);
-    });
-    if (matchedCategory) {
-      categoryId = matchedCategory.id;
-      if (category === 'General' || category === categoryId || category === matchedCategory.slug) {
-        category = matchedCategory.name;
-      }
-    }
-
     const dropiProductId = (body.dropi_product_id !== undefined && body.dropi_product_id !== null && String(body.dropi_product_id).trim() !== '')
-      ? String(body.dropi_product_id).trim()
-      : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== ''
-        ? String(body.dropiProductId).trim()
-        : null);
+      ? String(body.dropi_product_id).trim() : (body.dropiProductId !== undefined && body.dropiProductId !== null && String(body.dropiProductId).trim() !== '' ? String(body.dropiProductId).trim() : null);
 
     const provider = String(body.provider || body.supplier_type || (dropiProductId ? 'dropi' : 'direct')).toLowerCase();
     const supplier = String(body.supplier || body.supplier_name || (provider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa')));
@@ -438,152 +376,42 @@ router.post('/', async (req, res) => {
     const variantsList = Array.isArray(rawVariants) ? rawVariants : [];
     const variantsJson = JSON.stringify(variantsList);
 
-    if (dropiProductId) {
-      dropiBackupService.saveDropiId(id, dropiProductId);
-    }
+    if (dropiProductId) dropiBackupService.saveDropiId(id, dropiProductId);
 
     const imagesJson = JSON.stringify(validImages);
-    await pool.query(`
-      INSERT INTO products (
-        id, title, name, slug, price, supplier_cost, suggested_price, stock, description, category, category_id, dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, images, variants, variantes, sizes, active, status, estado, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      ON DUPLICATE KEY UPDATE
-        title = VALUES(title),
-        name = VALUES(name),
-        slug = VALUES(slug),
-        price = VALUES(price),
-        supplier_cost = VALUES(supplier_cost),
-        suggested_price = VALUES(suggested_price),
-        stock = VALUES(stock),
-        description = VALUES(description),
-        category = VALUES(category),
-        category_id = VALUES(category_id),
-        dropi_product_id = VALUES(dropi_product_id),
-        provider = VALUES(provider),
-        supplier = VALUES(supplier),
-        supplier_sku = VALUES(supplier_sku),
-        shipping_cost = VALUES(shipping_cost),
-        flete_envio = VALUES(flete_envio),
-        images = VALUES(images),
-        variants = VALUES(variants),
-        variantes = VALUES(variantes),
-        sizes = VALUES(sizes),
-        active = VALUES(active),
-        status = VALUES(status),
-        estado = VALUES(estado),
-        updated_at = NOW()
-    `, [
-      id, title, title, slug, price, costPrice, compareAtPrice, stock, description,
-      category, categoryId, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, imagesJson,
-      variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr
-    ]);
-
+    
+    // Inserción forzada
     try {
       await pool.query(`
         INSERT INTO productos (
           id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, categoria, category, category_id, dropi_product_id, provider, supplier, supplier_sku, shipping_cost, flete_envio, flete, imagen, imagenes, variants, variantes, sizes, active, status, estado, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
-          nombre = VALUES(nombre),
-          precio = VALUES(precio),
-          supplier_cost = VALUES(supplier_cost),
-          suggested_price = VALUES(suggested_price),
-          stock = VALUES(stock),
-          descripcion = VALUES(descripcion),
-          categoria = VALUES(categoria),
-          category = VALUES(category),
-          category_id = VALUES(category_id),
-          dropi_product_id = VALUES(dropi_product_id),
-          provider = VALUES(provider),
-          supplier = VALUES(supplier),
-          supplier_sku = VALUES(supplier_sku),
-          shipping_cost = VALUES(shipping_cost),
-          flete_envio = VALUES(flete_envio),
-          flete = VALUES(flete),
-          imagen = VALUES(imagen),
-          imagenes = VALUES(imagenes),
-          variants = VALUES(variants),
-          variantes = VALUES(variantes),
-          sizes = VALUES(sizes),
-          active = VALUES(active),
-          status = VALUES(status),
-          estado = VALUES(estado),
-          updated_at = NOW()
-      `, [
-        id, title, price, costPrice, compareAtPrice, stock, description,
-        category, category, categoryId, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, shippingCost, mainImage, imagesJson,
-        variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr
-      ]);
-    } catch {}
+          nombre = VALUES(nombre), precio = VALUES(precio), supplier_cost = VALUES(supplier_cost), suggested_price = VALUES(suggested_price), stock = VALUES(stock), descripcion = VALUES(descripcion), categoria = VALUES(categoria), category = VALUES(category), category_id = VALUES(category_id), dropi_product_id = VALUES(dropi_product_id), provider = VALUES(provider), supplier = VALUES(supplier), supplier_sku = VALUES(supplier_sku), shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete), imagen = VALUES(imagen), imagenes = VALUES(imagenes), variants = VALUES(variants), variantes = VALUES(variantes), sizes = VALUES(sizes), active = VALUES(active), status = VALUES(status), estado = VALUES(estado), updated_at = NOW()
+      `, [id, title, price, costPrice, compareAtPrice, stock, description, category, category, categoryId, dropiProductId, provider, supplier, supplierSku, shippingCost, shippingCost, shippingCost, mainImage, imagesJson, variantsJson, variantsJson, variantsJson, activeInt, statusStr, estadoStr]);
+    } catch (e) { console.error('Error insertando en productos:', e); }
 
     const productRecord = {
-      id,
-      title,
-      name: title,
-      slug,
-      price,
-      costPrice,
-      supplier_cost: costPrice,
-      compareAtPrice,
-      suggested_price: compareAtPrice,
-      stock,
-      description,
-      category,
-      categoryName: category,
-      categoryId,
-      shippingCost,
-      shipping_cost: shippingCost,
-      flete_envio: shippingCost,
-      flete: shippingCost,
-      estimatedShippingCost: shippingCost,
-      dropi_product_id: dropiProductId || '',
-      dropiProductId: dropiProductId || '',
-      provider,
-      supplier,
-      supplier_sku: supplierSku || undefined,
-      image: mainImage,
-      images: validImages,
-      variants: variantsList,
-      variantes: variantsList,
-      sizes: variantsList,
-      active: activeInt === 1,
-      status: statusStr,
-      estado: estadoStr,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      id, title, name: title, slug, price, costPrice, supplier_cost: costPrice, compareAtPrice, suggested_price: compareAtPrice, stock, description, category, categoryName: category, categoryId, shippingCost, shipping_cost: shippingCost, flete_envio: shippingCost, flete: shippingCost, estimatedShippingCost: shippingCost, dropi_product_id: dropiProductId || '', dropiProductId: dropiProductId || '', provider, supplier, supplier_sku: supplierSku || undefined, image: mainImage, images: validImages, variants: variantsList, variantes: variantsList, sizes: variantsList, active: activeInt === 1, status: statusStr, estado: estadoStr, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     };
 
     db.saveProduct(productRecord as any);
     cpanelDbService.saveProduct(productRecord as any).catch(() => {});
 
-    res.status(201).json({
-      success: true,
-      message: 'Producto guardado físicamente en MySQL con éxito',
-      data: productRecord
-    });
+    res.status(201).json({ success: true, message: 'Producto guardado', data: productRecord });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// PUT /api/products/:id - Actualización robusta con UPSERT en MySQL
+// PUT /api/products/:id - ACTUALIZACIÓN FORZADA
 router.put('/:id', async (req, res) => {
   try {
     const {
-      nombre, name, title,
-      precio, price,
-      stock,
-      descripcion, description,
-      imagen, image,
-      imagenes, images,
-      supplier_cost, costo_proveedor, costPrice,
-      suggested_price, compareAtPrice,
-      provider, supplier,
-      dropi_product_id, dropiProductId,
-      supplier_sku,
-      categoria, category,
-      active, status,
-      shipping_cost, flete_envio, flete, estimatedShippingCost
+      nombre, name, title, precio, price, stock, descripcion, description,
+      imagen, image, imagenes, images, supplier_cost, costo_proveedor, costPrice,
+      suggested_price, compareAtPrice, provider, supplier, dropi_product_id, dropiProductId,
+      supplier_sku, categoria, category, active, status, shipping_cost, flete_envio, flete, estimatedShippingCost
     } = req.body;
 
     const targetId = req.params.id;
@@ -610,148 +438,53 @@ router.put('/:id', async (req, res) => {
     const statusStr = finalActive === 1 ? 'active' : 'inactive';
     const estadoStr = finalActive === 1 ? 'activo' : 'inactivo';
 
-    console.log('Ejecutando UPSERT en productos para ID:', targetId, 'shippingCost:', shippingCost);
+    console.log('Forzando UPSERT en productos. ID:', targetId, 'shippingCost:', shippingCost);
 
-    await pool.query(`
-      INSERT INTO productos (
-        id, nombre, precio, stock, descripcion, imagen, imagenes,
-        supplier_cost, suggested_price, shipping_cost, flete_envio, flete, 
-        provider, supplier, dropi_product_id, supplier_sku, categoria, category, active, status, estado, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-      ON DUPLICATE KEY UPDATE
-        nombre = VALUES(nombre),
-        precio = VALUES(precio),
-        stock = VALUES(stock),
-        descripcion = VALUES(descripcion),
-        imagen = VALUES(imagen),
-        imagenes = VALUES(imagenes),
-        supplier_cost = VALUES(supplier_cost),
-        suggested_price = VALUES(suggested_price),
-        shipping_cost = VALUES(shipping_cost),
-        flete_envio = VALUES(flete_envio),
-        flete = VALUES(flete),
-        provider = VALUES(provider),
-        supplier = VALUES(supplier),
-        dropi_product_id = VALUES(dropi_product_id),
-        supplier_sku = VALUES(supplier_sku),
-        categoria = VALUES(categoria),
-        category = VALUES(category),
-        active = VALUES(active),
-        status = VALUES(status),
-        estado = VALUES(estado),
-        updated_at = NOW()
-    `, [
-      targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-      finalCost, finalSuggested, shippingCost, shippingCost, shippingCost,
-      finalProvider, finalSupplier, finalDropiId, finalSku, finalCat, finalCat, finalActive, statusStr, estadoStr
-    ]);
-
+    // UPSERT FORZADO EN MYSQL
     try {
       await pool.query(`
-        INSERT INTO products (
-          id, title, name, price, stock, description, images,
-          supplier_cost, suggested_price, shipping_cost, flete_envio, flete,
-          provider, supplier, dropi_product_id, supplier_sku, category, active, status, estado, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        INSERT INTO productos (
+          id, nombre, precio, stock, descripcion, imagen, imagenes,
+          supplier_cost, suggested_price, shipping_cost, flete_envio, flete, 
+          provider, supplier, dropi_product_id, supplier_sku, categoria, category, active, status, estado, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
-          title = VALUES(title),
-          name = VALUES(name),
-          price = VALUES(price),
-          stock = VALUES(stock),
-          description = VALUES(description),
-          images = VALUES(images),
-          supplier_cost = VALUES(supplier_cost),
-          suggested_price = VALUES(suggested_price),
-          shipping_cost = VALUES(shipping_cost),
-          flete_envio = VALUES(flete_envio),
-          flete = VALUES(flete),
-          provider = VALUES(provider),
-          supplier = VALUES(supplier),
-          dropi_product_id = VALUES(dropi_product_id),
-          supplier_sku = VALUES(supplier_sku),
-          category = VALUES(category),
-          active = VALUES(active),
-          status = VALUES(status),
-          estado = VALUES(estado),
-          updated_at = NOW()
+          nombre = VALUES(nombre), precio = VALUES(precio), stock = VALUES(stock), descripcion = VALUES(descripcion), imagen = VALUES(imagen), imagenes = VALUES(imagenes), supplier_cost = VALUES(supplier_cost), suggested_price = VALUES(suggested_price), shipping_cost = VALUES(shipping_cost), flete_envio = VALUES(flete_envio), flete = VALUES(flete), provider = VALUES(provider), supplier = VALUES(supplier), dropi_product_id = VALUES(dropi_product_id), supplier_sku = VALUES(supplier_sku), categoria = VALUES(categoria), category = VALUES(category), active = VALUES(active), status = VALUES(status), estado = VALUES(estado), updated_at = NOW()
       `, [
-        targetId, finalName, finalName, finalPrice, finalStock, finalDesc, finalImages,
+        targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
         finalCost, finalSuggested, shippingCost, shippingCost, shippingCost,
-        finalProvider, finalSupplier, finalDropiId, finalSku, finalCat, finalActive, statusStr, estadoStr
+        finalProvider, finalSupplier, finalDropiId, finalSku, finalCat, finalCat, finalActive, statusStr, estadoStr
       ]);
-    } catch {}
-
-    if (finalDropiId) {
-      dropiBackupService.saveDropiId(targetId, finalDropiId);
+    } catch (e) {
+      console.error('Error en UPSERT a productos:', e);
     }
+
+    if (finalDropiId) dropiBackupService.saveDropiId(targetId, finalDropiId);
 
     let parsedImages: string[] = [];
-    try {
-      parsedImages = typeof finalImages === 'string' ? JSON.parse(finalImages) : (Array.isArray(finalImages) ? finalImages : [finalImage]);
-    } catch {
-      parsedImages = finalImage ? [finalImage] : [];
-    }
+    try { parsedImages = typeof finalImages === 'string' ? JSON.parse(finalImages) : (Array.isArray(finalImages) ? finalImages : [finalImage]); } catch { parsedImages = finalImage ? [finalImage] : []; }
 
     const updatedProduct = {
-      id: targetId,
-      title: finalName,
-      name: finalName,
-      nombre: finalName,
-      price: finalPrice,
-      precio: finalPrice,
-      stock: finalStock,
-      description: finalDesc,
-      descripcion: finalDesc,
-      image: finalImage || parsedImages[0] || '',
-      imagen: finalImage || parsedImages[0] || '',
-      images: parsedImages,
-      imagenes: parsedImages,
-      supplier_cost: finalCost,
-      costPrice: finalCost,
-      suggested_price: finalSuggested,
-      compareAtPrice: finalSuggested,
-      shippingCost: shippingCost,
-      shipping_cost: shippingCost,
-      flete_envio: shippingCost,
-      flete: shippingCost,
-      estimatedShippingCost: shippingCost,
-      provider: finalProvider,
-      supplier: finalSupplier,
-      dropi_product_id: finalDropiId || undefined,
-      dropiProductId: finalDropiId || undefined,
-      supplier_sku: finalSku || undefined,
-      category: finalCat,
-      categoria: finalCat,
-      active: finalActive === 1,
-      status: statusStr,
-      estado: estadoStr
+      id: targetId, title: finalName, name: finalName, nombre: finalName, price: finalPrice, precio: finalPrice, stock: finalStock, description: finalDesc, descripcion: finalDesc, image: finalImage || parsedImages[0] || '', imagen: finalImage || parsedImages[0] || '', images: parsedImages, imagenes: parsedImages, supplier_cost: finalCost, costPrice: finalCost, suggested_price: finalSuggested, compareAtPrice: finalSuggested, shippingCost: shippingCost, shipping_cost: shippingCost, flete_envio: shippingCost, flete: shippingCost, estimatedShippingCost: shippingCost, provider: finalProvider, supplier: finalSupplier, dropi_product_id: finalDropiId || undefined, dropiProductId: finalDropiId || undefined, supplier_sku: finalSku || undefined, category: finalCat, categoria: finalCat, active: finalActive === 1, status: statusStr, estado: estadoStr
     };
 
     db.saveProduct(updatedProduct as any);
     cpanelDbService.saveProduct(updatedProduct as any).catch(() => {});
 
-    return res.status(200).json({
-      success: true,
-      message: "Producto actualizado correctamente",
-      product: updatedProduct
-    });
+    return res.status(200).json({ success: true, message: "Producto actualizado", product: updatedProduct });
   } catch (error: any) {
-    console.error("Error al actualizar producto:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// PATCH /api/products/:id/toggle-active
 router.patch('/:id/toggle-active', async (req, res) => {
   try {
     const id = req.params.id;
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'ID de producto requerido' });
-    }
+    if (!id) return res.status(400).json({ success: false, message: 'ID requerido' });
 
     let newActive = req.body?.active;
     if (newActive === undefined) {
-      const [rows]: any = await pool.query('SELECT active, status, estado FROM productos WHERE id = ? LIMIT 1', [id]);
+      const [rows]: any = await pool.query('SELECT active FROM productos WHERE id = ? LIMIT 1', [id]);
       const current = rows && rows.length > 0 ? rows[0].active : 1;
       newActive = (current === 1 || current === true || current === '1') ? 0 : 1;
     } else {
@@ -761,43 +494,21 @@ router.patch('/:id/toggle-active', async (req, res) => {
     const statusVal = newActive === 1 ? 'active' : 'inactive';
     const estadoVal = newActive === 1 ? 'activo' : 'inactivo';
 
-    await pool.query(
-      'UPDATE productos SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?',
-      [newActive, statusVal, estadoVal, id]
-    );
-
-    try {
-      await pool.query(
-        'UPDATE products SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?',
-        [newActive, statusVal, estadoVal, id]
-      );
-    } catch {}
+    await pool.query('UPDATE productos SET active = ?, status = ?, estado = ?, updated_at = NOW() WHERE id = ?', [newActive, statusVal, estadoVal, id]);
 
     const prod = db.getProductById(id);
-    if (prod) {
-      db.saveProduct({ ...prod, active: newActive === 1, status: statusVal, estado: estadoVal } as any);
-    }
+    if (prod) db.saveProduct({ ...prod, active: newActive === 1, status: statusVal, estado: estadoVal } as any);
 
-    res.json({
-      success: true,
-      id,
-      active: newActive === 1,
-      status: statusVal,
-      estado: estadoVal,
-      message: newActive === 1 ? 'Visible / Activo: Producto activado en cPanel MySQL.' : 'Oculto: Producto pausado / ocultado en cPanel MySQL.'
-    });
+    res.json({ success: true, id, active: newActive === 1, status: statusVal, estado: estadoVal });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// DELETE /api/products/:id
 router.delete('/:id?', async (req, res) => {
   try {
     const id = req.params.id || (req.query.id as string);
-    if (!id) {
-      return res.status(400).json({ success: false, message: 'ID de producto no proporcionado' });
-    }
+    if (!id) return res.status(400).json({ success: false, message: 'ID no proporcionado' });
 
     try {
       await pool.query('SET FOREIGN_KEY_CHECKS = 0');
@@ -812,124 +523,7 @@ router.delete('/:id?', async (req, res) => {
     db.deleteProduct(id);
     cpanelDbService.deleteProduct(id).catch(() => {});
 
-    db.addLog({
-      type: 'PRODUCT_UPDATE',
-      action: 'Producto Eliminado',
-      details: `Producto con ID ${id} fue eliminado permanentemente de MySQL.`,
-      status: 'info'
-    });
-
-    res.json({
-      success: true,
-      message: `Producto ${id} eliminado correctamente y de forma permanente de MySQL.`
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// POST /api/products/bulk-import
-router.post('/bulk-import', async (req, res) => {
-  try {
-    const { products } = req.body;
-    if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ success: false, message: 'No se enviaron productos para importar' });
-    }
-
-    const savedProducts: any[] = [];
-    const backupEntries: Record<string, string> = {};
-
-    for (const item of products) {
-      const id = item.id || `prod-dropi-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-      const name = item.name || item.title || 'Producto Dropi';
-      const slug = item.slug || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const price = Number(item.price || item.suggested_price || 0);
-      const costPrice = Number(item.cost_price || item.costPrice || 0);
-      const suggestedPrice = Number(item.suggested_price || price);
-      const dropiProductId = String(item.dropi_product_id || item.numeric_id || '').trim();
-      const description = item.description || '';
-      const stock = Number(item.stock || 50);
-      const images = Array.isArray(item.images) && item.images.length > 0 ? item.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
-      const imagesJson = JSON.stringify(images);
-      const mainImage = images[0];
-
-      if (dropiProductId) {
-        backupEntries[id] = dropiProductId;
-        dropiBackupService.saveDropiId(id, dropiProductId);
-      }
-
-      await pool.query(`
-        INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, stock, description, dropi_product_id, provider, supplier, images, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, NOW(), NOW())
-        ON DUPLICATE KEY UPDATE
-          title = VALUES(title),
-          name = VALUES(name),
-          price = VALUES(price),
-          supplier_cost = VALUES(supplier_cost),
-          suggested_price = VALUES(suggested_price),
-          stock = VALUES(stock),
-          description = VALUES(description),
-          dropi_product_id = VALUES(dropi_product_id),
-          images = VALUES(images),
-          updated_at = NOW()
-      `, [id, name, name, slug, price, costPrice, suggestedPrice, stock, description, dropiProductId || null, imagesJson]);
-
-      try {
-        await pool.query(`
-          INSERT INTO productos (
-            id, nombre, precio, supplier_cost, suggested_price, stock, descripcion, dropi_product_id, provider, supplier, imagen, imagenes, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, ?, NOW(), NOW())
-          ON DUPLICATE KEY UPDATE
-            nombre = VALUES(nombre),
-            precio = VALUES(precio),
-            supplier_cost = VALUES(supplier_cost),
-            suggested_price = VALUES(suggested_price),
-            stock = VALUES(stock),
-            descripcion = VALUES(descripcion),
-            dropi_product_id = VALUES(dropi_product_id),
-            imagen = VALUES(imagen),
-            imagenes = VALUES(imagenes),
-            updated_at = NOW()
-        `, [id, name, price, costPrice, suggestedPrice, stock, description, dropiProductId || null, mainImage, imagesJson]);
-      } catch {}
-
-      const prodRecord = {
-        id,
-        title: name,
-        slug,
-        price,
-        costPrice,
-        supplier_cost: costPrice,
-        compareAtPrice: suggestedPrice,
-        suggested_price: suggestedPrice,
-        stock,
-        description,
-        dropi_product_id: dropiProductId,
-        dropiProductId: dropiProductId,
-        provider: 'dropi',
-        supplier: 'Dropi Colombia',
-        image: mainImage,
-        images,
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      db.saveProduct(prodRecord as any);
-      savedProducts.push(prodRecord);
-    }
-
-    if (Object.keys(backupEntries).length > 0) {
-      dropiBackupService.saveBulk(backupEntries);
-    }
-
-    res.status(201).json({
-      success: true,
-      count: savedProducts.length,
-      data: savedProducts,
-      message: `Se importaron ${savedProducts.length} productos con persistencia real en MySQL.`
-    });
+    res.json({ success: true, message: `Producto ${id} eliminado.` });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
