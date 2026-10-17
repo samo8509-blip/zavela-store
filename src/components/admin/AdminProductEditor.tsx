@@ -35,7 +35,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
   const [provider, setProvider] = useState<'dropi'|'derocha'|'direct'|'other'>(resolveInitialProvider());
 
-  // PRECIOS Y COSTOS (0 POR DEFECTO, ADIÓS 16500)
+  // PRECIOS Y COSTOS (0 POR DEFECTO)
   const [price, setPrice] = useState(Number(product?.price) || 0);
   const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
   const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
@@ -56,6 +56,14 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const [featured, setFeatured] = useState(Boolean(product?.featured));
   const [images, setImages] = useState<string[]>(product?.images?.length ? product.images : []);
   const [newImageUrl, setNewImageUrl] = useState('');
+
+  // Estados de Variantes Avanzadas
+  const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
+  const [newVarColor, setNewVarColor] = useState('');
+  const [newVarSize, setNewVarSize] = useState('Única');
+  const [newVarDropiId, setNewVarDropiId] = useState('');
+  const [newVarStock, setNewVarStock] = useState(10);
+  const [newVarSku, setNewVarSku] = useState('');
 
   // Facebook Modal
   const [publishToFacebook, setPublishToFacebook] = useState(true);
@@ -78,10 +86,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const handleProviderChange = (newProvider: 'dropi' | 'derocha' | 'direct' | 'other') => {
     setProvider(newProvider);
     if (newProvider === 'dropi') {
-      if (dropiFee === 0) setDropiFee(4000); // Sugiere 4000 SOLO si activas Dropi y estaba en 0
+      if (dropiFee === 0) setDropiFee(4000); 
     } else {
-      setDropiFee(0); // Forzar 0 en comisión Dropi
-      setDropiProductId(''); // Borrar ID Dropi
+      setDropiFee(0); 
+      setDropiProductId(''); 
     }
   };
 
@@ -90,6 +98,38 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const realNetProfit = price - totalOperatingCost;
   const realNetMarginPercentage = price > 0 ? ((realNetProfit / price) * 100) : 0;
   const discountPercentage = (compareAtPrice > price) ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
+
+  // LÓGICA AGREGAR VARIANTE AVANZADA
+  const handleAddVariant = () => {
+    if (!newVarColor.trim()) return alert('Por favor indica al menos el Color o Nombre principal de la variante.');
+    
+    const color = newVarColor.trim();
+    const size = newVarSize.trim() || 'Única';
+    const displayName = size !== 'Única' ? `${color} / ${size}` : color;
+
+    const newVariant: ProductVariant = {
+      id: `var-${Date.now()}`,
+      name: displayName,
+      color: color,
+      size: size,
+      talla: size,
+      stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 10,
+      price: price,
+      dropi_variation_id: newVarDropiId.trim() || undefined,
+      sku: newVarSku.trim() || undefined
+    };
+
+    setVariants([...variants, newVariant]);
+    setNewVarColor('');
+    setNewVarSize('Única');
+    setNewVarDropiId('');
+    setNewVarSku('');
+    setNewVarStock(10);
+  };
+
+  const handleRemoveVariant = (id: string) => {
+    setVariants(variants.filter(v => v.id !== id));
+  };
 
   // GUARDADO
   const handleSaveClick = async (e: React.FormEvent) => {
@@ -112,6 +152,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         price, costPrice, compareAtPrice, shippingCost, dropiFee, stock, active, featured,
         image: images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
         images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+        variants // Guardamos las variantes avanzadas
       };
 
       if (isEditing && product?.id) {
@@ -215,8 +256,79 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
               {realNetProfit > 0 ? <CheckCircle2 className="w-6 h-6 text-emerald-500"/> : <AlertTriangle className="w-6 h-6 text-rose-500"/>}
             </div>
           </div>
+
+          {/* VARIANTES AVANZADAS RESTAURADAS */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                  <span>Variantes (Color, Talla, Versión & Dropi)</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                    {variants.length} {variants.length === 1 ? 'variante' : 'variantes'}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Configura las opciones para que la orden se despache de forma exacta.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Color / Nombre *</label>
+                  <input type="text" value={newVarColor} onChange={(e) => setNewVarColor(e.target.value)} placeholder="Ej. Negro" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Talla</label>
+                  <input type="text" value={newVarSize} onChange={(e) => setNewVarSize(e.target.value)} placeholder="Ej. M o Única" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">ID Variación Dropi</label>
+                  <input type="text" value={newVarDropiId} onChange={(e) => setNewVarDropiId(e.target.value)} placeholder="Ej. 142058" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Stock</label>
+                  <input type="number" min="0" value={newVarStock} onChange={(e) => setNewVarStock(Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">SKU (Opcional)</label>
+                  <input type="text" value={newVarSku} onChange={(e) => setNewVarSku(e.target.value)} placeholder="Ej. ZV-NEG-M" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button type="button" onClick={handleAddVariant} className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-all">
+                  <Plus className="w-4 h-4" /> Agregar Variante
+                </button>
+              </div>
+            </div>
+
+            {variants.length > 0 && (
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                {variants.map((v) => (
+                  <div key={v.id} className="p-3 flex flex-wrap items-center justify-between gap-3 text-xs hover:bg-slate-50 transition-colors">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-extrabold text-slate-900">{v.color}</span>
+                      <span className="px-2 py-0.5 rounded-md font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 text-[10px]">Talla: {v.size}</span>
+                      {v.dropi_variation_id && (
+                        <span className="px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[10px]">📦 Dropi ID: #{v.dropi_variation_id}</span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 text-[10px]">Stock: {v.stock}</span>
+                      {v.sku && <span className="text-slate-400 font-mono text-[10px]">SKU: {v.sku}</span>}
+                    </div>
+                    <button type="button" onClick={() => handleRemoveVariant(v.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Eliminar variante">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
+        {/* COLUMNA DERECHA: IMÁGENES Y FACEBOOK */}
         <div className="space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h3 className="font-extrabold text-sm">Estado y Publicación</h3>
@@ -229,7 +341,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
             <h3 className="font-extrabold text-sm flex justify-between">Imágenes <span className="text-cyan-600">{images.length}</span></h3>
             <div className="flex gap-2">
               <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} placeholder="Pegar URL de Dropi..." className="flex-1 p-2 text-xs border border-slate-200 rounded-xl outline-none" />
-              <button type="button" onClick={() => { if(newImageUrl) { setImages([...images, newImageUrl]); setNewImageUrl(''); } }} className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold">Añadir</button>
+              <button type="button" onClick={() => { if(newImageUrl) { setImages([...images, newImageUrl]); setNewImageUrl(''); } }} className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer">Añadir</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {images.map((img, idx) => (
