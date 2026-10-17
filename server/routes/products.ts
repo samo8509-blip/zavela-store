@@ -38,7 +38,6 @@ function mapSqlRowToProduct(row: any): any {
   const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
   const dropiId = row.dropi_product_id ? String(row.dropi_product_id).trim() : '';
 
-  // Extracción robusta de categoría (evita que 'General' eclipse una categoría real existente)
   let resolvedCategory = 'General';
   const rawCat = row.categoria || row.category || row.category_name;
   if (row.categoria && String(row.categoria).trim() && String(row.categoria).trim().toLowerCase() !== 'general') {
@@ -187,7 +186,7 @@ router.all(['/test-product', '/seed', '/test'], (req, res) => {
   });
 });
 
-// GET /api/products - Consulta directa y exclusiva en MySQL cPanel
+// GET /api/products
 router.get('/', async (req, res) => {
   try {
     const { category, search, featured, sort, minPrice, maxPrice } = req.query;
@@ -195,7 +194,6 @@ router.get('/', async (req, res) => {
     let products: any[] = [];
     let queriedFromSql = false;
 
-    // 1. Consulta SQL directa a la tabla física en MySQL cPanel
     try {
       if (nativePool) {
         let sqlRows: any = [];
@@ -224,7 +222,6 @@ router.get('/', async (req, res) => {
       console.warn('[GET /api/products MySQL Error]:', sqlErr.message);
     }
 
-    // 2. Si no hay conexión MySQL activa en este entorno local, usar almacenamiento seguro local
     if (!queriedFromSql) {
       products = db.getProducts().map((p: any) => ({
         ...p,
@@ -239,10 +236,8 @@ router.get('/', async (req, res) => {
       }));
     }
 
-    // 3. Filtrar productos de prueba demo conocidos
     products = products.filter(p => !isTestProduct(p));
 
-    // 4. Filtros opcionales por categoría, búsqueda y precio
     if (category && typeof category === 'string' && category !== 'all' && category !== 'todas') {
       const catLower = category.toLowerCase().trim();
       products = products.filter(p => 
@@ -268,7 +263,6 @@ router.get('/', async (req, res) => {
       products = products.filter(p => p.price <= Number(maxPrice));
     }
 
-    // Ordenamiento
     if (sort === 'price_asc') {
       products.sort((a, b) => a.price - b.price);
     } else if (sort === 'price_desc') {
@@ -287,7 +281,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/products/proxy-image - Proxy external image for CORS-safe rendering in PDF
+// GET /api/products/proxy-image
 router.get('/proxy-image', async (req, res) => {
   try {
     const imageUrl = req.query.url as string;
@@ -309,7 +303,7 @@ router.get('/proxy-image', async (req, res) => {
   }
 });
 
-// GET /api/products/categories - Categorías disponibles
+// GET /api/products/categories
 router.get('/categories', (req, res) => {
   try {
     const categories = db.getCategories();
@@ -328,7 +322,7 @@ router.get('/meta/categories', (req, res) => {
   }
 });
 
-// GET /api/products/:idOrSlug - Producto individual desde MySQL
+// GET /api/products/:idOrSlug
 router.get('/:idOrSlug', async (req, res) => {
   try {
     const { idOrSlug } = req.params;
@@ -364,7 +358,7 @@ router.get('/:idOrSlug', async (req, res) => {
   }
 });
 
-// POST /api/products - Creación o actualización directa en MySQL
+// POST /api/products
 router.post('/', async (req, res) => {
   try {
     const body = req.body;
@@ -572,7 +566,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/products/:id - Actualización directa en MySQL
+// PUT /api/products/:id - Actualización robusta con UPSERT en MySQL
 router.put('/:id', async (req, res) => {
   try {
     const {
@@ -593,7 +587,7 @@ router.put('/:id', async (req, res) => {
     } = req.body;
 
     const targetId = req.params.id;
-    const finalName = nombre || name || title;
+    const finalName = nombre || name || title || 'Producto Zavela';
     const finalPrice = Number(precio ?? price ?? 0);
     const finalStock = Number(stock ?? 0);
     const finalDesc = descripcion || description || '';
@@ -613,84 +607,83 @@ router.put('/:id', async (req, res) => {
     const finalSku = supplier_sku || null;
     const finalCat = categoria || category || 'General';
     const finalActive = (active === 1 || active === true || status === 'active') ? 1 : 0;
+    const statusStr = finalActive === 1 ? 'active' : 'inactive';
+    const estadoStr = finalActive === 1 ? 'activo' : 'inactivo';
 
-    const query = `
-      UPDATE productos SET
-        nombre = ?,
-        precio = ?,
-        stock = ?,
-        descripcion = ?,
-        imagen = ?,
-        imagenes = ?,
-        supplier_cost = ?,
-        suggested_price = ?,
-        shipping_cost = ?,
-        flete_envio = ?,
-        flete = ?,
-        provider = ?,
-        supplier = ?,
-        dropi_product_id = ?,
-        supplier_sku = ?,
-        categoria = ?,
-        category = ?,
-        active = ?,
+    console.log('Ejecutando UPSERT en productos para ID:', targetId, 'shippingCost:', shippingCost);
+
+    await pool.query(`
+      INSERT INTO productos (
+        id, nombre, precio, stock, descripcion, imagen, imagenes,
+        supplier_cost, suggested_price, shipping_cost, flete_envio, flete, 
+        provider, supplier, dropi_product_id, supplier_sku, categoria, category, active, status, estado, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ON DUPLICATE KEY UPDATE
+        nombre = VALUES(nombre),
+        precio = VALUES(precio),
+        stock = VALUES(stock),
+        descripcion = VALUES(descripcion),
+        imagen = VALUES(imagen),
+        imagenes = VALUES(imagenes),
+        supplier_cost = VALUES(supplier_cost),
+        suggested_price = VALUES(suggested_price),
+        shipping_cost = VALUES(shipping_cost),
+        flete_envio = VALUES(flete_envio),
+        flete = VALUES(flete),
+        provider = VALUES(provider),
+        supplier = VALUES(supplier),
+        dropi_product_id = VALUES(dropi_product_id),
+        supplier_sku = VALUES(supplier_sku),
+        categoria = VALUES(categoria),
+        category = VALUES(category),
+        active = VALUES(active),
+        status = VALUES(status),
+        estado = VALUES(estado),
         updated_at = NOW()
-      WHERE id = ? OR slug = ?
-    `;
-    const values = [
-      finalName, finalPrice, finalStock, finalDesc, finalImage,
-      finalImages, finalCost, finalSuggested, shippingCost, shippingCost, shippingCost, finalProvider, finalSupplier,
-      finalDropiId, finalSku, finalCat, finalCat, finalActive,
-      targetId, targetId
-    ];
+    `, [
+      targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
+      finalCost, finalSuggested, shippingCost, shippingCost, shippingCost,
+      finalProvider, finalSupplier, finalDropiId, finalSku, finalCat, finalCat, finalActive, statusStr, estadoStr
+    ]);
 
-    console.log('Ejecutando UPDATE en productos para ID/slug:', targetId, 'shippingCost:', shippingCost);
-
-    // Usar pool centralizado resiliente
-    const [result]: any = await pool.query(query, values);
-
-    // Si el registro no existía en productos, insertarlo para asegurar la integridad
-    if (result && result.affectedRows === 0) {
-      try {
-        const [existing]: any = await pool.query('SELECT id FROM productos WHERE id = ? OR slug = ? LIMIT 1', [targetId, targetId]);
-        if (!existing || existing.length === 0) {
-          console.log(`[MySQL UPDATE] ID ${targetId} no existía en productos, insertando nuevo registro...`);
-          await pool.query(`
-            INSERT INTO productos (
-              id, nombre, precio, stock, descripcion, imagen, imagenes,
-              supplier_cost, suggested_price, shipping_cost, flete_envio, flete, provider, supplier, dropi_product_id,
-              supplier_sku, categoria, category, active
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            targetId, finalName, finalPrice, finalStock, finalDesc, finalImage, finalImages,
-            finalCost, finalSuggested, shippingCost, shippingCost, shippingCost, finalProvider, finalSupplier, finalDropiId,
-            finalSku, finalCat, finalCat, finalActive
-          ]);
-        }
-      } catch (insertErr) {
-        console.warn('[MySQL Insert fallback warning]:', insertErr);
-      }
-    }
+    try {
+      await pool.query(`
+        INSERT INTO products (
+          id, title, name, price, stock, description, images,
+          supplier_cost, suggested_price, shipping_cost, flete_envio, flete,
+          provider, supplier, dropi_product_id, supplier_sku, category, active, status, estado, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE
+          title = VALUES(title),
+          name = VALUES(name),
+          price = VALUES(price),
+          stock = VALUES(stock),
+          description = VALUES(description),
+          images = VALUES(images),
+          supplier_cost = VALUES(supplier_cost),
+          suggested_price = VALUES(suggested_price),
+          shipping_cost = VALUES(shipping_cost),
+          flete_envio = VALUES(flete_envio),
+          flete = VALUES(flete),
+          provider = VALUES(provider),
+          supplier = VALUES(supplier),
+          dropi_product_id = VALUES(dropi_product_id),
+          supplier_sku = VALUES(supplier_sku),
+          category = VALUES(category),
+          active = VALUES(active),
+          status = VALUES(status),
+          estado = VALUES(estado),
+          updated_at = NOW()
+      `, [
+        targetId, finalName, finalName, finalPrice, finalStock, finalDesc, finalImages,
+        finalCost, finalSuggested, shippingCost, shippingCost, shippingCost,
+        finalProvider, finalSupplier, finalDropiId, finalSku, finalCat, finalActive, statusStr, estadoStr
+      ]);
+    } catch {}
 
     if (finalDropiId) {
       dropiBackupService.saveDropiId(targetId, finalDropiId);
     }
-
-    // Sincronizar tabla products en MySQL si existe
-    try {
-      await pool.query(`
-        UPDATE products SET
-          name = ?, title = ?, price = ?, stock = ?, description = ?,
-          images = ?, supplier_cost = ?, suggested_price = ?, shipping_cost = ?, flete_envio = ?, provider = ?, supplier = ?,
-          dropi_product_id = ?, supplier_sku = ?, category = ?, active = ?, updated_at = NOW()
-        WHERE id = ? OR slug = ?
-      `, [
-        finalName, finalName, finalPrice, finalStock, finalDesc,
-        finalImages, finalCost, finalSuggested, shippingCost, shippingCost, finalProvider, finalSupplier,
-        finalDropiId, finalSku, finalCat, finalActive,
-        targetId, targetId
-      ]);
-    } catch {}
 
     let parsedImages: string[] = [];
     try {
@@ -730,8 +723,8 @@ router.put('/:id', async (req, res) => {
       category: finalCat,
       categoria: finalCat,
       active: finalActive === 1,
-      status: finalActive === 1 ? 'active' : 'inactive',
-      estado: finalActive === 1 ? 'activo' : 'inactivo'
+      status: statusStr,
+      estado: estadoStr
     };
 
     db.saveProduct(updatedProduct as any);
@@ -748,7 +741,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// PATCH /api/products/:id/toggle-active - Alternar visibilidad activa en cPanel MySQL
+// PATCH /api/products/:id/toggle-active
 router.patch('/:id/toggle-active', async (req, res) => {
   try {
     const id = req.params.id;
@@ -798,7 +791,7 @@ router.patch('/:id/toggle-active', async (req, res) => {
   }
 });
 
-// DELETE /api/products/:id - Eliminación definitiva en la base de datos física MySQL
+// DELETE /api/products/:id
 router.delete('/:id?', async (req, res) => {
   try {
     const id = req.params.id || (req.query.id as string);
@@ -811,9 +804,7 @@ router.delete('/:id?', async (req, res) => {
       await pool.query('DELETE FROM products WHERE id = ?', [id]);
       await pool.query('DELETE FROM productos WHERE id = ?', [id]);
       await pool.query('SET FOREIGN_KEY_CHECKS = 1');
-      console.log(`[MySQL] ✓ Producto ${id} eliminado permanentemente de MySQL.`);
     } catch (sqlErr: any) {
-      console.warn('[MySQL Delete Product Warning]:', sqlErr.message);
       try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
     }
 
@@ -837,7 +828,7 @@ router.delete('/:id?', async (req, res) => {
   }
 });
 
-// POST /api/products/bulk-import - Importador masivo de Dropi a MySQL
+// POST /api/products/bulk-import
 router.post('/bulk-import', async (req, res) => {
   try {
     const { products } = req.body;
