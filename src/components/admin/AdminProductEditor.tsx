@@ -15,7 +15,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const isEditing = Boolean(product?.id);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Estados Base
+  // Estados Base con lectura robusta de la API/Base de datos
   const [title, setTitle] = useState(product?.title || '');
   const [slug, setSlug] = useState(product?.slug || '');
   const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
@@ -35,23 +35,24 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
   const [provider, setProvider] = useState<'dropi'|'derocha'|'direct'|'other'>(resolveInitialProvider());
 
-  // PRECIOS Y COSTOS (0 POR DEFECTO)
+  // PRECIOS Y COSTOS (Lectura blindada para evitar que vuelvan a 0)
   const [price, setPrice] = useState(Number(product?.price) || 0);
   const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
   const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
   const [stock, setStock] = useState(Number(product?.stock) || 20);
-  const [shippingCost, setShippingCost] = useState<number>(() => {
-    const raw = (product as any)?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete;
+
+  const [shippingCost, setShippingCost] = useState<number | ''>(() => {
+    const raw = product?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete ?? (product as any)?.flete_envio;
+    if (raw === undefined || raw === null || raw === '') return '';
     const num = Number(raw);
-    if (isNaN(num) || num <= 0 || num === 16500) return 0;
-    return num;
+    return isNaN(num) ? '' : num;
   });
   
   const [dropiFee, setDropiFee] = useState<number | ''>(() => {
-    const raw = (product as any)?.dropiFee ?? (product as any)?.dropi_fee;
+    const raw = product?.dropiFee ?? (product as any)?.dropi_fee;
     if (raw === undefined || raw === null || raw === '') return '';
     const num = Number(raw);
-    return isNaN(num) || num === 0 ? '' : num;
+    return isNaN(num) ? '' : num;
   });
 
   const [active, setActive] = useState(product?.active !== false);
@@ -93,7 +94,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
 
   // CÁLCULOS
-  const totalOperatingCost = costPrice + shippingCost + (typeof dropiFee === 'number' ? dropiFee : 0);
+  const totalOperatingCost = costPrice + (typeof shippingCost === 'number' ? shippingCost : 0) + (typeof dropiFee === 'number' ? dropiFee : 0);
   const realNetProfit = price - totalOperatingCost;
   const realNetMarginPercentage = price > 0 ? ((realNetProfit / price) * 100) : 0;
   const discountPercentage = (compareAtPrice > price) ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
@@ -130,13 +131,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
     setVariants(variants.filter(v => v.id !== id));
   };
 
-  // GUARDADO
+  // GUARDADO BLINDADO
   const handleSaveClick = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return alert('Ingresa un título.');
     setIsSaving(true);
     
     try {
+      const finalShipping = shippingCost === '' ? 0 : Number(shippingCost);
+      const finalDropiFee = dropiFee === '' ? 0 : Number(dropiFee);
+
       const payload = {
         ...(product?.id ? { id: product.id } : {}),
         title: title.trim(),
@@ -147,15 +151,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         categoryName: categories.find(c => c.id === categoryId)?.name || 'General',
         provider,
         supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
+        dropiProductId: provider === 'dropi' ? dropiProductId : null,
         price, 
         costPrice, 
         compareAtPrice, 
-        shippingCost: Number(shippingCost) || 0, 
-        shipping_cost: Number(shippingCost) || 0, 
-        flete_envio: Number(shippingCost) || 0, 
-        flete: Number(shippingCost) || 0, 
-        dropiFee: dropiFee === '' ? 0 : Number(dropiFee), 
-        dropi_fee: dropiFee === '' ? 0 : Number(dropiFee), 
+        shippingCost: finalShipping, 
+        shipping_cost: finalShipping, 
+        flete_envio: finalShipping, 
+        flete: finalShipping, 
+        dropiFee: finalDropiFee, 
+        dropi_fee: finalDropiFee, 
         stock, 
         active, 
         featured,
@@ -250,7 +255,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
               </div>
               <div className="bg-sky-50 p-3 rounded-xl border border-sky-200">
                 <label className="block text-xs font-bold text-sky-900 mb-1">Flete de Envío (Predet: \$0)</label>
-                <input type="number" value={shippingCost} onChange={(e) => setShippingCost(Number(e.target.value))} className="w-full p-2 text-xs border border-sky-300 rounded-lg outline-none font-bold text-sky-900" placeholder="0" />
+                <input type="number" value={shippingCost} onChange={(e) => setShippingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 text-xs border border-sky-300 rounded-lg outline-none font-bold text-sky-900" placeholder="0" />
               </div>
               <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
                 <label className="block text-xs font-bold text-emerald-900 mb-1">Precio Venta Cliente</label>
