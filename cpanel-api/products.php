@@ -339,10 +339,9 @@ try {
 
             $provider = $data['provider'] ?? 'derocha';
             $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
-            $supplierSku = $data['supplier_sku'] ?? $data['supplierSku'] ?? null;
-            $dropiId = ($provider === 'dropi') ? ($data['dropi_product_id'] ?? $data['dropiProductId'] ?? null) : null;
-            if ($provider !== 'dropi') {
-                $dropiFee = 0.00;
+            $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? null;
+            if (empty($dropiId)) {
+                $dropiId = null;
             }
 
             $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';
@@ -474,10 +473,9 @@ try {
 
             $provider = $data['provider'] ?? 'derocha';
             $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
-            $supplierSku = $data['supplier_sku'] ?? $data['supplierSku'] ?? null;
-            $dropiId = ($provider === 'dropi') ? ($data['dropi_product_id'] ?? $data['dropiProductId'] ?? null) : null;
-            if ($provider !== 'dropi') {
-                $dropiFee = 0.00;
+            $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? null;
+            if (empty($dropiId)) {
+                $dropiId = null;
             }
 
             $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';

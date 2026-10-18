@@ -323,16 +323,16 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const payloadFinal = {
     ...productData,
     ...(targetId ? { id: targetId } : {}),
-    provider,
-    shippingCost: shippingValue,
-    shipping_cost: shippingValue,
-    flete_envio: shippingValue,
-    flete: shippingValue, // Mantiene compatibilidad
-    estimatedShippingCost: shippingValue,
-    dropiFee: dropiFeeValue,
-    dropi_fee: dropiFeeValue,
-    dropiProductId: dropiCode,
-    dropi_product_id: dropiCode,
+    shippingCost: Number(shippingValue),
+    shipping_cost: Number(shippingValue),
+    flete: Number(shippingValue),
+    flete_envio: Number(shippingValue),
+    dropiFee: Number(dropiFeeValue),
+    dropi_fee: Number(dropiFeeValue),
+    dropiProductId: String(dropiCode || ''),
+    dropi_product_id: String(dropiCode || ''),
+    provider: String(provider),
+    estimatedShippingCost: Number(shippingValue),
     categoria: catValue,
     category: catValue,
     categoryName: catValue,
@@ -342,6 +342,7 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   };
 
   console.log('Payload al guardar:', payloadFinal);
+  console.log('payload:', payloadFinal);
 
   try {
     const res = await fetch(url, {

@@ -26,20 +26,36 @@ export const API_ENDPOINTS = {
  */
 export async function saveProductToCpanel(productData: any): Promise<{ success: boolean; data?: any; shipping_cost?: number }> {
   // Asegurar extracción del número digitado en el input sin valores forzados
-  const shippingValue = Number(productData.flete ?? productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 0);
+  const shippingValue = Number(
+    productData.shippingCost ?? 
+    productData.shipping_cost ?? 
+    productData.flete ?? 
+    productData.flete_envio ?? 
+    productData.estimatedShippingCost ?? 0
+  );
+  const dropiFeeValue = Number(productData.dropiFee ?? productData.dropi_fee ?? 0);
+  const dropiCode = String(productData.dropiProductId || productData.dropi_product_id || '').trim();
+  const provider = String(productData.provider || (dropiCode ? 'dropi' : 'derocha'));
 
   const payloadFinal = {
     ...productData,
     id: String(productData.id || productData.slug || `prod-${Date.now()}`),
-    shipping_cost: shippingValue,
-    flete_envio: shippingValue,
-    flete: shippingValue, // Mantiene compatibilidad
-    estimatedShippingCost: shippingValue,
+    shippingCost: Number(shippingValue),
+    shipping_cost: Number(shippingValue),
+    flete: Number(shippingValue),
+    flete_envio: Number(shippingValue),
+    estimatedShippingCost: Number(shippingValue),
+    dropiFee: Number(dropiFeeValue),
+    dropi_fee: Number(dropiFeeValue),
+    dropiProductId: String(dropiCode || ''),
+    dropi_product_id: String(dropiCode || ''),
+    provider: String(provider),
     costPrice: Number(productData.costPrice ?? productData.costo_proveedor ?? productData.supplier_cost ?? 0),
     price: Number(productData.price ?? productData.precio ?? 0)
   };
 
   console.log('Payload al guardar:', payloadFinal);
+  console.log('payload:', payloadFinal);
 
   // 1. Guardar primero en el endpoint local /api/products/:id
   const targetId = payloadFinal.id;

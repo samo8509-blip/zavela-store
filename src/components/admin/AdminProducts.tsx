@@ -125,17 +125,39 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Handler para persistir en zavela_custom_costs_v1 si se guarda un producto desde este componente
   const handleSave = async (productData: Partial<Product>) => {
-    const finalShipping = Number(productData.shippingCost ?? productData.shipping_cost ?? (productData as any).flete ?? 0);
-    const finalDropiFee = Number(productData.dropiFee ?? productData.dropi_fee ?? 0);
-    const dropiProductId = String(productData.dropiProductId || productData.dropi_product_id || '').trim();
+    const shippingCost = Number(
+      productData.shippingCost ?? 
+      (productData as any).shipping_cost ?? 
+      (productData as any).flete ?? 
+      (productData as any).flete_envio ?? 
+      (productData as any).estimatedShippingCost ?? 0
+    );
+    const dropiFee = Number(productData.dropiFee ?? (productData as any).dropi_fee ?? 0);
+    const dropiProductId = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
     const provider = String(productData.provider || (dropiProductId ? 'dropi' : 'derocha'));
+
+    const payload = {
+      ...productData,
+      shippingCost: Number(shippingCost),
+      shipping_cost: Number(shippingCost),
+      flete: Number(shippingCost),
+      flete_envio: Number(shippingCost),
+      dropiFee: Number(dropiFee),
+      dropi_fee: Number(dropiFee),
+      dropiProductId: String(dropiProductId || ''),
+      dropi_product_id: String(dropiProductId || ''),
+      provider: String(provider)
+    };
+
+    console.log('Payload al guardar (AdminProducts):', payload);
+    console.log('payload:', payload);
 
     try {
       const raw = localStorage.getItem('zavela_custom_costs_v1');
       const map = raw ? JSON.parse(raw) : {};
       const costRecord = {
-        shippingCost: Number(finalShipping),
-        dropiFee: Number(finalDropiFee),
+        shippingCost: Number(shippingCost),
+        dropiFee: Number(dropiFee),
         dropiProductId: String(dropiProductId || ''),
         provider: String(provider),
         updatedAt: Date.now()
@@ -148,7 +170,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     }
 
     if (onSave) {
-      await onSave(productData);
+      await onSave(payload);
     }
   };
 

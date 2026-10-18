@@ -293,20 +293,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       const payloadFinal = {
         ...productData,
-        provider,
-        shippingCost: shippingValue,
-        shipping_cost: shippingValue,
-        flete_envio: shippingValue,
-        flete: shippingValue, // Mantiene compatibilidad
-        estimatedShippingCost: shippingValue,
-        dropiFee: feeValue,
-        dropi_fee: feeValue,
-        dropiProductId: rawDropiCode,
-        dropi_product_id: rawDropiCode,
+        shippingCost: Number(shippingValue),
+        shipping_cost: Number(shippingValue),
+        flete: Number(shippingValue),
+        flete_envio: Number(shippingValue),
+        estimatedShippingCost: Number(shippingValue),
+        dropiFee: Number(feeValue),
+        dropi_fee: Number(feeValue),
+        dropiProductId: String(rawDropiCode || ''),
+        dropi_product_id: String(rawDropiCode || ''),
+        provider: String(provider),
         ...(targetId ? { id: targetId } : {})
       };
 
       console.log('Payload al guardar:', payloadFinal);
+      console.log('payload:', payloadFinal);
 
       const res = await fetch(endpoint, {
         method,
