@@ -11,6 +11,7 @@ const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
 
 const OVERRIDE_STORAGE_PREFIX = 'zavela_product_override_';
 const OVERRIDES_MAP_KEY = 'zavela_product_overrides_map';
+export const CUSTOM_COSTS_STORAGE_KEY = 'zavela_custom_costs_v1';
 
 export interface ProductCostOverride {
   shippingCost: number;
@@ -20,93 +21,186 @@ export interface ProductCostOverride {
   updatedAt: number;
 }
 
-export function saveLocalProductOverride(productId: string, data: { shippingCost?: number; dropiFee?: number; dropiProductId?: string; provider?: string }): void {
-  if (typeof window === 'undefined' || !productId) return;
-  try {
-    const cleanId = String(productId).trim();
-    const existing = getLocalProductOverride(cleanId) || { shippingCost: 0, dropiFee: 0, dropiProductId: '', updatedAt: 0 };
-    const updated: ProductCostOverride = {
-      shippingCost: data.shippingCost !== undefined ? Number(data.shippingCost) : existing.shippingCost,
-      dropiFee: data.dropiFee !== undefined ? Number(data.dropiFee) : existing.dropiFee,
-      dropiProductId: data.dropiProductId !== undefined ? String(data.dropiProductId).trim() : existing.dropiProductId,
-      provider: data.provider || existing.provider,
-      updatedAt: Date.now()
-    };
-    localStorage.setItem(`${OVERRIDE_STORAGE_PREFIX}${cleanId}`, JSON.stringify(updated));
+export type CustomProductCostRecord = ProductCostOverride;
 
-    const rawMap = localStorage.getItem(OVERRIDES_MAP_KEY);
-    const map: Record<string, ProductCostOverride> = rawMap ? JSON.parse(rawMap) : {};
-    map[cleanId] = updated;
-    localStorage.setItem(OVERRIDES_MAP_KEY, JSON.stringify(map));
-  } catch (e) {
-    console.warn('[cPanelProducts] Error saving local override:', e);
+export function getCustomCostsMap(): Record<string, CustomProductCostRecord> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CUSTOM_COSTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
-export function getLocalProductOverride(productId: string): ProductCostOverride | null {
-  if (typeof window === 'undefined' || !productId) return null;
+export function saveCustomProductCost(
+  productIdOrSlug: string,
+  data: {
+    shippingCost: number;
+    dropiFee: number;
+    dropiProductId?: string;
+    provider?: string;
+    slug?: string;
+    id?: string;
+  }
+): void {
+  if (typeof window === 'undefined') return;
   try {
-    const cleanId = String(productId).trim();
-    const stored = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${cleanId}`);
-    if (stored) {
-      return JSON.parse(stored);
+    const map = getCustomCostsMap();
+    const finalRecord: CustomProductCostRecord = {
+      shippingCost: Number(data.shippingCost ?? 0),
+      dropiFee: Number(data.dropiFee ?? 0),
+      dropiProductId: String(data.dropiProductId || '').trim(),
+      provider: String(data.provider || 'dropi'),
+      updatedAt: Date.now()
+    };
+
+    if (productIdOrSlug) map[String(productIdOrSlug).trim()] = finalRecord;
+    if (data.id) map[String(data.id).trim()] = finalRecord;
+    if (data.slug) map[String(data.slug).trim()] = finalRecord;
+
+    localStorage.setItem(CUSTOM_COSTS_STORAGE_KEY, JSON.stringify(map));
+
+    // Compatibilidad retroactiva con prefijo individual y mapa previo
+    if (data.id || productIdOrSlug) {
+      const cleanKey = String(data.id || productIdOrSlug).trim();
+      localStorage.setItem(`${OVERRIDE_STORAGE_PREFIX}${cleanKey}`, JSON.stringify(finalRecord));
     }
-    const rawMap = localStorage.getItem(OVERRIDES_MAP_KEY);
-    if (rawMap) {
-      const map = JSON.parse(rawMap);
-      if (map[cleanId]) return map[cleanId];
+  } catch (e) {
+    console.warn('[cPanelProducts] Error guardando mapa zavela_custom_costs_v1:', e);
+  }
+}
+
+export function getCustomProductCost(idOrSlug?: string, secondIdOrSlug?: string): CustomProductCostRecord | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const map = getCustomCostsMap();
+    const key1 = idOrSlug ? String(idOrSlug).trim() : '';
+    const key2 = secondIdOrSlug ? String(secondIdOrSlug).trim() : '';
+
+    if (key1 && map[key1]) return map[key1];
+    if (key2 && map[key2]) return map[key2];
+
+    // Fallback retrocompatible
+    if (key1) {
+      const stored = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${key1}`);
+      if (stored) return JSON.parse(stored);
+    }
+    if (key2) {
+      const stored2 = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${key2}`);
+      if (stored2) return JSON.parse(stored2);
     }
   } catch {}
   return null;
 }
 
+export function saveLocalProductOverride(productId: string, data: { shippingCost?: number; dropiFee?: number; dropiProductId?: string; provider?: string }): void {
+  saveCustomProductCost(productId, {
+    id: productId,
+    shippingCost: data.shippingCost !== undefined ? Number(data.shippingCost) : 0,
+    dropiFee: data.dropiFee !== undefined ? Number(data.dropiFee) : 0,
+    dropiProductId: data.dropiProductId,
+    provider: data.provider
+  });
+}
+
+export function getLocalProductOverride(productId: string): ProductCostOverride | null {
+  return getCustomProductCost(productId);
+}
+
+export function overrideProductWithCustomCosts<T extends Partial<Product>>(p: T): T {
+  if (!p) return p;
+  const pId = String(p.id || (p as any).productId || '').trim();
+  const pSlug = String(p.slug || '').trim();
+  const saved = getCustomProductCost(pId, pSlug);
+  if (!saved) return p;
+
+  const sCost = Number(saved.shippingCost ?? 0);
+  const dFee = Number(saved.dropiFee ?? 0);
+
+  p.shippingCost = sCost;
+  (p as any).shipping_cost = sCost;
+  (p as any).flete = sCost;
+  (p as any).flete_envio = sCost;
+  (p as any).estimatedShippingCost = sCost;
+  p.dropiFee = dFee;
+  (p as any).dropi_fee = dFee;
+  if (saved.dropiProductId) {
+    p.dropiProductId = saved.dropiProductId;
+    (p as any).dropi_product_id = saved.dropiProductId;
+  }
+  if (saved.provider) {
+    p.provider = saved.provider;
+  }
+
+  const cost = Number(p.costPrice || (p as any).supplier_cost || (p as any).costo || 0);
+  const price = Number(p.price || (p as any).precio || 0);
+  const opCost = cost + sCost + dFee;
+  p.totalOperatingCost = opCost;
+  p.realNetProfit = price - opCost;
+  p.realNetMarginPercentage = price > 0 ? Math.round(((price - opCost) / price) * 100) : 0;
+
+  return p;
+}
+
 export function normalizeCpanelProduct(p: any): Product {
   const pId = String(p.id || p.productId || '').trim();
-  const override = pId ? getLocalProductOverride(pId) : null;
+  const pSlug = String(p.slug || '').trim();
 
-  const dropiId = override && override.dropiProductId !== undefined
-    ? override.dropiProductId
-    : String(p.dropiProductId || p.dropi_product_id || p.dropi_id || '').trim();
+  // PRIORIDAD ABSOLUTA: Consultar zavela_custom_costs_v1 en localStorage por ID o por Slug
+  const saved = getCustomProductCost(pId, pSlug);
 
-  const provider = override?.provider || p.provider || (dropiId ? 'dropi' : 'derocha');
-  const isDropiProduct = provider === 'dropi' || Boolean(dropiId) || String(p.supplier || '').toLowerCase().includes('dropi');
-
-  // PRIORIDAD ABSOLUTA: Si el usuario guardó valores en el editor, el respaldo local en localStorage
-  // prevalece sobre cualquier respuesta de products.php o valores desactualizados de la BD externa.
   let shipping = 0;
-  if (override && typeof override.shippingCost === 'number') {
-    shipping = override.shippingCost;
+  let fee = 0;
+  let dropiId = String(p.dropiProductId || p.dropi_product_id || p.dropi_id || '').trim();
+  let provider = p.provider || (dropiId ? 'dropi' : 'derocha');
+
+  if (saved) {
+    shipping = Number(saved.shippingCost ?? 0);
+    fee = Number(saved.dropiFee ?? 0);
+    if (saved.dropiProductId !== undefined && saved.dropiProductId !== '') {
+      dropiId = String(saved.dropiProductId).trim();
+    }
+    if (saved.provider) {
+      provider = String(saved.provider);
+    }
   } else {
+    // Si no hay override en localStorage, leer lo que viene de la BD pero proteger contra 16500 de Dropi
     const rawShipping = p.shippingCost ?? p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.estimatedShippingCost;
     if (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') {
       const num = Number(rawShipping);
+      const isDropiProduct = provider === 'dropi' || Boolean(dropiId) || String(p.supplier || '').toLowerCase().includes('dropi');
       if (num === 16500 && isDropiProduct) {
-        // Eliminar fallback residual forzado del servidor cPanel externo para Dropi
         shipping = 0;
       } else {
         shipping = isNaN(num) ? 0 : num;
       }
     }
-  }
 
-  let fee = 0;
-  if (override && typeof override.dropiFee === 'number') {
-    fee = override.dropiFee;
-  } else {
     const rawFee = p.dropiFee ?? p.dropi_fee;
     if (rawFee !== undefined && rawFee !== null && rawFee !== '') {
-      const num = Number(rawFee);
-      fee = isNaN(num) ? 0 : num;
+      const numFee = Number(rawFee);
+      fee = isNaN(numFee) ? 0 : numFee;
     }
   }
 
   const supplier = p.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Directa'));
+  const costPrice = Number(p.costPrice || p.supplier_cost || p.costo || 0);
+  const price = Number(p.price || p.precio || 0);
+  const totalOperatingCost = costPrice + shipping + fee;
+  const realNetProfit = price - totalOperatingCost;
+  const realNetMarginPercentage = price > 0 ? Math.round((realNetProfit / price) * 100) : 0;
 
-  return {
+  const normalized: Product = {
     ...p,
     id: pId || String(p.id),
     title: p.title || p.nombre || p.name || '',
     nombre: p.nombre || p.title || p.name || '',
+    slug: pSlug || p.slug || pId,
+    costPrice,
+    supplier_cost: costPrice,
+    price,
+    precio: price,
     shippingCost: shipping,
     shipping_cost: shipping,
     flete_envio: shipping,
@@ -116,9 +210,30 @@ export function normalizeCpanelProduct(p: any): Product {
     dropi_fee: fee,
     dropiProductId: dropiId,
     dropi_product_id: dropiId,
+    totalOperatingCost,
+    realNetProfit,
+    realNetMarginPercentage,
     provider,
     supplier
-  } as Product;
+  };
+
+  if (saved) {
+    normalized.shippingCost = saved.shippingCost;
+    (normalized as any).shipping_cost = saved.shippingCost;
+    (normalized as any).flete = saved.shippingCost;
+    (normalized as any).flete_envio = saved.shippingCost;
+    normalized.dropiFee = saved.dropiFee;
+    (normalized as any).dropi_fee = saved.dropiFee;
+    if (saved.dropiProductId) {
+      normalized.dropiProductId = saved.dropiProductId;
+      (normalized as any).dropi_product_id = saved.dropiProductId;
+    }
+    if (saved.provider) {
+      normalized.provider = saved.provider;
+    }
+  }
+
+  return normalized;
 }
 
 /**
@@ -193,9 +308,11 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const dropiCode = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
   const provider = productData.provider || (dropiCode ? 'dropi' : 'derocha');
 
-  // Guardar inmediatamente en localStorage como respaldo local blindado
-  if (targetId) {
-    saveLocalProductOverride(String(targetId), {
+  // Guardar inmediatamente en zavela_custom_costs_v1 en localStorage como blindaje
+  if (targetId || productData.slug) {
+    saveCustomProductCost(String(targetId || productData.slug), {
+      id: targetId ? String(targetId) : undefined,
+      slug: productData.slug,
       shippingCost: shippingValue,
       dropiFee: dropiFeeValue,
       dropiProductId: dropiCode,
@@ -245,7 +362,9 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
         const phpData = await phpRes.json();
         const finalId = phpData.data?.id || targetId;
         if (finalId) {
-          saveLocalProductOverride(String(finalId), {
+          saveCustomProductCost(String(finalId), {
+            id: String(finalId),
+            slug: productData.slug,
             shippingCost: shippingValue,
             dropiFee: dropiFeeValue,
             dropiProductId: dropiCode,
@@ -262,7 +381,9 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
     const finalData = data.data || payloadFinal;
     const finalId = finalData?.id || targetId;
     if (finalId) {
-      saveLocalProductOverride(String(finalId), {
+      saveCustomProductCost(String(finalId), {
+        id: String(finalId),
+        slug: productData.slug,
         shippingCost: shippingValue,
         dropiFee: dropiFeeValue,
         dropiProductId: dropiCode,

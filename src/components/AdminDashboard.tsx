@@ -28,7 +28,9 @@ import {
   getCpanelProducts,
   saveCpanelProduct,
   normalizeCpanelProduct,
-  saveLocalProductOverride
+  saveLocalProductOverride,
+  saveCustomProductCost,
+  overrideProductWithCustomCosts
 } from '../services/cpanelProducts.ts';
 import { 
   getFirestoreSettings, 
@@ -188,11 +190,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       if (statsRes.success) setStats(statsRes.data);
 
-      // Priorizar datos de la base de datos sincronizada aplicando el normalizador con respaldo local
+      // Priorizar datos de la base de datos sincronizada aplicando el normalizador y blindaje con zavela_custom_costs_v1
       if (productsRes.success && Array.isArray(productsRes.data)) {
-        setProducts(productsRes.data.map(normalizeCpanelProduct));
+        setProducts(productsRes.data.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p))));
       } else if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds.map(normalizeCpanelProduct));
+        setProducts(cpanelProds.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p))));
       }
 
       if (ordersRes.success) setOrders(ordersRes.data);
@@ -260,9 +262,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const rawDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || '').trim();
       const provider = productData.provider || (rawDropiCode ? 'dropi' : 'derocha');
 
-      // Respaldo local preventivo antes del guardado en servidor
+      // Respaldo preventivo en zavela_custom_costs_v1 en localStorage antes del guardado en servidor
+      try {
+        const rawMap = localStorage.getItem('zavela_custom_costs_v1');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        const costRecord = {
+          shippingCost: Number(shippingValue),
+          dropiFee: Number(feeValue),
+          dropiProductId: String(rawDropiCode || ''),
+          provider: String(provider),
+          updatedAt: Date.now()
+        };
+        if (targetId) map[String(targetId).trim()] = costRecord;
+        if (productData.slug) map[String(productData.slug).trim()] = costRecord;
+        localStorage.setItem('zavela_custom_costs_v1', JSON.stringify(map));
+      } catch (e) {
+        console.warn('Error saving zavela_custom_costs_v1 before fetch in AdminDashboard:', e);
+      }
+
       if (targetId) {
-        saveLocalProductOverride(String(targetId), {
+        saveCustomProductCost(String(targetId), {
+          id: String(targetId),
+          slug: productData.slug,
           shippingCost: shippingValue,
           dropiFee: feeValue,
           dropiProductId: rawDropiCode,
@@ -302,12 +323,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const savedProductResult = resData.data || payloadFinal;
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
       const finalDropiCode = String(rawDropiCode || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
-      const finalFee = Number(savedProductResult?.dropiFee ?? savedProductResult?.dropi_fee ?? feeValue);
-      const finalShipping = Number(savedProductResult?.shippingCost ?? savedProductResult?.shipping_cost ?? savedProductResult?.flete_envio ?? savedProductResult?.flete ?? shippingValue);
+      
+      // BLINDAJE TOTAL: Los valores exactos digitados por el usuario NUNCA pueden ser pisados por el 0 del servidor
+      const finalFee = Number(feeValue);
+      const finalShipping = Number(shippingValue);
 
-      // Respaldo local definitivo en localStorage tras confirmación del servidor
+      // Respaldo local definitivo en zavela_custom_costs_v1 en localStorage tras confirmación del servidor
+      try {
+        const rawMap = localStorage.getItem('zavela_custom_costs_v1');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        const costRecord = {
+          shippingCost: finalShipping,
+          dropiFee: finalFee,
+          dropiProductId: String(finalDropiCode || ''),
+          provider: String(provider),
+          updatedAt: Date.now()
+        };
+        if (finalProductId) map[String(finalProductId).trim()] = costRecord;
+        if (productData.slug) map[String(productData.slug).trim()] = costRecord;
+        localStorage.setItem('zavela_custom_costs_v1', JSON.stringify(map));
+      } catch (e) {
+        console.warn('Error saving zavela_custom_costs_v1 after server response in AdminDashboard:', e);
+      }
+
       if (finalProductId) {
-        saveLocalProductOverride(String(finalProductId), {
+        saveCustomProductCost(String(finalProductId), {
+          id: String(finalProductId),
+          slug: productData.slug,
           shippingCost: finalShipping,
           dropiFee: finalFee,
           dropiProductId: finalDropiCode,
@@ -810,6 +852,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   categories={categories}
                   onRefresh={fetchAdminData}
                   onEditProduct={(p) => setEditingProduct(p)}
+                  onSave={handleSaveProduct}
                   onNavigateToDropiImporter={() => setActiveSection('dropi_bulk_importer')}
                   onDeleteProduct={(deletedId) => {
                     setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));

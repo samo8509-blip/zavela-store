@@ -49,8 +49,52 @@ import {
   duplicateCpanelProduct,
   checkCpanelConnection,
   normalizeCpanelProduct,
-  getLocalProductOverride
+  getLocalProductOverride,
+  saveCustomProductCost,
+  overrideProductWithCustomCosts
 } from '../../services/cpanelProducts.ts';
+
+export function applyZavelaCustomCosts(p: Product): Product {
+  if (!p) return p;
+  const pId = String(p.id || (p as any).productId || '').trim();
+  const pSlug = String(p.slug || '').trim();
+
+  let saved: any = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('zavela_custom_costs_v1');
+      if (raw) {
+        const map = JSON.parse(raw);
+        if (pId && map[pId]) saved = map[pId];
+        else if (pSlug && map[pSlug]) saved = map[pSlug];
+      }
+    } catch {}
+  }
+
+  if (saved) {
+    p.shippingCost = Number(saved.shippingCost ?? 0);
+    (p as any).shipping_cost = Number(saved.shippingCost ?? 0);
+    (p as any).flete = Number(saved.shippingCost ?? 0);
+    (p as any).flete_envio = Number(saved.shippingCost ?? 0);
+    (p as any).estimatedShippingCost = Number(saved.shippingCost ?? 0);
+    p.dropiFee = Number(saved.dropiFee ?? 0);
+    (p as any).dropi_fee = Number(saved.dropiFee ?? 0);
+    if (saved.dropiProductId) {
+      p.dropiProductId = String(saved.dropiProductId).trim();
+      (p as any).dropi_product_id = String(saved.dropiProductId).trim();
+    }
+    if (saved.provider) {
+      p.provider = saved.provider;
+    }
+    const costPrice = Number(p.costPrice || (p as any).supplier_cost || (p as any).costo || 0);
+    const price = Number(p.price || (p as any).precio || 0);
+    const totalOperatingCost = costPrice + p.shippingCost + p.dropiFee;
+    p.totalOperatingCost = totalOperatingCost;
+    p.realNetProfit = price - totalOperatingCost;
+    p.realNetMarginPercentage = price > 0 ? Math.round(((price - totalOperatingCost) / price) * 100) : 0;
+  }
+  return p;
+}
 
 interface AdminProductsProps {
   products: Product[];
@@ -59,6 +103,7 @@ interface AdminProductsProps {
   onEditProduct: (product: Product | null) => void;
   onDeleteProduct?: (id: string) => void;
   onNavigateToDropiImporter?: () => void;
+  onSave?: (productData: Partial<Product>) => Promise<void>;
 }
 
 export const AdminProducts: React.FC<AdminProductsProps> = ({
@@ -67,13 +112,45 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   onRefresh,
   onEditProduct,
   onDeleteProduct,
-  onNavigateToDropiImporter
+  onNavigateToDropiImporter,
+  onSave
 }) => {
-  const [localProducts, setLocalProducts] = useState<Product[]>(() => (products || []).map(normalizeCpanelProduct));
+  const [localProducts, setLocalProducts] = useState<Product[]>(() => 
+    (products || []).map(p => applyZavelaCustomCosts(normalizeCpanelProduct(p)))
+  );
 
   useEffect(() => {
-    setLocalProducts((products || []).map(normalizeCpanelProduct));
+    setLocalProducts((products || []).map(p => applyZavelaCustomCosts(normalizeCpanelProduct(p))));
   }, [products]);
+
+  // Handler para persistir en zavela_custom_costs_v1 si se guarda un producto desde este componente
+  const handleSave = async (productData: Partial<Product>) => {
+    const finalShipping = Number(productData.shippingCost ?? productData.shipping_cost ?? (productData as any).flete ?? 0);
+    const finalDropiFee = Number(productData.dropiFee ?? productData.dropi_fee ?? 0);
+    const dropiProductId = String(productData.dropiProductId || productData.dropi_product_id || '').trim();
+    const provider = String(productData.provider || (dropiProductId ? 'dropi' : 'derocha'));
+
+    try {
+      const raw = localStorage.getItem('zavela_custom_costs_v1');
+      const map = raw ? JSON.parse(raw) : {};
+      const costRecord = {
+        shippingCost: Number(finalShipping),
+        dropiFee: Number(finalDropiFee),
+        dropiProductId: String(dropiProductId || ''),
+        provider: String(provider),
+        updatedAt: Date.now()
+      };
+      if (productData.id) map[String(productData.id).trim()] = costRecord;
+      if (productData.slug) map[String(productData.slug).trim()] = costRecord;
+      localStorage.setItem('zavela_custom_costs_v1', JSON.stringify(map));
+    } catch (e) {
+      console.warn('Error saving custom costs in AdminProducts onSave:', e);
+    }
+
+    if (onSave) {
+      await onSave(productData);
+    }
+  };
 
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -1056,7 +1133,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                             )}
                           </button>
                           <button
-                            onClick={() => onEditProduct(p)}
+                            onClick={() => onEditProduct(applyZavelaCustomCosts({ ...p }))}
                             disabled={isBusy}
                             className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
                             title="Editar Producto (cPanel MySQL)"

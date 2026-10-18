@@ -1,4 +1,5 @@
 import { Product } from '../types/index.ts';
+import { normalizeCpanelProduct } from '../services/cpanelProducts.ts';
 
 /**
  * Normaliza cualquier texto para comparación de slugs:
@@ -190,7 +191,7 @@ export async function fetchProductDirectlyFromApi(identifier: string): Promise<P
     if (!res.ok) return null;
     const json = await res.json();
     if (json.success && json.data) {
-      return json.data as Product;
+      return normalizeCpanelProduct(json.data);
     }
   } catch (e) {
     console.warn('[fetchProductDirectlyFromApi Error]:', e);

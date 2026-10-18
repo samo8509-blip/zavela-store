@@ -3,7 +3,7 @@ import { ArrowLeft, Save, Upload, Link as LinkIcon, Star, CheckCircle2, AlertTri
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
-import { getLocalProductOverride, saveLocalProductOverride } from '../../services/cpanelProducts.ts';
+import { getLocalProductOverride, saveLocalProductOverride, saveCustomProductCost, getCustomProductCost, CUSTOM_COSTS_STORAGE_KEY } from '../../services/cpanelProducts.ts';
 
 export interface AdminProductEditorProps {
   product: Product | null;
@@ -17,7 +17,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const [isSaving, setIsSaving] = useState(false);
 
   const pId = product?.id || (product as any)?.productId;
-  const localOverride = pId ? getLocalProductOverride(String(pId)) : null;
+  const pSlug = product?.slug;
+  const localOverride = pId || pSlug ? getCustomProductCost(String(pId || ''), String(pSlug || '')) : null;
 
   // Estados Base
   const [title, setTitle] = useState(product?.title || '');
@@ -72,6 +73,37 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
     const num = Number(raw);
     return isNaN(num) ? '' : num;
   });
+
+  // EFECTO OBLIGATORIO: Forzar lectura de zavela_custom_costs_v1 al montar o cambiar product
+  useEffect(() => {
+    if (!product) return;
+    const prodId = String(product.id || (product as any)?.productId || '').trim();
+    const prodSlug = String(product.slug || '').trim();
+
+    try {
+      const raw = localStorage.getItem('zavela_custom_costs_v1');
+      if (raw) {
+        const map = JSON.parse(raw);
+        const saved = (prodId && map[prodId]) || (prodSlug && map[prodSlug]);
+        if (saved) {
+          if (typeof saved.shippingCost === 'number') {
+            setShippingCost(saved.shippingCost);
+          }
+          if (typeof saved.dropiFee === 'number') {
+            setDropiFee(saved.dropiFee);
+          }
+          if (saved.dropiProductId) {
+            setDropiProductId(saved.dropiProductId);
+          }
+          if (saved.provider) {
+            setProvider(saved.provider as any);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error leyendo zavela_custom_costs_v1 en AdminProductEditor:', e);
+    }
+  }, [product]);
 
   const [active, setActive] = useState(product?.active !== false);
   const [featured, setFeatured] = useState(Boolean(product?.featured));
@@ -190,9 +222,36 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         variants
       };
 
-      // Respaldo local inmediato en localStorage para prioridad absoluta en Dropi y otros proveedores
-      if (product?.id) {
-        saveLocalProductOverride(String(product.id), {
+      const finalSlug = slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+      // 1. MAPA DE PERSISTENCIA DE COSTOS (zavela_custom_costs_v1 en localStorage)
+      try {
+        const rawMap = localStorage.getItem('zavela_custom_costs_v1');
+        const map = rawMap ? JSON.parse(rawMap) : {};
+        const costRecord = {
+          shippingCost: Number(finalShipping),
+          dropiFee: Number(finalDropiFee),
+          dropiProductId: String(cleanDropiId || ''),
+          provider: String(provider),
+          updatedAt: Date.now()
+        };
+
+        if (product?.id) {
+          map[String(product.id).trim()] = costRecord;
+        }
+        if (finalSlug) {
+          map[String(finalSlug).trim()] = costRecord;
+        }
+        localStorage.setItem('zavela_custom_costs_v1', JSON.stringify(map));
+      } catch (err) {
+        console.warn('Error guardando en zavela_custom_costs_v1:', err);
+      }
+
+      // Respaldo complementario para compatibilidad
+      if (product?.id || finalSlug) {
+        saveCustomProductCost(String(product?.id || finalSlug), {
+          id: product?.id ? String(product.id) : undefined,
+          slug: finalSlug,
           shippingCost: finalShipping,
           dropiFee: finalDropiFee,
           dropiProductId: cleanDropiId,
