@@ -163,8 +163,15 @@ export class CpanelDbService {
       dropi_product_id: dropiId,
       dropiProductId: dropiId,
       dropi_id: dropiId,
-      shipping_cost: Number(product.shipping_cost !== undefined ? product.shipping_cost : ((product as any).estimatedShippingCost || 16500)),
-      estimatedShippingCost: Number(product.shipping_cost !== undefined ? product.shipping_cost : ((product as any).estimatedShippingCost || 16500)),
+      provider: (product as any).provider || (dropiId ? 'dropi' : 'derocha'),
+      supplier: (product as any).supplier || ((product as any).provider === 'dropi' || dropiId ? 'Dropi Colombia' : 'DeRocha'),
+      shippingCost: Number((product as any).shippingCost ?? product.shipping_cost ?? (product as any).flete_envio ?? (product as any).flete ?? (product as any).estimatedShippingCost ?? 0),
+      shipping_cost: Number((product as any).shippingCost ?? product.shipping_cost ?? (product as any).flete_envio ?? (product as any).flete ?? (product as any).estimatedShippingCost ?? 0),
+      flete_envio: Number((product as any).flete_envio ?? (product as any).shippingCost ?? product.shipping_cost ?? (product as any).flete ?? (product as any).estimatedShippingCost ?? 0),
+      flete: Number((product as any).flete ?? (product as any).shippingCost ?? product.shipping_cost ?? (product as any).flete_envio ?? (product as any).estimatedShippingCost ?? 0),
+      estimatedShippingCost: Number((product as any).shippingCost ?? product.shipping_cost ?? (product as any).flete_envio ?? (product as any).flete ?? (product as any).estimatedShippingCost ?? 0),
+      dropi_fee: Number(product.dropiFee ?? (product as any).dropi_fee ?? 0),
+      dropiFee: Number(product.dropiFee ?? (product as any).dropi_fee ?? 0),
       updatedAt: product.updatedAt || new Date().toISOString()
     };
 
@@ -679,6 +686,16 @@ export class CpanelDbService {
       category: categoryName,
       categoria: categoryName,
       dropi_product_id: dropiId,
+      dropiProductId: dropiId,
+      provider: item.provider || (dropiId ? 'dropi' : 'derocha'),
+      supplier: item.supplier || (item.provider === 'dropi' || dropiId ? 'Dropi Colombia' : 'DeRocha'),
+      shippingCost: Number(item.shippingCost ?? item.shipping_cost ?? item.flete_envio ?? item.flete ?? item.estimatedShippingCost ?? 0),
+      shipping_cost: Number(item.shippingCost ?? item.shipping_cost ?? item.flete_envio ?? item.flete ?? item.estimatedShippingCost ?? 0),
+      flete_envio: Number(item.shippingCost ?? item.shipping_cost ?? item.flete_envio ?? item.flete ?? item.estimatedShippingCost ?? 0),
+      flete: Number(item.shippingCost ?? item.shipping_cost ?? item.flete_envio ?? item.flete ?? item.estimatedShippingCost ?? 0),
+      estimatedShippingCost: Number(item.shippingCost ?? item.shipping_cost ?? item.flete_envio ?? item.flete ?? item.estimatedShippingCost ?? 0),
+      dropiFee: Number(item.dropiFee ?? item.dropi_fee ?? 0),
+      dropi_fee: Number(item.dropiFee ?? item.dropi_fee ?? 0),
       createdAt: item.createdAt || item.fecha_creacion || item.created_at || new Date().toISOString(),
       updatedAt: item.updatedAt || item.fecha_actualizacion || item.updated_at || new Date().toISOString()
     };

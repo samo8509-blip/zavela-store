@@ -69,11 +69,35 @@ try {
         `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
-    // Auto-migración en tabla productos: dropi_product_id e imagenes
+    // Auto-migración en tabla productos: dropi_product_id, dropi_fee, fletes e imagenes
     if ($tableName === 'productos') {
         $colDropi = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'dropi_product_id'");
         if ($colDropi->rowCount() === 0) {
             $pdo->exec("ALTER TABLE `productos` ADD COLUMN `dropi_product_id` VARCHAR(100) NULL AFTER `descripcion`");
+        }
+        $colDropiFee = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'dropi_fee'");
+        if ($colDropiFee->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `dropi_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER `dropi_product_id`");
+        }
+        $colShippingCost = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'shipping_cost'");
+        if ($colShippingCost->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `shipping_cost` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+        $colFleteEnvio = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'flete_envio'");
+        if ($colFleteEnvio->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `flete_envio` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+        $colFlete = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'flete'");
+        if ($colFlete->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `flete` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
+        }
+        $colProvider = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'provider'");
+        if ($colProvider->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `provider` VARCHAR(50) NULL DEFAULT 'derocha'");
+        }
+        $colSupplier = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'supplier'");
+        if ($colSupplier->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE `productos` ADD COLUMN `supplier` VARCHAR(100) NULL DEFAULT 'DeRocha'");
         }
         $colImgs = $pdo->query("SHOW COLUMNS FROM `productos` LIKE 'imagenes'");
         if ($colImgs->rowCount() === 0) {
@@ -197,7 +221,8 @@ function formatProductOutput($row) {
         $variants = is_array($decodedVars) ? $decodedVars : [];
     }
 
-    $shippingCost = (float)($row['shipping_cost'] ?? $row['flete_envio'] ?? 16500);
+    $shippingCost = (float)($row['shipping_cost'] ?? $row['flete_envio'] ?? $row['flete'] ?? 0);
+    $dropiFee = (float)($row['dropi_fee'] ?? 0);
 
     return [
         'id'                 => (string)$row['id'],
@@ -217,7 +242,11 @@ function formatProductOutput($row) {
         'marginPercentage'   => $marginPercentage,
         'shipping_cost'      => $shippingCost,
         'flete_envio'        => $shippingCost,
+        'flete'              => $shippingCost,
+        'shippingCost'       => $shippingCost,
         'estimatedShippingCost' => $shippingCost,
+        'dropi_fee'          => $dropiFee,
+        'dropiFee'           => $dropiFee,
         'stock'              => $stock,
         'active'             => $active,
         'featured'           => $featured,
@@ -360,18 +389,25 @@ try {
 
             $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'] ?? null;
 
-            // Capturar el flete priorizando shipping_cost, flete_envio, flete y default 16500.00
+            // Capturar el flete priorizando shipping_cost, flete_envio, flete y default 0.00
             $flete = isset($data['shipping_cost']) ? floatval($data['shipping_cost']) : (
                      isset($data['flete_envio']) ? floatval($data['flete_envio']) : (
-                     isset($data['flete']) ? floatval($data['flete']) : 16500.00
-                    ));
+                     isset($data['flete']) ? floatval($data['flete']) : (
+                     isset($data['shippingCost']) ? floatval($data['shippingCost']) : 0.00
+                    )));
+            $dropiFee = isset($data['dropi_fee']) ? floatval($data['dropi_fee']) : (
+                        isset($data['dropiFee']) ? floatval($data['dropiFee']) : 0.00
+                       );
+
+            $variants = $data['variants'] ?? [];
+            $variantsJson = is_array($variants) ? json_encode($variants, JSON_UNESCAPED_UNICODE) : (is_string($variants) ? $variants : '[]');
 
             if ($tableName === 'productos') {
                 // Guardado específico en la tabla 'productos' (MySQL cPanel)
                 $sql = "INSERT INTO productos (
-                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, flete_envio, dropi_product_id, created_at
+                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, flete_envio, flete, dropi_fee, dropi_product_id, variants, created_at
                 ) VALUES (
-                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :flete_envio, :dropi_product_id, NOW()
+                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :flete_envio, :flete, :dropi_fee, :dropi_product_id, :variants, NOW()
                 ) ON DUPLICATE KEY UPDATE
                     nombre = VALUES(nombre),
                     precio = VALUES(precio),
@@ -381,7 +417,10 @@ try {
                     imagenes = VALUES(imagenes),
                     shipping_cost = VALUES(shipping_cost),
                     flete_envio = VALUES(flete_envio),
-                    dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), dropi_product_id)";
+                    flete = VALUES(flete),
+                    dropi_fee = VALUES(dropi_fee),
+                    dropi_product_id = VALUES(dropi_product_id),
+                    variants = VALUES(variants)";
 
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([
@@ -394,7 +433,10 @@ try {
                     ':imagenes'         => $imagesJson,
                     ':shipping_cost'    => $flete,
                     ':flete_envio'      => $flete,
-                    ':dropi_product_id' => $dropiId
+                    ':flete'            => $flete,
+                    ':dropi_fee'        => $dropiFee,
+                    ':dropi_product_id' => $dropiId,
+                    ':variants'         => $variantsJson
                 ]);
             } else {
                 // Guardado en tabla extendida 'products'
@@ -500,21 +542,34 @@ try {
                 exit();
             }
 
-            // Capturar el flete priorizando: shipping_cost -> flete_envio -> flete -> 16500.00
+            // Capturar el flete priorizando: shipping_cost -> flete_envio -> flete -> 0.00
             $flete = isset($data['shipping_cost']) ? floatval($data['shipping_cost']) : (
                      isset($data['flete_envio']) ? floatval($data['flete_envio']) : (
-                     isset($data['flete']) ? floatval($data['flete']) : 16500.00
-                    ));
+                     isset($data['flete']) ? floatval($data['flete']) : (
+                     isset($data['shippingCost']) ? floatval($data['shippingCost']) : 0.00
+                    )));
 
             if ($tableName === 'productos') {
                 $fields = [
                     "shipping_cost = :flete",
-                    "flete_envio = :flete"
+                    "flete_envio = :flete",
+                    "flete = :flete"
                 ];
                 $params = [
                     ':id'    => $id,
                     ':flete' => $flete
                 ];
+
+                if (isset($data['dropi_fee']) || isset($data['dropiFee'])) {
+                    $fields[] = "dropi_fee = :dropi_fee";
+                    $params[':dropi_fee'] = floatval($data['dropi_fee'] ?? $data['dropiFee']);
+                }
+
+                if (isset($data['variants']) || isset($data['variantes'])) {
+                    $v = $data['variants'] ?? $data['variantes'];
+                    $fields[] = "variants = :variants, variantes = :variants";
+                    $params[':variants'] = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE) : (is_string($v) ? $v : '[]');
+                }
 
                 if (isset($data['nombre']) || isset($data['title']) || isset($data['name'])) {
                     $fields[] = "nombre = :nombre";

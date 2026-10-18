@@ -26,7 +26,9 @@ import {
 } from '../types/index.ts';
 import { 
   getCpanelProducts,
-  saveCpanelProduct
+  saveCpanelProduct,
+  normalizeCpanelProduct,
+  saveLocalProductOverride
 } from '../services/cpanelProducts.ts';
 import { 
   getFirestoreSettings, 
@@ -185,12 +187,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       ]);
 
       if (statsRes.success) setStats(statsRes.data);
-      
-      // Priorizar datos de la base de datos sincronizada
+
+      // Priorizar datos de la base de datos sincronizada aplicando el normalizador con respaldo local
       if (productsRes.success && Array.isArray(productsRes.data)) {
-        setProducts(productsRes.data);
+        setProducts(productsRes.data.map(normalizeCpanelProduct));
       } else if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds);
+        setProducts(cpanelProds.map(normalizeCpanelProduct));
       }
 
       if (ordersRes.success) setOrders(ordersRes.data);
@@ -242,19 +244,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const targetId = productData.id || (productData as any).productId;
       const isEdit = Boolean(targetId);
 
-      // 1. Si el producto ya tiene id, enviar por PUT /api/admin/products/:id; si es nuevo sin id, enviar por POST
-      const endpoint = isEdit ? `/api/admin/products/${encodeURIComponent(targetId!)}` : '/api/admin/products';
+      // 1. Si el producto ya tiene id, enviar por PUT /api/products/:id; si es nuevo sin id, enviar por POST /api/products
+      const endpoint = isEdit ? `/api/products/${encodeURIComponent(targetId!)}` : '/api/products';
       const method = isEdit ? 'PUT' : 'POST';
 
-      // Asegurar extracción del número digitado en el input
-      const shippingValue = Number((productData as any).flete ?? productData.shipping_cost ?? (productData as any).flete_envio ?? (productData as any).estimatedShippingCost ?? 16500);
+      // Asegurar extracción del número digitado en el input sin valores forzados (0 por defecto)
+      const shippingValue = Number(
+        (productData as any).shippingCost ??
+        productData.shipping_cost ??
+        (productData as any).flete_envio ??
+        (productData as any).flete ??
+        (productData as any).estimatedShippingCost ?? 0
+      );
+      const feeValue = Number((productData as any).dropiFee ?? (productData as any).dropi_fee ?? 0);
+      const rawDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || '').trim();
+      const provider = productData.provider || (rawDropiCode ? 'dropi' : 'derocha');
+
+      // Respaldo local preventivo antes del guardado en servidor
+      if (targetId) {
+        saveLocalProductOverride(String(targetId), {
+          shippingCost: shippingValue,
+          dropiFee: feeValue,
+          dropiProductId: rawDropiCode,
+          provider
+        });
+      }
 
       const payloadFinal = {
         ...productData,
+        provider,
+        shippingCost: shippingValue,
         shipping_cost: shippingValue,
         flete_envio: shippingValue,
         flete: shippingValue, // Mantiene compatibilidad
         estimatedShippingCost: shippingValue,
+        dropiFee: feeValue,
+        dropi_fee: feeValue,
+        dropiProductId: rawDropiCode,
+        dropi_product_id: rawDropiCode,
         ...(targetId ? { id: targetId } : {})
       };
 
@@ -274,12 +301,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const resData = await res.json();
       const savedProductResult = resData.data || payloadFinal;
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
-      const finalDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
+      const finalDropiCode = String(rawDropiCode || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
+      const finalFee = Number(savedProductResult?.dropiFee ?? savedProductResult?.dropi_fee ?? feeValue);
+      const finalShipping = Number(savedProductResult?.shippingCost ?? savedProductResult?.shipping_cost ?? savedProductResult?.flete_envio ?? savedProductResult?.flete ?? shippingValue);
+
+      // Respaldo local definitivo en localStorage tras confirmación del servidor
+      if (finalProductId) {
+        saveLocalProductOverride(String(finalProductId), {
+          shippingCost: finalShipping,
+          dropiFee: finalFee,
+          dropiProductId: finalDropiCode,
+          provider
+        });
+      }
 
       const completeSavedProduct = {
         ...productData,
         ...savedProductResult,
         id: finalProductId,
+        provider,
+        shippingCost: finalShipping,
+        shipping_cost: finalShipping,
+        flete_envio: finalShipping,
+        flete: finalShipping,
+        estimatedShippingCost: finalShipping,
+        dropiFee: finalFee,
+        dropi_fee: finalFee,
         dropi_product_id: finalDropiCode,
         dropiProductId: finalDropiCode,
         publishToFacebook: productData.publishToFacebook !== false

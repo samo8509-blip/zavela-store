@@ -25,8 +25,8 @@ export const API_ENDPOINTS = {
  * y esperando la confirmación de la respuesta HTTP 200 { success: true }
  */
 export async function saveProductToCpanel(productData: any): Promise<{ success: boolean; data?: any; shipping_cost?: number }> {
-  // Asegurar extracción del número digitado en el input
-  const shippingValue = Number(productData.flete ?? productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 16500);
+  // Asegurar extracción del número digitado en el input sin valores forzados
+  const shippingValue = Number(productData.flete ?? productData.shipping_cost ?? productData.flete_envio ?? productData.estimatedShippingCost ?? 0);
 
   const payloadFinal = {
     ...productData,

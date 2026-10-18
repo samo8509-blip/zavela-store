@@ -47,7 +47,9 @@ import {
   deleteMultipleCpanelProducts,
   updateMultipleCpanelProducts,
   duplicateCpanelProduct,
-  checkCpanelConnection
+  checkCpanelConnection,
+  normalizeCpanelProduct,
+  getLocalProductOverride
 } from '../../services/cpanelProducts.ts';
 
 interface AdminProductsProps {
@@ -67,10 +69,10 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   onDeleteProduct,
   onNavigateToDropiImporter
 }) => {
-  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+  const [localProducts, setLocalProducts] = useState<Product[]>(() => (products || []).map(normalizeCpanelProduct));
 
   useEffect(() => {
-    setLocalProducts(products);
+    setLocalProducts((products || []).map(normalizeCpanelProduct));
   }, [products]);
 
   const [search, setSearch] = useState('');
@@ -962,7 +964,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                       <td className="px-4 py-3">
                         <div className="font-black text-slate-900">{formatCOP(p.price)}</div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          Costo Op: {formatCOP(p.totalOperatingCost || ((p.costPrice || 0) + (p.estimatedShippingCost || 16500) + (p.dropiFee || 4000)))}
+                          Costo Op: {formatCOP(p.totalOperatingCost !== undefined ? p.totalOperatingCost : ((p.costPrice || 0) + Number((p as any).shippingCost ?? (p as any).shipping_cost ?? (p as any).flete_envio ?? (p as any).flete ?? 0) + Number((p as any).dropiFee ?? (p as any).dropi_fee ?? 0)))}
                         </div>
                         <div className="text-[9px] text-slate-400">
                           (Base: {formatCOP(p.costPrice || 0)})
@@ -971,7 +973,9 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
                       <td className="px-4 py-3">
                         {(() => {
-                          const opCost = p.totalOperatingCost || ((p.costPrice || 0) + (p.estimatedShippingCost || 16500) + (p.dropiFee || 4000));
+                          const shippingVal = Number((p as any).shippingCost ?? (p as any).shipping_cost ?? (p as any).flete_envio ?? (p as any).flete ?? 0);
+                          const feeVal = Number((p as any).dropiFee ?? (p as any).dropi_fee ?? 0);
+                          const opCost = p.totalOperatingCost !== undefined ? p.totalOperatingCost : ((p.costPrice || 0) + shippingVal + feeVal);
                           const netProfit = p.realNetProfit !== undefined ? p.realNetProfit : (p.price - opCost);
                           const netMarginPct = p.price > 0 ? Math.round((netProfit / p.price) * 100) : 0;
                           const isProfit = netProfit > 0;

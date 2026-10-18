@@ -3,6 +3,7 @@ import { ArrowLeft, Save, Upload, Link as LinkIcon, Star, CheckCircle2, AlertTri
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
+import { getLocalProductOverride, saveLocalProductOverride } from '../../services/cpanelProducts.ts';
 
 export interface AdminProductEditorProps {
   product: Product | null;
@@ -15,6 +16,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const isEditing = Boolean(product?.id);
   const [isSaving, setIsSaving] = useState(false);
 
+  const pId = product?.id || (product as any)?.productId;
+  const localOverride = pId ? getLocalProductOverride(String(pId)) : null;
+
   // Estados Base
   const [title, setTitle] = useState(product?.title || '');
   const [slug, setSlug] = useState(product?.slug || '');
@@ -22,10 +26,14 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   const [description, setDescription] = useState(product?.description || '');
   const [categoryId, setCategoryId] = useState(product?.categoryId || categories[0]?.id || '');
   const [customSupplierName, setCustomSupplierName] = useState((product as any)?.supplier || '');
-  const [dropiProductId, setDropiProductId] = useState(product?.dropiProductId || product?.dropi_product_id || '');
+  const [dropiProductId, setDropiProductId] = useState(() => {
+    if (localOverride && localOverride.dropiProductId !== undefined) return localOverride.dropiProductId;
+    return product?.dropiProductId || product?.dropi_product_id || '';
+  });
 
   // Proveedor Inteligente
   const resolveInitialProvider = () => {
+    if (localOverride && localOverride.provider) return localOverride.provider as any;
     if (!product) return 'derocha';
     const raw = String(product.provider || product.supplier || '').toLowerCase();
     if (raw.includes('dropi')) return 'dropi';
@@ -35,20 +43,30 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
   };
   const [provider, setProvider] = useState<'dropi'|'derocha'|'direct'|'other'>(resolveInitialProvider());
 
-  // PRECIOS Y COSTOS (BLINDADOS CONTRA EL 16500)
+  // PRECIOS Y COSTOS (BLINDADOS CONTRA EL 16500 - DEFAULT 0)
   const [price, setPrice] = useState(Number(product?.price) || 0);
   const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
   const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
   const [stock, setStock] = useState(Number(product?.stock) || 20);
 
   const [shippingCost, setShippingCost] = useState<number | ''>(() => {
+    if (localOverride && typeof localOverride.shippingCost === 'number') {
+      return localOverride.shippingCost;
+    }
     const raw = product?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete ?? (product as any)?.flete_envio;
     if (raw === undefined || raw === null || raw === '') return '';
     const num = Number(raw);
-    return isNaN(num) ? '' : num;
+    if (isNaN(num)) return '';
+    if (num === 16500 && (product?.provider === 'dropi' || (product as any)?.dropi_product_id || (product as any)?.dropiProductId)) {
+      return 0;
+    }
+    return num;
   });
   
   const [dropiFee, setDropiFee] = useState<number | ''>(() => {
+    if (localOverride && typeof localOverride.dropiFee === 'number') {
+      return localOverride.dropiFee;
+    }
     const raw = product?.dropiFee ?? (product as any)?.dropi_fee;
     if (raw === undefined || raw === null || raw === '') return '';
     const num = Number(raw);
@@ -141,6 +159,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
       const finalShipping = shippingCost === '' ? 0 : Number(shippingCost);
       const finalDropiFee = dropiFee === '' ? 0 : Number(dropiFee);
 
+      const cleanDropiId = provider === 'dropi' ? String(dropiProductId || '').trim() : '';
+
       const payload = {
         ...(product?.id ? { id: product.id } : {}),
         title: title.trim(),
@@ -151,7 +171,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         categoryName: categories.find(c => c.id === categoryId)?.name || 'General',
         provider,
         supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
-        dropiProductId: provider === 'dropi' ? dropiProductId : null,
+        dropiProductId: cleanDropiId,
+        dropi_product_id: cleanDropiId,
         price, 
         costPrice, 
         compareAtPrice, 
@@ -159,6 +180,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         shipping_cost: finalShipping, 
         flete_envio: finalShipping, 
         flete: finalShipping, 
+        estimatedShippingCost: finalShipping,
         dropiFee: finalDropiFee, 
         dropi_fee: finalDropiFee, 
         stock, 
@@ -168,17 +190,18 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
         variants
       };
 
-      if (isEditing && product?.id) {
-        const res = await fetch(`/api/products/${product.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+      // Respaldo local inmediato en localStorage para prioridad absoluta en Dropi y otros proveedores
+      if (product?.id) {
+        saveLocalProductOverride(String(product.id), {
+          shippingCost: finalShipping,
+          dropiFee: finalDropiFee,
+          dropiProductId: cleanDropiId,
+          provider
         });
-        if (!res.ok) throw new Error('Fallo al actualizar en el servidor');
       }
 
       await onSave(payload);
-    } catch (err: any) { alert(err.message); } finally { setIsSaving(false); }
+    } catch (err: any) { alert(err.message || 'Error al guardar producto'); } finally { setIsSaving(false); }
   };
 
   return (

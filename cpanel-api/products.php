@@ -3,7 +3,7 @@
  * ==============================================================================
  * ZavelaStore - API REST de Productos para cPanel (MySQL con PDO)
  * Archivo: products.php
- * Ubicación recomendada en cPanel: /public_html/api/products.php
+ * Ubicación recomendada en cPanel: /public_html/api/products.php o /public_html/products.php
  * ==============================================================================
  */
 
@@ -73,11 +73,26 @@ try {
     if ($tableName === 'productos') {
         $cols = [
             'dropi_product_id' => "ALTER TABLE `productos` ADD COLUMN `dropi_product_id` VARCHAR(100) NULL AFTER `descripcion`",
-            'imagenes'         => "ALTER TABLE `productos` ADD COLUMN `imagenes` TEXT NULL AFTER `imagen`",
+            'provider'         => "ALTER TABLE `productos` ADD COLUMN `provider` VARCHAR(100) NULL DEFAULT 'derocha'",
+            'supplier'         => "ALTER TABLE `productos` ADD COLUMN `supplier` VARCHAR(100) NULL DEFAULT 'DeRocha'",
+            'supplier_sku'     => "ALTER TABLE `productos` ADD COLUMN `supplier_sku` VARCHAR(100) NULL",
+            'categoria'        => "ALTER TABLE `productos` ADD COLUMN `categoria` VARCHAR(255) NULL",
+            'category'         => "ALTER TABLE `productos` ADD COLUMN `category` VARCHAR(255) NULL",
+            'category_id'      => "ALTER TABLE `productos` ADD COLUMN `category_id` VARCHAR(100) NULL",
+            'supplier_cost'    => "ALTER TABLE `productos` ADD COLUMN `supplier_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'suggested_price'  => "ALTER TABLE `productos` ADD COLUMN `suggested_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'imagenes'         => "ALTER TABLE `productos` ADD COLUMN `imagenes` LONGTEXT NULL AFTER `imagen`",
+            'raw_dropi_payload'=> "ALTER TABLE `productos` ADD COLUMN `raw_dropi_payload` LONGTEXT NULL",
             'variants'         => "ALTER TABLE `productos` ADD COLUMN `variants` LONGTEXT NULL",
-            'shipping_cost'    => "ALTER TABLE `productos` ADD COLUMN `shipping_cost` DECIMAL(12,2) NOT NULL DEFAULT 16500.00",
-            'flete_envio'      => "ALTER TABLE `productos` ADD COLUMN `flete_envio` DECIMAL(12,2) NOT NULL DEFAULT 16500.00",
-            'flete'            => "ALTER TABLE `productos` ADD COLUMN `flete` DECIMAL(12,2) NOT NULL DEFAULT 16500.00"
+            'variantes'        => "ALTER TABLE `productos` ADD COLUMN `variantes` LONGTEXT NULL",
+            'sizes'            => "ALTER TABLE `productos` ADD COLUMN `sizes` LONGTEXT NULL",
+            'shipping_cost'    => "ALTER TABLE `productos` ADD COLUMN `shipping_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'flete_envio'      => "ALTER TABLE `productos` ADD COLUMN `flete_envio` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'flete'            => "ALTER TABLE `productos` ADD COLUMN `flete` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'dropi_fee'        => "ALTER TABLE `productos` ADD COLUMN `dropi_fee` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'active'           => "ALTER TABLE `productos` ADD COLUMN `active` TINYINT(1) NOT NULL DEFAULT 1",
+            'status'           => "ALTER TABLE `productos` ADD COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'active'",
+            'estado'           => "ALTER TABLE `productos` ADD COLUMN `estado` VARCHAR(50) NOT NULL DEFAULT 'activo'"
         ];
         foreach ($cols as $colName => $alterSql) {
             $check = $pdo->query("SHOW COLUMNS FROM `productos` LIKE '{$colName}'");
@@ -90,7 +105,7 @@ try {
     $tableName = 'productos';
 }
 
-// Función auxiliar para parsear y limpiar montos monetarios o fletes
+// Función auxiliar para parsear y limpiar montos monetarios o fletes (DEFAULT 0, SIN 16500)
 function parseShippingCost($data) {
     $raw = $data['shippingCost'] 
         ?? $data['shipping_cost'] 
@@ -101,7 +116,7 @@ function parseShippingCost($data) {
         ?? null;
 
     if ($raw === null || $raw === '') {
-        return 16500.00;
+        return 0.00;
     }
 
     if (is_numeric($raw)) {
@@ -109,22 +124,31 @@ function parseShippingCost($data) {
     }
 
     $clean = preg_replace('/[^0-9.]/', '', (string)$raw);
-    return is_numeric($clean) ? (float)$clean : 16500.00;
+    return is_numeric($clean) ? (float)$clean : 0.00;
+}
+
+// Función auxiliar para parsear tarifas de Dropi (DEFAULT 0, SIN VALORES FORZADOS)
+function parseDropiFee($data) {
+    $raw = $data['dropiFee'] ?? $data['dropi_fee'] ?? null;
+    if ($raw === null || $raw === '') {
+        return 0.00;
+    }
+    return is_numeric($raw) ? (float)$raw : 0.00;
 }
 
 // Helper para normalizar producto de MySQL a JSON del frontend
 function formatProductOutput($row) {
     $images = [];
     $rawImagenes = $row['imagenes'] ?? $row['images'] ?? null;
-    if (!empty(\$rawImagenes)) {
-        if (is_array(\$rawImagenes)) {
-            $images =$rawImagenes;
+    if (!empty($rawImagenes)) {
+        if (is_array($rawImagenes)) {
+            $images = $rawImagenes;
         } else {
             $decoded = json_decode($rawImagenes, true);
-            if (is_array(\$decoded)) {
-                $images =$decoded;
-            } else if (is_string(\$rawImagenes)) {
-                $images = array_map('trim', explode(',',$rawImagenes));
+            if (is_array($decoded)) {
+                $images = $decoded;
+            } else if (is_string($rawImagenes)) {
+                $images = array_map('trim', explode(',', $rawImagenes));
             }
         }
     }
@@ -134,104 +158,118 @@ function formatProductOutput($row) {
     if (empty($images) && !empty($row['image'])) {
         $images = [$row['image']];
     }
-    if (empty($images)) {$images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+    if (empty($images)) {
+        $images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
     }
-    $mainImage =$images[0];
+    $mainImage = $images[0];
 
-    \$title = $row['nombre'] ?? $row['title'] ?? 'Producto Zavela';
-    $slug =$row['slug'] ?? '';
-    if (empty(\$slug)) {
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-',$title), '-'));
-        if (empty(\$slug)) $slug = (string)$row['id'];
+    $title = $row['nombre'] ?? $row['title'] ?? 'Producto Zavela';
+    $slug = $row['slug'] ?? '';
+    if (empty($slug)) {
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+        if (empty($slug)) $slug = (string)$row['id'];
     }
 
-    $description =$row['descripcion'] ?? $row['description'] ?? '';$shortDescription = $row['short_description'] ?? $row['shortDescription'] ?? '';
+    $description = $row['descripcion'] ?? $row['description'] ?? '';
+    $shortDescription = $row['short_description'] ?? $row['shortDescription'] ?? '';
 
-    \$price = (float)($row['precio'] ?? $row['price'] ?? 0);
-    $costPrice = (float)($row['costo'] ?? $row['cost_price'] ?? $row['supplier_cost'] ?? 0);
-    $comparePrice = (float)($row['compare_price'] ?? $row['suggested_price'] ?? ($price > 0 ? $price + 20000 : 0));$marginAmount = $price -$costPrice;
-    $marginPercentage =$costPrice > 0 ? round(($marginAmount / $costPrice) * 100, 1) : 0;
+    $price = (float)($row['precio'] ?? $row['price'] ?? 0);
+    $costPrice = (float)($row['supplier_cost'] ?? $row['costo'] ?? $row['cost_price'] ?? 0);
+    $comparePrice = (float)($row['suggested_price'] ?? $row['compare_price'] ?? ($price > 0 ? $price + 20000 : 0));
+    $marginAmount = $price - $costPrice;
+    $marginPercentage = $costPrice > 0 ? round(($marginAmount / $costPrice) * 100, 1) : 0;
 
-    \$stock = (int)($row['stock'] ?? $row['inventario'] ?? 0);
-    $active = isset($row['active']) ? (bool)$row['active'] : (isset($row['activo']) ? (bool)$row['activo'] : true);$featured = isset($row['featured']) ? (bool)$row['featured'] : (isset($row['destacado']) ? (bool)$row['destacado'] : false);
+    $stock = (int)($row['stock'] ?? $row['inventario'] ?? 0);
+    $active = isset($row['active']) ? (bool)$row['active'] : (isset($row['activo']) ? (bool)$row['activo'] : true);
+    $featured = isset($row['featured']) ? (bool)$row['featured'] : (isset($row['destacado']) ? (bool)$row['destacado'] : false);
 
-    $dropiId =$row['dropi_product_id'] ?? $row['dropiProductId'] ?? $row['dropi_id'] ?? '';
+    $dropiId = $row['dropi_product_id'] ?? $row['dropiProductId'] ?? $row['dropi_id'] ?? '';
 
-    \$tags = [];
-    if (!empty(\$row['tags'])) {
-        $decodedTags = is_string($row['tags']) ? json_decode($row['tags'], true) :$row['tags'];
+    $tags = [];
+    if (!empty($row['tags'])) {
+        $decodedTags = is_string($row['tags']) ? json_decode($row['tags'], true) : $row['tags'];
         $tags = is_array($decodedTags) ? $decodedTags : explode(',', (string)$row['tags']);
     }
 
-    \$variants = [];
-    if (!empty($row['variants'])) {$decodedVars = is_string($row['variants']) ? json_decode($row['variants'], true) : $row['variants'];$variants = is_array($decodedVars) ?$decodedVars : [];
+    $variants = [];
+    $rawVariants = $row['variants'] ?? $row['variantes'] ?? $row['sizes'] ?? null;
+    if (!empty($rawVariants)) {
+        $decodedVars = is_string($rawVariants) ? json_decode($rawVariants, true) : $rawVariants;
+        $variants = is_array($decodedVars) ? $decodedVars : [];
     }
 
-    // Priorizar valores reales de base de datos
-    $shippingVal =$row['shipping_cost'] ?? $row['flete_envio'] ?? $row['flete'] ?? null;
-    $shippingCost = ($shippingVal !== null && $shippingVal !== '') ? (float)$shippingVal : 16500.00;
+    // Flete: Default 0.00 absoluto
+    $shippingVal = $row['shipping_cost'] ?? $row['flete_envio'] ?? $row['flete'] ?? null;
+    $shippingCost = ($shippingVal !== null && $shippingVal !== '') ? (float)$shippingVal : 0.00;
+    $dropiFee = (float)($row['dropi_fee'] ?? 0.00);
 
     return [
-        'id'                    => (string)\$row['id'],
-        'title'                 => \$title,
-        'nombre'                => \$title,
-        'name'                  => \$title,
-        'slug'                  => \$slug,
-        'description'           => \$description,
-        'descripcion'           => \$description,
-        'shortDescription'      => \$shortDescription,
-        'price'                 => \$price,
-        'precio'                => \$price,
-        'costPrice'             => \$costPrice,
-        'supplier_cost'         => \$costPrice,
-        'compareAtPrice'        => \$comparePrice,
-        'suggested_price'       => \$comparePrice,
+        'id'                    => (string)$row['id'],
+        'title'                 => $title,
+        'nombre'                => $title,
+        'name'                  => $title,
+        'slug'                  => $slug,
+        'description'           => $description,
+        'descripcion'           => $description,
+        'shortDescription'      => $shortDescription,
+        'price'                 => $price,
+        'precio'                => $price,
+        'costPrice'             => $costPrice,
+        'supplier_cost'         => $costPrice,
+        'compareAtPrice'        => $comparePrice,
+        'suggested_price'       => $comparePrice,
         'discountPercentage'    => (int)($row['discount_percentage'] ?? 0),
-        'marginAmount'          =>$marginAmount,
-        'marginPercentage'      => \$marginPercentage,
-        'shippingCost'          => \$shippingCost,
-        'shipping_cost'         => \$shippingCost,
-        'flete_envio'           => \$shippingCost,
-        'flete'                 => \$shippingCost,
-        'estimatedShippingCost' => \$shippingCost,
-        'stock'                 => \$stock,
-        'active'                => \$active,
-        'featured'              => \$featured,
-        'image'                 => \$mainImage,
-        'imagen'                => \$mainImage,
-        'images'                => \$images,
-        'imagenes'              => \$images,
-        'warrantyInfo'          => \$row['warranty_info'] ?? '30 días de garantía oficial Zavela Store.',
-        'tags'                  => \$tags,
-        'categoryId'            => \$row['category_id'] ?? 'cat-general',
-        'categoryName'          => \$row['category_name'] ?? 'General',
-        'warehouseCity'         => \$row['warehouse_city'] ?? 'Bogotá D.C.',
-        'brand'                 => \$row['brand'] ?? 'Zavela Store',
-        'dropi_product_id'      => (string)\$dropiId,
-        'dropiProductId'        => (string)\$dropiId,
-        'dropi_id'              => (string)\$dropiId,
-        'variants'              => \$variants,
-        'weightKg'              => (float)($row['weight_kg'] ?? 0.5),
-        'createdAt'             =>$row['created_at'] ?? date('c'),
+        'marginAmount'          => $marginAmount,
+        'marginPercentage'      => $marginPercentage,
+        'shippingCost'          => $shippingCost,
+        'shipping_cost'         => $shippingCost,
+        'flete_envio'           => $shippingCost,
+        'flete'                 => $shippingCost,
+        'estimatedShippingCost' => $shippingCost,
+        'dropiFee'              => $dropiFee,
+        'dropi_fee'             => $dropiFee,
+        'stock'                 => $stock,
+        'active'                => $active,
+        'featured'              => $featured,
+        'image'                 => $mainImage,
+        'imagen'                => $mainImage,
+        'images'                => $images,
+        'imagenes'              => $images,
+        'provider'              => $row['provider'] ?? 'derocha',
+        'supplier'              => $row['supplier'] ?? 'DeRocha',
+        'supplierSku'           => $row['supplier_sku'] ?? '',
+        'supplier_sku'          => $row['supplier_sku'] ?? '',
+        'categoryId'            => $row['category_id'] ?? 'cat-general',
+        'categoryName'          => $row['categoria'] ?? $row['category'] ?? 'General',
+        'categoria'             => $row['categoria'] ?? $row['category'] ?? 'General',
+        'category'              => $row['categoria'] ?? $row['category'] ?? 'General',
+        'dropi_product_id'      => (string)$dropiId,
+        'dropiProductId'        => (string)$dropiId,
+        'dropi_id'              => (string)$dropiId,
+        'variants'              => $variants,
+        'variantes'             => $variants,
+        'createdAt'             => $row['created_at'] ?? date('c'),
         'updatedAt'             => $row['updated_at'] ?? ($row['created_at'] ?? date('c'))
     ];
 }
 
 // 4. Enrutamiento CRUD según Método HTTP
 try {
-    switch (\$method) {
+    switch ($method) {
         case 'GET':
-            $id =$_GET['id'] ?? null;
-            $slug =$_GET['slug'] ?? null;
-            $onlyActive = isset($_GET['only_active']) && ($_GET['only_active'] === 'true' ||$_GET['only_active'] === '1');
-            $search =$_GET['search'] ?? null;
+            $id = $_GET['id'] ?? null;
+            $slug = $_GET['slug'] ?? null;
+            $onlyActive = isset($_GET['only_active']) && ($_GET['only_active'] === 'true' || $_GET['only_active'] === '1');
+            $search = $_GET['search'] ?? null;
 
-            if (\$id || $slug) {$checkField = $id ? "id = :query" : ($tableName === 'productos' ? "(id = :query OR nombre = :query)" : "(id = :query OR slug = :query)");
-                \$sql = "SELECT * FROM {$tableName} WHERE {$checkField} LIMIT 1";
-                $stmt =$pdo->prepare($sql);$stmt->execute([':query' => $id ?: $slug]);
-                $product =$stmt->fetch();
+            if ($id || $slug) {
+                $checkField = $id ? "id = :query" : "(id = :query OR slug = :query)";
+                $sql = "SELECT * FROM {$tableName} WHERE {$checkField} LIMIT 1";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([':query' => $id ?: $slug]);
+                $product = $stmt->fetch();
 
-                if (!\$product) {
+                if (!$product) {
                     http_response_code(404);
                     echo json_encode(['success' => false, 'message' => 'Producto no encontrado en MySQL']);
                     exit();
@@ -239,194 +277,319 @@ try {
 
                 echo json_encode([
                     'success' => true,
-                    'data'    => formatProductOutput(\$product)
+                    'data'    => formatProductOutput($product)
                 ]);
                 exit();
             }
 
-            $whereClauses = [];$params = [];
+            $whereClauses = [];
+            $params = [];
 
-            if (\$onlyActive && $tableName === 'products') {$whereClauses[] = "active = 1";
+            if ($onlyActive) {
+                $whereClauses[] = "active = 1";
             }
-            if (\$search) {
-                if ($tableName === 'productos') {$whereClauses[] = "(nombre LIKE :search OR descripcion LIKE :search OR dropi_product_id LIKE :search)";
-                } else {
-                    \$whereClauses[] = "(title LIKE :search OR description LIKE :search OR slug LIKE :search OR tags LIKE :search OR dropi_id LIKE :search)";
-                }
+            if ($search) {
+                $whereClauses[] = "(nombre LIKE :search OR descripcion LIKE :search OR dropi_product_id LIKE :search)";
                 $params[':search'] = "%{$search}%";
             }
 
             $sql = "SELECT * FROM {$tableName}";
-            if (!empty(\$whereClauses)) {
+            if (!empty($whereClauses)) {
                 $sql .= " WHERE " . implode(' AND ', $whereClauses);
             }
-            \$sql .= " ORDER BY created_at DESC";
+            $sql .= " ORDER BY created_at DESC";
 
-            \$stmt = $pdo->prepare($sql);
+            $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            $rows =$stmt->fetchAll();
+            $rows = $stmt->fetchAll();
 
-            $products = array_map('formatProductOutput',$rows);
+            $products = array_map('formatProductOutput', $rows);
 
             echo json_encode([
                 'success' => true,
-                'count'   => count(\$products),
-                'data'    => \$products
+                'count'   => count($products),
+                'data'    => $products
             ]);
             break;
 
         case 'POST':
-            $data =$inputData;
-            \$id = $_GET['id'] ?? ($data['id'] ?? null);
+            $data = $inputData;
+            $id = $_GET['id'] ?? ($data['id'] ?? null);
 
-            if (!$id) {$id = 'prod-' . round(microtime(true) * 1000);
+            if (!$id) {
+                $id = 'prod-' . round(microtime(true) * 1000);
             }
 
             $title = trim($data['nombre'] ?? $data['title'] ?? $data['name'] ?? 'Nuevo Producto');
-            $slug = trim($data['slug'] ?? '');
-            if (empty(\$slug)) {
-                $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-',$title), '-'));
-                if (empty(\$slug)) $slug =$id;
+            $slug = $data['slug'] ?? '';
+            if (empty($slug)) {
+                $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+                if (empty($slug)) $slug = $id;
             }
 
-            \$description = $data['descripcion'] ?? $data['description'] ?? '';
-            $price = (float)($data['precio'] ?? $data['price'] ?? 0);$stock = (int)($data['stock'] ?? $data['inventario'] ?? 10);
+            $description = $data['descripcion'] ?? $data['description'] ?? '';
+            $price = (float)($data['precio'] ?? $data['price'] ?? 0);
+            $stock = (int)($data['stock'] ?? $data['inventario'] ?? 0);
+            $supplierCost = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
+            $suggestedPrice = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
+            
+            // Flete y Tarifa Dropi: 0 por defecto
             $flete = parseShippingCost($data);
+            $dropiFee = parseDropiFee($data);
 
-            \$imagesList = [];
+            $provider = $data['provider'] ?? 'derocha';
+            $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
+            $supplierSku = $data['supplier_sku'] ?? $data['supplierSku'] ?? null;
+            $dropiId = ($provider === 'dropi') ? ($data['dropi_product_id'] ?? $data['dropiProductId'] ?? null) : null;
+            if ($provider !== 'dropi') {
+                $dropiFee = 0.00;
+            }
+
+            $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';
+            $category = $categoria;
+            $categoryId = $data['category_id'] ?? $data['categoryId'] ?? 'cat-general';
+
+            $active = isset($data['active']) ? ($data['active'] ? 1 : 0) : 1;
+            $status = $active ? 'active' : 'inactive';
+            $estado = $active ? 'activo' : 'inactivo';
+
+            $imagesList = [];
             if (!empty($data['images']) && is_array($data['images'])) {
-                $imagesList =$data['images'];
-            } else if (!empty(\$data['imagenes'])) {
+                $imagesList = $data['images'];
+            } else if (!empty($data['imagenes'])) {
                 $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
             }
-            \$mainImage = !empty($imagesList) ?$imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
-            $imagesJson = json_encode($imagesList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $dropiId =$data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'] ?? null;
+            $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
+            $imagesJson = json_encode($imagesList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-            if ($tableName === 'productos') {$sql = "INSERT INTO productos (
-                    id, nombre, precio, stock, descripcion, imagen, imagenes, shipping_cost, flete_envio, flete, dropi_product_id, created_at
-                ) VALUES (
-                    :id, :nombre, :precio, :stock, :descripcion, :imagen, :imagenes, :shipping_cost, :flete_envio, :flete, :dropi_product_id, NOW()
-                ) ON DUPLICATE KEY UPDATE
-                    nombre = VALUES(nombre),
-                    precio = VALUES(precio),
-                    stock = VALUES(stock),
-                    descripcion = VALUES(descripcion),
-                    imagen = VALUES(imagen),
-                    imagenes = VALUES(imagenes),
-                    shipping_cost = VALUES(shipping_cost),
-                    flete_envio = VALUES(flete_envio),
-                    flete = VALUES(flete),
-                    dropi_product_id = COALESCE(NULLIF(VALUES(dropi_product_id), ''), dropi_product_id)";
-
-                $stmt =$pdo->prepare($sql);$stmt->execute([
-                    ':id'               => \$id,
-                    ':nombre'           => \$title,
-                    ':precio'           => \$price,
-                    ':stock'            => \$stock,
-                    ':descripcion'      => \$description,
-                    ':imagen'           => \$mainImage,
-                    ':imagenes'         => \$imagesJson,
-                    ':shipping_cost'    => \$flete,
-                    ':flete_envio'      => \$flete,
-                    ':flete'            => \$flete,
-                    ':dropi_product_id' => \$dropiId
-                ]);
+            $variantsList = [];
+            if (!empty($data['variants']) && is_array($data['variants'])) {
+                $variantsList = $data['variants'];
+            } else if (!empty($data['variantes']) && is_array($data['variantes'])) {
+                $variantsList = $data['variantes'];
             }
+            $variantsJson = json_encode($variantsList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-            \$fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
-            $fetchStmt->execute([':id' =>$id]);
-            $savedRow =$fetchStmt->fetch();
+            $sql = "INSERT INTO {$tableName} (
+                id, nombre, precio, stock, descripcion, imagen, shipping_cost, flete_envio, flete, dropi_fee,
+                dropi_product_id, provider, supplier, supplier_sku, categoria, category, category_id,
+                supplier_cost, suggested_price, imagenes, variants, variantes, sizes, active, status, estado,
+                created_at, updated_at
+            ) VALUES (
+                :id, :nombre, :precio, :stock, :descripcion, :imagen, :shipping_cost, :flete_envio, :flete, :dropi_fee,
+                :dropi_product_id, :provider, :supplier, :supplier_sku, :categoria, :category, :category_id,
+                :supplier_cost, :suggested_price, :imagenes, :variants, :variantes, :sizes, :active, :status, :estado,
+                NOW(), NOW()
+            ) ON DUPLICATE KEY UPDATE
+                nombre = VALUES(nombre),
+                precio = VALUES(precio),
+                stock = VALUES(stock),
+                descripcion = VALUES(descripcion),
+                imagen = VALUES(imagen),
+                shipping_cost = VALUES(shipping_cost),
+                flete_envio = VALUES(flete_envio),
+                flete = VALUES(flete),
+                dropi_fee = VALUES(dropi_fee),
+                dropi_product_id = VALUES(dropi_product_id),
+                provider = VALUES(provider),
+                supplier = VALUES(supplier),
+                supplier_sku = VALUES(supplier_sku),
+                categoria = VALUES(categoria),
+                category = VALUES(category),
+                category_id = VALUES(category_id),
+                supplier_cost = VALUES(supplier_cost),
+                suggested_price = VALUES(suggested_price),
+                imagenes = VALUES(imagenes),
+                variants = VALUES(variants),
+                variantes = VALUES(variantes),
+                sizes = VALUES(sizes),
+                active = VALUES(active),
+                status = VALUES(status),
+                estado = VALUES(estado),
+                updated_at = NOW()";
 
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':id'               => $id,
+                ':nombre'           => $title,
+                ':precio'           => $price,
+                ':stock'            => $stock,
+                ':descripcion'      => $description,
+                ':imagen'           => $mainImage,
+                ':shipping_cost'    => $flete,
+                ':flete_envio'      => $flete,
+                ':flete'            => $flete,
+                ':dropi_fee'        => $dropiFee,
+                ':dropi_product_id' => $dropiId,
+                ':provider'         => $provider,
+                ':supplier'         => $supplier,
+                ':supplier_sku'     => $supplierSku,
+                ':categoria'        => $categoria,
+                ':category'         => $category,
+                ':category_id'      => $categoryId,
+                ':supplier_cost'    => $supplierCost,
+                ':suggested_price'  => $suggestedPrice,
+                ':imagenes'         => $imagesJson,
+                ':variants'         => $variantsJson,
+                ':variantes'        => $variantsJson,
+                ':sizes'            => $variantsJson,
+                ':active'           => $active,
+                ':status'           => $status,
+                ':estado'           => $estado
+            ]);
+
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
+            $fetchStmt->execute([':id' => $id]);
+            $savedRow = $fetchStmt->fetch();
+
+            header('Content-Type: application/json');
             echo json_encode([
                 'success'       => true,
                 'message'       => 'Producto guardado',
-                'shipping_cost' => \$flete,
-                'data'          => formatProductOutput(\$savedRow)
+                'shipping_cost' => $flete,
+                'flete_envio'   => $flete,
+                'dropi_fee'     => $dropiFee,
+                'data'          => formatProductOutput($savedRow)
             ]);
             exit;
 
         case 'PUT':
-            $data =$inputData;
-            \$id = $_GET['id'] ?? ($data['id'] ?? null);
-            if (!\$id) {
+            $data = $inputData;
+            $id = $_GET['id'] ?? ($data['id'] ?? null);
+            if (!$id) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
                 exit();
             }
 
+            $title = trim($data['nombre'] ?? $data['title'] ?? $data['name'] ?? 'Producto');
+            $price = (float)($data['precio'] ?? $data['price'] ?? 0);
+            $stock = (int)($data['stock'] ?? $data['inventario'] ?? 0);
+            $description = $data['descripcion'] ?? $data['description'] ?? '';
+            $supplierCost = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
+            $suggestedPrice = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
+            
             $flete = parseShippingCost($data);
+            $dropiFee = parseDropiFee($data);
 
-            if ($tableName === 'productos') {$fields = [
-                    "shipping_cost = :flete",
-                    "flete_envio = :flete",
-                    "flete = :flete"
-                ];
-                \$params = [
-                    ':id'    => \$id,
-                    ':flete' => \$flete
-                ];
-
-                if (isset($data['nombre']) || isset($data['title']) || isset($data['name'])) {$fields[] = "nombre = :nombre";
-                    $params[':nombre'] =$data['nombre'] ?? $data['title'] ?? $data['name'];
-                }
-                if (isset(\$data['precio']) || isset($data['price'])) {$fields[] = "precio = :precio";
-                    \$params[':precio'] = (float)($data['precio'] ?? $data['price']);
-                }
-                if (isset(\$data['stock']) || isset($data['inventario'])) {$fields[] = "stock = :stock";
-                    \$params[':stock'] = (int)($data['stock'] ?? $data['inventario']);
-                }
-                if (isset(\$data['descripcion']) || isset($data['description'])) {$fields[] = "descripcion = :descripcion";
-                    \$params[':descripcion'] = $data['descripcion'] ?? $data['description'];
-                }
-                if (isset($data['dropi_product_id']) || isset($data['dropiProductId']) || isset($data['dropi_id'])) {$fields[] = "dropi_product_id = :dropi_product_id";
-                    $params[':dropi_product_id'] =$data['dropi_product_id'] ?? $data['dropiProductId'] ?? $data['dropi_id'];
-                }
-
-                \$fields[] = "updated_at = NOW()";
-                \$sql = "UPDATE productos SET " . implode(', ', \$fields) . " WHERE id = :id OR slug = :id";
-                \$stmt = $pdo->prepare($sql);
-                $stmt->execute($params);
-            } else {
-                \$fieldsToUpdate = [
-                    "shipping_cost = :flete",
-                    "flete_envio = :flete"
-                ];
-                \$params = [
-                    ':id'    => \$id,
-                    ':flete' => \$flete
-                ];
-
-                \$fieldsToUpdate[] = "updated_at = NOW()";
-                \$sql = "UPDATE products SET " . implode(', ', \$fieldsToUpdate) . " WHERE id = :id OR slug = :id";
-                \$stmt = $pdo->prepare($sql);
-                $stmt->execute($params);
+            $provider = $data['provider'] ?? 'derocha';
+            $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
+            $supplierSku = $data['supplier_sku'] ?? $data['supplierSku'] ?? null;
+            $dropiId = ($provider === 'dropi') ? ($data['dropi_product_id'] ?? $data['dropiProductId'] ?? null) : null;
+            if ($provider !== 'dropi') {
+                $dropiFee = 0.00;
             }
 
-            \$fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
-            $fetchStmt->execute([':id' =>$id]);
-            $updatedRow =$fetchStmt->fetch();
+            $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';
+            $category = $categoria;
+            $categoryId = $data['category_id'] ?? $data['categoryId'] ?? 'cat-general';
 
+            $active = isset($data['active']) ? ($data['active'] ? 1 : 0) : 1;
+            $status = $active ? 'active' : 'inactive';
+            $estado = $active ? 'activo' : 'inactivo';
+
+            $imagesList = [];
+            if (!empty($data['images']) && is_array($data['images'])) {
+                $imagesList = $data['images'];
+            } else if (!empty($data['imagenes'])) {
+                $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
+            }
+            $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
+            $imagesJson = json_encode($imagesList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            $variantsList = [];
+            if (!empty($data['variants']) && is_array($data['variants'])) {
+                $variantsList = $data['variants'];
+            } else if (!empty($data['variantes']) && is_array($data['variantes'])) {
+                $variantsList = $data['variantes'];
+            }
+            $variantsJson = json_encode($variantsList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            $sql = "UPDATE {$tableName} SET 
+                nombre = :nombre,
+                precio = :precio,
+                stock = :stock,
+                descripcion = :descripcion,
+                imagen = :imagen,
+                shipping_cost = :shipping_cost,
+                flete_envio = :flete_envio,
+                flete = :flete,
+                dropi_fee = :dropi_fee,
+                dropi_product_id = :dropi_product_id,
+                provider = :provider,
+                supplier = :supplier,
+                supplier_sku = :supplier_sku,
+                categoria = :categoria,
+                category = :category,
+                category_id = :category_id,
+                supplier_cost = :supplier_cost,
+                suggested_price = :suggested_price,
+                imagenes = :imagenes,
+                variants = :variants,
+                variantes = :variantes,
+                sizes = :sizes,
+                active = :active,
+                status = :status,
+                estado = :estado,
+                updated_at = NOW()
+            WHERE id = :id OR slug = :id";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':id'               => $id,
+                ':nombre'           => $title,
+                ':precio'           => $price,
+                ':stock'            => $stock,
+                ':descripcion'      => $description,
+                ':imagen'           => $mainImage,
+                ':shipping_cost'    => $flete,
+                ':flete_envio'      => $flete,
+                ':flete'            => $flete,
+                ':dropi_fee'        => $dropiFee,
+                ':dropi_product_id' => $dropiId,
+                ':provider'         => $provider,
+                ':supplier'         => $supplier,
+                ':supplier_sku'     => $supplierSku,
+                ':categoria'        => $categoria,
+                ':category'         => $category,
+                ':category_id'      => $categoryId,
+                ':supplier_cost'    => $supplierCost,
+                ':suggested_price'  => $suggestedPrice,
+                ':imagenes'         => $imagesJson,
+                ':variants'         => $variantsJson,
+                ':variantes'        => $variantsJson,
+                ':sizes'            => $variantsJson,
+                ':active'           => $active,
+                ':status'           => $status,
+                ':estado'           => $estado
+            ]);
+
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
+            $fetchStmt->execute([':id' => $id]);
+            $updatedRow = $fetchStmt->fetch();
+
+            header('Content-Type: application/json');
             echo json_encode([
                 'success'       => true,
-                'message'       => 'Producto actualizado correctamente',
-                'shipping_cost' => \$flete,
-                'flete_envio'   => \$flete,
-                'product'       => formatProductOutput(\$updatedRow),
-                'data'          => formatProductOutput(\$updatedRow)
+                'message'       => 'Producto guardado',
+                'shipping_cost' => $flete,
+                'flete_envio'   => $flete,
+                'dropi_fee'     => $dropiFee,
+                'product'       => formatProductOutput($updatedRow),
+                'data'          => formatProductOutput($updatedRow)
             ]);
             exit;
 
         case 'DELETE':
-            \$id = $_GET['id'] ?? ($inputData['id'] ?? null);
-            if (!\$id) {
+            $id = $_GET['id'] ?? ($inputData['id'] ?? null);
+            if (!$id) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
                 exit();
             }
 
-            $stmt =$pdo->prepare("DELETE FROM {\$tableName} WHERE id = :id");
-            $stmt->execute([':id' =>$id]);
+            $stmt = $pdo->prepare("DELETE FROM {$tableName} WHERE id = :id");
+            $stmt->execute([':id' => $id]);
 
             echo json_encode(['success' => true, 'message' => "Producto eliminado permanentemente"]);
             break;
@@ -436,11 +599,10 @@ try {
             echo json_encode(['success' => false, 'message' => 'Método no permitido']);
             break;
     }
-} catch (Exception \$e) {
+} catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => 'Error en la operación de MySQL en cPanel',
-        'error'   => \$e->getMessage()
+        'error'   => $e->getMessage()
     ]);
 }

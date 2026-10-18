@@ -781,9 +781,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 line-through text-[11px] font-mono">
-                    {formatCOP(shippingCalculation.baseRate > 0 ? shippingCalculation.baseRate : 16500)}
-                  </span>
+                  {shippingCalculation.baseRate > 0 && (
+                    <span className="text-slate-400 line-through text-[11px] font-mono">
+                      {formatCOP(shippingCalculation.baseRate)}
+                    </span>
+                  )}
                   <span className="font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
                     ¡GRATIS! ($0 COP)
                   </span>

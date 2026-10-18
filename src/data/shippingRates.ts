@@ -214,7 +214,7 @@ export function calculateShippingCost({
 
   const amountNeededForFreeShipping = 0;
   const itemsNeededForFreeShipping = 0;
-  const savingsCOP = baseRate > 0 ? baseRate : 16500;
+  const savingsCOP = baseRate > 0 ? baseRate : 0;
 
   return {
     zoneId: zone.id,

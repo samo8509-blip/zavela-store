@@ -241,7 +241,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
     gameTitle: '🎯 ¡Desafío Flash: Atrapa tu Descuento!',
     gameSubtitle: 'Mueve la canasta, esquiva las ráfagas de viento y atrapa los cupones que caen para desbloquear hasta 15% OFF exclusivo.',
     badgeEmoji: '🌪️', accentColor: '#f59e0b', minDiscountPercentage: 5, maxDiscountPercentage: 15,
-    tiers: { bronze: { minScore: 1, discountPercentage: 5, label: 'Nivel Bronce 🥉', couponPrefix: 'FLASH5' } },
+    tiers: { bronze: { minScore: 1, discountPercentage: 5, label: 'Nivel Bronce 🥉', couponPrefix: 'FLASH5' } } as any,
     gameDurationSeconds: 15, windEnabled: true, windChangeIntervalSeconds: 2.5, basketSpeed: 1.0, couponExpiryMinutes: 10,
     enableGyroscope: true, gyroSensitivity: 1.2, gyroDeadzone: 5, difficultyLevel: 'hard', missPenaltyPoints: 1,
     includeObstacles: true, inactivitySeconds: 35, minVisitedProducts: 2, enableExitIntent: true, enableInactivityTrigger: true,
@@ -281,7 +281,7 @@ export const DEFAULT_SOCIAL_SETTINGS: SocialMarketingSettings = {
   callToActionText: '📦 ¡Pide hoy y paga al recibir en la puerta de tu casa!',
   targetChannels: { facebook: true, instagram: true, tiktok: true },
   copyTone: 'viral_high_converting',
-  connections: {}
+  connections: {} as any
 };
 export const DEFAULT_SOCIAL_POSTS: SocialBroadcastPost[] = [];
 const DEFAULT_ORDERS: Order[] = [];

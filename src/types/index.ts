@@ -456,10 +456,13 @@ export interface Product {
   raw_dropi_payload?: any;
   // Financial & Dropi Cost Breakdown
   costPrice?: number; // Costo base del producto/proveedor
+  shippingCost?: number; // Costo de envío canónico en camelCase
   shipping_cost?: number; // Flete de envío estimado canónico en MySQL
   flete_envio?: number; // Flete de envío alias en MySQL cPanel
+  flete?: number; // Alias compatible en MySQL cPanel
   estimatedShippingCost?: number; // Costo estimado de flete/envío
   dropiFee?: number; // Tarifa fija/recaudo plataforma Dropi
+  dropi_fee?: number; // Tarifa fija Dropi columna MySQL
   totalOperatingCost?: number; // Costo total = Producto + Envío + Tarifa Dropi
   realNetProfit?: number; // Ganancia neta real = Precio - Costo Total
   realNetMarginPercentage?: number; // Margen neto % real sobre venta

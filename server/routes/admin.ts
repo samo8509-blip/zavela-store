@@ -206,8 +206,13 @@ router.get('/products', async (req, res) => {
           supplier_cost: supplierCost,
           compareAtPrice: suggestedPrice,
           suggested_price: suggestedPrice,
-          shipping_cost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : 16500),
-          estimatedShippingCost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : 16500),
+          shippingCost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : (row.flete_envio ?? row.flete ?? 0)),
+          shipping_cost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : (row.flete_envio ?? row.flete ?? 0)),
+          flete_envio: Number(row.flete_envio !== undefined && row.flete_envio !== null ? row.flete_envio : (row.shipping_cost ?? 0)),
+          flete: Number(row.flete !== undefined && row.flete !== null ? row.flete : (row.shipping_cost ?? 0)),
+          estimatedShippingCost: Number(row.shipping_cost !== undefined && row.shipping_cost !== null ? row.shipping_cost : (row.flete_envio ?? row.flete ?? 0)),
+          dropiFee: Number(row.dropi_fee ?? (row as any).dropiFee ?? 0),
+          dropi_fee: Number(row.dropi_fee ?? (row as any).dropiFee ?? 0),
           stock: Number(row.stock !== undefined ? row.stock : 10),
           description: row.description !== undefined ? row.description : (row.descripcion || ''),
           descripcion: row.description !== undefined ? row.description : (row.descripcion || ''),
@@ -339,7 +344,7 @@ router.get('/products/:id', async (req, res) => {
       const price = Number(foundRow.price !== undefined ? foundRow.price : foundRow.precio) || 0;
       const supplierCost = Number(foundRow.supplier_cost !== undefined ? foundRow.supplier_cost : (foundRow.costPrice || 0)) || 0;
       const suggestedPrice = Number(foundRow.suggested_price !== undefined ? foundRow.suggested_price : (foundRow.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
-      const shippingCost = Number(foundRow.shipping_cost !== undefined && foundRow.shipping_cost !== null ? foundRow.shipping_cost : 16500);
+      const shippingCost = Number(foundRow.shipping_cost !== undefined && foundRow.shipping_cost !== null ? foundRow.shipping_cost : (foundRow.flete_envio ?? foundRow.flete ?? 0));
 
       const productData = {
         id: String(foundRow.id),
@@ -353,8 +358,13 @@ router.get('/products/:id', async (req, res) => {
         supplier_cost: supplierCost,
         compareAtPrice: suggestedPrice,
         suggested_price: suggestedPrice,
+        shippingCost: shippingCost,
         shipping_cost: shippingCost,
+        flete_envio: shippingCost,
+        flete: shippingCost,
         estimatedShippingCost: shippingCost,
+        dropiFee: Number(foundRow.dropi_fee ?? foundRow.dropiFee ?? 0),
+        dropi_fee: Number(foundRow.dropi_fee ?? foundRow.dropiFee ?? 0),
         stock: Number(foundRow.stock !== undefined ? foundRow.stock : 10),
         description: foundRow.description !== undefined ? foundRow.description : (foundRow.descripcion || ''),
         descripcion: foundRow.description !== undefined ? foundRow.description : (foundRow.descripcion || ''),
@@ -383,12 +393,19 @@ router.get('/products/:id', async (req, res) => {
 
     const fallback = db.getProductById(id);
     if (fallback) {
+      const fallbackShipping = Number((fallback as any).shippingCost ?? (fallback as any).shipping_cost ?? (fallback as any).flete_envio ?? (fallback as any).flete ?? fallback.estimatedShippingCost ?? 0);
+      const fallbackFee = Number((fallback as any).dropiFee ?? (fallback as any).dropi_fee ?? 0);
       return res.json({ 
         success: true, 
         data: {
           ...fallback,
-          shipping_cost: (fallback as any).shipping_cost || fallback.estimatedShippingCost || 16500,
-          estimatedShippingCost: (fallback as any).shipping_cost || fallback.estimatedShippingCost || 16500
+          shippingCost: fallbackShipping,
+          shipping_cost: fallbackShipping,
+          estimatedShippingCost: fallbackShipping,
+          flete_envio: fallbackShipping,
+          flete: fallbackShipping,
+          dropiFee: fallbackFee,
+          dropi_fee: fallbackFee
         } 
       });
     }
@@ -409,7 +426,8 @@ async function executeProductUpdate(productId: string, body: any) {
 
   const costPrice = body.costPrice !== undefined ? Number(body.costPrice) : (body.costo !== undefined ? Number(body.costo) : (existing?.costPrice || 0));
   const price = body.price !== undefined ? Number(body.price) : (body.precio !== undefined ? Number(body.precio) : (existing?.price || 0));
-  const shippingCost = Number(body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? ((existing as any)?.shipping_cost || (existing as any)?.flete_envio || existing?.estimatedShippingCost || 16500)) || 16500;
+  const shippingCost = Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? ((existing as any)?.shippingCost ?? (existing as any)?.shipping_cost ?? (existing as any)?.flete_envio ?? existing?.estimatedShippingCost ?? 0));
+  const dropiFee = Number(body.dropiFee ?? body.dropi_fee ?? ((existing as any)?.dropiFee ?? (existing as any)?.dropi_fee ?? 0));
   const marginAmount = price - costPrice;
   const marginPercentage = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
   const compareAtPrice = body.compareAtPrice !== undefined ? Number(body.compareAtPrice) : (existing?.compareAtPrice || 0);
@@ -480,6 +498,10 @@ async function executeProductUpdate(productId: string, body: any) {
     }
   }
 
+  const effectiveProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
+  const effectiveSupplier = body.supplier || (effectiveProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
+  const effectiveSupplierSku = body.supplier_sku || body.supplierSku || null;
+
   const updated: Product = {
       id: productId,
       title: (body.title || body.nombre || body.name || existing?.title || 'Producto').trim(),
@@ -507,9 +529,16 @@ async function executeProductUpdate(productId: string, body: any) {
       warehouseCity: body.warehouseCity || existing?.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || existing?.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
+      dropiProductId: dropiProductId,
+      provider: effectiveProvider,
+      supplier: effectiveSupplier,
+      shippingCost: shippingCost,
       shipping_cost: shippingCost,
       flete_envio: shippingCost,
+      flete: shippingCost,
       estimatedShippingCost: shippingCost,
+      dropiFee: dropiFee,
+      dropi_fee: dropiFee,
       variants: Array.isArray(body.variants) ? body.variants : (existing?.variants || []),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -521,9 +550,6 @@ async function executeProductUpdate(productId: string, body: any) {
       dropiBackupService.saveDropiId(productId, dropiProductId);
     }
 
-    const effectiveProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
-    const effectiveSupplier = body.supplier || (effectiveProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
-    const effectiveSupplierSku = body.supplier_sku || body.supplierSku || null;
     const isActiveInt = (body.active === 1 || body.active === true || body.status === 'active' || body.estado === 'activo' || (body.active === undefined && existing?.active !== false)) ? 1 : 0;
 
     // Ejecutar UPDATE en MySQL directamente en ambas tablas protegiendo dropi_product_id y guardando category:
@@ -547,6 +573,8 @@ async function executeProductUpdate(productId: string, body: any) {
           suggested_price = ?,
           shipping_cost = ?,
           flete_envio = ?,
+          flete = ?,
+          dropi_fee = ?,
           stock = ?,
           descripcion = ?,
           categoria = ?,
@@ -571,6 +599,8 @@ async function executeProductUpdate(productId: string, body: any) {
         compareAtPrice,
         shippingCost,
         shippingCost,
+        shippingCost,
+        dropiFee,
         saved.stock,
         saved.description,
         categoryName,
@@ -603,6 +633,7 @@ async function executeProductUpdate(productId: string, body: any) {
           supplier_cost = ?,
           suggested_price = ?,
           shipping_cost = ?,
+          dropi_fee = ?,
           stock = ?,
           descripcion = ?,
           description = ?,
@@ -628,6 +659,7 @@ async function executeProductUpdate(productId: string, body: any) {
         costPrice,
         compareAtPrice,
         shippingCost,
+        dropiFee,
         saved.stock,
         saved.description,
         saved.description,
@@ -761,6 +793,9 @@ router.post('/products', async (req, res) => {
     const postCatName = rawPostCat ? (matchedPostCat?.name || String(rawPostCat).trim()) : 'General';
     const postCatId = body.categoryId || body.categoria_id || matchedPostCat?.id || 'cat-general';
 
+    const effectiveNewProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
+    const effectiveNewSupplier = body.supplier || (effectiveNewProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
+
     const newProduct: Product = {
       id: targetId || `prod-${Date.now()}`,
       title,
@@ -788,22 +823,28 @@ router.post('/products', async (req, res) => {
       warehouseCity: body.warehouseCity || 'Bogotá D.C.',
       brand: body.brand || 'Zavela Store',
       dropi_product_id: dropiProductId,
-      shipping_cost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
-      flete_envio: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
-      estimatedShippingCost: parseFloat(body.shipping_cost !== undefined ? body.shipping_cost : (body.flete_envio !== undefined ? body.flete_envio : (body.flete !== undefined ? body.flete : (body.estimatedShippingCost !== undefined ? body.estimatedShippingCost : 16500)))) || 16500,
+      dropiProductId: dropiProductId,
+      provider: effectiveNewProvider,
+      supplier: effectiveNewSupplier,
+      shippingCost: Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? 0),
+      shipping_cost: Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? 0),
+      flete_envio: Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? 0),
+      flete: Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? 0),
+      estimatedShippingCost: Number(body.shippingCost ?? body.shipping_cost ?? body.flete_envio ?? body.flete ?? body.estimatedShippingCost ?? 0),
+      dropiFee: Number(body.dropiFee ?? body.dropi_fee ?? 0),
+      dropi_fee: Number(body.dropiFee ?? body.dropi_fee ?? 0),
       variants: Array.isArray(body.variants) ? body.variants : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    const newShippingCost = newProduct.shipping_cost || 16500;
+    const newShippingCost = newProduct.shipping_cost;
+    const newDropiFee = newProduct.dropi_fee;
 
     if (dropiProductId) {
       dropiBackupService.saveDropiId(newProduct.id, dropiProductId);
     }
 
-    const effectiveNewProvider = body.provider || (dropiProductId ? 'dropi' : 'direct');
-    const effectiveNewSupplier = body.supplier || (effectiveNewProvider === 'derocha' ? 'DeRocha' : (dropiProductId ? 'Dropi Colombia' : 'Bodega Directa'));
     const effectiveNewSupplierSku = body.supplier_sku || body.supplierSku || null;
     const isNewActiveInt = (body.active === 1 || body.active === true || body.status === 'active' || body.estado === 'activo' || (body.active === undefined && body.activo !== false)) ? 1 : 0;
 
@@ -811,9 +852,9 @@ router.post('/products', async (req, res) => {
     try {
       await pool.query(`
         INSERT INTO products (
-          id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, flete_envio, stock, description, category, category_id,
+          id, title, name, slug, price, supplier_cost, suggested_price, shipping_cost, flete_envio, dropi_fee, stock, description, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, images, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           title = VALUES(title),
           name = VALUES(name),
@@ -823,6 +864,7 @@ router.post('/products', async (req, res) => {
           suggested_price = VALUES(suggested_price),
           shipping_cost = VALUES(shipping_cost),
           flete_envio = VALUES(flete_envio),
+          dropi_fee = VALUES(dropi_fee),
           stock = VALUES(stock),
           description = VALUES(description),
           category = VALUES(category),
@@ -835,16 +877,16 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newProduct.stock, description,
+        newProduct.id, title, title, slug, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newDropiFee, newProduct.stock, description,
         postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, JSON.stringify(validImages), isNewActiveInt
       ]);
 
       await pool.query(`
         INSERT INTO productos (
-          id, nombre, precio, supplier_cost, suggested_price, shipping_cost, flete_envio, stock, descripcion, categoria, category, category_id,
+          id, nombre, precio, supplier_cost, suggested_price, shipping_cost, flete_envio, flete, dropi_fee, stock, descripcion, categoria, category, category_id,
           provider, supplier, supplier_sku, dropi_product_id, imagen, imagenes, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           nombre = VALUES(nombre),
           precio = VALUES(precio),
@@ -852,6 +894,8 @@ router.post('/products', async (req, res) => {
           suggested_price = VALUES(suggested_price),
           shipping_cost = VALUES(shipping_cost),
           flete_envio = VALUES(flete_envio),
+          flete = VALUES(flete),
+          dropi_fee = VALUES(dropi_fee),
           stock = VALUES(stock),
           descripcion = VALUES(descripcion),
           categoria = VALUES(categoria),
@@ -866,7 +910,7 @@ router.post('/products', async (req, res) => {
           active = VALUES(active),
           updated_at = NOW()
       `, [
-        newProduct.id, title, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newProduct.stock, description,
+        newProduct.id, title, price, costPrice, compareAtPrice, newShippingCost, newShippingCost, newShippingCost, newDropiFee, newProduct.stock, description,
         postCatName, postCatName, postCatId, effectiveNewProvider, effectiveNewSupplier, effectiveNewSupplierSku,
         dropiProductId || null, mainImage, JSON.stringify(validImages), isNewActiveInt
       ]);
@@ -1875,7 +1919,7 @@ router.post('/orders/simulate', async (req, res) => {
   try {
     const { 
       countPerProduct = 3, 
-      carrierCost = 16500, 
+      carrierCost = 0, 
       dropiFeePercent = 5, 
       dropiFixedFee = 0,
       selectedProductIds 
@@ -1883,7 +1927,7 @@ router.post('/orders/simulate', async (req, res) => {
 
     const orders = db.simulateOrders({
       countPerProduct: Number(countPerProduct) || 3,
-      carrierCost: Number(carrierCost) || 16500,
+      carrierCost: Number(carrierCost) || 0,
       dropiFeePercent: Number(dropiFeePercent) || 5,
       dropiFixedFee: Number(dropiFixedFee) || 0,
       selectedProductIds
@@ -1946,7 +1990,7 @@ Se acaban de registrar ${orders.length} nuevas ventas.
 // POST /api/admin/orders/simulate-3-per-product - Simulate 3 orders per product (Backward compatible)
 router.post('/orders/simulate-3-per-product', async (req, res) => {
   try {
-    const orders = db.simulateOrders({ countPerProduct: 3, carrierCost: 16500, dropiFeePercent: 5 });
+    const orders = db.simulateOrders({ countPerProduct: 3, carrierCost: 0, dropiFeePercent: 5 });
     const metrics = db.getMetrics();
 
     // Despacho de alerta a WhatsApp (+573008784427)

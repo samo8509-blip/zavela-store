@@ -19,12 +19,13 @@ function mapSqlRowToProduct(row: any): any {
     try { variants = JSON.parse(row.variantes); } catch { variants = []; }
   }
 
- // EXTRACCIÓN BLINDADA DIRECTA DE LA BASE DE DATOS
-  let rawShipping = row.shipping_cost ?? row.flete_envio ?? row.flete;
+  // EXTRACCIÓN BLINDADA DIRECTA DE LA BASE DE DATOS
+  let rawShipping = row.shipping_cost ?? row.flete_envio ?? row.flete ?? row.estimatedShippingCost;
   let parsedShipping = (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') ? Number(rawShipping) : 0;
   
   let rawFee = row.dropi_fee ?? row.dropiFee;
   let parsedDropiFee = (rawFee !== undefined && rawFee !== null && rawFee !== '') ? Number(rawFee) : 0;
+  const dropiCode = row.dropi_product_id || row.dropiProductId || '';
 
   return {
     id: String(row.id),
@@ -34,14 +35,20 @@ function mapSqlRowToProduct(row: any): any {
     costPrice: Number(row.supplier_cost) || 0,
     compareAtPrice: Number(row.suggested_price) || 0,
     shippingCost: isNaN(parsedShipping) ? 0 : parsedShipping,
+    shipping_cost: isNaN(parsedShipping) ? 0 : parsedShipping,
+    flete_envio: isNaN(parsedShipping) ? 0 : parsedShipping,
+    flete: isNaN(parsedShipping) ? 0 : parsedShipping,
+    estimatedShippingCost: isNaN(parsedShipping) ? 0 : parsedShipping,
     dropiFee: isNaN(parsedDropiFee) ? 0 : parsedDropiFee,
+    dropi_fee: isNaN(parsedDropiFee) ? 0 : parsedDropiFee,
     stock: Number(row.stock) || 0,
     description: row.descripcion || '',
     categoryId: row.category_id || 'cat-general',
     categoryName: row.categoria || 'General',
-    dropiProductId: row.dropi_product_id || '',
-    provider: row.provider || 'derocha',
-    supplier: row.supplier || 'DeRocha',
+    dropiProductId: dropiCode,
+    dropi_product_id: dropiCode,
+    provider: row.provider || (dropiCode ? 'dropi' : 'derocha'),
+    supplier: row.supplier || (row.provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha'),
     supplierSku: row.supplier_sku || '',
     image: images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
     images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
@@ -73,8 +80,11 @@ router.post('/', async (req, res) => {
     const id = b.id || `prod-${Date.now()}`;
     const activeInt = b.active === false ? 0 : 1;
     
-    const shipping = b.shippingCost !== undefined && b.shippingCost !== null && b.shippingCost !== '' ? Number(b.shippingCost) : 0;
-    const dropiFee = b.dropiFee !== undefined && b.dropiFee !== null && b.dropiFee !== '' ? Number(b.dropiFee) : 0;
+    const shipping = Number(b.shippingCost ?? b.shipping_cost ?? b.flete_envio ?? b.flete ?? 0);
+    const dropiFee = Number(b.dropiFee ?? b.dropi_fee ?? 0);
+    const dropiCode = String(b.dropiProductId || b.dropi_product_id || '').trim();
+    const provider = b.provider || (dropiCode ? 'dropi' : 'derocha');
+    const supplier = b.supplier || (provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
     const variantsStr = b.variants ? JSON.stringify(b.variants) : '[]';
     const imagesStr = b.images ? JSON.stringify(b.images) : '[]';
 
@@ -93,11 +103,27 @@ router.post('/', async (req, res) => {
     `, [
       id, b.title||'', Number(b.price)||0, Number(b.costPrice)||0, Number(b.compareAtPrice)||0, 
       Number(b.stock)||0, b.description||'', b.categoryName||'General', b.categoryId||'cat-general', 
-      b.dropiProductId||null, b.provider||'derocha', b.supplier||'', b.supplierSku||'', 
+      dropiCode || null, provider, supplier, b.supplierSku||'', 
       shipping, shipping, shipping, dropiFee, b.image||'', imagesStr, variantsStr, variantsStr, activeInt
     ]);
 
-    res.status(201).json({ success: true, message: 'Producto guardado' });
+    const savedProduct = {
+      ...b,
+      id,
+      provider,
+      supplier,
+      dropiProductId: dropiCode,
+      dropi_product_id: dropiCode,
+      shippingCost: shipping,
+      shipping_cost: shipping,
+      flete_envio: shipping,
+      flete: shipping,
+      estimatedShippingCost: shipping,
+      dropiFee,
+      dropi_fee: dropiFee
+    };
+
+    res.status(201).json({ success: true, message: 'Producto guardado', data: savedProduct });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -107,8 +133,11 @@ router.put('/:id', async (req, res) => {
     const targetId = req.params.id;
     const activeInt = b.active === false ? 0 : 1;
     
-    const shipping = b.shippingCost !== undefined && b.shippingCost !== null && b.shippingCost !== '' ? Number(b.shippingCost) : 0;
-    const dropiFee = b.dropiFee !== undefined && b.dropiFee !== null && b.dropiFee !== '' ? Number(b.dropiFee) : 0;
+    const shipping = Number(b.shippingCost ?? b.shipping_cost ?? b.flete_envio ?? b.flete ?? 0);
+    const dropiFee = Number(b.dropiFee ?? b.dropi_fee ?? 0);
+    const dropiCode = String(b.dropiProductId || b.dropi_product_id || '').trim();
+    const provider = b.provider || (dropiCode ? 'dropi' : 'derocha');
+    const supplier = b.supplier || (provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
     const variantsStr = b.variants ? JSON.stringify(b.variants) : '[]';
     const imagesStr = b.images ? JSON.stringify(b.images) : '[]';
 
@@ -127,11 +156,27 @@ router.put('/:id', async (req, res) => {
     `, [
       targetId, b.title||'', Number(b.price)||0, Number(b.costPrice)||0, Number(b.compareAtPrice)||0, 
       Number(b.stock)||0, b.description||'', b.categoryName||'General', b.categoryId||'cat-general', 
-      b.dropiProductId||null, b.provider||'derocha', b.supplier||'', b.supplierSku||'', 
+      dropiCode || null, provider, supplier, b.supplierSku||'', 
       shipping, shipping, shipping, dropiFee, b.image||'', imagesStr, variantsStr, variantsStr, activeInt
     ]);
 
-    res.status(200).json({ success: true, message: "Actualizado" });
+    const savedProduct = {
+      ...b,
+      id: targetId,
+      provider,
+      supplier,
+      dropiProductId: dropiCode,
+      dropi_product_id: dropiCode,
+      shippingCost: shipping,
+      shipping_cost: shipping,
+      flete_envio: shipping,
+      flete: shipping,
+      estimatedShippingCost: shipping,
+      dropiFee,
+      dropi_fee: dropiFee
+    };
+
+    res.status(200).json({ success: true, message: "Actualizado", data: savedProduct });
   } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 

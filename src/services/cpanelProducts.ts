@@ -9,6 +9,118 @@ const API_PRODUCTS_URL = '/api/products.php';
 const API_BATCH_URL = '/api/products_batch.php';
 const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
 
+const OVERRIDE_STORAGE_PREFIX = 'zavela_product_override_';
+const OVERRIDES_MAP_KEY = 'zavela_product_overrides_map';
+
+export interface ProductCostOverride {
+  shippingCost: number;
+  dropiFee: number;
+  dropiProductId: string;
+  provider?: string;
+  updatedAt: number;
+}
+
+export function saveLocalProductOverride(productId: string, data: { shippingCost?: number; dropiFee?: number; dropiProductId?: string; provider?: string }): void {
+  if (typeof window === 'undefined' || !productId) return;
+  try {
+    const cleanId = String(productId).trim();
+    const existing = getLocalProductOverride(cleanId) || { shippingCost: 0, dropiFee: 0, dropiProductId: '', updatedAt: 0 };
+    const updated: ProductCostOverride = {
+      shippingCost: data.shippingCost !== undefined ? Number(data.shippingCost) : existing.shippingCost,
+      dropiFee: data.dropiFee !== undefined ? Number(data.dropiFee) : existing.dropiFee,
+      dropiProductId: data.dropiProductId !== undefined ? String(data.dropiProductId).trim() : existing.dropiProductId,
+      provider: data.provider || existing.provider,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem(`${OVERRIDE_STORAGE_PREFIX}${cleanId}`, JSON.stringify(updated));
+
+    const rawMap = localStorage.getItem(OVERRIDES_MAP_KEY);
+    const map: Record<string, ProductCostOverride> = rawMap ? JSON.parse(rawMap) : {};
+    map[cleanId] = updated;
+    localStorage.setItem(OVERRIDES_MAP_KEY, JSON.stringify(map));
+  } catch (e) {
+    console.warn('[cPanelProducts] Error saving local override:', e);
+  }
+}
+
+export function getLocalProductOverride(productId: string): ProductCostOverride | null {
+  if (typeof window === 'undefined' || !productId) return null;
+  try {
+    const cleanId = String(productId).trim();
+    const stored = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${cleanId}`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    const rawMap = localStorage.getItem(OVERRIDES_MAP_KEY);
+    if (rawMap) {
+      const map = JSON.parse(rawMap);
+      if (map[cleanId]) return map[cleanId];
+    }
+  } catch {}
+  return null;
+}
+
+export function normalizeCpanelProduct(p: any): Product {
+  const pId = String(p.id || p.productId || '').trim();
+  const override = pId ? getLocalProductOverride(pId) : null;
+
+  const dropiId = override && override.dropiProductId !== undefined
+    ? override.dropiProductId
+    : String(p.dropiProductId || p.dropi_product_id || p.dropi_id || '').trim();
+
+  const provider = override?.provider || p.provider || (dropiId ? 'dropi' : 'derocha');
+  const isDropiProduct = provider === 'dropi' || Boolean(dropiId) || String(p.supplier || '').toLowerCase().includes('dropi');
+
+  // PRIORIDAD ABSOLUTA: Si el usuario guardó valores en el editor, el respaldo local en localStorage
+  // prevalece sobre cualquier respuesta de products.php o valores desactualizados de la BD externa.
+  let shipping = 0;
+  if (override && typeof override.shippingCost === 'number') {
+    shipping = override.shippingCost;
+  } else {
+    const rawShipping = p.shippingCost ?? p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.estimatedShippingCost;
+    if (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') {
+      const num = Number(rawShipping);
+      if (num === 16500 && isDropiProduct) {
+        // Eliminar fallback residual forzado del servidor cPanel externo para Dropi
+        shipping = 0;
+      } else {
+        shipping = isNaN(num) ? 0 : num;
+      }
+    }
+  }
+
+  let fee = 0;
+  if (override && typeof override.dropiFee === 'number') {
+    fee = override.dropiFee;
+  } else {
+    const rawFee = p.dropiFee ?? p.dropi_fee;
+    if (rawFee !== undefined && rawFee !== null && rawFee !== '') {
+      const num = Number(rawFee);
+      fee = isNaN(num) ? 0 : num;
+    }
+  }
+
+  const supplier = p.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Directa'));
+
+  return {
+    ...p,
+    id: pId || String(p.id),
+    title: p.title || p.nombre || p.name || '',
+    nombre: p.nombre || p.title || p.name || '',
+    shippingCost: shipping,
+    shipping_cost: shipping,
+    flete_envio: shipping,
+    flete: shipping,
+    estimatedShippingCost: shipping,
+    dropiFee: fee,
+    dropi_fee: fee,
+    dropiProductId: dropiId,
+    dropi_product_id: dropiId,
+    provider,
+    supplier
+  } as Product;
+}
+
 /**
  * 1. OBTENER / LISTAR PRODUCTOS DESDE CPANEL MYSQL
  * @param onlyActive Si es true, retorna únicamente productos activos
@@ -27,18 +139,20 @@ export async function getCpanelProducts(onlyActive: boolean = false): Promise<Pr
       const adminRes = await fetch(API_ADMIN_PRODUCTS_URL);
       if (adminRes.ok) {
         const adminData = await adminRes.json();
-        const list = Array.isArray(adminData.data) ? adminData.data : [];
-        return onlyActive ? list.filter((p: Product) => p.active !== false) : list;
+        const rawList = Array.isArray(adminData.data) ? adminData.data : [];
+        const mappedList = rawList.map(normalizeCpanelProduct);
+        return onlyActive ? mappedList.filter((p: Product) => p.active !== false) : mappedList;
       }
       throw new Error(`HTTP ${res.status} al consultar productos de cPanel MySQL`);
     }
 
     const data = await res.json();
-    const list: Product[] = Array.isArray(data.data) 
+    const rawList: any[] = Array.isArray(data.data) 
       ? data.data 
       : (Array.isArray(data) ? data : []);
 
-    return onlyActive ? list.filter(p => p.active !== false) : list;
+    const mappedList = rawList.map(normalizeCpanelProduct);
+    return onlyActive ? mappedList.filter(p => p.active !== false) : mappedList;
   } catch (error: any) {
     console.warn('[cPanel MySQL] Error al obtener productos:', error.message);
     // Fallback hacia /api/admin/products
@@ -46,8 +160,9 @@ export async function getCpanelProducts(onlyActive: boolean = false): Promise<Pr
       const fallbackRes = await fetch(API_ADMIN_PRODUCTS_URL);
       if (fallbackRes.ok) {
         const fallbackData = await fallbackRes.json();
-        const list = Array.isArray(fallbackData.data) ? fallbackData.data : [];
-        return onlyActive ? list.filter((p: Product) => p.active !== false) : list;
+        const rawList = Array.isArray(fallbackData.data) ? fallbackData.data : [];
+        const mappedList = rawList.map(normalizeCpanelProduct);
+        return onlyActive ? mappedList.filter((p: Product) => p.active !== false) : mappedList;
       }
     } catch {}
     return [];
@@ -66,16 +181,41 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
   const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
 
-  // Asegurar extracción del número digitado en el input
-  const shippingValue = Number((productData as any).flete ?? productData.shipping_cost ?? (productData as any).flete_envio ?? productData.estimatedShippingCost ?? 16500);
+  // Asegurar extracción del número digitado en el input sin valores forzados (0 por defecto)
+  const shippingValue = Number(
+    (productData as any).shippingCost ??
+    (productData as any).shipping_cost ??
+    (productData as any).flete_envio ??
+    (productData as any).flete ??
+    productData.estimatedShippingCost ?? 0
+  );
+  const dropiFeeValue = Number((productData as any).dropiFee ?? (productData as any).dropi_fee ?? 0);
+  const dropiCode = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
+  const provider = productData.provider || (dropiCode ? 'dropi' : 'derocha');
+
+  // Guardar inmediatamente en localStorage como respaldo local blindado
+  if (targetId) {
+    saveLocalProductOverride(String(targetId), {
+      shippingCost: shippingValue,
+      dropiFee: dropiFeeValue,
+      dropiProductId: dropiCode,
+      provider
+    });
+  }
 
   const payloadFinal = {
     ...productData,
     ...(targetId ? { id: targetId } : {}),
+    provider,
+    shippingCost: shippingValue,
     shipping_cost: shippingValue,
     flete_envio: shippingValue,
     flete: shippingValue, // Mantiene compatibilidad
     estimatedShippingCost: shippingValue,
+    dropiFee: dropiFeeValue,
+    dropi_fee: dropiFeeValue,
+    dropiProductId: dropiCode,
+    dropi_product_id: dropiCode,
     categoria: catValue,
     category: catValue,
     categoryName: catValue,
@@ -99,18 +239,37 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
       const phpRes = await fetch(phpUrl, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(productData)
+        body: JSON.stringify(payloadFinal)
       });
       if (phpRes.ok) {
         const phpData = await phpRes.json();
-        return phpData.data || productData;
+        const finalId = phpData.data?.id || targetId;
+        if (finalId) {
+          saveLocalProductOverride(String(finalId), {
+            shippingCost: shippingValue,
+            dropiFee: dropiFeeValue,
+            dropiProductId: dropiCode,
+            provider
+          });
+        }
+        return normalizeCpanelProduct(phpData.data || payloadFinal);
       }
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || err.error || `HTTP ${res.status} al guardar producto`);
     }
 
     const data = await res.json();
-    return data.data || productData;
+    const finalData = data.data || payloadFinal;
+    const finalId = finalData?.id || targetId;
+    if (finalId) {
+      saveLocalProductOverride(String(finalId), {
+        shippingCost: shippingValue,
+        dropiFee: dropiFeeValue,
+        dropiProductId: dropiCode,
+        provider
+      });
+    }
+    return normalizeCpanelProduct(finalData);
   } catch (err: any) {
     console.error('[cPanel MySQL] Error al guardar producto:', err);
     throw err;

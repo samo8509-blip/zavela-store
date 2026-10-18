@@ -18,7 +18,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor } from './types/index.ts';
+import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
 import { Header } from './components/Header.tsx';
 import { HeroBannerCarousel } from './components/HeroBannerCarousel.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
@@ -57,8 +57,7 @@ import { CatchDiscountGame } from './components/CatchDiscountGame.tsx';
 import { useProductTracker } from './hooks/useProductTracker.ts';
 import { useLuckyWheelTrigger } from './hooks/useLuckyWheelTrigger.ts';
 import { useGamificationConfig } from './hooks/useGamificationConfig.ts';
-import { ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
-import { getCpanelProducts } from './services/cpanelProducts.ts';
+import { getCpanelProducts, normalizeCpanelProduct } from './services/cpanelProducts.ts';
 import { subscribeToFirestoreSettings, getFirestoreSettings, saveFirestoreSettings } from './services/firestoreSettings.ts';
 import { ExclusividadZavela } from './components/ExclusividadZavela.tsx';
 import { CustomSubpageView } from './components/CustomSubpageView.tsx';
@@ -374,11 +373,11 @@ export default function App() {
       ]);
 
       if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds);
+        setProducts(cpanelProds.map(normalizeCpanelProduct));
       } else {
         const prodRes = await fetch('/api/products').then(r => r.json()).catch(() => ({ success: false }));
         if (prodRes.success && Array.isArray(prodRes.data)) {
-          setProducts(prodRes.data);
+          setProducts(prodRes.data.map(normalizeCpanelProduct));
         }
       }
 

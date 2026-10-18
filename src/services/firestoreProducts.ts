@@ -97,12 +97,8 @@ function mapDocToProduct(docSnap: any): Product {
 
   const price = Number(data.price) || 0;
   const costPrice = Number(data.costPrice) || Math.round(price * 0.45);
-  const estimatedShippingCost = Number(data.estimatedShippingCost) !== undefined && !isNaN(Number(data.estimatedShippingCost)) 
-    ? Number(data.estimatedShippingCost) 
-    : 16500;
-  const dropiFee = Number(data.dropiFee) !== undefined && !isNaN(Number(data.dropiFee)) 
-    ? Number(data.dropiFee) 
-    : 4000;
+  const estimatedShippingCost = Number(data.estimatedShippingCost ?? data.shipping_cost ?? data.shippingCost ?? data.flete ?? data.flete_envio ?? 0);
+  const dropiFee = Number(data.dropiFee ?? data.dropi_fee ?? 0);
   const totalOperatingCost = Number(data.totalOperatingCost) || (costPrice + estimatedShippingCost + dropiFee);
   const realNetProfit = Number(data.realNetProfit) !== undefined 
     ? Number(data.realNetProfit) 
@@ -230,12 +226,8 @@ export async function createFirestoreProduct(productData: Partial<Product>): Pro
   try {
     const price = Number(productData.price) || 0;
     const costPrice = Number(productData.costPrice) || Math.round(price * 0.45);
-    const estimatedShippingCost = productData.estimatedShippingCost !== undefined && !isNaN(Number(productData.estimatedShippingCost))
-      ? Number(productData.estimatedShippingCost)
-      : 16500;
-    const dropiFee = productData.dropiFee !== undefined && !isNaN(Number(productData.dropiFee))
-      ? Number(productData.dropiFee)
-      : 4000;
+    const estimatedShippingCost = Number(productData.estimatedShippingCost ?? (productData as any).shipping_cost ?? (productData as any).shippingCost ?? (productData as any).flete ?? (productData as any).flete_envio ?? 0);
+    const dropiFee = Number(productData.dropiFee ?? (productData as any).dropi_fee ?? 0);
     const totalOperatingCost = productData.totalOperatingCost !== undefined && !isNaN(Number(productData.totalOperatingCost))
       ? Number(productData.totalOperatingCost)
       : (costPrice + estimatedShippingCost + dropiFee);
@@ -342,8 +334,8 @@ export async function updateFirestoreProduct(id: string, updates: Partial<Produc
     ) {
       const price = Number(updates.price);
       const costPrice = Number(updates.costPrice);
-      const shipping = Number(updates.estimatedShippingCost ?? 16500);
-      const fee = Number(updates.dropiFee ?? 4000);
+      const shipping = Number(updates.estimatedShippingCost ?? (updates as any).shipping_cost ?? (updates as any).shippingCost ?? (updates as any).flete ?? (updates as any).flete_envio ?? 0);
+      const fee = Number(updates.dropiFee ?? (updates as any).dropi_fee ?? 0);
 
       if (!isNaN(price) && !isNaN(costPrice)) {
         rawUpdates.marginAmount = price - costPrice;

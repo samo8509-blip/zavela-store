@@ -75,12 +75,15 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         supplier_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         suggested_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-        shipping_cost DECIMAL(10,2) NOT NULL DEFAULT 16500.00,
-        stock INT NOT NULL DEFAULT 10,
+        shipping_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        flete_envio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        flete DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        dropi_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        stock INT NOT NULL DEFAULT 0,
         description LONGTEXT NULL,
         dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
-        provider VARCHAR(100) NULL DEFAULT 'dropi',
-        supplier VARCHAR(100) NULL DEFAULT 'dropi',
+        provider VARCHAR(100) NULL DEFAULT 'derocha',
+        supplier VARCHAR(100) NULL DEFAULT 'DeRocha',
         supplier_sku VARCHAR(100) NULL DEFAULT NULL,
         category VARCHAR(255) NULL,
         category_id VARCHAR(100) NULL,
@@ -101,20 +104,25 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
         precio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         supplier_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         suggested_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-        shipping_cost DECIMAL(10,2) NOT NULL DEFAULT 16500.00,
-        stock INT NOT NULL DEFAULT 10,
+        shipping_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        flete_envio DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        flete DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        dropi_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        stock INT NOT NULL DEFAULT 0,
         descripcion LONGTEXT NULL,
         categoria VARCHAR(255) NULL,
         category VARCHAR(255) NULL,
         category_id VARCHAR(100) NULL,
         dropi_product_id VARCHAR(100) NULL DEFAULT NULL,
-        provider VARCHAR(100) NULL DEFAULT 'dropi',
-        supplier VARCHAR(100) NULL DEFAULT 'dropi',
+        provider VARCHAR(100) NULL DEFAULT 'derocha',
+        supplier VARCHAR(100) NULL DEFAULT 'DeRocha',
         supplier_sku VARCHAR(100) NULL DEFAULT NULL,
         imagen VARCHAR(500) NULL,
         imagenes LONGTEXT NULL,
         raw_dropi_payload LONGTEXT NULL,
         variants LONGTEXT NULL,
+        variantes LONGTEXT NULL,
+        sizes LONGTEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -140,30 +148,35 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
     };
 
     await ensureColumn('products', 'dropi_product_id', 'VARCHAR(100) NULL DEFAULT NULL');
-    await ensureColumn('products', 'provider', "VARCHAR(100) NULL DEFAULT 'dropi'");
-    await ensureColumn('products', 'supplier', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('products', 'provider', "VARCHAR(100) NULL DEFAULT 'derocha'");
+    await ensureColumn('products', 'supplier', "VARCHAR(100) NULL DEFAULT 'DeRocha'");
     await ensureColumn('products', 'supplier_sku', 'VARCHAR(100) NULL DEFAULT NULL');
     await ensureColumn('products', 'category', 'VARCHAR(255) NULL');
     await ensureColumn('products', 'category_id', 'VARCHAR(100) NULL');
     await ensureColumn('products', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
-    await ensureColumn('products', 'shipping_cost', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
+    await ensureColumn('products', 'shipping_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('products', 'flete_envio', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('products', 'flete', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('products', 'dropi_fee', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('products', 'images', 'LONGTEXT NULL');
     await ensureColumn('products', 'raw_dropi_payload', 'LONGTEXT NULL');
     await ensureColumn('products', 'variants', 'LONGTEXT NULL');
     await ensureColumn('products', 'variantes', 'LONGTEXT NULL');
 
     await ensureColumn('productos', 'dropi_product_id', 'VARCHAR(100) NULL DEFAULT NULL');
-    await ensureColumn('productos', 'provider', "VARCHAR(100) NULL DEFAULT 'dropi'");
-    await ensureColumn('productos', 'supplier', "VARCHAR(100) NULL DEFAULT 'dropi'");
+    await ensureColumn('productos', 'provider', "VARCHAR(100) NULL DEFAULT 'derocha'");
+    await ensureColumn('productos', 'supplier', "VARCHAR(100) NULL DEFAULT 'DeRocha'");
     await ensureColumn('productos', 'supplier_sku', 'VARCHAR(100) NULL DEFAULT NULL');
     await ensureColumn('productos', 'categoria', 'VARCHAR(255) NULL');
     await ensureColumn('productos', 'category', 'VARCHAR(255) NULL');
     await ensureColumn('productos', 'category_id', 'VARCHAR(100) NULL');
     await ensureColumn('productos', 'supplier_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'suggested_price', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
-    await ensureColumn('productos', 'shipping_cost', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
-    await ensureColumn('productos', 'flete_envio', 'DECIMAL(10,2) NOT NULL DEFAULT 16500.00');
+    await ensureColumn('productos', 'shipping_cost', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('productos', 'flete_envio', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('productos', 'flete', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
+    await ensureColumn('productos', 'dropi_fee', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00');
     await ensureColumn('productos', 'imagenes', 'LONGTEXT NULL');
     await ensureColumn('productos', 'raw_dropi_payload', 'LONGTEXT NULL');
     await ensureColumn('productos', 'variants', 'LONGTEXT NULL');
@@ -610,11 +623,12 @@ function mapProductToSqlRow(p: any) {
     supplier_cost: p.costPrice ?? p.supplier_cost ?? 0,
     suggested_price: p.suggested_price ?? p.compareAtPrice ?? 0,
     compare_price: p.suggested_price ?? p.compareAtPrice ?? 0,
-    compareAtPrice: p.compareAtPrice ?? p.suggested_price ?? 0,
-    shipping_cost: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
-    flete_envio: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
-    estimatedShippingCost: Number(p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 16500) || 16500,
-    stock: p.stock ?? 10,
+    shipping_cost: Number(p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.estimatedShippingCost ?? 0),
+    flete_envio: Number(p.flete_envio ?? p.shipping_cost ?? p.flete ?? p.estimatedShippingCost ?? 0),
+    flete: Number(p.flete ?? p.shipping_cost ?? p.flete_envio ?? p.estimatedShippingCost ?? 0),
+    estimatedShippingCost: Number(p.estimatedShippingCost ?? p.shipping_cost ?? p.flete_envio ?? p.flete ?? 0),
+    dropi_fee: Number(p.dropi_fee ?? p.dropiFee ?? 0),
+    dropiFee: Number(p.dropiFee ?? p.dropi_fee ?? 0),
     inventario: p.stock ?? 10,
     descripcion: p.description || '',
     description: p.description || '',

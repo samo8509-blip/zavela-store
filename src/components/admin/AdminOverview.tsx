@@ -459,7 +459,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span className="text-[10px] font-mono text-slate-400">{stats.totalOrders} envíos</span>
             </div>
             <div className="text-xl font-black text-amber-300 font-mono">
-              {formatCOP(stats.totalCarrierCosts || (stats.totalOrders * 16500))}
+              {formatCOP(stats.totalCarrierCosts || 0)}
             </div>
             <p className="text-[11px] text-slate-400">
               Servientrega, Coordinadora, Interrapidísimo, Envía, TCC.

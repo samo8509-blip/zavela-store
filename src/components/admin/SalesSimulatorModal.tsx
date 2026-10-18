@@ -35,7 +35,7 @@ export const SalesSimulatorModal: React.FC<SalesSimulatorModalProps> = ({
 }) => {
   const [salesPerProduct, setSalesPerProduct] = useState<number>(3);
   const [customSalesCount, setCustomSalesCount] = useState<string>('3');
-  const [carrierCost, setCarrierCost] = useState<number>(16500);
+  const [carrierCost, setCarrierCost] = useState<number>(0);
   const [dropiFeePercent, setDropiFeePercent] = useState<number>(5);
   const [dropiFixedFee, setDropiFixedFee] = useState<number>(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
@@ -256,7 +256,7 @@ export const SalesSimulatorModal: React.FC<SalesSimulatorModalProps> = ({
                   Servientrega, Coordinadora, Interrapidísimo, Envía, TCC (flete nacional promedio).
                 </p>
                 <div className="flex items-center gap-1.5 pt-1">
-                  {[14000, 16500, 18500, 21000].map(val => (
+                  {[0, 14000, 15000, 18500, 21000].map(val => (
                     <button
                       key={val}
                       type="button"
