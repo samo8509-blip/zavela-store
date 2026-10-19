@@ -395,76 +395,83 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const targetId = formData.id || product?.id || `prod-${Date.now()}`;
       const finalTitle = formData.title.trim();
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const isDropi = formData.provider === 'dropi';
-
-      // CRÍTICO: Fuerza el casteo de números para evitar strings vacíos al servidor
+      // INYECCIÓN OBLIGATORIA DE FLETES Y COMISIONES:
       const payload = {
         id: targetId,
         title: finalTitle,
         nombre: finalTitle,
+        name: finalTitle,
         slug: finalSlug,
         description: formData.description.trim(),
         descripcion: formData.description.trim(),
         shortDescription: formData.shortDescription.trim(),
+        short_description: formData.shortDescription.trim(),
         categoryId: formData.categoryId,
+        category_id: formData.categoryId,
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
 
-        // Bodega de origen y proveedor
-        provider: String(formData.provider),
-        supplier: formData.supplier || (isDropi ? 'Dropi Colombia' : (formData.provider === 'derocha' ? 'DeRocha' : 'Bodega Propia')),
-        dropiProductId: isDropi ? String(formData.dropiId || '').trim() : '',
-        dropi_product_id: isDropi ? String(formData.dropiId || '').trim() : '',
+        // INYECCIÓN OBLIGATORIA DE FLETES Y COMISIONES (EXACTO SEGÚN REQUERIMIENTO):
+        shippingCost: Number(formData.fleteEnvio || 0),
+        shipping_cost: Number(formData.fleteEnvio || 0),
+        flete: Number(formData.fleteEnvio || 0),
+        flete_envio: Number(formData.fleteEnvio || 0),
+        estimatedShippingCost: Number(formData.fleteEnvio || 0),
+        dropiFee: Number(formData.comisionDropi || 0),
+        dropi_fee: Number(formData.comisionDropi || 0),
+        dropiProductId: String(formData.dropiId || ''),
+        dropi_product_id: String(formData.dropiId || ''),
+        provider: String(formData.provider || 'derocha'),
+        supplier: formData.supplier || (formData.provider === 'dropi' ? 'Dropi Colombia' : (formData.provider === 'derocha' ? 'DeRocha' : 'Bodega Propia')),
 
-        // Casteo forzado estricto con Number(...)
-        shippingCost: Number(formData.fleteEnvio),
-        shipping_cost: Number(formData.fleteEnvio),
-        fleteEnvio: Number(formData.fleteEnvio),
-        flete_envio: Number(formData.fleteEnvio),
-        flete: Number(formData.fleteEnvio),
-        estimatedShippingCost: Number(formData.fleteEnvio),
+        // Precios y costos con casteo numérico obligatorio
+        precio: Number(formData.precio || 0),
+        price: Number(formData.precio || 0),
 
-        dropiFee: isDropi ? Number(formData.comisionDropi) : 0,
-        dropi_fee: isDropi ? Number(formData.comisionDropi) : 0,
+        costoProveedor: Number(formData.costoProveedor || 0),
+        costPrice: Number(formData.costoProveedor || 0),
+        costo: Number(formData.costoProveedor || 0),
+        supplier_cost: Number(formData.costoProveedor || 0),
 
-        precio: Number(formData.precio),
-        price: Number(formData.precio),
+        compareAtPrice: Number(formData.compareAtPrice || 0),
+        compare_price: Number(formData.compareAtPrice || 0),
+        suggested_price: Number(formData.compareAtPrice || 0),
 
-        costoProveedor: Number(formData.costoProveedor),
-        costPrice: Number(formData.costoProveedor),
-        costo: Number(formData.costoProveedor),
-        supplier_cost: Number(formData.costoProveedor),
-
-        compareAtPrice: Number(formData.compareAtPrice) || 0,
-        suggested_price: Number(formData.compareAtPrice) || 0,
-
-        stock: Number(formData.stock) || 0,
-        inventario: Number(formData.stock) || 0,
+        stock: Number(formData.stock || 0),
+        inventario: Number(formData.stock || 0),
 
         active: Boolean(formData.active),
+        activo: Boolean(formData.active),
         featured: Boolean(formData.featured),
+        destacado: Boolean(formData.featured),
         images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+        imagenes: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
         image: formData.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
-        variants: Array.isArray(formData.variants) ? formData.variants : []
+        imagen: formData.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
+        variants: Array.isArray(formData.variants) ? formData.variants : [],
+        variantes: Array.isArray(formData.variants) ? formData.variants : []
       };
 
-      console.log('[AdminProductEditor] Enviando payload cast a números:', payload);
+      console.log('[AdminProductEditor] Enviando payload cast a números con fletes y comisiones:', payload);
 
       // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
-        shippingCost: Number(formData.fleteEnvio),
-        dropiFee: isDropi ? Number(formData.comisionDropi) : 0,
-        dropiProductId: isDropi ? String(formData.dropiId || '').trim() : '',
-        provider: String(formData.provider)
+        shippingCost: Number(formData.fleteEnvio || 0),
+        dropiFee: Number(formData.comisionDropi || 0),
+        dropiProductId: String(formData.dropiId || ''),
+        provider: String(formData.provider || 'derocha')
       });
 
-      // Envío PUT/POST a api.php
+      // Envío PUT/POST a api.php (incluyendo ?id= si es edición para soporte de $_GET['id'] en cPanel)
       let savedOk = false;
+      const phpEndpoint = isEditing 
+        ? `/api/products.php?id=${encodeURIComponent(targetId)}` 
+        : '/api/products.php';
 
       try {
-        const response = await fetch('/api/products.php', {
+        const response = await fetch(phpEndpoint, {
           method: isEditing ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
