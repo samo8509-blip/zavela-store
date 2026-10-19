@@ -397,7 +397,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
       const mainImage = formData.images[0] || '';
 
-      const payloadToSend = {
+      const payload = {
         // Datos básicos
         id: targetId || '',
         nombre: finalTitle || '',
@@ -405,8 +405,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         stock: Number(formData.stock || 0),
         descripcion: formData.description || '',
         imagen: mainImage || '',
-        provider: formData.provider || 'derocha',
-        dropi_product_id: String(formData.dropiId || ''),
         variants: formData.variants || [],
         
         // INYECCIÓN OBLIGATORIA CON LOS NOMBRES EXACTOS DE MYSQL:
@@ -414,8 +412,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         flete_envio: Number(formData.fleteEnvio || 0),
         flete: Number(formData.fleteEnvio || 0),
         dropi_fee: Number(formData.comisionDropi || 0),
-        shippingCost: Number(formData.fleteEnvio || 0),
         dropiFee: Number(formData.comisionDropi || 0),
+        shippingCost: Number(formData.fleteEnvio || 0),
+        provider: String(formData.provider || 'derocha'),
+        dropi_product_id: String(formData.dropiId || ''),
 
         // Campos complementarios para compatibilidad con TypeScript y vistas del catálogo
         title: finalTitle,
@@ -440,7 +440,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      console.log("PAYLOAD A ENVIAR:", payloadToSend);
+      console.log("Enviando a MySQL:", payload);
 
       // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
@@ -452,32 +452,53 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         provider: String(formData.provider || 'derocha')
       });
 
-      // Envío PUT/POST a api.php (incluyendo ?id= si es edición para soporte de $_GET['id'] en cPanel)
+      // Envío PUT/POST a api.php y /api/products.php
       let savedOk = false;
-      const phpEndpoint = isEditing 
+      const apiPhpEndpoint = isEditing 
+        ? `/api.php?id=${encodeURIComponent(targetId)}` 
+        : '/api.php';
+
+      const productsPhpEndpoint = isEditing 
         ? `/api/products.php?id=${encodeURIComponent(targetId)}` 
         : '/api/products.php';
 
       try {
-        const response = await fetch(phpEndpoint, {
+        const response = await fetch(apiPhpEndpoint, {
           method: isEditing ? 'PUT' : 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payloadToSend)
+          body: JSON.stringify(payload)
         });
 
         if (response.ok) {
           savedOk = true;
         }
       } catch (phpErr) {
-        console.warn('Petición a /api/products.php finalizada con advertencia:', phpErr);
+        console.warn('Petición a /api.php:', phpErr);
+      }
+
+      // También enviar a /api/products.php para cPanel
+      try {
+        const responsePhp = await fetch(productsPhpEndpoint, {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (responsePhp.ok) {
+          savedOk = true;
+        }
+      } catch (phpErr) {
+        console.warn('Petición a /api/products.php:', phpErr);
       }
 
       // Si existe un callback onSave del contenedor padre (AdminDashboard)
       if (onSave) {
         try {
-          await onSave(payloadToSend);
+          await onSave(payload);
           savedOk = true;
         } catch (onSaveErr) {
           console.warn('onSave delegado reportó:', onSaveErr);
@@ -490,7 +511,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
             method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payloadToSend)
+            body: JSON.stringify(payload)
           });
           if (restRes.ok) savedOk = true;
         } catch (rErr) {

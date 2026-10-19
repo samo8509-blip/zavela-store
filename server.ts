@@ -73,6 +73,9 @@ async function startServer() {
 
   // Soporte directo para convenciones de URLs PHP de cPanel MySQL
   app.use('/api/products.php', productsRouter);
+  app.use('/api.php', productsRouter);
+  app.use('/products.php', productsRouter);
+  app.use('/cpanel-api/products.php', productsRouter);
   app.all('/api/products_batch.php', async (req, res) => {
     try {
       const { action, ids, active } = req.body;
