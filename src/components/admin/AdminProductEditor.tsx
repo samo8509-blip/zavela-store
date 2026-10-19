@@ -229,9 +229,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   // Inicialización inmediata y sincrónica para que los inputs jamás aparezcan vacíos al editar
-  const [formData, setFormData] = useState<ProductFormData>(() => {
-    return mapProductToFormData(product, categories);
-  });
+  const initialData = useMemo(() => mapProductToFormData(product, categories), [product, categories]);
+  const [formData, setFormData] = useState<ProductFormData>(initialData);
+
+  // 1. ASEGURA LOS ESTADOS REACTIVOS (ENLACE DIRECTO DE INPUTS)
+  const [shippingCost, setShippingCost] = useState<number>(() => Number(initialData.fleteEnvio || 0));
+  const [dropiFee, setDropiFee] = useState<number>(() => Number(initialData.comisionDropi || 0));
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -250,7 +253,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   useEffect(() => {
     // 1. Si product viene en las props (Modo Edición del catálogo o panel)
     if (product && (product.id || (product as any).nombre || product.title)) {
-      setFormData(mapProductToFormData(product, categories));
+      const mapped = mapProductToFormData(product, categories);
+      setFormData(mapped);
+      setShippingCost(Number(mapped.fleteEnvio || 0));
+      setDropiFee(Number(mapped.comisionDropi || 0));
       return;
     }
 
@@ -265,7 +271,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         .then(data => {
           const item = data.data || data.product || (data.id ? data : null);
           if (item) {
-            setFormData(mapProductToFormData(item, categories));
+            const mapped = mapProductToFormData(item, categories);
+            setFormData(mapped);
+            setShippingCost(Number(mapped.fleteEnvio || 0));
+            setDropiFee(Number(mapped.comisionDropi || 0));
           }
         })
         .catch(err => {
@@ -277,6 +286,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     } else {
       // Modo "Crear Nuevo": formulario en blanco estricto
       setFormData(getEmptyInitialState());
+      setShippingCost(0);
+      setDropiFee(0);
     }
   }, [product, categories]);
 
@@ -285,29 +296,29 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   // =========================================================================
   const handleSelectBodega = (selected: 'dropi' | 'derocha' | 'propio' | 'otro') => {
     setValidationAlert(null);
-    setFormData(prev => {
-      const isDropi = selected === 'dropi';
-      return {
-        ...prev,
-        provider: selected,
-        supplier: isDropi 
-          ? 'Dropi Colombia' 
-          : (selected === 'derocha' 
-              ? 'DeRocha' 
-              : (selected === 'propio' ? 'Bodega Propia' : 'Proveedor Externo')),
-        // Si no es Dropi: oculta los campos de Dropi y asegura que sus valores en el estado sean 0 y ''
-        dropiId: isDropi ? prev.dropiId : '',
-        comisionDropi: isDropi ? prev.comisionDropi : 0
-      };
-    });
+    const isDropi = selected === 'dropi';
+    if (!isDropi) {
+      setDropiFee(0);
+    }
+    setFormData(prev => ({
+      ...prev,
+      provider: selected,
+      supplier: isDropi 
+        ? 'Dropi Colombia' 
+        : (selected === 'derocha' 
+            ? 'DeRocha' 
+            : (selected === 'propio' ? 'Bodega Propia' : 'Proveedor Externo')),
+      dropiId: isDropi ? prev.dropiId : '',
+      comisionDropi: isDropi ? prev.comisionDropi : 0
+    }));
   };
 
   // =========================================================================
   // FASE 3: CALCULADORA DE RENTABILIDAD Y UI DE PRECIOS (MEDIO/ABAJO)
   // =========================================================================
   const costoProveedor = Number(formData.costoProveedor) || 0;
-  const fleteEnvio = Number(formData.fleteEnvio) || 0;
-  const comisionDropi = formData.provider === 'dropi' ? (Number(formData.comisionDropi) || 0) : 0;
+  const fleteEnvio = Number(shippingCost) || 0;
+  const comisionDropi = formData.provider === 'dropi' ? (Number(dropiFee) || 0) : 0;
   const precioVenta = Number(formData.precio) || 0;
 
   // Costo Operativo Total
@@ -398,42 +409,32 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
       const mainImage = formData.images[0] || '';
 
-      // 1. RASTREAR ESTADOS REALES DE FLETE Y COMISIÓN
-      const estadoRealFleteEnvio = Number(formData.fleteEnvio || 0);
-      const estadoRealComisionDropi = Number(formData.comisionDropi || 0);
-      const estadoRealPrecioVenta = Number(formData.precio || 0);
-      const estadoRealStock = Number(formData.stock || 0);
-      const estadoRealCosto = Number(formData.costoProveedor || 0);
-      const estadoRealProveedor = String(formData.provider || 'derocha');
-      const estadoRealIdDropi = String(formData.dropiId || '');
-
-      // 2. CONSTRUCCIÓN EXACTA DEL OBJETO FINAL REQUERIDO
-      const payloadFinal = {
-        // Datos básicos
+      // 2. CONSTRUYE EL PAYLOAD CON CERO POR DEFECTO PARA EVITAR 'UNDEFINED'
+      const payloadToSend = {
         id: targetId || '',
         nombre: finalTitle || '',
-        precio: Number(estadoRealPrecioVenta),
-        stock: Number(estadoRealStock),
+        precio: Number(formData.precio || 0),
+        stock: Number(formData.stock || 0),
         descripcion: formData.description || '',
         imagen: mainImage || '',
+        provider: formData.provider || 'derocha',
+        dropi_product_id: String(formData.dropiId || ''),
         variants: formData.variants || [],
         
-        // INYECCIÓN OBLIGATORIA CON LOS NOMBRES EXACTOS DE MYSQL:
-        shipping_cost: Number(estadoRealFleteEnvio),
-        flete: Number(estadoRealFleteEnvio),
-        flete_envio: Number(estadoRealFleteEnvio),
-        dropi_fee: Number(estadoRealComisionDropi),
-        shippingCost: Number(estadoRealFleteEnvio),
-        dropiFee: Number(estadoRealComisionDropi),
-        provider: estadoRealProveedor,
-        dropi_product_id: estadoRealIdDropi,
+        // INYECCIÓN BLINDADA (Los defaults evitan la eliminación del key)
+        shipping_cost: Number(shippingCost || 0),
+        flete_envio: Number(shippingCost || 0),
+        flete: Number(shippingCost || 0),
+        dropi_fee: Number(dropiFee || 0),
+        dropiFee: Number(dropiFee || 0),
+        shippingCost: Number(shippingCost || 0),
 
         // Campos complementarios para integridad de la tienda y catálogo
         title: finalTitle,
-        price: Number(estadoRealPrecioVenta),
-        costo: Number(estadoRealCosto),
-        costPrice: Number(estadoRealCosto),
-        supplier_cost: Number(estadoRealCosto),
+        price: Number(formData.precio || 0),
+        costo: Number(formData.costoProveedor || 0),
+        costPrice: Number(formData.costoProveedor || 0),
+        supplier_cost: Number(formData.costoProveedor || 0),
         compareAtPrice: Number(formData.compareAtPrice || 0),
         compare_price: Number(formData.compareAtPrice || 0),
         suggested_price: Number(formData.compareAtPrice || 0),
@@ -443,7 +444,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         image: mainImage || '',
         images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
-        dropiProductId: estadoRealIdDropi,
+        dropiProductId: String(formData.dropiId || ''),
         categoryId: formData.categoryId || '',
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
@@ -451,17 +452,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      // 3. LOG OBLIGATORIO DE AUDITORÍA
-      console.log("🚨 PAYLOAD FINANCIERO ENVIADO:", payloadFinal);
+      console.log("🚨 PAYLOAD BLINDADO:", payloadToSend);
 
       // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
-        shippingCost: Number(estadoRealFleteEnvio),
-        dropiFee: Number(estadoRealComisionDropi),
-        dropiProductId: estadoRealIdDropi,
-        provider: estadoRealProveedor
+        shippingCost: Number(shippingCost || 0),
+        dropiFee: Number(dropiFee || 0),
+        dropiProductId: String(formData.dropiId || ''),
+        provider: String(formData.provider || 'derocha')
       });
 
       // Envío PUT/POST a api.php y /api/products.php
@@ -480,7 +480,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payloadFinal)
+          body: JSON.stringify(payloadToSend)
         });
 
         if (response.ok) {
@@ -497,7 +497,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payloadFinal)
+          body: JSON.stringify(payloadToSend)
         });
 
         if (responsePhp.ok) {
@@ -510,7 +510,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       // Si existe un callback onSave del contenedor padre (AdminDashboard)
       if (onSave) {
         try {
-          await onSave(payloadFinal);
+          await onSave(payloadToSend);
           savedOk = true;
         } catch (onSaveErr) {
           console.warn('onSave delegado reportó:', onSaveErr);
@@ -523,7 +523,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
             method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payloadFinal)
+            body: JSON.stringify(payloadToSend)
           });
           if (restRes.ok) savedOk = true;
         } catch (rErr) {
@@ -864,11 +864,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                       min="0"
                       step="any"
                       placeholder="0"
-                      value={formData.comisionDropi === 0 ? '' : formData.comisionDropi}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        comisionDropi: e.target.value === '' ? 0 : Number(e.target.value) 
-                      }))}
+                      value={dropiFee === 0 ? '' : dropiFee}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? 0 : Number(e.target.value);
+                        setDropiFee(val);
+                        setFormData(prev => ({ ...prev, comisionDropi: val }));
+                      }}
                       className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
@@ -953,11 +954,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                     type="number"
                     min="0"
                     placeholder="0"
-                    value={formData.fleteEnvio === 0 ? '' : formData.fleteEnvio}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      fleteEnvio: e.target.value === '' ? 0 : Number(e.target.value) 
-                    }))}
+                    value={shippingCost === 0 ? '' : shippingCost}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      setShippingCost(val);
+                      setFormData(prev => ({ ...prev, fleteEnvio: val }));
+                    }}
                     className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
