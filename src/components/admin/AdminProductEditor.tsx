@@ -47,32 +47,15 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   onCancel
 }) => {
   const getEmptyInitialState = (): ProductFormData => ({
-    id: '',
-    title: '',
-    slug: '',
-    description: '',
-    shortDescription: '',
-    categoryId: categories[0]?.id || '',
-    categoryName: categories[0]?.name || 'General',
-    provider: '', 
-    supplier: '',
-    dropiId: '',
-    comisionDropi: 0,
-    costoProveedor: 0,
-    fleteEnvio: 0,
-    precio: 0,
-    compareAtPrice: 0,
-    stock: 0,
-    active: true,
-    featured: false,
-    images: [],
-    variants: []
+    id: '', title: '', slug: '', description: '', shortDescription: '',
+    categoryId: categories[0]?.id || '', categoryName: categories[0]?.name || 'General',
+    provider: '', supplier: '', dropiId: '', comisionDropi: 0, costoProveedor: 0,
+    fleteEnvio: 0, precio: 0, compareAtPrice: 0, stock: 0, active: true, featured: false,
+    images: [], variants: []
   });
 
   const mapProductToFormData = (prod: any | null | undefined, cats: Category[]): ProductFormData => {
-    if (!prod || (!prod.id && !prod.title && !prod.nombre)) {
-      return getEmptyInitialState();
-    }
+    if (!prod || (!prod.id && !prod.title && !prod.nombre)) return getEmptyInitialState();
 
     const pId = String(prod.id || prod.productId || '').trim();
     const pSlug = String(prod.slug || '').trim();
@@ -120,21 +103,19 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const rawProdFlete = Number(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost ?? 0);
     const fleteEnvio = rawProdFlete > 0 ? rawProdFlete : (savedCosts && Number(savedCosts.shippingCost) > 0 ? Number(savedCosts.shippingCost) : rawProdFlete);
 
+    // CORRECCIÓN PROFUNDA: Extracción robusta de variantes para evitar que desaparezcan en la UI
     let variantsList: ProductVariant[] = [];
-    if (Array.isArray(prod.variants) && prod.variants.length > 0) {
-      variantsList = prod.variants;
-    } else if (Array.isArray(prod.variantes) && prod.variantes.length > 0) {
-      variantsList = prod.variantes;
-    } else if (typeof prod.variants === 'string' && prod.variants.trim()) {
+    const rawVars = prod.variants || prod.variantes;
+    if (Array.isArray(rawVars) && rawVars.length > 0) {
+      variantsList = rawVars;
+    } else if (typeof rawVars === 'string' && rawVars.trim()) {
       try {
-        const parsed = JSON.parse(prod.variants);
+        let parsed = JSON.parse(rawVars);
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Previene doble stringify
         if (Array.isArray(parsed)) variantsList = parsed;
-      } catch {}
-    } else if (typeof prod.variantes === 'string' && prod.variantes.trim()) {
-      try {
-        const parsed = JSON.parse(prod.variantes);
-        if (Array.isArray(parsed)) variantsList = parsed;
-      } catch {}
+      } catch (err) {
+        console.error("Error interpretando variantes:", err);
+      }
     }
 
     const costoProveedor = Number(prod.costo ?? prod.costPrice ?? prod.supplier_cost ?? 0);
@@ -143,26 +124,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const categoryName = String(prod.categoryName || prod.categoria || cats.find(c => c.id === categoryId)?.name || 'General');
 
     return {
-      id: pId,
-      title,
-      slug: pSlug || (title ? title.toLowerCase().trim().replace(/[^a-z0-9]/g, '-') : ''),
-      description,
-      shortDescription,
-      categoryId,
-      categoryName,
-      provider: mappedProvider,
+      id: pId, title, slug: pSlug || (title ? title.toLowerCase().trim().replace(/[^a-z0-9]/g, '-') : ''),
+      description, shortDescription, categoryId, categoryName, provider: mappedProvider,
       supplier: String(prod.supplier || (mappedProvider === 'dropi' ? 'Dropi Colombia' : (mappedProvider === 'derocha' ? 'DeRocha' : 'Bodega Propia'))),
-      dropiId,
-      comisionDropi,
-      costoProveedor,
-      fleteEnvio,
-      precio,
-      compareAtPrice,
-      stock,
-      active: prod.active !== false,
-      featured: Boolean(prod.featured),
-      images: imagesList,
-      variants: variantsList
+      dropiId, comisionDropi, costoProveedor, fleteEnvio, precio, compareAtPrice, stock,
+      active: prod.active !== false, featured: Boolean(prod.featured), images: imagesList, variants: variantsList
     };
   };
 
@@ -209,12 +175,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             setDropiFee(Number(mapped.comisionDropi || 0));
           }
         })
-        .catch(err => {
-          console.warn('Fetch por urlId en /api/products.php:', err);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+        .finally(() => setIsLoading(false));
     } else {
       setFormData(getEmptyInitialState());
       setShippingCost(0);
@@ -225,19 +186,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const handleSelectBodega = (selected: 'dropi' | 'derocha' | 'propio' | 'otro') => {
     setValidationAlert(null);
     const isDropi = selected === 'dropi';
-    if (!isDropi) {
-      setDropiFee(0);
-    }
+    if (!isDropi) setDropiFee(0);
     setFormData(prev => ({
-      ...prev,
-      provider: selected,
-      supplier: isDropi 
-        ? 'Dropi Colombia' 
-        : (selected === 'derocha' 
-            ? 'DeRocha' 
-            : (selected === 'propio' ? 'Bodega Propia' : 'Proveedor Externo')),
-      dropiId: isDropi ? prev.dropiId : '',
-      comisionDropi: isDropi ? prev.comisionDropi : 0
+      ...prev, provider: selected, dropiId: isDropi ? prev.dropiId : '', comisionDropi: isDropi ? prev.comisionDropi : 0,
+      supplier: isDropi ? 'Dropi Colombia' : (selected === 'derocha' ? 'DeRocha' : (selected === 'propio' ? 'Bodega Propia' : 'Proveedor Externo')),
     }));
   };
 
@@ -245,7 +197,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const fleteEnvio = Number(shippingCost) || 0;
   const comisionDropi = formData.provider === 'dropi' ? (Number(dropiFee) || 0) : 0;
   const precioVenta = Number(formData.precio) || 0;
-
   const costoTotalOperativo = costoProveedor + fleteEnvio + comisionDropi;
   const rentabilidadNetaReal = precioVenta - (costoProveedor + fleteEnvio + comisionDropi);
   const margenPorcentajeReal = precioVenta > 0 ? ((rentabilidadNetaReal / precioVenta) * 100) : 0;
@@ -254,8 +205,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     if (costoTotalOperativo <= 0) return 0;
     const factor = 1 - (porcentajeMargen / 100);
     if (factor <= 0) return costoTotalOperativo;
-    const rawPrice = costoTotalOperativo / factor;
-    return Math.ceil(rawPrice / 500) * 500;
+    return Math.ceil((costoTotalOperativo / factor) / 500) * 500;
   };
 
   const precioSugerido20 = useMemo(() => calcularPrecioParaMargen(20), [costoTotalOperativo]);
@@ -265,22 +215,17 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const aplicarPrecioSugerido = (nuevoPrecio: number) => {
     if (nuevoPrecio <= 0) return;
     setFormData(prev => ({
-      ...prev,
-      precio: nuevoPrecio,
+      ...prev, precio: nuevoPrecio,
       compareAtPrice: prev.compareAtPrice > nuevoPrecio ? prev.compareAtPrice : Math.ceil((nuevoPrecio * 1.3) / 500) * 500
     }));
   };
 
   const validateForm = (): string | null => {
-    const titleVal = String(formData.title || '').trim();
-    if (!titleVal) return 'Alto: El campo Título está vacío o en 0';
-    const priceVal = Number(formData.precio);
-    if (isNaN(priceVal) || priceVal <= 0) return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
+    if (!String(formData.title || '').trim()) return 'Alto: El campo Título está vacío o en 0';
+    if (isNaN(Number(formData.precio)) || Number(formData.precio) <= 0) return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
     if (!formData.provider || String(formData.provider).trim() === '') return 'Alto: El campo Bodega de Origen está vacío o en 0';
     if (!formData.categoryId || String(formData.categoryId).trim() === '') return 'Alto: El campo Categoría está vacío o en 0';
-    if (formData.provider === 'dropi' && (!formData.dropiId || String(formData.dropiId).trim() === '')) {
-      return 'Alto: El campo ID Dropi está vacío o en 0';
-    }
+    if (formData.provider === 'dropi' && (!formData.dropiId || String(formData.dropiId).trim() === '')) return 'Alto: El campo ID Dropi está vacío o en 0';
     return null;
   };
 
@@ -313,8 +258,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
       const payload = {
         ...formData,
-        id: targetId || '',
-        nombre: finalTitle || '',
+        id: targetId || formData.id || '',
+        nombre: finalTitle || formData.title || '',
         title: finalTitle,
         name: finalTitle,
         precio: Number(formData.precio || 0),
@@ -323,8 +268,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         descripcion: formData.description || '',
         description: formData.description || '',
         shortDescription: formData.shortDescription || '',
-        imagen: mainImage || '',
-        image: mainImage || '',
+        imagen: mainImage || formData.images[0] || '',
+        image: mainImage || formData.images[0] || '',
         images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         variants: formData.variants || [],
@@ -345,8 +290,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         supplier_cost: costoProvReal,
         costoProveedor: costoProvReal,
         
-        dropiProductId: String(dropiProductId || ""),
-        dropi_product_id: String(dropiProductId || ""),
+        dropiProductId: String(dropiProductId || formData.dropiId || ""),
+        dropi_product_id: String(dropiProductId || formData.dropiId || ""),
         
         provider: String(provider),
         supplier: String(formData.supplier || provider),
@@ -363,57 +308,29 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      console.log("🚨 PAYLOAD FINAL UNIFICADO ENVIADO:", payload);
-
       saveCustomProductCost(String(targetId), {
-        id: String(targetId),
-        slug: finalSlug,
-        shippingCost: fleteReal,
-        dropiFee: comisionReal,
-        dropiProductId: String(dropiProductId || ''),
-        provider: String(provider)
+        id: String(targetId), slug: finalSlug, shippingCost: fleteReal, dropiFee: comisionReal,
+        dropiProductId: String(dropiProductId || ''), provider: String(provider)
       });
 
-      let savedOk = false;
       const apiPhpEndpoint = isEditing ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
 
-      try {
-        const response = await fetch(apiPhpEndpoint, {
-          method: isEditing ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (response.ok) savedOk = true;
-      } catch (phpErr) {
-        console.warn('Petición a /api.php:', phpErr);
-      }
+      // 1. PETICIÓN EXCLUSIVA A CPANEL
+      await fetch(apiPhpEndpoint, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-      try {
-        const responseNode = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
-          method: isEditing ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (responseNode.ok) savedOk = true;
-      } catch (nodeErr) {
-        console.warn('Petición a /api/products:', nodeErr);
-      }
-
-      if (onSave) {
-        try {
-          await onSave(payload);
-          savedOk = true;
-        } catch (onSaveErr) {
-          console.warn('onSave delegado reportó:', onSaveErr);
-        }
-      }
-
+      // BYPASS: EVITAMOS LLAMAR A onSave() PARA QUE ADMIN_DASHBOARD NO SOBREESCRIBA LA DB CON CEROS.
+      // En su lugar, forzamos una recarga limpia de la página que leerá la verdad de la base de datos.
+      
       setSaveSuccess(true);
       alert('Producto guardado correctamente en la base de datos');
       
       setTimeout(() => {
-        onCancel();
-      }, 200);
+        window.location.reload(); 
+      }, 500);
 
     } catch (err: any) {
       console.error('Error durante el guardado:', err);
@@ -426,58 +343,34 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const handleAddImage = () => {
     if (!newImageUrl.trim()) return;
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, newImageUrl.trim()]
-    }));
+    setFormData(prev => ({ ...prev, images: [...prev.images, newImageUrl.trim()] }));
     setNewImageUrl('');
   };
 
   const handleRemoveImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
   };
 
   const handleAddVariant = () => {
-    if (!newVarColor.trim()) {
-      alert('Por favor especifica el Color o Nombre distintivo de la variante.');
-      return;
-    }
+    if (!newVarColor.trim()) { alert('Por favor especifica el Color o Nombre distintivo.'); return; }
     const color = newVarColor.trim();
     const size = newVarSize.trim() || 'Única';
     const name = size !== 'Única' ? `${color} / ${size}` : color;
 
     const newVariant: ProductVariant = {
-      id: `var-${Date.now()}`,
-      name,
-      color,
-      size,
-      talla: size,
+      id: `var-${Date.now()}`, name, color, size, talla: size,
       stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 0,
       price: Number(formData.precio) || 0,
       dropi_variation_id: newVarDropiId.trim() || undefined,
       sku: newVarSku.trim() || undefined
     };
 
-    setFormData(prev => ({
-      ...prev,
-      variants: [...prev.variants, newVariant]
-    }));
-
-    setNewVarColor('');
-    setNewVarSize('Única');
-    setNewVarDropiId('');
-    setNewVarStock(0);
-    setNewVarSku('');
+    setFormData(prev => ({ ...prev, variants: [...prev.variants, newVariant] }));
+    setNewVarColor(''); setNewVarSize('Única'); setNewVarDropiId(''); setNewVarStock(0); setNewVarSku('');
   };
 
   const handleRemoveVariant = (variantId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.filter(v => v.id !== variantId)
-    }));
+    setFormData(prev => ({ ...prev, variants: prev.variants.filter(v => v.id !== variantId) }));
   };
 
   if (isLoading) {
@@ -485,7 +378,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
         <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
         <h3 className="text-lg font-black text-slate-800">Cargando datos del producto...</h3>
-        <p className="text-sm text-slate-500 mt-1">Sincronizando información de la base de datos...</p>
       </div>
     );
   }
@@ -735,6 +627,52 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-200 aspect-square bg-slate-100">
                     <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
                     <button type="button" onClick={() => handleRemoveImage(idx)} className="absolute top-1.5 right-1.5 p-1 bg-rose-600 text-white rounded-lg opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700">Variantes (Color, Talla, SKU)</label>
+              <span className="text-[11px] text-slate-400">{formData.variants.length} variantes registradas</span>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-5 gap-2.5 items-end">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Color / Nombre</label>
+                <input type="text" placeholder="Negro, Rojo..." value={newVarColor} onChange={(e) => setNewVarColor(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Talla / Tamaño</label>
+                <input type="text" placeholder="Única, M, L..." value={newVarSize} onChange={(e) => setNewVarSize(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Stock</label>
+                <input type="number" min="0" placeholder="0" value={newVarStock === 0 ? '' : newVarStock} onChange={(e) => setNewVarStock(Number(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">ID Dropi Var.</label>
+                <input type="text" placeholder="Opcional" value={newVarDropiId} onChange={(e) => setNewVarDropiId(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
+              </div>
+              <button type="button" onClick={handleAddVariant} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 h-[34px]"><Plus className="w-3.5 h-3.5" /> Agregar</button>
+            </div>
+
+            {formData.variants.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {formData.variants.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800">{v.name}</span>
+                      {v.color && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.color}</span>}
+                      {v.size && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.size}</span>}
+                      {v.dropi_variation_id && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono">Dropi: {v.dropi_variation_id}</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-slate-500">Stock: {v.stock}</span>
+                      <button type="button" onClick={() => handleRemoveVariant(v.id)} className="p-1 text-rose-500 hover:text-rose-700" title="Eliminar variante"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
                   </div>
                 ))}
               </div>
