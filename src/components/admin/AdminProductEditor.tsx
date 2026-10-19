@@ -232,7 +232,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const initialData = useMemo(() => mapProductToFormData(product, categories), [product, categories]);
   const [formData, setFormData] = useState<ProductFormData>(initialData);
 
-  // 1. ASEGURA LOS ESTADOS REACTIVOS (ENLACE DIRECTO DE INPUTS)
+  // Estados reactivos directos para los inputs numéricos financieros
   const [shippingCost, setShippingCost] = useState<number>(() => Number(initialData.fleteEnvio || 0));
   const [dropiFee, setDropiFee] = useState<number>(() => Number(initialData.comisionDropi || 0));
 
@@ -385,13 +385,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   // =========================================================================
-  // FASE 5: EMPAQUETADO Y ENVÍO (PAYLOAD SEGURO)
+  // FASE 5: EMPAQUETADO Y ENVÍO (PAYLOAD SEGURO Y CONECTADO)
   // =========================================================================
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationAlert(null);
 
-    // 1. BLOQUEO DE PAYLOAD VACÍO: Validación estricta previa a cualquier fetch
     const errorMsg = validateForm();
     if (errorMsg) {
       setValidationAlert(errorMsg);
@@ -408,33 +407,44 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const finalTitle = formData.title.trim();
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
       const mainImage = formData.images[0] || '';
+      const dropiProductId = String(formData.dropiId || (product as any)?.dropi_product_id || (product as any)?.dropiProductId || '');
+      const provider = String(formData.provider || 'derocha');
 
-      // 2. CONSTRUYE EL PAYLOAD CON CERO POR DEFECTO PARA EVITAR 'UNDEFINED'
-      const payloadToSend = {
+      // EXTRACCIÓN DIRECTA DESDE LOS ESTADOS REALES DE FORMULARIO
+      const fleteReal = Number(formData.fleteEnvio || shippingCost || 0);
+      const comisionReal = Number(formData.comisionDropi || dropiFee || 0);
+      const costoProveedorReal = Number(formData.costoProveedor || 0);
+      const precioVentaReal = Number(formData.precio || 0);
+
+      // CONSTRUCCIÓN DEL PAYLOAD BLINDADO CON NOMBRES EXACTOS PARA MYSQL
+      const payload = {
         id: targetId || '',
         nombre: finalTitle || '',
-        precio: Number(formData.precio || 0),
+        precio: precioVentaReal,
         stock: Number(formData.stock || 0),
         descripcion: formData.description || '',
         imagen: mainImage || '',
-        provider: formData.provider || 'derocha',
-        dropi_product_id: String(formData.dropiId || ''),
         variants: formData.variants || [],
         
-        // INYECCIÓN BLINDADA (Los defaults evitan la eliminación del key)
-        shipping_cost: Number(shippingCost || 0),
-        flete_envio: Number(shippingCost || 0),
-        flete: Number(shippingCost || 0),
-        dropi_fee: Number(dropiFee || 0),
-        dropiFee: Number(dropiFee || 0),
-        shippingCost: Number(shippingCost || 0),
+        // CAMPOS FINANCIEROS CLAVE (REPLICADOS EN TODAS LAS VARIANTES DE NOMBRES)
+        shippingCost: fleteReal,
+        shipping_cost: fleteReal,
+        flete: fleteReal,
+        flete_envio: fleteReal,
+        dropiFee: comisionReal,
+        dropi_fee: comisionReal,
+        dropiProductId: String(dropiProductId || ""),
+        dropi_product_id: String(dropiProductId || ""),
+        provider: String(provider),
+        supplier: String(formData.supplier || provider),
 
-        // Campos complementarios para integridad de la tienda y catálogo
+        // DATOS COMPLEMENTARIOS DE INTEGRIDAD
         title: finalTitle,
-        price: Number(formData.precio || 0),
-        costo: Number(formData.costoProveedor || 0),
-        costPrice: Number(formData.costoProveedor || 0),
-        supplier_cost: Number(formData.costoProveedor || 0),
+        name: finalTitle,
+        price: precioVentaReal,
+        costo: costoProveedorReal,
+        costPrice: costoProveedorReal,
+        supplier_cost: costoProveedorReal,
         compareAtPrice: Number(formData.compareAtPrice || 0),
         compare_price: Number(formData.compareAtPrice || 0),
         suggested_price: Number(formData.compareAtPrice || 0),
@@ -444,7 +454,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         image: mainImage || '',
         images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
-        dropiProductId: String(formData.dropiId || ''),
         categoryId: formData.categoryId || '',
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
@@ -452,89 +461,60 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      console.log("🚨 PAYLOAD BLINDADO:", payloadToSend);
+      console.log("payload:", payload);
+      console.log("🚨 PAYLOAD BLINDADO A ENVIAR A MYSQL:", payload);
 
-      // Persistir costos personalizados localmente para sincronización instantánea
+      // Persistir costos localmente
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
-        shippingCost: Number(shippingCost || 0),
-        dropiFee: Number(dropiFee || 0),
-        dropiProductId: String(formData.dropiId || ''),
-        provider: String(formData.provider || 'derocha')
+        shippingCost: fleteReal,
+        dropiFee: comisionReal,
+        dropiProductId: String(dropiProductId || ''),
+        provider: String(provider)
       });
 
-      // Envío PUT/POST a api.php y /api/products.php
       let savedOk = false;
-      const apiPhpEndpoint = isEditing 
-        ? `/api.php?id=${encodeURIComponent(targetId)}` 
-        : '/api.php';
+      const apiPhpEndpoint = isEditing ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
+      const productsPhpEndpoint = isEditing ? `/api/products.php?id=${encodeURIComponent(targetId)}` : '/api/products.php';
 
-      const productsPhpEndpoint = isEditing 
-        ? `/api/products.php?id=${encodeURIComponent(targetId)}` 
-        : '/api/products.php';
-
+      // 1. Enviar a api.php
       try {
         const response = await fetch(apiPhpEndpoint, {
           method: isEditing ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payloadToSend)
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
-
-        if (response.ok) {
-          savedOk = true;
-        }
+        if (response.ok) savedOk = true;
       } catch (phpErr) {
         console.warn('Petición a /api.php:', phpErr);
       }
 
-      // También enviar a /api/products.php para cPanel
+      // 2. Enviar a /api/products.php
       try {
         const responsePhp = await fetch(productsPhpEndpoint, {
-          method: isEditing ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payloadToSend)
+          method: isEditing ? 'PUT' : 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
-
-        if (responsePhp.ok) {
-          savedOk = true;
-        }
+        if (responsePhp.ok) savedOk = true;
       } catch (phpErr) {
         console.warn('Petición a /api/products.php:', phpErr);
       }
 
-      // Si existe un callback onSave del contenedor padre (AdminDashboard)
+      // 3. Callback padre onSave si existe
       if (onSave) {
         try {
-          await onSave(payloadToSend);
+          await onSave(payload);
           savedOk = true;
         } catch (onSaveErr) {
           console.warn('onSave delegado reportó:', onSaveErr);
         }
       }
 
-      // Fallback a ruta REST /api/products si fuera necesario
-      if (!savedOk) {
-        try {
-          const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
-            method: isEditing ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payloadToSend)
-          });
-          if (restRes.ok) savedOk = true;
-        } catch (rErr) {
-          console.warn('Fallback a /api/products:', rErr);
-        }
-      }
-
       setSaveSuccess(true);
-      alert('Producto guardado correctamente');
+      alert('Producto guardado correctamente en la base de datos');
       
-      // Limpiar y redirigir
       setTimeout(() => {
         onCancel();
       }, 200);
@@ -669,7 +649,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                <span>Guardar Producto</span>
+                <span>Guardar Cambios</span>
               </>
             )}
           </button>
@@ -1028,7 +1008,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                       ...prev, 
                       compareAtPrice: e.target.value === '' ? 0 : Number(e.target.value) 
                     }))}
-                    className="w-full pl-8 pr-3.5 py-3 rounded-2xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1 block">
@@ -1464,12 +1444,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             {isSaving ? (
               <>
                 <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Guardando Producto...</span>
+                <span>Guardando Cambios...</span>
               </>
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                <span>Guardar Producto</span>
+                <span>Guardar Cambios</span>
               </>
             )}
           </button>

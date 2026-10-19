@@ -291,28 +291,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
       }
 
-      const payloadFinal = {
+      const shippingCost = shippingValue;
+      const dropiFee = feeValue;
+      const dropiProductId = rawDropiCode;
+
+      const payload = {
         ...productData,
-        shippingCost: Number(shippingValue),
-        shipping_cost: Number(shippingValue),
-        flete: Number(shippingValue),
-        flete_envio: Number(shippingValue),
-        estimatedShippingCost: Number(shippingValue),
-        dropiFee: Number(feeValue),
-        dropi_fee: Number(feeValue),
-        dropiProductId: String(rawDropiCode || ''),
-        dropi_product_id: String(rawDropiCode || ''),
+        shippingCost: Number(shippingCost || 0),
+        shipping_cost: Number(shippingCost || 0),
+        flete: Number(shippingCost || 0),
+        flete_envio: Number(shippingCost || 0),
+        dropiFee: Number(dropiFee || 0),
+        dropi_fee: Number(dropiFee || 0),
+        dropiProductId: String(dropiProductId || ""),
         provider: String(provider),
         ...(targetId ? { id: targetId } : {})
       };
 
-      console.log('Payload al guardar:', payloadFinal);
-      console.log('payload:', payloadFinal);
+      console.log('payload:', payload);
+      console.log('Payload al guardar:', payload);
 
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadFinal)
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -321,7 +323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
 
       const resData = await res.json();
-      const savedProductResult = resData.data || payloadFinal;
+      const savedProductResult = resData.data || payload;
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
       const finalDropiCode = String(rawDropiCode || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
       
