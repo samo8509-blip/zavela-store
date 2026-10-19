@@ -410,55 +410,56 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const dropiProductId = String(formData.dropiId || (product as any)?.dropi_product_id || (product as any)?.dropiProductId || '');
       const provider = String(formData.provider || 'derocha');
 
-      // EXTRACCIÓN DIRECTA DESDE LOS ESTADOS REALES DE FORMULARIO
-      const fleteReal = Number(formData.fleteEnvio || shippingCost || 0);
-      const comisionReal = Number(formData.comisionDropi || dropiFee || 0);
-      const costoProveedorReal = Number(formData.costoProveedor || 0);
-      const precioVentaReal = Number(formData.precio || 0);
+      // EXTRACCIÓN Y CONSTRUCCIÓN DEL PAYLOAD EXIGIDO
+      const fleteReal = Number(shippingCost || formData.fleteEnvio || 0);
+      const comisionReal = Number(dropiFee || formData.comisionDropi || 0);
+      const costoProvReal = Number(formData.costoProveedor || 0);
 
-      // CONSTRUCCIÓN DEL PAYLOAD BLINDADO CON NOMBRES EXACTOS PARA MYSQL
       const payload = {
-        id: targetId || '',
-        nombre: finalTitle || '',
-        precio: precioVentaReal,
+        ...formData,
+        id: targetId || formData.id || '',
+        nombre: finalTitle || formData.title || '',
+        title: finalTitle || formData.title || '',
+        name: finalTitle || formData.title || '',
+        precio: Number(formData.precio || 0),
+        price: Number(formData.precio || 0),
         stock: Number(formData.stock || 0),
         descripcion: formData.description || '',
-        imagen: mainImage || '',
+        description: formData.description || '',
+        shortDescription: formData.shortDescription || '',
+        imagen: mainImage || formData.images[0] || '',
+        image: mainImage || formData.images[0] || '',
+        images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
+        imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         variants: formData.variants || [],
         
-        // CAMPOS FINANCIEROS CLAVE (REPLICADOS EN TODAS LAS VARIANTES DE NOMBRES)
-        shippingCost: fleteReal,
+        // Nombres duplicados para compatibilidad total con Node.js y cPanel
         shipping_cost: fleteReal,
-        flete: fleteReal,
+        shippingCost: fleteReal,
         flete_envio: fleteReal,
-        dropiFee: comisionReal,
+        fleteEnvio: fleteReal,
+        flete: fleteReal,
+        estimatedShippingCost: fleteReal,
+        
         dropi_fee: comisionReal,
-        dropiProductId: String(dropiProductId || ""),
-        dropi_product_id: String(dropiProductId || ""),
+        dropiFee: comisionReal,
+        comisionDropi: comisionReal,
+        
+        costo: costoProvReal,
+        supplier_cost: costoProvReal,
+        costPrice: costoProvReal,
+        costoProveedor: costoProvReal,
+
+        dropiProductId: String(dropiProductId || formData.dropiId || ""),
+        dropi_product_id: String(dropiProductId || formData.dropiId || ""),
         provider: String(provider),
         supplier: String(formData.supplier || provider),
 
-        // INYECCIÓN DE COMPATIBILIDAD DE DOBLE BACKEND (Node.js/Render + cPanel/MySQL):
-        fleteEnvio: fleteReal,
-        comisionDropi: comisionReal,
-        costoProveedor: costoProveedorReal,
-
-        // DATOS COMPLEMENTARIOS DE INTEGRIDAD
-        title: finalTitle,
-        name: finalTitle,
-        price: precioVentaReal,
-        costo: costoProveedorReal,
-        costPrice: costoProveedorReal,
-        supplier_cost: costoProveedorReal,
         compareAtPrice: Number(formData.compareAtPrice || 0),
         compare_price: Number(formData.compareAtPrice || 0),
         suggested_price: Number(formData.compareAtPrice || 0),
+
         slug: finalSlug,
-        description: formData.description || '',
-        shortDescription: formData.shortDescription || '',
-        image: mainImage || '',
-        images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
-        imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         categoryId: formData.categoryId || '',
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
@@ -466,10 +467,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      console.log("payload:", payload);
-      console.log("🚨 PAYLOAD BLINDADO A ENVIAR A MYSQL:", payload);
+      console.log("🚨 PAYLOAD ENVIADO:", payload);
 
-      // Persistir costos localmente
+      // Guardado local de respaldo
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
@@ -483,7 +483,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const apiPhpEndpoint = isEditing ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
       const productsPhpEndpoint = isEditing ? `/api/products.php?id=${encodeURIComponent(targetId)}` : '/api/products.php';
 
-      // 1. Enviar a api.php
+      // 1. Petición a api.php
       try {
         const response = await fetch(apiPhpEndpoint, {
           method: isEditing ? 'PUT' : 'POST',
@@ -495,10 +495,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         console.warn('Petición a /api.php:', phpErr);
       }
 
-      // 2. Enviar a /api/products.php
+      // 2. Petición a /api/products.php
       try {
         const responsePhp = await fetch(productsPhpEndpoint, {
-          method: isEditing ? 'PUT' : 'PUT',
+          method: isEditing ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
@@ -507,7 +507,19 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         console.warn('Petición a /api/products.php:', phpErr);
       }
 
-      // 3. Callback padre onSave si existe
+      // 3. Petición a la ruta de Node.js (/api/products)
+      try {
+        const responseNode = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (responseNode.ok) savedOk = true;
+      } catch (nodeErr) {
+        console.warn('Petición a /api/products:', nodeErr);
+      }
+
+      // 4. Callback padre onSave si existe
       if (onSave) {
         try {
           await onSave(payload);
