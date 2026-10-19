@@ -395,64 +395,52 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const targetId = formData.id || product?.id || `prod-${Date.now()}`;
       const finalTitle = formData.title.trim();
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      // INYECCIÓN OBLIGATORIA DE FLETES Y COMISIONES:
-      const payload = {
-        id: targetId,
-        title: finalTitle,
-        nombre: finalTitle,
-        name: finalTitle,
-        slug: finalSlug,
-        description: formData.description.trim(),
-        descripcion: formData.description.trim(),
-        shortDescription: formData.shortDescription.trim(),
-        short_description: formData.shortDescription.trim(),
-        categoryId: formData.categoryId,
-        category_id: formData.categoryId,
-        categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
-        categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
+      const mainImage = formData.images[0] || '';
 
-        // INYECCIÓN OBLIGATORIA DE FLETES Y COMISIONES (EXACTO SEGÚN REQUERIMIENTO):
-        shippingCost: Number(formData.fleteEnvio || 0),
-        shipping_cost: Number(formData.fleteEnvio || 0),
-        flete: Number(formData.fleteEnvio || 0),
-        flete_envio: Number(formData.fleteEnvio || 0),
-        estimatedShippingCost: Number(formData.fleteEnvio || 0),
-        dropiFee: Number(formData.comisionDropi || 0),
-        dropi_fee: Number(formData.comisionDropi || 0),
-        dropiProductId: String(formData.dropiId || ''),
-        dropi_product_id: String(formData.dropiId || ''),
-        provider: String(formData.provider || 'derocha'),
-        supplier: formData.supplier || (formData.provider === 'dropi' ? 'Dropi Colombia' : (formData.provider === 'derocha' ? 'DeRocha' : 'Bodega Propia')),
-
-        // Precios y costos con casteo numérico obligatorio
+      const payloadToSend = {
+        // Datos básicos
+        id: targetId || '',
+        nombre: finalTitle || '',
         precio: Number(formData.precio || 0),
+        stock: Number(formData.stock || 0),
+        descripcion: formData.description || '',
+        imagen: mainImage || '',
+        provider: formData.provider || 'derocha',
+        dropi_product_id: String(formData.dropiId || ''),
+        variants: formData.variants || [],
+        
+        // INYECCIÓN OBLIGATORIA CON LOS NOMBRES EXACTOS DE MYSQL:
+        shipping_cost: Number(formData.fleteEnvio || 0),
+        flete_envio: Number(formData.fleteEnvio || 0),
+        flete: Number(formData.fleteEnvio || 0),
+        dropi_fee: Number(formData.comisionDropi || 0),
+        shippingCost: Number(formData.fleteEnvio || 0),
+        dropiFee: Number(formData.comisionDropi || 0),
+
+        // Campos complementarios para compatibilidad con TypeScript y vistas del catálogo
+        title: finalTitle,
         price: Number(formData.precio || 0),
-
-        costoProveedor: Number(formData.costoProveedor || 0),
-        costPrice: Number(formData.costoProveedor || 0),
         costo: Number(formData.costoProveedor || 0),
+        costPrice: Number(formData.costoProveedor || 0),
         supplier_cost: Number(formData.costoProveedor || 0),
-
         compareAtPrice: Number(formData.compareAtPrice || 0),
         compare_price: Number(formData.compareAtPrice || 0),
         suggested_price: Number(formData.compareAtPrice || 0),
-
-        stock: Number(formData.stock || 0),
-        inventario: Number(formData.stock || 0),
-
+        slug: finalSlug,
+        description: formData.description || '',
+        shortDescription: formData.shortDescription || '',
+        image: mainImage || '',
+        images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
+        imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
+        dropiProductId: String(formData.dropiId || ''),
+        categoryId: formData.categoryId || '',
+        categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
+        categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         active: Boolean(formData.active),
-        activo: Boolean(formData.active),
-        featured: Boolean(formData.featured),
-        destacado: Boolean(formData.featured),
-        images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
-        imagenes: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
-        image: formData.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
-        imagen: formData.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
-        variants: Array.isArray(formData.variants) ? formData.variants : [],
-        variantes: Array.isArray(formData.variants) ? formData.variants : []
+        featured: Boolean(formData.featured)
       };
 
-      console.log('[AdminProductEditor] Enviando payload cast a números con fletes y comisiones:', payload);
+      console.log("PAYLOAD A ENVIAR:", payloadToSend);
 
       // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
@@ -476,7 +464,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payloadToSend)
         });
 
         if (response.ok) {
@@ -489,7 +477,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       // Si existe un callback onSave del contenedor padre (AdminDashboard)
       if (onSave) {
         try {
-          await onSave(payload);
+          await onSave(payloadToSend);
           savedOk = true;
         } catch (onSaveErr) {
           console.warn('onSave delegado reportó:', onSaveErr);
@@ -502,7 +490,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
             method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payloadToSend)
           });
           if (restRes.ok) savedOk = true;
         } catch (rErr) {
