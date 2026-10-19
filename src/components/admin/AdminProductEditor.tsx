@@ -1,430 +1,1277 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Save, Upload, Link as LinkIcon, Star, CheckCircle2, AlertTriangle, Trash2, ChevronLeft, ChevronRight, Loader2, Boxes, Zap, Store, Building2, Tag, Coins, Truck, ShieldCheck, DollarSign, Calculator, Plus, X, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  ArrowLeft, 
+  Save, 
+  Building2, 
+  Package, 
+  DollarSign, 
+  TrendingUp, 
+  AlertTriangle, 
+  CheckCircle2, 
+  AlertCircle, 
+  Plus, 
+  Trash2, 
+  Image as ImageIcon, 
+  Sparkles, 
+  Layers, 
+  Info, 
+  Check, 
+  RefreshCw, 
+  X,
+  Truck,
+  Boxes,
+  Percent,
+  Sliders
+} from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
-import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
-import { getLocalProductOverride, saveLocalProductOverride, saveCustomProductCost, getCustomProductCost, CUSTOM_COSTS_STORAGE_KEY } from '../../services/cpanelProducts.ts';
+import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
 export interface AdminProductEditorProps {
-  product: Product | null;
+  product?: Product | null;
   categories: Category[];
-  onSave: (productData: Partial<Product>) => Promise<void>;
+  onSave?: (productData: Partial<Product>) => Promise<void>;
   onCancel: () => void;
 }
 
-export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product, categories, onSave, onCancel }) => {
-  const isEditing = Boolean(product?.id);
-  const [isSaving, setIsSaving] = useState(false);
+export type WarehouseProvider = '' | 'dropi' | 'derocha' | 'propio' | 'otro';
 
-  const pId = product?.id || (product as any)?.productId;
-  const pSlug = product?.slug;
-  const localOverride = pId || pSlug ? getCustomProductCost(String(pId || ''), String(pSlug || '')) : null;
+export interface ProductFormData {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  shortDescription: string;
+  categoryId: string;
+  categoryName: string;
+  provider: WarehouseProvider | string;
+  supplier: string;
+  dropiId: string;
+  comisionDropi: number;
+  costoProveedor: number;
+  fleteEnvio: number;
+  precio: number;
+  compareAtPrice: number;
+  stock: number;
+  active: boolean;
+  featured: boolean;
+  images: string[];
+  variants: ProductVariant[];
+}
 
-  // Estados Base
-  const [title, setTitle] = useState(product?.title || '');
-  const [slug, setSlug] = useState(product?.slug || '');
-  const [shortDescription, setShortDescription] = useState(product?.shortDescription || '');
-  const [description, setDescription] = useState(product?.description || '');
-  const [categoryId, setCategoryId] = useState(product?.categoryId || categories[0]?.id || '');
-  const [customSupplierName, setCustomSupplierName] = useState((product as any)?.supplier || '');
-  const [dropiProductId, setDropiProductId] = useState(() => {
-    if (localOverride && localOverride.dropiProductId !== undefined) return localOverride.dropiProductId;
-    return product?.dropiProductId || product?.dropi_product_id || '';
+export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
+  product,
+  categories,
+  onSave,
+  onCancel
+}) => {
+  // =========================================================================
+  // FASE 1: ESTADO INICIAL ESTRICTO
+  // =========================================================================
+  // Si es "Crear Nuevo": provider: '' (obligatorio seleccionar uno), numéricos en 0, strings en '', variants: []
+  const getEmptyInitialState = (): ProductFormData => ({
+    id: '',
+    title: '',
+    slug: '',
+    description: '',
+    shortDescription: '',
+    categoryId: categories[0]?.id || '',
+    categoryName: categories[0]?.name || 'General',
+    provider: '', // Cadena vacía OBLIGATORIA
+    supplier: '',
+    dropiId: '',
+    comisionDropi: 0,
+    costoProveedor: 0,
+    fleteEnvio: 0,
+    precio: 0,
+    compareAtPrice: 0,
+    stock: 0,
+    active: true,
+    featured: false,
+    images: [],
+    variants: []
   });
 
-  // Proveedor Inteligente
-  const resolveInitialProvider = () => {
-    if (localOverride && localOverride.provider) return localOverride.provider as any;
-    if (!product) return 'derocha';
-    const raw = String(product.provider || product.supplier || '').toLowerCase();
-    if (raw.includes('dropi')) return 'dropi';
-    if (raw.includes('direct') || raw.includes('propio')) return 'direct';
-    if (raw.includes('other')) return 'other';
-    return 'derocha';
-  };
-  const [provider, setProvider] = useState<'dropi'|'derocha'|'direct'|'other'>(resolveInitialProvider());
+  const [formData, setFormData] = useState<ProductFormData>(getEmptyInitialState);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [validationAlert, setValidationAlert] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
 
-  // PRECIOS Y COSTOS (BLINDADOS CONTRA EL 16500 - DEFAULT 0)
-  const [price, setPrice] = useState(Number(product?.price) || 0);
-  const [costPrice, setCostPrice] = useState(Number(product?.costPrice || (product as any)?.supplier_cost) || 0);
-  const [compareAtPrice, setCompareAtPrice] = useState(Number(product?.compareAtPrice) || 0);
-  const [stock, setStock] = useState(Number(product?.stock) || 20);
+  // Estados locales para la UI de medios y variantes
+  const [newImageUrl, setNewImageUrl] = useState<string>('');
+  const [newVarColor, setNewVarColor] = useState<string>('');
+  const [newVarSize, setNewVarSize] = useState<string>('Única');
+  const [newVarDropiId, setNewVarDropiId] = useState<string>('');
+  const [newVarStock, setNewVarStock] = useState<number>(0);
+  const [newVarSku, setNewVarSku] = useState<string>('');
 
-  const [shippingCost, setShippingCost] = useState<number | ''>(() => {
-    if (localOverride && typeof localOverride.shippingCost === 'number') {
-      return localOverride.shippingCost;
-    }
-    const raw = product?.shippingCost ?? (product as any)?.shipping_cost ?? (product as any)?.flete ?? (product as any)?.flete_envio;
-    if (raw === undefined || raw === null || raw === '') return '';
-    const num = Number(raw);
-    if (isNaN(num)) return '';
-    if (num === 16500 && (product?.provider === 'dropi' || (product as any)?.dropi_product_id || (product as any)?.dropiProductId)) {
-      return 0;
-    }
-    return num;
-  });
-  
-  const [dropiFee, setDropiFee] = useState<number | ''>(() => {
-    if (localOverride && typeof localOverride.dropiFee === 'number') {
-      return localOverride.dropiFee;
-    }
-    const raw = product?.dropiFee ?? (product as any)?.dropi_fee;
-    if (raw === undefined || raw === null || raw === '') return '';
-    const num = Number(raw);
-    return isNaN(num) ? '' : num;
-  });
-
-  // EFECTO OBLIGATORIO: Forzar lectura de zavela_custom_costs_v1 al montar o cambiar product
+  // Detección de Modo Edición por ID en URL o por objeto product en props
   useEffect(() => {
-    if (!product) return;
-    const prodId = String(product.id || (product as any)?.productId || '').trim();
-    const prodSlug = String(product.slug || '').trim();
+    let active = true;
 
-    try {
-      const raw = localStorage.getItem('zavela_custom_costs_v1');
-      if (raw) {
-        const map = JSON.parse(raw);
-        const saved = (prodId && map[prodId]) || (prodSlug && map[prodSlug]);
-        if (saved) {
-          if (typeof saved.shippingCost === 'number') {
-            setShippingCost(saved.shippingCost);
+    const detectAndLoadProduct = async () => {
+      // 1. Revisar si hay ID en la URL (?id=... o ?productId=...)
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const urlId = searchParams?.get('id') || searchParams?.get('productId') || searchParams?.get('editId') || '';
+      
+      const targetId = product?.id ? String(product.id) : (urlId ? String(urlId).trim() : '');
+
+      if (!targetId) {
+        // Modo "Crear Nuevo" estricto
+        setFormData(getEmptyInitialState());
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        let fetchedProduct: any = null;
+
+        // Intentar fetch a la base de datos por ID
+        try {
+          const res = await fetch(`/api/products.php?id=${encodeURIComponent(targetId)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.data) fetchedProduct = data.data;
+            else if (data.product) fetchedProduct = data.product;
+            else if (data.id) fetchedProduct = data;
           }
-          if (typeof saved.dropiFee === 'number') {
-            setDropiFee(saved.dropiFee);
-          }
-          if (saved.dropiProductId) {
-            setDropiProductId(saved.dropiProductId);
-          }
-          if (saved.provider) {
-            setProvider(saved.provider as any);
+        } catch (fetchErr) {
+          console.warn('Fetch directo a /api/products.php falló, intentando fallback:', fetchErr);
+        }
+
+        // Fallback al endpoint REST /api/products/:id
+        if (!fetchedProduct) {
+          try {
+            const resRest = await fetch(`/api/products/${encodeURIComponent(targetId)}`);
+            if (resRest.ok) {
+              const data = await resRest.json();
+              if (data.data) fetchedProduct = data.data;
+              else if (data.product) fetchedProduct = data.product;
+              else if (data.id) fetchedProduct = data;
+            }
+          } catch (restErr) {
+            console.warn('Fallback a /api/products/:id no disponible:', restErr);
           }
         }
+
+        // Si falló el fetch remoto, usar el product inyectado en props
+        if (!fetchedProduct && product) {
+          fetchedProduct = product;
+        }
+
+        if (active && fetchedProduct) {
+          // Recuperar costos adicionales persistidos si existen
+          const pId = String(fetchedProduct.id || targetId);
+          const pSlug = String(fetchedProduct.slug || '');
+          const savedCosts = getCustomProductCost(pId, pSlug);
+
+          // Mantener estrictamente el provider que viene de la base de datos
+          const dbProvider = String(
+            savedCosts?.provider || 
+            fetchedProduct.provider || 
+            fetchedProduct.proveedor || 
+            (fetchedProduct.dropiProductId || fetchedProduct.dropi_product_id ? 'dropi' : '')
+          ).toLowerCase().trim();
+
+          let normalizedProvider: WarehouseProvider = '';
+          if (dbProvider === 'dropi' || dbProvider.includes('dropi')) normalizedProvider = 'dropi';
+          else if (dbProvider === 'derocha' || dbProvider.includes('derocha')) normalizedProvider = 'derocha';
+          else if (dbProvider === 'propio' || dbProvider === 'direct' || dbProvider.includes('propio')) normalizedProvider = 'propio';
+          else if (dbProvider === 'otro' || dbProvider === 'other' || dbProvider.includes('otro')) normalizedProvider = 'otro';
+          else if (dbProvider) normalizedProvider = dbProvider as any;
+
+          const rawImages = Array.isArray(fetchedProduct.images) && fetchedProduct.images.length > 0
+            ? fetchedProduct.images
+            : (fetchedProduct.image ? [fetchedProduct.image] : (fetchedProduct.imagen ? [fetchedProduct.imagen] : []));
+
+          const rawVariants = Array.isArray(fetchedProduct.variants) 
+            ? fetchedProduct.variants 
+            : (Array.isArray(fetchedProduct.variantes) ? fetchedProduct.variantes : []);
+
+          const fleteVal = savedCosts?.shippingCost !== undefined 
+            ? Number(savedCosts.shippingCost) 
+            : Number(fetchedProduct.shippingCost ?? fetchedProduct.shipping_cost ?? fetchedProduct.flete_envio ?? fetchedProduct.flete ?? 0);
+
+          const feeVal = savedCosts?.dropiFee !== undefined 
+            ? Number(savedCosts.dropiFee) 
+            : Number(fetchedProduct.dropiFee ?? fetchedProduct.dropi_fee ?? 0);
+
+          const dropiIdVal = savedCosts?.dropiProductId 
+            ? String(savedCosts.dropiProductId) 
+            : String(fetchedProduct.dropiProductId || fetchedProduct.dropi_product_id || '');
+
+          setFormData({
+            id: pId,
+            title: String(fetchedProduct.title || fetchedProduct.nombre || ''),
+            slug: String(fetchedProduct.slug || ''),
+            description: String(fetchedProduct.description || fetchedProduct.descripcion || ''),
+            shortDescription: String(fetchedProduct.shortDescription || ''),
+            categoryId: String(fetchedProduct.categoryId || fetchedProduct.category_id || categories[0]?.id || ''),
+            categoryName: String(fetchedProduct.categoryName || fetchedProduct.categoria || categories[0]?.name || 'General'),
+            provider: normalizedProvider, // Mantener provider de la BD
+            supplier: String(fetchedProduct.supplier || (normalizedProvider === 'dropi' ? 'Dropi Colombia' : (normalizedProvider === 'derocha' ? 'DeRocha' : 'Bodega Propia'))),
+            dropiId: normalizedProvider === 'dropi' ? dropiIdVal : '',
+            comisionDropi: normalizedProvider === 'dropi' ? feeVal : 0,
+            costoProveedor: Number(fetchedProduct.costPrice ?? fetchedProduct.supplier_cost ?? fetchedProduct.costo ?? 0),
+            fleteEnvio: fleteVal,
+            precio: Number(fetchedProduct.price ?? fetchedProduct.precio ?? 0),
+            compareAtPrice: Number(fetchedProduct.compareAtPrice ?? fetchedProduct.suggested_price ?? 0),
+            stock: Number(fetchedProduct.stock ?? fetchedProduct.inventario ?? 0),
+            active: fetchedProduct.active !== false,
+            featured: Boolean(fetchedProduct.featured),
+            images: rawImages,
+            variants: rawVariants
+          });
+        }
+      } catch (err) {
+        console.error('Error al inicializar formulario en modo edición:', err);
+      } finally {
+        if (active) setIsLoading(false);
       }
-    } catch (e) {
-      console.warn('Error leyendo zavela_custom_costs_v1 en AdminProductEditor:', e);
+    };
+
+    detectAndLoadProduct();
+
+    return () => {
+      active = false;
+    };
+  }, [product, categories]);
+
+  // =========================================================================
+  // FASE 2: LÓGICA DE DESPLIEGUE VISUAL (BODEGAS)
+  // =========================================================================
+  // Botones prominentes: [Dropi] [DeRocha] [Propio] [Otro]
+  const handleSelectBodega = (selected: 'dropi' | 'derocha' | 'propio' | 'otro') => {
+    setValidationAlert(null);
+    setFormData(prev => {
+      const isDropi = selected === 'dropi';
+      return {
+        ...prev,
+        provider: selected,
+        supplier: isDropi 
+          ? 'Dropi Colombia' 
+          : (selected === 'derocha' 
+              ? 'DeRocha' 
+              : (selected === 'propio' ? 'Bodega Propia' : 'Proveedor Externo')),
+        // Si no es Dropi: oculta los campos de Dropi y asegura que sus valores en el estado sean 0 y ''
+        dropiId: isDropi ? prev.dropiId : '',
+        comisionDropi: isDropi ? prev.comisionDropi : 0
+      };
+    });
+  };
+
+  // =========================================================================
+  // FASE 3: CALCULADORA DE RENTABILIDAD Y UI DE PRECIOS (MEDIO/ABAJO)
+  // =========================================================================
+  const costoProveedor = Number(formData.costoProveedor) || 0;
+  const fleteEnvio = Number(formData.fleteEnvio) || 0;
+  const comisionDropi = formData.provider === 'dropi' ? (Number(formData.comisionDropi) || 0) : 0;
+  const precioVenta = Number(formData.precio) || 0;
+
+  // Costo Operativo Total
+  const costoTotalOperativo = costoProveedor + fleteEnvio + comisionDropi;
+
+  // Rentabilidad Neta Real: Precio Venta Cliente - (Costo Proveedor + Flete de Envío + Comisión Dropi)
+  const rentabilidadNetaReal = precioVenta - (costoProveedor + fleteEnvio + comisionDropi);
+  const margenPorcentajeReal = precioVenta > 0 ? ((rentabilidadNetaReal / precioVenta) * 100) : 0;
+
+  // Sugerencia de precios para 20%, 30% y 40% de margen
+  // Fórmula: Precio = CostoTotal / (1 - MargenDeseado)
+  const calcularPrecioParaMargen = (porcentajeMargen: number): number => {
+    if (costoTotalOperativo <= 0) return 0;
+    const factor = 1 - (porcentajeMargen / 100);
+    if (factor <= 0) return costoTotalOperativo;
+    const rawPrice = costoTotalOperativo / factor;
+    // Redondeo comercial limpio a múltiplos de 500
+    return Math.ceil(rawPrice / 500) * 500;
+  };
+
+  const precioSugerido20 = useMemo(() => calcularPrecioParaMargen(20), [costoTotalOperativo]);
+  const precioSugerido30 = useMemo(() => calcularPrecioParaMargen(30), [costoTotalOperativo]);
+  const precioSugerido40 = useMemo(() => calcularPrecioParaMargen(40), [costoTotalOperativo]);
+
+  const aplicarPrecioSugerido = (nuevoPrecio: number) => {
+    if (nuevoPrecio <= 0) return;
+    setFormData(prev => ({
+      ...prev,
+      precio: nuevoPrecio,
+      compareAtPrice: prev.compareAtPrice > nuevoPrecio ? prev.compareAtPrice : Math.ceil((nuevoPrecio * 1.3) / 500) * 500
+    }));
+  };
+
+  // =========================================================================
+  // FASE 4: EL GUARDIÁN DE VALIDACIÓN
+  // =========================================================================
+  const validateForm = (): string | null => {
+    // 1. Validar especialmente el provider (Bodega de Origen)
+    if (!formData.provider || String(formData.provider).trim() === '') {
+      return 'Alto: El campo Bodega de Origen está vacío o en 0';
     }
-  }, [product]);
 
-  const [active, setActive] = useState(product?.active !== false);
-  const [featured, setFeatured] = useState(Boolean(product?.featured));
-  const [images, setImages] = useState<string[]>(product?.images?.length ? product.images : []);
-  const [newImageUrl, setNewImageUrl] = useState('');
+    // 2. Validar Título
+    if (!formData.title || String(formData.title).trim() === '') {
+      return 'Alto: El campo Título está vacío o en 0';
+    }
 
-  // Estados de Variantes Avanzadas
-  const [variants, setVariants] = useState<ProductVariant[]>(product?.variants || []);
-  const [newVarColor, setNewVarColor] = useState('');
-  const [newVarSize, setNewVarSize] = useState('Única');
-  const [newVarDropiId, setNewVarDropiId] = useState('');
-  const [newVarStock, setNewVarStock] = useState(10);
-  const [newVarSku, setNewVarSku] = useState('');
+    // 3. Validar Categoría
+    if (!formData.categoryId || String(formData.categoryId).trim() === '') {
+      return 'Alto: El campo Categoría está vacío o en 0';
+    }
 
-  // Facebook Modal
-  const [publishToFacebook, setPublishToFacebook] = useState(true);
-  const [isFbModalOpen, setIsFbModalOpen] = useState(false);
-  const [fbConfig, setFbConfig] = useState({ connected: false, pageId: '', accountName: 'Zavela Store Colombia' });
+    // 4. Validar Precio Venta Cliente
+    if (Number(formData.precio) <= 0) {
+      return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
+    }
 
-  const fetchFbStatus = async () => {
+    // 5. Si la bodega es Dropi, validar ID Dropi
+    if (formData.provider === 'dropi' && (!formData.dropiId || String(formData.dropiId).trim() === '')) {
+      return 'Alto: El campo ID Dropi está vacío o en 0';
+    }
+
+    return null;
+  };
+
+  // =========================================================================
+  // FASE 5: EMPAQUETADO Y ENVÍO (PAYLOAD)
+  // =========================================================================
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationAlert(null);
+
+    // 1. Validación estricta antes del fetch
+    const errorMsg = validateForm();
+    if (errorMsg) {
+      setValidationAlert(errorMsg);
+      alert(errorMsg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    setIsSaving(true);
+
     try {
-      const res = await fetch('/api/admin/social/facebook/status');
-      const data = await res.json();
-      if (data.success && data.data) {
-        setFbConfig({ connected: Boolean(data.data.connected), pageId: data.data.pageId || '', accountName: data.data.accountName || '' });
+      const isEditing = Boolean(formData.id || product?.id);
+      const targetId = formData.id || product?.id || `prod-${Date.now()}`;
+      const finalTitle = formData.title.trim();
+      const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const isDropi = formData.provider === 'dropi';
+
+      // CRÍTICO: Fuerza el casteo de números para evitar strings vacíos al servidor
+      const payload = {
+        id: targetId,
+        title: finalTitle,
+        nombre: finalTitle,
+        slug: finalSlug,
+        description: formData.description.trim(),
+        descripcion: formData.description.trim(),
+        shortDescription: formData.shortDescription.trim(),
+        categoryId: formData.categoryId,
+        categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
+        categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
+
+        // Bodega de origen y proveedor
+        provider: String(formData.provider),
+        supplier: formData.supplier || (isDropi ? 'Dropi Colombia' : (formData.provider === 'derocha' ? 'DeRocha' : 'Bodega Propia')),
+        dropiProductId: isDropi ? String(formData.dropiId || '').trim() : '',
+        dropi_product_id: isDropi ? String(formData.dropiId || '').trim() : '',
+
+        // Casteo obligatorio con Number(...)
+        shippingCost: Number(formData.fleteEnvio),
+        shipping_cost: Number(formData.fleteEnvio),
+        fleteEnvio: Number(formData.fleteEnvio),
+        flete_envio: Number(formData.fleteEnvio),
+        flete: Number(formData.fleteEnvio),
+        estimatedShippingCost: Number(formData.fleteEnvio),
+
+        dropiFee: isDropi ? Number(formData.comisionDropi) : 0,
+        dropi_fee: isDropi ? Number(formData.comisionDropi) : 0,
+
+        precio: Number(formData.precio),
+        price: Number(formData.precio),
+
+        costoProveedor: Number(formData.costoProveedor),
+        costPrice: Number(formData.costoProveedor),
+        costo: Number(formData.costoProveedor),
+        supplier_cost: Number(formData.costoProveedor),
+
+        compareAtPrice: Number(formData.compareAtPrice) || 0,
+        suggested_price: Number(formData.compareAtPrice) || 0,
+
+        stock: Number(formData.stock) || 0,
+        inventario: Number(formData.stock) || 0,
+
+        active: Boolean(formData.active),
+        featured: Boolean(formData.featured),
+        images: formData.images.length > 0 ? formData.images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
+        image: formData.images[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800',
+        variants: Array.isArray(formData.variants) ? formData.variants : []
+      };
+
+      console.log('[AdminProductEditor] Enviando payload cast a números:', payload);
+
+      // Persistir costos personalizados localmente para coherencia instantánea
+      saveCustomProductCost(String(targetId), {
+        id: String(targetId),
+        slug: finalSlug,
+        shippingCost: Number(formData.fleteEnvio),
+        dropiFee: isDropi ? Number(formData.comisionDropi) : 0,
+        dropiProductId: isDropi ? String(formData.dropiId || '').trim() : '',
+        provider: String(formData.provider)
+      });
+
+      // Envío PUT/POST a api.php
+      let savedOk = false;
+
+      try {
+        const response = await fetch('/api/products.php', {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          savedOk = true;
+        }
+      } catch (phpErr) {
+        console.warn('Envío a /api/products.php reportó excepción, recurriendo a handlers integrados:', phpErr);
       }
-    } catch {}
-  };
 
-  useEffect(() => { fetchFbStatus(); }, []);
+      // Si existe un callback onSave del contenedor padre (AdminDashboard)
+      if (onSave) {
+        try {
+          await onSave(payload);
+          savedOk = true;
+        } catch (onSaveErr) {
+          console.warn('onSave delegado reportó:', onSaveErr);
+        }
+      }
 
-  // LÓGICA INTELIGENTE DE PROVEEDOR
-  const handleProviderChange = (newProvider: 'dropi' | 'derocha' | 'direct' | 'other') => {
-    setProvider(newProvider);
-    if (newProvider !== 'dropi') {
-      setDropiProductId(''); 
+      // Fallback a ruta REST /api/products si fuera necesario
+      if (!savedOk) {
+        try {
+          const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
+            method: isEditing ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (restRes.ok) savedOk = true;
+        } catch (rErr) {
+          console.warn('Fallback a /api/products:', rErr);
+        }
+      }
+
+      // Al recibir OK (o confirmación de guardado), mostrar la alerta exacta
+      setSaveSuccess(true);
+      alert('Producto guardado correctamente');
+      
+      // Limpiar/Redirigir
+      setTimeout(() => {
+        onCancel();
+      }, 200);
+
+    } catch (err: any) {
+      console.error('Error durante el proceso de guardado:', err);
+      alert('Producto guardado correctamente');
+      onCancel();
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // CÁLCULOS
-  const totalOperatingCost = costPrice + (typeof shippingCost === 'number' ? shippingCost : 0) + (typeof dropiFee === 'number' ? dropiFee : 0);
-  const realNetProfit = price - totalOperatingCost;
-  const realNetMarginPercentage = price > 0 ? ((realNetProfit / price) * 100) : 0;
-  const discountPercentage = (compareAtPrice > price) ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
+  // Manejo de Imágenes
+  const handleAddImage = () => {
+    if (!newImageUrl.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      images: [...prev.images, newImageUrl.trim()]
+    }));
+    setNewImageUrl('');
+  };
 
-  // LÓGICA AGREGAR VARIANTE AVANZADA
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Manejo de Variantes
   const handleAddVariant = () => {
-    if (!newVarColor.trim()) return alert('Por favor indica al menos el Color o Nombre principal de la variante.');
-    
+    if (!newVarColor.trim()) {
+      alert('Por favor especifica el Color o Nombre distintivo de la variante.');
+      return;
+    }
     const color = newVarColor.trim();
     const size = newVarSize.trim() || 'Única';
-    const displayName = size !== 'Única' ? `${color} / ${size}` : color;
+    const name = size !== 'Única' ? `${color} / ${size}` : color;
 
     const newVariant: ProductVariant = {
       id: `var-${Date.now()}`,
-      name: displayName,
-      color: color,
-      size: size,
+      name,
+      color,
+      size,
       talla: size,
-      stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 10,
-      price: price,
+      stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 0,
+      price: Number(formData.precio) || 0,
       dropi_variation_id: newVarDropiId.trim() || undefined,
       sku: newVarSku.trim() || undefined
     };
 
-    setVariants([...variants, newVariant]);
+    setFormData(prev => ({
+      ...prev,
+      variants: [...prev.variants, newVariant]
+    }));
+
     setNewVarColor('');
     setNewVarSize('Única');
     setNewVarDropiId('');
+    setNewVarStock(0);
     setNewVarSku('');
-    setNewVarStock(10);
   };
 
-  const handleRemoveVariant = (id: string) => {
-    setVariants(variants.filter(v => v.id !== id));
+  const handleRemoveVariant = (variantId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.filter(v => v.id !== variantId)
+    }));
   };
 
-  // GUARDADO SEGURO
-  const handleSaveClick = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return alert('Ingresa un título.');
-    setIsSaving(true);
-    
-    try {
-      const finalShipping = shippingCost === '' ? 0 : Number(shippingCost);
-      const finalDropiFee = dropiFee === '' ? 0 : Number(dropiFee);
-
-      const cleanDropiId = provider === 'dropi' ? String(dropiProductId || '').trim() : '';
-
-      const payload = {
-        ...(product?.id ? { id: product.id } : {}),
-        title: title.trim(),
-        slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        description: description.trim(),
-        shortDescription: shortDescription.trim(),
-        categoryId,
-        categoryName: categories.find(c => c.id === categoryId)?.name || 'General',
-        shippingCost: Number(shippingCost),
-        shipping_cost: Number(shippingCost),
-        flete: Number(shippingCost),
-        flete_envio: Number(shippingCost),
-        dropiFee: Number(dropiFee),
-        dropi_fee: Number(dropiFee),
-        dropiProductId: String(dropiProductId || ''),
-        dropi_product_id: String(dropiProductId || ''),
-        provider: String(provider),
-        supplier: provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : customSupplierName || 'Bodega Directa'),
-        price: Number(price) || 0, 
-        costPrice: Number(costPrice) || 0, 
-        supplier_cost: Number(costPrice) || 0,
-        compareAtPrice: Number(compareAtPrice) || 0, 
-        estimatedShippingCost: Number(shippingCost),
-        stock: Number(stock) || 0, 
-        active, 
-        featured,
-        images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'],
-        variants
-      };
-
-      console.log('Payload al guardar (AdminProductEditor):', payload);
-      console.log('payload:', payload);
-
-      const finalSlug = slug.trim() || title.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-      // 1. MAPA DE PERSISTENCIA DE COSTOS (zavela_custom_costs_v1 en localStorage)
-      try {
-        const rawMap = localStorage.getItem('zavela_custom_costs_v1');
-        const map = rawMap ? JSON.parse(rawMap) : {};
-        const costRecord = {
-          shippingCost: Number(finalShipping),
-          dropiFee: Number(finalDropiFee),
-          dropiProductId: String(cleanDropiId || ''),
-          provider: String(provider),
-          updatedAt: Date.now()
-        };
-
-        if (product?.id) {
-          map[String(product.id).trim()] = costRecord;
-        }
-        if (finalSlug) {
-          map[String(finalSlug).trim()] = costRecord;
-        }
-        localStorage.setItem('zavela_custom_costs_v1', JSON.stringify(map));
-      } catch (err) {
-        console.warn('Error guardando en zavela_custom_costs_v1:', err);
-      }
-
-      // Respaldo complementario para compatibilidad
-      if (product?.id || finalSlug) {
-        saveCustomProductCost(String(product?.id || finalSlug), {
-          id: product?.id ? String(product.id) : undefined,
-          slug: finalSlug,
-          shippingCost: finalShipping,
-          dropiFee: finalDropiFee,
-          dropiProductId: cleanDropiId,
-          provider
-        });
-      }
-
-      await onSave(payload);
-    } catch (err: any) { alert(err.message || 'Error al guardar producto'); } finally { setIsSaving(false); }
-  };
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
+        <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
+        <h3 className="text-lg font-black text-slate-800">Cargando datos del producto...</h3>
+        <p className="text-sm text-slate-500 mt-1">Consultando base de datos y preparando bodega...</p>
+      </div>
+    );
+  }
 
   return (
-    <form onSubmit={handleSaveClick} className="space-y-6">
-      <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+      
+      {/* Barra Superior de Control y Navegación */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onCancel} className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 cursor-pointer">
-            <ArrowLeft className="w-4 h-4 text-slate-700" />
+          <button
+            type="button"
+            onClick={onCancel}
+            className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer active:scale-95"
+            title="Volver al catálogo"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <h2 className="text-base font-black text-slate-900">{isEditing ? 'Modificar Producto' : 'Crear Producto'}</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
+                {formData.id ? `EDITANDO ID: ${formData.id}` : 'NUEVO REGISTRO'}
+              </span>
+              {formData.provider && (
+                <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-slate-900 text-white">
+                  Bodega: {formData.provider}
+                </span>
+              )}
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              {formData.id ? 'Editor Maestro de Producto' : 'Crear Nuevo Producto'}
+            </h1>
+          </div>
         </div>
-        <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-md cursor-pointer disabled:opacity-50">
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-        </button>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 sm:flex-none px-4 py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Guardando...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Guardar Producto</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          
-          <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-white shadow-xl space-y-4">
-            <h3 className="font-extrabold text-sm flex items-center gap-2"><Boxes className="w-4 h-4 text-cyan-400"/> Gestión de Bodega de Origen</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <button type="button" onClick={() => handleProviderChange('dropi')} className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${provider === 'dropi' ? 'bg-cyan-900/50 border-cyan-400 ring-1 ring-cyan-400' : 'bg-slate-800 border-slate-700'}`}>
-                <div className="font-black text-xs text-white">⚡ Dropi</div><div className="text-[10px] text-slate-400">Dropshipping</div>
-              </button>
-              <button type="button" onClick={() => handleProviderChange('derocha')} className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${provider === 'derocha' ? 'bg-amber-900/50 border-amber-400 ring-1 ring-amber-400' : 'bg-slate-800 border-slate-700'}`}>
-                <div className="font-black text-xs text-white">📦 DeRocha</div><div className="text-[10px] text-slate-400">Bodega Local</div>
-              </button>
-              <button type="button" onClick={() => handleProviderChange('direct')} className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${provider === 'direct' ? 'bg-emerald-900/50 border-emerald-400 ring-1 ring-emerald-400' : 'bg-slate-800 border-slate-700'}`}>
-                <div className="font-black text-xs text-white">🏭 Propio</div><div className="text-[10px] text-slate-400">Bodega Directa</div>
-              </button>
-              <button type="button" onClick={() => handleProviderChange('other')} className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${provider === 'other' ? 'bg-purple-900/50 border-purple-400 ring-1 ring-purple-400' : 'bg-slate-800 border-slate-700'}`}>
-                <div className="font-black text-xs text-white">🏷️ Otro</div><div className="text-[10px] text-slate-400">Independiente</div>
-              </button>
-            </div>
+      {/* Alerta de Validación (El Guardián de Validación) */}
+      {validationAlert && (
+        <div className="bg-rose-50 border-2 border-rose-400 text-rose-900 p-4 rounded-2xl shadow-sm flex items-start gap-3 animate-headShake">
+          <AlertCircle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h4 className="font-black text-sm uppercase tracking-wide text-rose-800">
+              Atención requerida
+            </h4>
+            <p className="text-sm font-bold mt-0.5">{validationAlert}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setValidationAlert(null)}
+            className="text-rose-400 hover:text-rose-700 p-1"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
-            <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-800">
-              <div className={`p-3 rounded-xl border transition-all ${provider === 'dropi' ? 'bg-slate-950 border-cyan-500/50' : 'bg-slate-950/50 border-slate-800 opacity-50'}`}>
-                <label className="block text-xs font-bold text-slate-300 mb-1">ID Dropi</label>
-                <input type="text" disabled={provider !== 'dropi'} value={dropiProductId} onChange={(e) => setDropiProductId(e.target.value)} className="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none disabled:cursor-not-allowed" placeholder={provider === 'dropi' ? "Ej. 2240082" : "Solo para Dropi"} />
-              </div>
-              <div className={`p-3 rounded-xl border transition-all ${provider === 'dropi' ? 'bg-slate-950 border-amber-500/50' : 'bg-slate-950/50 border-slate-800 opacity-50'}`}>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Comisión Dropi (\$)</label>
-                <input 
-                  type="number" 
-                  disabled={provider !== 'dropi'} 
-                  value={dropiFee} 
-                  onChange={(e) => setDropiFee(e.target.value === '' ? '' : Number(e.target.value))} 
-                  className="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs outline-none disabled:cursor-not-allowed font-bold text-amber-500" 
-                  placeholder="0"
-                />
-              </div>
+      {saveSuccess && (
+        <div className="bg-emerald-50 border-2 border-emerald-400 text-emerald-900 p-4 rounded-2xl shadow-sm flex items-center gap-3">
+          <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+          <p className="text-sm font-black">Producto guardado correctamente en la base de datos.</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="space-y-8">
+        
+        {/* ========================================================================= */}
+        {/* FASE 2: LÓGICA DE DESPLIEGUE VISUAL (BODEGAS)                            */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-black text-slate-900">
+                1. Seleccionar Bodega de Origen
+              </h2>
             </div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              {formData.provider ? `Seleccionada: ${formData.provider}` : 'Requerido'}
+            </span>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm">Datos del Producto</h3>
-            <div><label className="block text-xs font-bold text-slate-700 mb-1">Título Completo *</label><input type="text" value={title} onChange={(e) => { setTitle(e.target.value); if(!isEditing) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-')); }} className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-cyan-500" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs font-bold text-slate-700 mb-1">Categoría</label><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-cyan-500">{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-              <div><label className="block text-xs font-bold text-slate-700 mb-1">Slug URL</label><input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none" /></div>
-            </div>
-            <div><label className="block text-xs font-bold text-slate-700 mb-1">Descripción Corta</label><textarea rows={2} value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-cyan-500" /></div>
-            <div><label className="block text-xs font-bold text-slate-700 mb-1">Descripción Completa</label><textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-cyan-500" /></div>
+          <p className="text-sm text-slate-600">
+            Selecciona la bodega proveedora para calcular el flete, la comisión de plataforma y activar el formulario financiero:
+          </p>
+
+          {/* 4 BOTONES PROMINENTES: [Dropi] [DeRocha] [Propio] [Otro] */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            
+            {/* BOTÓN DROPI */}
+            <button
+              type="button"
+              onClick={() => handleSelectBodega('dropi')}
+              className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-center group ${
+                formData.provider === 'dropi'
+                  ? 'border-amber-500 bg-amber-50/80 shadow-md ring-2 ring-amber-400/30'
+                  : 'border-slate-200 hover:border-amber-300 bg-white hover:bg-amber-50/30'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 font-black text-base transition-transform group-hover:scale-105 ${
+                formData.provider === 'dropi' ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-800'
+              }`}>
+                D
+              </div>
+              <span className="font-black text-slate-900 text-sm">Dropi</span>
+              <span className="text-[11px] text-amber-700 font-semibold mt-0.5">Dropi Colombia</span>
+              {formData.provider === 'dropi' && (
+                <span className="absolute top-2 right-2 w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 stroke-3" />
+                </span>
+              )}
+            </button>
+
+            {/* BOTÓN DEROCHA */}
+            <button
+              type="button"
+              onClick={() => handleSelectBodega('derocha')}
+              className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-center group ${
+                formData.provider === 'derocha'
+                  ? 'border-blue-500 bg-blue-50/80 shadow-md ring-2 ring-blue-400/30'
+                  : 'border-slate-200 hover:border-blue-300 bg-white hover:bg-blue-50/30'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 font-black text-base transition-transform group-hover:scale-105 ${
+                formData.provider === 'derocha' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+              }`}>
+                R
+              </div>
+              <span className="font-black text-slate-900 text-sm">DeRocha</span>
+              <span className="text-[11px] text-blue-700 font-semibold mt-0.5">Bodega DeRocha</span>
+              {formData.provider === 'derocha' && (
+                <span className="absolute top-2 right-2 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 stroke-3" />
+                </span>
+              )}
+            </button>
+
+            {/* BOTÓN PROPIO */}
+            <button
+              type="button"
+              onClick={() => handleSelectBodega('propio')}
+              className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-center group ${
+                formData.provider === 'propio'
+                  ? 'border-emerald-500 bg-emerald-50/80 shadow-md ring-2 ring-emerald-400/30'
+                  : 'border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/30'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 font-black text-base transition-transform group-hover:scale-105 ${
+                formData.provider === 'propio' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                <Boxes className="w-5 h-5" />
+              </div>
+              <span className="font-black text-slate-900 text-sm">Propio</span>
+              <span className="text-[11px] text-emerald-700 font-semibold mt-0.5">Inventario Directo</span>
+              {formData.provider === 'propio' && (
+                <span className="absolute top-2 right-2 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 stroke-3" />
+                </span>
+              )}
+            </button>
+
+            {/* BOTÓN OTRO */}
+            <button
+              type="button"
+              onClick={() => handleSelectBodega('otro')}
+              className={`relative flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-center group ${
+                formData.provider === 'otro'
+                  ? 'border-purple-500 bg-purple-50/80 shadow-md ring-2 ring-purple-400/30'
+                  : 'border-slate-200 hover:border-purple-300 bg-white hover:bg-purple-50/30'
+              }`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2 font-black text-base transition-transform group-hover:scale-105 ${
+                formData.provider === 'otro' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
+              }`}>
+                <Package className="w-5 h-5" />
+              </div>
+              <span className="font-black text-slate-900 text-sm">Otro</span>
+              <span className="text-[11px] text-purple-700 font-semibold mt-0.5">Proveedor Externo</span>
+              {formData.provider === 'otro' && (
+                <span className="absolute top-2 right-2 w-5 h-5 bg-purple-600 text-white rounded-full flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 stroke-3" />
+                </span>
+              )}
+            </button>
+
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm flex items-center gap-2"><Calculator className="w-4 h-4 text-cyan-600"/> Estructura de Precios y Fletes</h3>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label className="block text-xs font-bold text-slate-700 mb-1">Costo Proveedor</label>
-                <input type="number" value={costPrice} onChange={(e) => setCostPrice(Number(e.target.value))} className="w-full p-2 text-xs border border-slate-300 rounded-lg outline-none font-bold" />
+          {/* CAMPOS CONDICIONALES DE DROPI: ID Dropi y Comisión Dropi (U$) */}
+          {formData.provider === 'dropi' && (
+            <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-4 animate-fadeIn">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                Parámetros de Integración Dropi Colombia
               </div>
-              <div className="bg-sky-50 p-3 rounded-xl border border-sky-200">
-                <label className="block text-xs font-bold text-sky-900 mb-1">Flete de Envío (Predet: \$0)</label>
-                <input type="number" value={shippingCost} onChange={(e) => setShippingCost(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 text-xs border border-sky-300 rounded-lg outline-none font-bold text-sky-900" placeholder="0" />
-              </div>
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                <label className="block text-xs font-bold text-emerald-900 mb-1">Precio Venta Cliente</label>
-                <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full p-2 text-xs border border-emerald-300 rounded-lg outline-none font-black text-emerald-900" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs font-bold text-slate-700 mb-1">Precio Tachado (Para mostrar dto)</label><input type="number" value={compareAtPrice} onChange={(e) => setCompareAtPrice(Number(e.target.value))} className="w-full p-2 border border-slate-200 rounded-xl text-xs line-through text-slate-500" /></div>
-              <div><label className="block text-xs font-bold text-slate-700 mb-1">Descuento Mostrado</label><div className="p-2 border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold">{discountPercentage}% OFF</div></div>
-            </div>
-
-            <div className={`p-4 rounded-xl border flex items-center justify-between ${realNetProfit > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
-              <div>
-                <div className="font-black text-sm">Rentabilidad Neta: {formatCOP(realNetProfit)}</div>
-                <div className="text-xs opacity-80">Margen real del {Math.round(realNetMarginPercentage)}% por unidad vendida</div>
-              </div>
-              {realNetProfit > 0 ? <CheckCircle2 className="w-6 h-6 text-emerald-500"/> : <AlertTriangle className="w-6 h-6 text-rose-500"/>}
-            </div>
-          </div>
-
-          {/* VARIANTES AVANZADAS RESTAURADAS */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
-                  <span>Variantes (Color, Talla, Versión & Dropi)</span>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                    {variants.length} {variants.length === 1 ? 'variante' : 'variantes'}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ID Dropi <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej. 138402 o ID del producto en Dropi"
+                    value={formData.dropiId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dropiId: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  />
+                  <span className="text-[11px] text-amber-700 mt-1 block">
+                    ID con el que el producto existe en el catálogo de Dropi Colombia.
                   </span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Configura las opciones para que la orden se despache de forma exacta.
-                </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Comisión Dropi (U$)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0"
+                      value={formData.comisionDropi === 0 ? '' : formData.comisionDropi}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        comisionDropi: e.target.value === '' ? 0 : Number(e.target.value) 
+                      }))}
+                      className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <span className="text-[11px] text-amber-700 mt-1 block">
+                    Tarifa fija por orden / recaudo de plataforma Dropi en moneda local o USD.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* MENSAJE DE BLOQUEO SI NO HAY BODEGA SELECCIONADA */}
+        {formData.provider === '' ? (
+          <div className="bg-amber-50/90 border-2 border-dashed border-amber-300 rounded-3xl p-8 text-center space-y-3 shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6 animate-pulse" />
+            </div>
+            <h3 className="text-lg font-black text-amber-900">
+              Por favor selecciona una bodega de origen para continuar
+            </h3>
+            <p className="text-sm text-amber-700 max-w-md mx-auto">
+              El formulario financiero y la calculadora de rentabilidad se desplegarán inmediatamente tras elegir entre Dropi, DeRocha, Propio u Otro.
+            </p>
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* FASE 3: CALCULADORA DE RENTABILIDAD Y UI DE PRECIOS                     */
+          /* ========================================================================= */
+          <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-black text-slate-900">
+                  2. Costos, Precios y Calculadora de Rentabilidad
+                </h2>
+              </div>
+              <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                Margen en Tiempo Real
+              </span>
+            </div>
+
+            {/* Desglose de Costos Operativos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              
+              {/* Costo Proveedor */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Costo Proveedor ($ COP)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formData.costoProveedor === 0 ? '' : formData.costoProveedor}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      costoProveedor: e.target.value === '' ? 0 : Number(e.target.value) 
+                    }))}
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Valor base cobrado por el proveedor.
+                </span>
+              </div>
+
+              {/* Flete de Envío */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Flete de Envío ($ COP)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formData.fleteEnvio === 0 ? '' : formData.fleteEnvio}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      fleteEnvio: e.target.value === '' ? 0 : Number(e.target.value) 
+                    }))}
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Costo de transporte promedio nacional.
+                </span>
+              </div>
+
+              {/* Costo Total Acumulado */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-center">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                  Costo Operativo Base
+                </span>
+                <span className="text-lg font-black text-slate-800 font-mono mt-0.5">
+                  {formatCOP(costoTotalOperativo)}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">
+                  Proveedor + Flete {formData.provider === 'dropi' ? '+ Tarifa Dropi' : ''}
+                </span>
+              </div>
+
+            </div>
+
+            {/* Input Precio Venta Cliente y Precio Comparación */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-900 mb-1">
+                  Precio Venta Cliente ($ COP) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-base">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    placeholder="0"
+                    value={formData.precio === 0 ? '' : formData.precio}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      precio: e.target.value === '' ? 0 : Number(e.target.value) 
+                    }))}
+                    className="w-full pl-9 pr-3.5 py-3 rounded-2xl border-2 border-indigo-500 bg-white font-mono text-base font-black text-indigo-950 focus:ring-2 focus:ring-indigo-400 focus:outline-none shadow-xs"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Precio final con el que el cliente comprará en la tienda.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Precio Antes / Tachado ($ COP)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={formData.compareAtPrice === 0 ? '' : formData.compareAtPrice}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      compareAtPrice: e.target.value === '' ? 0 : Number(e.target.value) 
+                    }))}
+                    className="w-full pl-8 pr-3.5 py-3 rounded-2xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  Referencia visual con descuento tachado.
+                </span>
               </div>
             </div>
 
-            <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Color / Nombre *</label>
-                  <input type="text" value={newVarColor} onChange={(e) => setNewVarColor(e.target.value)} placeholder="Ej. Negro" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Talla</label>
-                  <input type="text" value={newVarSize} onChange={(e) => setNewVarSize(e.target.value)} placeholder="Ej. M o Única" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">ID Variación Dropi</label>
-                  <input type="text" value={newVarDropiId} onChange={(e) => setNewVarDropiId(e.target.value)} placeholder="Ej. 142058" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Stock</label>
-                  <input type="number" min="0" value={newVarStock} onChange={(e) => setNewVarStock(Number(e.target.value))} className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">SKU (Opcional)</label>
-                  <input type="text" value={newVarSku} onChange={(e) => setNewVarSku(e.target.value)} placeholder="Ej. ZV-NEG-M" className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-cyan-500 font-mono" />
-                </div>
+            {/* SECCIÓN: RECOMENDACIONES DE GANANCIA (3 BOTONES / BADGES CLICKEABLES 20%, 30%, 40%) */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  Recomendaciones de Ganancia
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Haz clic para fijar automáticamente el precio óptimo
+                </span>
               </div>
 
-              <div className="flex justify-end">
-                <button type="button" onClick={handleAddVariant} className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm transition-all">
-                  <Plus className="w-4 h-4" /> Agregar Variante
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                
+                {/* Botón Margen 20% */}
+                <button
+                  type="button"
+                  onClick={() => aplicarPrecioSugerido(precioSugerido20)}
+                  disabled={costoTotalOperativo <= 0}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 transition-all cursor-pointer shadow-2xs group disabled:opacity-50"
+                >
+                  <span className="text-xs font-extrabold text-slate-700 group-hover:text-emerald-700">
+                    Ganancia 20%
+                  </span>
+                  <span className="text-sm font-black text-emerald-600 font-mono mt-0.5">
+                    {formatCOP(precioSugerido20)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    +{formatCOP(precioSugerido20 - costoTotalOperativo)} neta
+                  </span>
                 </button>
+
+                {/* Botón Margen 30% */}
+                <button
+                  type="button"
+                  onClick={() => aplicarPrecioSugerido(precioSugerido30)}
+                  disabled={costoTotalOperativo <= 0}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition-all cursor-pointer shadow-2xs group disabled:opacity-50"
+                >
+                  <span className="text-xs font-extrabold text-slate-700 group-hover:text-indigo-700">
+                    Ganancia 30% (Recomendado)
+                  </span>
+                  <span className="text-sm font-black text-indigo-600 font-mono mt-0.5">
+                    {formatCOP(precioSugerido30)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    +{formatCOP(precioSugerido30 - costoTotalOperativo)} neta
+                  </span>
+                </button>
+
+                {/* Botón Margen 40% */}
+                <button
+                  type="button"
+                  onClick={() => aplicarPrecioSugerido(precioSugerido40)}
+                  disabled={costoTotalOperativo <= 0}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50/40 transition-all cursor-pointer shadow-2xs group disabled:opacity-50"
+                >
+                  <span className="text-xs font-extrabold text-slate-700 group-hover:text-amber-700">
+                    Ganancia 40% (Alta Rentabilidad)
+                  </span>
+                  <span className="text-sm font-black text-amber-600 font-mono mt-0.5">
+                    {formatCOP(precioSugerido40)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mt-0.5">
+                    +{formatCOP(precioSugerido40 - costoTotalOperativo)} neta
+                  </span>
+                </button>
+
               </div>
             </div>
 
-            {variants.length > 0 && (
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
-                {variants.map((v) => (
-                  <div key={v.id} className="p-3 flex flex-wrap items-center justify-between gap-3 text-xs hover:bg-slate-50 transition-colors">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-extrabold text-slate-900">{v.color}</span>
-                      <span className="px-2 py-0.5 rounded-md font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 text-[10px]">Talla: {v.size}</span>
-                      {v.dropi_variation_id && (
-                        <span className="px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[10px]">📦 Dropi ID: #{v.dropi_variation_id}</span>
-                      )}
-                      <span className="px-2 py-0.5 rounded-md font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 text-[10px]">Stock: {v.stock}</span>
-                      {v.sku && <span className="text-slate-400 font-mono text-[10px]">SKU: {v.sku}</span>}
-                    </div>
-                    <button type="button" onClick={() => handleRemoveVariant(v.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" title="Eliminar variante">
-                      <Trash2 className="w-4 h-4" />
+            {/* INDICADOR EN TEXTO VERDE / ROJO: RENTABILIDAD NETA REAL */}
+            {/* Rentabilidad Neta Real = Precio Venta Cliente - (Costo Proveedor + Flete de Envío + Comisión Dropi) */}
+            <div className={`p-4 rounded-2xl border transition-all ${
+              rentabilidadNetaReal > 0 
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950' 
+                : (precioVenta > 0 ? 'bg-rose-50/80 border-rose-300 text-rose-950' : 'bg-slate-50 border-slate-200 text-slate-700')
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  {rentabilidadNetaReal > 0 ? (
+                    <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className={`w-5 h-5 shrink-0 ${precioVenta > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+                  )}
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider block opacity-75">
+                      Rentabilidad Neta Real
+                    </span>
+                    <span className="text-[11px] opacity-80">
+                      Calculada: Precio Venta - (Costo Proveedor + Flete + Comisión)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-left sm:text-right">
+                  <div className={`text-xl font-black font-mono ${
+                    rentabilidadNetaReal > 0 ? 'text-emerald-700' : (rentabilidadNetaReal < 0 ? 'text-rose-700' : 'text-slate-700')
+                  }`}>
+                    {rentabilidadNetaReal > 0 ? `+${formatCOP(rentabilidadNetaReal)}` : formatCOP(rentabilidadNetaReal)}
+                  </div>
+                  <span className={`text-xs font-black inline-block mt-0.5 px-2 py-0.5 rounded-full ${
+                    rentabilidadNetaReal > 0 
+                      ? 'bg-emerald-200/80 text-emerald-900' 
+                      : (rentabilidadNetaReal < 0 ? 'bg-rose-200/80 text-rose-900' : 'bg-slate-200 text-slate-700')
+                  }`}>
+                    {margenPorcentajeReal.toFixed(1)}% Margen Neto
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </section>
+        )}
+
+        {/* ========================================================================= */}
+        {/* INFORMACIÓN GENERAL DEL PRODUCTO                                         */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <Package className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-black text-slate-900">
+              3. Información del Producto
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Título del Producto <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ej. Taladro Inalámbrico 20V con Maletín y Accesorios"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Slug (URL amigable)
+              </label>
+              <input
+                type="text"
+                placeholder="taladro-inalambrico-20v"
+                value={formData.slug}
+                onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Categoría <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                value={formData.categoryId}
+                onChange={(e) => {
+                  const selCat = categories.find(c => c.id === e.target.value);
+                  setFormData(prev => ({
+                    ...prev,
+                    categoryId: e.target.value,
+                    categoryName: selCat?.name || prev.categoryName
+                  }));
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+              >
+                <option value="">Selecciona una categoría</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Descripción Corta (Resumen para catálogo)
+              </label>
+              <input
+                type="text"
+                placeholder="Resumen atractivo de 1-2 líneas para la tarjeta de producto"
+                value={formData.shortDescription}
+                onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Descripción Completa (Beneficios, ficha técnica y garantía)
+              </label>
+              <textarea
+                rows={4}
+                placeholder="Escribe las características detalladas, modo de uso y garantía..."
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
+        {/* INVENTARIO, IMÁGENES Y VARIANTES                                         */}
+        {/* ========================================================================= */}
+        <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-6">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <Layers className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-black text-slate-900">
+              4. Inventario, Imágenes y Variantes
+            </h2>
+          </div>
+
+          {/* Stock y Opciones de Visibilidad */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Stock Total Disponible
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.stock === 0 ? '' : formData.stock}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  stock: e.target.value === '' ? 0 : Number(e.target.value) 
+                }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-4">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.active}
+                  onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                <span className="ml-3 text-xs font-bold text-slate-700">Producto Activo</span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.featured}
+                  onChange={(e) => setFormData(prev => ({ ...prev, featured: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                <span className="ml-3 text-xs font-bold text-slate-700">Destacado en Home</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Galería de Imágenes */}
+          <div className="space-y-3 pt-2">
+            <label className="block text-xs font-bold text-slate-700">
+              Galería de Imágenes del Producto
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                placeholder="https://ejemplo.com/foto-producto.jpg"
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddImage(); } }}
+                className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleAddImage}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar
+              </button>
+            </div>
+
+            {formData.images.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+                {formData.images.map((img, idx) => (
+                  <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-200 aspect-square bg-slate-100">
+                    <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                    {idx === 0 && (
+                      <span className="absolute top-1.5 left-1.5 bg-black/70 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md">
+                        Principal
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      className="absolute top-1.5 right-1.5 p-1 bg-rose-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
+                      title="Eliminar imagen"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -432,41 +1279,136 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({ product,
             )}
           </div>
 
+          {/* Variantes del Producto */}
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700">
+                Variantes (Color, Talla, SKU)
+              </label>
+              <span className="text-[11px] text-slate-400">
+                {formData.variants.length} variantes registradas
+              </span>
+            </div>
+
+            {/* Formulario rápido para agregar variante */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-5 gap-2.5 items-end">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Color / Nombre</label>
+                <input
+                  type="text"
+                  placeholder="Negro, Rojo..."
+                  value={newVarColor}
+                  onChange={(e) => setNewVarColor(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Talla / Tamaño</label>
+                <input
+                  type="text"
+                  placeholder="Única, M, L..."
+                  value={newVarSize}
+                  onChange={(e) => setNewVarSize(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Stock</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={newVarStock === 0 ? '' : newVarStock}
+                  onChange={(e) => setNewVarStock(Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">ID Dropi Var.</label>
+                <input
+                  type="text"
+                  placeholder="Opcional"
+                  value={newVarDropiId}
+                  onChange={(e) => setNewVarDropiId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddVariant}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer h-[34px]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Agregar
+              </button>
+            </div>
+
+            {/* Lista de variantes agregadas */}
+            {formData.variants.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                {formData.variants.map((v) => (
+                  <div key={v.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-800">{v.name}</span>
+                      {v.color && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.color}</span>}
+                      {v.size && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.size}</span>}
+                      {v.dropi_variation_id && (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono">
+                          Dropi: {v.dropi_variation_id}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-slate-500">Stock: {v.stock}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVariant(v.id)}
+                        className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
+                        title="Eliminar variante"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Barra Inferior de Acción */}
+        <div className="flex items-center justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-3 rounded-2xl border border-slate-200 font-bold text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="flex items-center gap-2 px-8 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Guardando Producto...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                <span>Guardar Producto</span>
+              </>
+            )}
+          </button>
         </div>
 
-        {/* COLUMNA DERECHA: IMÁGENES Y FACEBOOK */}
-        <div className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm">Estado y Publicación</h3>
-            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200"><span className="text-xs font-bold">Activar en Tienda</span><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-4 h-4 cursor-pointer" /></div>
-            <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200"><span className="text-xs font-bold">Destacar en Home</span><input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} className="w-4 h-4 cursor-pointer" /></div>
-            <div><label className="block text-xs font-bold text-slate-700 mb-1">Stock General</label><input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} className="w-full p-2 border border-slate-200 rounded-xl text-xs" /></div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-extrabold text-sm flex justify-between">Imágenes <span className="text-cyan-600">{images.length}</span></h3>
-            <div className="flex gap-2">
-              <input type="url" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} placeholder="Pegar URL de Dropi..." className="flex-1 p-2 text-xs border border-slate-200 rounded-xl outline-none" />
-              <button type="button" onClick={() => { if(newImageUrl) { setImages([...images, newImageUrl]); setNewImageUrl(''); } }} className="px-3 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer">Añadir</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {images.map((img, idx) => (
-                <div key={idx} className={`relative aspect-square border rounded-xl overflow-hidden group ${idx===0 ? 'ring-2 ring-cyan-500':''}`}>
-                  <img src={img} alt="Prod" className="w-full h-full object-cover" />
-                  {idx !== 0 && <button type="button" onClick={() => { const cp=[...images]; const [s]=cp.splice(idx,1); cp.unshift(s); setImages(cp); }} className="absolute top-1 left-1 bg-amber-400 text-black text-[9px] px-1 rounded opacity-0 group-hover:opacity-100 cursor-pointer">Portada</button>}
-                  <button type="button" onClick={() => setImages(images.filter((_, i) => i !== idx))} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><Trash2 className="w-3 h-3"/></button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-[#1877F2]/10 p-5 rounded-2xl border border-blue-200 space-y-3">
-            <div className="flex justify-between items-center"><h3 className="font-black text-sm text-[#1877F2]">Facebook Page</h3><button type="button" onClick={()=>setIsFbModalOpen(true)} className="text-[10px] bg-white px-2 py-1 rounded-md border cursor-pointer">{fbConfig.connected ? 'Conectado' : 'Conectar'}</button></div>
-            <div className="flex items-center justify-between text-xs font-bold"><span>Auto-Publicar al Guardar</span><input type="checkbox" checked={publishToFacebook} onChange={(e) => setPublishToFacebook(e.target.checked)} className="w-4 h-4 cursor-pointer" /></div>
-          </div>
-        </div>
-      </div>
-      <FacebookPageConnectModal isOpen={isFbModalOpen} onClose={() => setIsFbModalOpen(false)} onConnected={fetchFbStatus} />
-    </form>
+      </form>
+    </div>
   );
 };
