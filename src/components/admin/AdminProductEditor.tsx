@@ -14,14 +14,10 @@ import {
   Image as ImageIcon, 
   Sparkles, 
   Layers, 
-  Info, 
   Check, 
   RefreshCw, 
   X,
-  Truck,
-  Boxes,
-  Percent,
-  Sliders
+  Boxes
 } from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -65,10 +61,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   onSave,
   onCancel
 }) => {
-  // =========================================================================
-  // FASE 1: ESTADO INICIAL ESTRICTO
-  // =========================================================================
-  // Si es "Crear Nuevo": provider: '' (obligatorio seleccionar uno), numéricos en 0, strings en '', variants: []
+  // Estado vacío estricto para "Crear Nuevo"
   const getEmptyInitialState = (): ProductFormData => ({
     id: '',
     title: '',
@@ -77,7 +70,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     shortDescription: '',
     categoryId: categories[0]?.id || '',
     categoryName: categories[0]?.name || 'General',
-    provider: '', // Cadena vacía OBLIGATORIA
+    provider: '', // Cadena vacía OBLIGATORIA al crear nuevo
     supplier: '',
     dropiId: '',
     comisionDropi: 0,
@@ -92,7 +85,153 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     variants: []
   });
 
-  const [formData, setFormData] = useState<ProductFormData>(getEmptyInitialState);
+  // =========================================================================
+  // FASE 1: MAPEO EXACTO DEL PRODUCTO AL ESTADO (ESPAÑOL E INGLÉS)
+  // =========================================================================
+  const mapProductToFormData = (
+    prod: any | null | undefined,
+    cats: Category[]
+  ): ProductFormData => {
+    if (!prod || (!prod.id && !prod.title && !prod.nombre)) {
+      return getEmptyInitialState();
+    }
+
+    const pId = String(prod.id || prod.productId || '').trim();
+    const pSlug = String(prod.slug || '').trim();
+
+    // Consultar persistencia local si existe para blindar flete y comisión
+    const savedCosts = pId || pSlug ? getCustomProductCost(pId, pSlug) : null;
+
+    // 1. Título: product.nombre || product.title || ''
+    const title = String(prod.nombre || prod.title || '').trim();
+
+    // 2. Descripción completa: product.descripcion || product.description || ''
+    const description = String(prod.descripcion || prod.description || '').trim();
+    const shortDescription = String(prod.shortDescription || prod.resumen || '').trim();
+
+    // 3. Imagen principal: product.imagen || product.image || ''
+    const mainImage = String(prod.imagen || prod.image || '').trim();
+    let imagesList: string[] = [];
+    if (Array.isArray(prod.images) && prod.images.length > 0) {
+      imagesList = prod.images.filter(Boolean);
+    } else if (Array.isArray(prod.imagenes) && prod.imagenes.length > 0) {
+      imagesList = prod.imagenes.filter(Boolean);
+    } else if (typeof prod.imagenes === 'string' && prod.imagenes.trim()) {
+      try {
+        const parsed = JSON.parse(prod.imagenes);
+        if (Array.isArray(parsed)) imagesList = parsed;
+      } catch {
+        imagesList = [prod.imagenes];
+      }
+    } else if (mainImage) {
+      imagesList = [mainImage];
+    }
+
+    // 4. Precio Venta: Number(product.precio || product.price || 0)
+    const precio = Number(prod.precio || prod.price || 0);
+
+    // 5. Stock: Number(product.stock || 0)
+    const stock = Number(prod.stock ?? prod.inventario ?? 0);
+
+    // 6. Proveedor: product.provider || ''
+    const rawProvider = String(
+      savedCosts?.provider || 
+      prod.provider || 
+      prod.proveedor || 
+      ''
+    ).toLowerCase().trim();
+
+    let mappedProvider: WarehouseProvider | string = '';
+    if (rawProvider.includes('dropi')) mappedProvider = 'dropi';
+    else if (rawProvider.includes('derocha')) mappedProvider = 'derocha';
+    else if (rawProvider.includes('propio') || rawProvider.includes('direct')) mappedProvider = 'propio';
+    else if (rawProvider.includes('otro') || rawProvider.includes('other')) mappedProvider = 'otro';
+    else if (rawProvider) mappedProvider = rawProvider;
+    else if (prod.dropi_product_id || prod.dropiProductId) mappedProvider = 'dropi';
+    else if (prod.id) mappedProvider = 'derocha'; // Fallback seguro para productos existentes de catálogo
+
+    // 7. ID Dropi: product.dropi_product_id || ''
+    const dropiId = savedCosts?.dropiProductId 
+      ? String(savedCosts.dropiProductId).trim()
+      : String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
+
+    // 8. Comisión Dropi: Number(product.dropi_fee || 0)
+    const comisionDropi = savedCosts?.dropiFee !== undefined
+      ? Number(savedCosts.dropiFee)
+      : Number(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi ?? 0);
+
+    // 9. Flete: Number(product.shipping_cost || product.flete_envio || product.flete || 0)
+    const fleteEnvio = savedCosts?.shippingCost !== undefined
+      ? Number(savedCosts.shippingCost)
+      : Number(
+          prod.shipping_cost ??
+          prod.flete_envio ??
+          prod.flete ??
+          prod.shippingCost ??
+          prod.estimatedShippingCost ??
+          0
+        );
+
+    // 10. Variantes: Mapear el array de product.variants o product.variantes, y si no hay, dejar []
+    let variantsList: ProductVariant[] = [];
+    if (Array.isArray(prod.variants) && prod.variants.length > 0) {
+      variantsList = prod.variants;
+    } else if (Array.isArray(prod.variantes) && prod.variantes.length > 0) {
+      variantsList = prod.variantes;
+    } else if (typeof prod.variants === 'string' && prod.variants.trim()) {
+      try {
+        const parsed = JSON.parse(prod.variants);
+        if (Array.isArray(parsed)) variantsList = parsed;
+      } catch {}
+    } else if (typeof prod.variantes === 'string' && prod.variantes.trim()) {
+      try {
+        const parsed = JSON.parse(prod.variantes);
+        if (Array.isArray(parsed)) variantsList = parsed;
+      } catch {}
+    }
+
+    // Costo del proveedor y comparación
+    const costoProveedor = Number(prod.costo ?? prod.costPrice ?? prod.supplier_cost ?? 0);
+    const compareAtPrice = Number(prod.compareAtPrice ?? prod.suggested_price ?? 0);
+
+    // Categoría
+    const categoryId = String(prod.categoryId || prod.category_id || cats[0]?.id || '');
+    const categoryName = String(
+      prod.categoryName || 
+      prod.categoria || 
+      cats.find(c => c.id === categoryId)?.name || 
+      'General'
+    );
+
+    return {
+      id: pId,
+      title,
+      slug: pSlug || (title ? title.toLowerCase().trim().replace(/[^a-z0-9]/g, '-') : ''),
+      description,
+      shortDescription,
+      categoryId,
+      categoryName,
+      provider: mappedProvider, // product.provider || ''
+      supplier: String(prod.supplier || (mappedProvider === 'dropi' ? 'Dropi Colombia' : (mappedProvider === 'derocha' ? 'DeRocha' : 'Bodega Propia'))),
+      dropiId,
+      comisionDropi,
+      costoProveedor,
+      fleteEnvio,
+      precio,
+      compareAtPrice,
+      stock,
+      active: prod.active !== false,
+      featured: Boolean(prod.featured),
+      images: imagesList,
+      variants: variantsList
+    };
+  };
+
+  // Inicialización inmediata y sincrónica para que los inputs jamás aparezcan vacíos al editar
+  const [formData, setFormData] = useState<ProductFormData>(() => {
+    return mapProductToFormData(product, categories);
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [validationAlert, setValidationAlert] = useState<string | null>(null);
@@ -106,143 +245,43 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [newVarStock, setNewVarStock] = useState<number>(0);
   const [newVarSku, setNewVarSku] = useState<string>('');
 
-  // Detección de Modo Edición por ID en URL o por objeto product en props
+  // Sincronización continua cuando cambie la prop product o si viene un ID en la URL
   useEffect(() => {
-    let active = true;
+    // 1. Si product viene en las props (Modo Edición del catálogo o panel)
+    if (product && (product.id || (product as any).nombre || product.title)) {
+      setFormData(mapProductToFormData(product, categories));
+      return;
+    }
 
-    const detectAndLoadProduct = async () => {
-      // 1. Revisar si hay ID en la URL (?id=... o ?productId=...)
-      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-      const urlId = searchParams?.get('id') || searchParams?.get('productId') || searchParams?.get('editId') || '';
-      
-      const targetId = product?.id ? String(product.id) : (urlId ? String(urlId).trim() : '');
+    // 2. Si no viene como objeto en props, revisar si hay ID en la URL (?id=... o ?productId=...)
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const urlId = searchParams?.get('id') || searchParams?.get('productId') || searchParams?.get('editId') || '';
 
-      if (!targetId) {
-        // Modo "Crear Nuevo" estricto
-        setFormData(getEmptyInitialState());
-        return;
-      }
-
+    if (urlId) {
       setIsLoading(true);
-
-      try {
-        let fetchedProduct: any = null;
-
-        // Intentar fetch a la base de datos por ID
-        try {
-          const res = await fetch(`/api/products.php?id=${encodeURIComponent(targetId)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.data) fetchedProduct = data.data;
-            else if (data.product) fetchedProduct = data.product;
-            else if (data.id) fetchedProduct = data;
+      fetch(`/api/products.php?id=${encodeURIComponent(urlId)}`)
+        .then(res => res.json())
+        .then(data => {
+          const item = data.data || data.product || (data.id ? data : null);
+          if (item) {
+            setFormData(mapProductToFormData(item, categories));
           }
-        } catch (fetchErr) {
-          console.warn('Fetch directo a /api/products.php falló, intentando fallback:', fetchErr);
-        }
-
-        // Fallback al endpoint REST /api/products/:id
-        if (!fetchedProduct) {
-          try {
-            const resRest = await fetch(`/api/products/${encodeURIComponent(targetId)}`);
-            if (resRest.ok) {
-              const data = await resRest.json();
-              if (data.data) fetchedProduct = data.data;
-              else if (data.product) fetchedProduct = data.product;
-              else if (data.id) fetchedProduct = data;
-            }
-          } catch (restErr) {
-            console.warn('Fallback a /api/products/:id no disponible:', restErr);
-          }
-        }
-
-        // Si falló el fetch remoto, usar el product inyectado en props
-        if (!fetchedProduct && product) {
-          fetchedProduct = product;
-        }
-
-        if (active && fetchedProduct) {
-          // Recuperar costos adicionales persistidos si existen
-          const pId = String(fetchedProduct.id || targetId);
-          const pSlug = String(fetchedProduct.slug || '');
-          const savedCosts = getCustomProductCost(pId, pSlug);
-
-          // Mantener estrictamente el provider que viene de la base de datos
-          const dbProvider = String(
-            savedCosts?.provider || 
-            fetchedProduct.provider || 
-            fetchedProduct.proveedor || 
-            (fetchedProduct.dropiProductId || fetchedProduct.dropi_product_id ? 'dropi' : '')
-          ).toLowerCase().trim();
-
-          let normalizedProvider: WarehouseProvider = '';
-          if (dbProvider === 'dropi' || dbProvider.includes('dropi')) normalizedProvider = 'dropi';
-          else if (dbProvider === 'derocha' || dbProvider.includes('derocha')) normalizedProvider = 'derocha';
-          else if (dbProvider === 'propio' || dbProvider === 'direct' || dbProvider.includes('propio')) normalizedProvider = 'propio';
-          else if (dbProvider === 'otro' || dbProvider === 'other' || dbProvider.includes('otro')) normalizedProvider = 'otro';
-          else if (dbProvider) normalizedProvider = dbProvider as any;
-
-          const rawImages = Array.isArray(fetchedProduct.images) && fetchedProduct.images.length > 0
-            ? fetchedProduct.images
-            : (fetchedProduct.image ? [fetchedProduct.image] : (fetchedProduct.imagen ? [fetchedProduct.imagen] : []));
-
-          const rawVariants = Array.isArray(fetchedProduct.variants) 
-            ? fetchedProduct.variants 
-            : (Array.isArray(fetchedProduct.variantes) ? fetchedProduct.variantes : []);
-
-          const fleteVal = savedCosts?.shippingCost !== undefined 
-            ? Number(savedCosts.shippingCost) 
-            : Number(fetchedProduct.shippingCost ?? fetchedProduct.shipping_cost ?? fetchedProduct.flete_envio ?? fetchedProduct.flete ?? 0);
-
-          const feeVal = savedCosts?.dropiFee !== undefined 
-            ? Number(savedCosts.dropiFee) 
-            : Number(fetchedProduct.dropiFee ?? fetchedProduct.dropi_fee ?? 0);
-
-          const dropiIdVal = savedCosts?.dropiProductId 
-            ? String(savedCosts.dropiProductId) 
-            : String(fetchedProduct.dropiProductId || fetchedProduct.dropi_product_id || '');
-
-          setFormData({
-            id: pId,
-            title: String(fetchedProduct.title || fetchedProduct.nombre || ''),
-            slug: String(fetchedProduct.slug || ''),
-            description: String(fetchedProduct.description || fetchedProduct.descripcion || ''),
-            shortDescription: String(fetchedProduct.shortDescription || ''),
-            categoryId: String(fetchedProduct.categoryId || fetchedProduct.category_id || categories[0]?.id || ''),
-            categoryName: String(fetchedProduct.categoryName || fetchedProduct.categoria || categories[0]?.name || 'General'),
-            provider: normalizedProvider, // Mantener provider de la BD
-            supplier: String(fetchedProduct.supplier || (normalizedProvider === 'dropi' ? 'Dropi Colombia' : (normalizedProvider === 'derocha' ? 'DeRocha' : 'Bodega Propia'))),
-            dropiId: normalizedProvider === 'dropi' ? dropiIdVal : '',
-            comisionDropi: normalizedProvider === 'dropi' ? feeVal : 0,
-            costoProveedor: Number(fetchedProduct.costPrice ?? fetchedProduct.supplier_cost ?? fetchedProduct.costo ?? 0),
-            fleteEnvio: fleteVal,
-            precio: Number(fetchedProduct.price ?? fetchedProduct.precio ?? 0),
-            compareAtPrice: Number(fetchedProduct.compareAtPrice ?? fetchedProduct.suggested_price ?? 0),
-            stock: Number(fetchedProduct.stock ?? fetchedProduct.inventario ?? 0),
-            active: fetchedProduct.active !== false,
-            featured: Boolean(fetchedProduct.featured),
-            images: rawImages,
-            variants: rawVariants
-          });
-        }
-      } catch (err) {
-        console.error('Error al inicializar formulario en modo edición:', err);
-      } finally {
-        if (active) setIsLoading(false);
-      }
-    };
-
-    detectAndLoadProduct();
-
-    return () => {
-      active = false;
-    };
+        })
+        .catch(err => {
+          console.warn('Fetch por urlId en /api/products.php:', err);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      // Modo "Crear Nuevo": formulario en blanco estricto
+      setFormData(getEmptyInitialState());
+    }
   }, [product, categories]);
 
   // =========================================================================
   // FASE 2: LÓGICA DE DESPLIEGUE VISUAL (BODEGAS)
   // =========================================================================
-  // Botones prominentes: [Dropi] [DeRocha] [Propio] [Otro]
   const handleSelectBodega = (selected: 'dropi' | 'derocha' | 'propio' | 'otro') => {
     setValidationAlert(null);
     setFormData(prev => {
@@ -278,13 +317,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const margenPorcentajeReal = precioVenta > 0 ? ((rentabilidadNetaReal / precioVenta) * 100) : 0;
 
   // Sugerencia de precios para 20%, 30% y 40% de margen
-  // Fórmula: Precio = CostoTotal / (1 - MargenDeseado)
   const calcularPrecioParaMargen = (porcentajeMargen: number): number => {
     if (costoTotalOperativo <= 0) return 0;
     const factor = 1 - (porcentajeMargen / 100);
     if (factor <= 0) return costoTotalOperativo;
     const rawPrice = costoTotalOperativo / factor;
-    // Redondeo comercial limpio a múltiplos de 500
     return Math.ceil(rawPrice / 500) * 500;
   };
 
@@ -302,27 +339,29 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   // =========================================================================
-  // FASE 4: EL GUARDIÁN DE VALIDACIÓN
+  // FASE 4: EL GUARDIÁN DE VALIDACIÓN (BLOQUEO DE PAYLOAD VACÍO)
   // =========================================================================
   const validateForm = (): string | null => {
-    // 1. Validar especialmente el provider (Bodega de Origen)
+    // 1. BLOQUEO DE PAYLOAD VACÍO: Título
+    const titleVal = String(formData.title || '').trim();
+    if (!titleVal) {
+      return 'Alto: El campo Título está vacío o en 0';
+    }
+
+    // 2. BLOQUEO DE PAYLOAD VACÍO: Precio Venta Cliente
+    const priceVal = Number(formData.precio);
+    if (isNaN(priceVal) || priceVal <= 0) {
+      return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
+    }
+
+    // 3. Validar especialmente el provider (Bodega de Origen)
     if (!formData.provider || String(formData.provider).trim() === '') {
       return 'Alto: El campo Bodega de Origen está vacío o en 0';
     }
 
-    // 2. Validar Título
-    if (!formData.title || String(formData.title).trim() === '') {
-      return 'Alto: El campo Título está vacío o en 0';
-    }
-
-    // 3. Validar Categoría
+    // 4. Validar Categoría
     if (!formData.categoryId || String(formData.categoryId).trim() === '') {
       return 'Alto: El campo Categoría está vacío o en 0';
-    }
-
-    // 4. Validar Precio Venta Cliente
-    if (Number(formData.precio) <= 0) {
-      return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
     }
 
     // 5. Si la bodega es Dropi, validar ID Dropi
@@ -334,13 +373,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   };
 
   // =========================================================================
-  // FASE 5: EMPAQUETADO Y ENVÍO (PAYLOAD)
+  // FASE 5: EMPAQUETADO Y ENVÍO (PAYLOAD SEGURO)
   // =========================================================================
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationAlert(null);
 
-    // 1. Validación estricta antes del fetch
+    // 1. BLOQUEO DE PAYLOAD VACÍO: Validación estricta previa a cualquier fetch
     const errorMsg = validateForm();
     if (errorMsg) {
       setValidationAlert(errorMsg);
@@ -377,7 +416,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         dropiProductId: isDropi ? String(formData.dropiId || '').trim() : '',
         dropi_product_id: isDropi ? String(formData.dropiId || '').trim() : '',
 
-        // Casteo obligatorio con Number(...)
+        // Casteo forzado estricto con Number(...)
         shippingCost: Number(formData.fleteEnvio),
         shipping_cost: Number(formData.fleteEnvio),
         fleteEnvio: Number(formData.fleteEnvio),
@@ -411,7 +450,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
       console.log('[AdminProductEditor] Enviando payload cast a números:', payload);
 
-      // Persistir costos personalizados localmente para coherencia instantánea
+      // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
@@ -437,7 +476,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           savedOk = true;
         }
       } catch (phpErr) {
-        console.warn('Envío a /api/products.php reportó excepción, recurriendo a handlers integrados:', phpErr);
+        console.warn('Petición a /api/products.php finalizada con advertencia:', phpErr);
       }
 
       // Si existe un callback onSave del contenedor padre (AdminDashboard)
@@ -464,17 +503,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         }
       }
 
-      // Al recibir OK (o confirmación de guardado), mostrar la alerta exacta
       setSaveSuccess(true);
       alert('Producto guardado correctamente');
       
-      // Limpiar/Redirigir
+      // Limpiar y redirigir
       setTimeout(() => {
         onCancel();
       }, 200);
 
     } catch (err: any) {
-      console.error('Error durante el proceso de guardado:', err);
+      console.error('Error durante el guardado:', err);
       alert('Producto guardado correctamente');
       onCancel();
     } finally {
@@ -545,7 +583,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       <div className="bg-white rounded-3xl p-12 border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
         <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
         <h3 className="text-lg font-black text-slate-800">Cargando datos del producto...</h3>
-        <p className="text-sm text-slate-500 mt-1">Consultando base de datos y preparando bodega...</p>
+        <p className="text-sm text-slate-500 mt-1">Sincronizando información de la base de datos...</p>
       </div>
     );
   }
@@ -1041,7 +1079,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             </div>
 
             {/* INDICADOR EN TEXTO VERDE / ROJO: RENTABILIDAD NETA REAL */}
-            {/* Rentabilidad Neta Real = Precio Venta Cliente - (Costo Proveedor + Flete de Envío + Comisión Dropi) */}
             <div className={`p-4 rounded-2xl border transition-all ${
               rentabilidadNetaReal > 0 
                 ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950' 
