@@ -151,26 +151,27 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     else if (prod.id) mappedProvider = 'derocha'; // Fallback seguro para productos existentes de catálogo
 
     // 7. ID Dropi: product.dropi_product_id || ''
-    const dropiId = savedCosts?.dropiProductId 
-      ? String(savedCosts.dropiProductId).trim()
-      : String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
+    const rawProdDropiId = String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
+    const dropiId = rawProdDropiId || String(savedCosts?.dropiProductId || '').trim();
 
     // 8. Comisión Dropi: Number(product.dropi_fee || 0)
-    const comisionDropi = savedCosts?.dropiFee !== undefined
-      ? Number(savedCosts.dropiFee)
-      : Number(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi ?? 0);
+    const rawProdDropiFee = Number(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi ?? 0);
+    const comisionDropi = rawProdDropiFee > 0
+      ? rawProdDropiFee
+      : (savedCosts && Number(savedCosts.dropiFee) > 0 ? Number(savedCosts.dropiFee) : rawProdDropiFee);
 
     // 9. Flete: Number(product.shipping_cost || product.flete_envio || product.flete || 0)
-    const fleteEnvio = savedCosts?.shippingCost !== undefined
-      ? Number(savedCosts.shippingCost)
-      : Number(
-          prod.shipping_cost ??
-          prod.flete_envio ??
-          prod.flete ??
-          prod.shippingCost ??
-          prod.estimatedShippingCost ??
-          0
-        );
+    const rawProdFlete = Number(
+      prod.shipping_cost ??
+      prod.flete_envio ??
+      prod.flete ??
+      prod.shippingCost ??
+      prod.estimatedShippingCost ??
+      0
+    );
+    const fleteEnvio = rawProdFlete > 0 
+      ? rawProdFlete 
+      : (savedCosts && Number(savedCosts.shippingCost) > 0 ? Number(savedCosts.shippingCost) : rawProdFlete);
 
     // 10. Variantes: Mapear el array de product.variants o product.variantes, y si no hay, dejar []
     let variantsList: ProductVariant[] = [];
@@ -397,32 +398,42 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
       const mainImage = formData.images[0] || '';
 
-      const payload = {
+      // 1. RASTREAR ESTADOS REALES DE FLETE Y COMISIÓN
+      const estadoRealFleteEnvio = Number(formData.fleteEnvio || 0);
+      const estadoRealComisionDropi = Number(formData.comisionDropi || 0);
+      const estadoRealPrecioVenta = Number(formData.precio || 0);
+      const estadoRealStock = Number(formData.stock || 0);
+      const estadoRealCosto = Number(formData.costoProveedor || 0);
+      const estadoRealProveedor = String(formData.provider || 'derocha');
+      const estadoRealIdDropi = String(formData.dropiId || '');
+
+      // 2. CONSTRUCCIÓN EXACTA DEL OBJETO FINAL REQUERIDO
+      const payloadFinal = {
         // Datos básicos
         id: targetId || '',
         nombre: finalTitle || '',
-        precio: Number(formData.precio || 0),
-        stock: Number(formData.stock || 0),
+        precio: Number(estadoRealPrecioVenta),
+        stock: Number(estadoRealStock),
         descripcion: formData.description || '',
         imagen: mainImage || '',
         variants: formData.variants || [],
         
         // INYECCIÓN OBLIGATORIA CON LOS NOMBRES EXACTOS DE MYSQL:
-        shipping_cost: Number(formData.fleteEnvio || 0),
-        flete_envio: Number(formData.fleteEnvio || 0),
-        flete: Number(formData.fleteEnvio || 0),
-        dropi_fee: Number(formData.comisionDropi || 0),
-        dropiFee: Number(formData.comisionDropi || 0),
-        shippingCost: Number(formData.fleteEnvio || 0),
-        provider: String(formData.provider || 'derocha'),
-        dropi_product_id: String(formData.dropiId || ''),
+        shipping_cost: Number(estadoRealFleteEnvio),
+        flete: Number(estadoRealFleteEnvio),
+        flete_envio: Number(estadoRealFleteEnvio),
+        dropi_fee: Number(estadoRealComisionDropi),
+        shippingCost: Number(estadoRealFleteEnvio),
+        dropiFee: Number(estadoRealComisionDropi),
+        provider: estadoRealProveedor,
+        dropi_product_id: estadoRealIdDropi,
 
-        // Campos complementarios para compatibilidad con TypeScript y vistas del catálogo
+        // Campos complementarios para integridad de la tienda y catálogo
         title: finalTitle,
-        price: Number(formData.precio || 0),
-        costo: Number(formData.costoProveedor || 0),
-        costPrice: Number(formData.costoProveedor || 0),
-        supplier_cost: Number(formData.costoProveedor || 0),
+        price: Number(estadoRealPrecioVenta),
+        costo: Number(estadoRealCosto),
+        costPrice: Number(estadoRealCosto),
+        supplier_cost: Number(estadoRealCosto),
         compareAtPrice: Number(formData.compareAtPrice || 0),
         compare_price: Number(formData.compareAtPrice || 0),
         suggested_price: Number(formData.compareAtPrice || 0),
@@ -432,7 +443,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         image: mainImage || '',
         images: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
         imagenes: formData.images.length > 0 ? formData.images : (mainImage ? [mainImage] : []),
-        dropiProductId: String(formData.dropiId || ''),
+        dropiProductId: estadoRealIdDropi,
         categoryId: formData.categoryId || '',
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
@@ -440,16 +451,17 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      console.log("Enviando a MySQL:", payload);
+      // 3. LOG OBLIGATORIO DE AUDITORÍA
+      console.log("🚨 PAYLOAD FINANCIERO ENVIADO:", payloadFinal);
 
       // Persistir costos personalizados localmente para sincronización instantánea
       saveCustomProductCost(String(targetId), {
         id: String(targetId),
         slug: finalSlug,
-        shippingCost: Number(formData.fleteEnvio || 0),
-        dropiFee: Number(formData.comisionDropi || 0),
-        dropiProductId: String(formData.dropiId || ''),
-        provider: String(formData.provider || 'derocha')
+        shippingCost: Number(estadoRealFleteEnvio),
+        dropiFee: Number(estadoRealComisionDropi),
+        dropiProductId: estadoRealIdDropi,
+        provider: estadoRealProveedor
       });
 
       // Envío PUT/POST a api.php y /api/products.php
@@ -468,7 +480,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payloadFinal)
         });
 
         if (response.ok) {
@@ -485,7 +497,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payloadFinal)
         });
 
         if (responsePhp.ok) {
@@ -498,7 +510,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       // Si existe un callback onSave del contenedor padre (AdminDashboard)
       if (onSave) {
         try {
-          await onSave(payload);
+          await onSave(payloadFinal);
           savedOk = true;
         } catch (onSaveErr) {
           console.warn('onSave delegado reportó:', onSaveErr);
@@ -511,7 +523,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           const restRes = await fetch(isEditing ? `/api/products/${encodeURIComponent(targetId)}` : '/api/products', {
             method: isEditing ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payloadFinal)
           });
           if (restRes.ok) savedOk = true;
         } catch (rErr) {
