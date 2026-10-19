@@ -323,13 +323,13 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       });
 
       // BYPASS: EVITAMOS LLAMAR A onSave() PARA QUE ADMIN_DASHBOARD NO SOBREESCRIBA LA DB CON CEROS.
-      // En su lugar, forzamos una recarga limpia de la página que leerá la verdad de la base de datos.
+      // En su lugar, cerramos la ventana de manera suave llamando a onCancel()
       
       setSaveSuccess(true);
       alert('Producto guardado correctamente en la base de datos');
       
       setTimeout(() => {
-        window.location.reload(); 
+        onCancel(); 
       }, 500);
 
     } catch (err: any) {
