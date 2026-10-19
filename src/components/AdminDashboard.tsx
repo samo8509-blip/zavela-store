@@ -301,8 +301,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         shipping_cost: Number(shippingCost || 0),
         flete: Number(shippingCost || 0),
         flete_envio: Number(shippingCost || 0),
+        fleteEnvio: Number(shippingCost || 0),
         dropiFee: Number(dropiFee || 0),
         dropi_fee: Number(dropiFee || 0),
+        comisionDropi: Number(dropiFee || 0),
+        costoProveedor: Number((productData as any).costoProveedor || (productData as any).costPrice || (productData as any).costo || 0),
         dropiProductId: String(dropiProductId || ""),
         provider: String(provider),
         ...(targetId ? { id: targetId } : {})

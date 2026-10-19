@@ -80,8 +80,8 @@ const handleProductUpsert = async (req: any, res: any) => {
     const targetId = req.params?.id || req.query?.id || b.id || `prod-${Date.now()}`;
     const activeInt = (b.active === false || b.activo === false) ? 0 : 1;
     
-    const shipping = Number(b.shipping_cost ?? b.flete_envio ?? b.flete ?? b.shippingCost ?? b.estimatedShippingCost ?? 0);
-    const dropiFee = Number(b.dropi_fee ?? b.dropiFee ?? 0);
+    const shipping = Number(b.shipping_cost ?? b.flete_envio ?? b.fleteEnvio ?? b.flete ?? b.shippingCost ?? b.estimatedShippingCost ?? 0);
+    const dropiFee = Number(b.dropi_fee ?? b.dropiFee ?? b.comisionDropi ?? 0);
     const dropiCode = String(b.dropi_product_id || b.dropiProductId || '').trim();
     const provider = String(b.provider || (dropiCode ? 'dropi' : 'derocha')).trim();
     const supplier = b.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Propia'));
@@ -96,7 +96,7 @@ const handleProductUpsert = async (req: any, res: any) => {
 
     const title = b.nombre || b.title || b.name || '';
     const price = Number(b.precio ?? b.price ?? 0);
-    const cost = Number(b.costo ?? b.costPrice ?? b.supplier_cost ?? 0);
+    const cost = Number(b.costo ?? b.costoProveedor ?? b.costPrice ?? b.supplier_cost ?? 0);
     const comparePrice = Number(b.compare_price ?? b.compareAtPrice ?? b.suggested_price ?? 0);
     const stock = Number(b.stock ?? b.inventario ?? 0);
     const description = b.descripcion || b.description || '';

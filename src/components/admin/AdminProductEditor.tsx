@@ -438,6 +438,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         provider: String(provider),
         supplier: String(formData.supplier || provider),
 
+        // INYECCIÓN DE COMPATIBILIDAD DE DOBLE BACKEND (Node.js/Render + cPanel/MySQL):
+        fleteEnvio: fleteReal,
+        comisionDropi: comisionReal,
+        costoProveedor: costoProveedorReal,
+
         // DATOS COMPLEMENTARIOS DE INTEGRIDAD
         title: finalTitle,
         name: finalTitle,
