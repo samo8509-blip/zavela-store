@@ -341,13 +341,66 @@ router.post('/', async (req, res) => {
     const resolvedDane = dane_code || getDaneCode(city, department);
 
     for (const rawItem of items) {
-      const cleanProdId = String(rawItem.productId || '').replace(/^proc-/, '').replace('proc-', '').trim();
-      const product = db.getProductById(cleanProdId) || db.getProductById(rawItem.productId);
+      const rawId = rawItem.productId || rawItem.id || '';
+      const cleanProdId = String(rawId).replace(/^proc-/, '').replace(/proc-/g, '').trim();
+      let product = db.getProductById(cleanProdId) || db.getProductById(rawId);
+
+      // Si no está en data_store.json, buscar en MySQL (cPanel) por ID limpio o con prefijo
+      if (!product && nativePool) {
+        try {
+          const [rows]: any = await pool.query(
+            'SELECT * FROM productos WHERE id = ? OR id = ? OR id = ? OR slug = ? LIMIT 1',
+            [cleanProdId, `proc-${cleanProdId}`, `prod-${cleanProdId}`, cleanProdId]
+          );
+          if (Array.isArray(rows) && rows.length > 0) {
+            const row = rows[0];
+            let rowVariants = [];
+            try { rowVariants = typeof row.variants === 'string' ? JSON.parse(row.variants) : (row.variants || []); } catch {}
+            product = {
+              id: String(row.id),
+              title: row.nombre || row.title || 'Producto Zavela',
+              slug: row.slug || String(row.id),
+              price: Number(row.precio || row.price) || 0,
+              costPrice: Number(row.supplier_cost) || 0,
+              compareAtPrice: Number(row.suggested_price) || 0,
+              stock: Number(row.stock) || 999,
+              active: true,
+              variants: rowVariants,
+              images: [],
+              description: row.descripcion || '',
+              categoryId: row.category_id || 'cat-general',
+              tags: []
+            } as any;
+          }
+        } catch (e) {
+          console.warn('[Orders] Error al buscar producto en MySQL:', e);
+        }
+      }
+
+      // Si no existe en BD local ni MySQL, pero viene con datos del carrito (título y precio), permitir la orden
       if (!product) {
-        return res.status(400).json({
-          success: false,
-          message: `El producto ${cleanProdId || rawItem.productId} no existe o no está disponible.`
-        });
+        if (rawItem.unitPrice || rawItem.price || rawItem.title || rawItem.name) {
+          product = {
+            id: cleanProdId || rawId,
+            title: rawItem.title || rawItem.name || `Producto #${cleanProdId}`,
+            slug: cleanProdId,
+            price: Number(rawItem.unitPrice || rawItem.price) || 0,
+            costPrice: 0,
+            compareAtPrice: 0,
+            stock: 9999,
+            active: true,
+            variants: [],
+            images: [],
+            description: '',
+            categoryId: 'cat-general',
+            tags: []
+          } as any;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: `El producto ${cleanProdId || rawId} no existe o no está disponible.`
+          });
+        }
       }
 
       if (product.stock < rawItem.quantity) {

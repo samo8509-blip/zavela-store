@@ -325,10 +325,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         discountPercent: appliedCoupon?.percentage,
         total,
         items: cartItems.map(item => {
-          const rawId = item.product?.id || (item as any).productId;
-          const cleanId = String(rawId || '').replace('proc-', '').trim();
+          const rawId = item.product?.id || (item as any).productId || (item as any).id;
+          const cleanId = String(rawId || '').replace(/^proc-/, '').replace(/proc-/g, '').trim();
           return {
+            id: cleanId || rawId,
             productId: cleanId || rawId,
+            title: item.product?.title || '',
+            name: item.product?.title || '',
             variantId: item.variant?.id,
             variantName: item.variant?.name,
             variantColor: item.variant?.color,
@@ -336,7 +339,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
             sku: item.variant?.sku,
             quantity: item.quantity,
-            unitPrice: item.variant?.price || item.product.price,
+            unitPrice: item.variant?.price || item.product?.price || 0,
             comboInfo: item.comboInfo,
             comboGarmentLabel: item.comboGarmentLabel
           };
