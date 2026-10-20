@@ -647,7 +647,7 @@ export const ComboCustomizerModal: React.FC<ComboCustomizerModalProps> = ({
               </span>
               {savings > 0 && (
                 <span className="text-xs font-extrabold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
-                  ¡Ahorras {formatCOP(savings)}!
+                  ¡Ahorras {formatCOP(savings)}! (Pagas 1 solo flete)
                 </span>
               )}
             </div>

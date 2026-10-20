@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CartItem } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
+import { calculateCartTotals } from '../utils/comboPricing.ts';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -35,16 +36,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const subtotal = cartItems.reduce((sum, item) => {
-    const price = item.variant ? item.variant.price : item.product.price;
-    return sum + price * item.quantity;
-  }, 0);
-
-  const totalItemCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cartTotals = calculateCartTotals(cartItems);
+  const subtotal = cartTotals.regularSubtotal;
+  const shippingSavings = cartTotals.shippingSavings;
+  const totalItemCount = cartTotals.totalItemCount;
 
   // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
   const shippingCost = 0;
-  const total = subtotal;
+  const total = cartTotals.discountedSubtotal;
 
   return (
     <div 
@@ -150,6 +149,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           🛍️ {item.comboInfo}
                         </span>
                       )}
+                      {item.quantity >= 2 && !item.comboInfo && (
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md inline-block mt-1 border border-emerald-200">
+                          ✨ Combo {item.quantity}x (Envío Único)
+                        </span>
+                      )}
                       <div className="font-mono font-black text-sm text-slate-900 mt-1">
                         {formatCOP(price)}
                       </div>
@@ -199,6 +203,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <span>Subtotal ({totalItemCount} {totalItemCount === 1 ? 'unidad' : 'unidades'}):</span>
                 <span className="font-mono font-bold text-slate-900 text-sm">{formatCOP(subtotal)}</span>
               </div>
+              
+              {shippingSavings > 0 && (
+                <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                  <span className="flex items-center gap-1.5 font-bold text-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>Ahorro Envío Único (Combos):</span>
+                  </span>
+                  <span className="font-mono font-black text-emerald-700 text-xs">
+                    -{formatCOP(shippingSavings)}
+                  </span>
+                </div>
+              )}
               
               <div className="flex justify-between items-center text-slate-600">
                 <span className="flex items-center gap-1.5">

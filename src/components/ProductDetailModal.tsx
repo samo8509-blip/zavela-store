@@ -35,6 +35,7 @@ import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManag
 import { extractProductImages } from '../utils/imageUtils.ts';
 import { SameWarehouseRecommendations } from './SameWarehouseRecommendations.tsx';
 import { parseProductDescription } from '../utils/descriptionParser.ts';
+import { calculateQuantityPricing } from '../utils/comboPricing.ts';
 
 export interface ComboSelection {
   talla: string;
@@ -134,7 +135,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
 
-  // Redimensionar comboSelections cada vez que quantity cambie a un valor N (donde N >= 2)
   useEffect(() => {
     if (quantity >= 2) {
       setComboSelections(prev => {
@@ -153,7 +153,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   }, [quantity]);
 
-  // Limpiar y reiniciar exhaustivamente todo el estado local al cambiar de producto
   useEffect(() => {
     setActiveImageIndex(0);
     setSelectedVariant(undefined);
@@ -175,12 +174,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const relatedSliderRef = useRef<HTMLDivElement>(null);
   const { trackProductVisit, recordTimeSpent } = useProductTracker();
 
-  // Robust image extraction from product (reads images, imagenes, JSON strings, single image fields, variants)
   const imagesList = useMemo(() => {
     return extractProductImages(product);
   }, [product]);
 
-  // Resumen ejecutivo y viñetas visuales (Cero Párrafos Densos)
   const parsedDesc = useMemo(() => {
     return parseProductDescription(
       product?.description || product?.shortDescription,
@@ -189,7 +186,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     );
   }, [product?.id, product?.description, product?.shortDescription, product?.title, product?.categoryName]);
 
-  // Dynamic Browser Tab Title & Recent Views Tracker
   useEffect(() => {
     if (product) {
       const prodTitle = product.title || product.name || 'Producto';
@@ -210,7 +206,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     };
   }, [product?.id, product?.title, product?.name]);
 
-  // Touch swipe support for smooth mobile photo navigation
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
@@ -252,7 +247,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setActiveImageIndex(prev => (prev < imagesList.length - 1 ? prev + 1 : 0));
   };
 
-  // Normalización exhaustiva de variantes y tallas (ropa, calzado, enterizos, fajas)
   const allVariants = useMemo<ProductVariant[]>(() => {
     if (!product) return [];
 
@@ -272,11 +266,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
-    // Inferencia de tallas para moda/fajas/enterizos si la lista aún está vacía
     const titleLower = (product.title || '').toLowerCase();
     const isFashion = titleLower.includes('enterizo') || titleLower.includes('short') || titleLower.includes('realce') || 
-                      titleLower.includes('faja') || titleLower.includes('zapato') || titleLower.includes('calzado') || 
-                      titleLower.includes('vestido') || titleLower.includes('pantalon') || titleLower.includes('body');
+                     titleLower.includes('faja') || titleLower.includes('zapato') || titleLower.includes('calzado') || 
+                     titleLower.includes('vestido') || titleLower.includes('pantalon') || titleLower.includes('body');
 
     if (raw.length === 0 && isFashion) {
       raw = ['S', 'M', 'L', 'XL'];
@@ -314,7 +307,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     });
   }, [product]);
 
-  // Colores únicos reales
   const distinctColors = useMemo(() => {
     const seen = new Set<string>();
     const list: string[] = [];
@@ -328,7 +320,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return list;
   }, [allVariants]);
 
-  // Tallas únicas reales
   const distinctSizes = useMemo(() => {
     const seen = new Set<string>();
     const list: string[] = [];
@@ -345,7 +336,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const hasDistinctColors = distinctColors.length > 0;
   const hasDistinctSizes = distinctSizes.length > 0;
 
-  // Initialize variants on product open
   useEffect(() => {
     setSizeError(false);
     if (allVariants.length > 0) {
@@ -356,7 +346,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         setSelectedColor('');
       }
 
-      // Si tiene tallas, dejar deseleccionado para selección obligatoria interactiva
       if (hasDistinctSizes) {
         setSelectedSize('');
         setSelectedVariant(undefined);
@@ -366,7 +355,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         setSelectedSize(extractVariantSize(initialVariant));
       }
 
-      // Sincronizar foto inicial
       const initPhoto = allVariants[0]?.image || (allVariants[0] as any)?.imagen || (allVariants[0] as any)?.foto;
       if (initPhoto) {
         const foundIdx = imagesList.findIndex(img => img === initPhoto);
@@ -383,7 +371,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id, allVariants.length, hasDistinctSizes]);
 
-  // Track product visit once per product id
   useEffect(() => {
     if (product?.id) {
       trackProductVisit(product);
@@ -392,14 +379,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);
 
-  // Keep activeImageIndex within valid range if images list changes
   useEffect(() => {
     if (imagesList.length > 0 && activeImageIndex >= imagesList.length) {
       setActiveImageIndex(0);
     }
   }, [activeImageIndex, imagesList.length]);
 
-  // Track active time spent inspecting this product
   useEffect(() => {
     if (!product?.id) return;
     const interval = setInterval(() => {
@@ -408,7 +393,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return () => clearInterval(interval);
   }, [product?.id, recordTimeSpent]);
 
-  // Prevent background page scrolling when viewing a product
   useEffect(() => {
     if (!product) return;
     const prevBodyOverflow = document.body.style.overflow;
@@ -430,7 +414,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleIncrement = () => setQuantity(q => q + 1);
   const handleDecrement = () => setQuantity(q => (q > 1 ? q - 1 : 1));
 
-  // Tallas disponibles para el color activo (o todas si no hay filtro de color)
   const availableSizes = useMemo(() => {
     if (allVariants.length === 0) return [];
     
@@ -464,7 +447,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
-    // Actualizar foto según color
     const colorPhoto = variantsForColor.find(v => v.image || (v as any)?.imagen)?.image;
     if (colorPhoto) {
       const targetIdx = imagesList.findIndex(img => img === colorPhoto);
@@ -482,30 +464,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const currentStock = selectedVariant ? (selectedVariant.stock ?? 10) : product.stock;
   const isOutOfStock = currentStock <= 0;
 
-  // CRO: Precios dinámicos por cantidad y ofertas tipo combo/bundle
   const baseUnitPrice = selectedVariant?.price || product.price;
 
+  // CONEXIÓN DIRECTA CON COMBO PRICING (FÓRMULA DE ENVÍO ÚNICO)
   const currentPricing = useMemo(() => {
-    let discountRate = 0;
-    if (quantity === 2) {
-      discountRate = 0.10; // 10% OFF
-    } else if (quantity >= 3) {
-      discountRate = 0.14; // 14% OFF + Envío Gratis
-    }
+    return calculateQuantityPricing(product, quantity, baseUnitPrice);
+  }, [product, quantity, baseUnitPrice]);
 
-    const regularTotal = baseUnitPrice * quantity;
-    const discountedTotal = Math.round(regularTotal * (1 - discountRate));
-    const savings = regularTotal - discountedTotal;
-    const unitEffectivePrice = Math.round(discountedTotal / quantity);
-
-    return {
-      regularTotal,
-      discountedTotal,
-      savings,
-      discountRate,
-      unitEffectivePrice
-    };
-  }, [baseUnitPrice, quantity]);
+  const pricingOpt1 = useMemo(() => calculateQuantityPricing(product, 1, baseUnitPrice), [product, baseUnitPrice]);
+  const pricingOpt2 = useMemo(() => calculateQuantityPricing(product, 2, baseUnitPrice), [product, baseUnitPrice]);
+  const pricingOpt3 = useMemo(() => calculateQuantityPricing(product, 3, baseUnitPrice), [product, baseUnitPrice]);
 
   const isAllComboSelected = Boolean(
     quantity >= 2 && 
@@ -558,11 +526,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setShowComboModal(false);
   };
 
-  // Validaciones antes de añadir al carrito o comprar
   const handleValidateAndAddToCart = () => {
     if (isOutOfStock) return;
     
-    // Si la cantidad es 2 o más y alguna prenda no tiene talla o color asignado: interceptar
     if (quantity >= 2) {
       if (!isAllComboSelected) {
         setComboActionType('cart');
@@ -585,7 +551,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleValidateAndBuyNow = () => {
     if (isOutOfStock) return;
 
-    // Si la cantidad es 2 o más y alguna prenda no tiene talla o color asignado: interceptar
     if (quantity >= 2) {
       if (!isAllComboSelected) {
         setComboActionType('buy_now');
@@ -605,25 +570,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     onClose();
   };
 
-  // Compute related & recommended products ("OTROS CLIENTES TAMBIÉN VIERON")
   const relatedProducts = allProducts.filter(p => p.id !== product.id && p.active !== false);
   const sameCategoryProducts = relatedProducts.filter(p => p.categoryId === product.categoryId || p.categoryName === product.categoryName);
   const recommendedItems = (sameCategoryProducts.length >= 3 ? sameCategoryProducts : relatedProducts).slice(0, 10);
 
-  const scrollRelatedLeft = () => {
-    if (relatedSliderRef.current) {
-      relatedSliderRef.current.scrollBy({ left: -280, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRelatedRight = () => {
-    if (relatedSliderRef.current) {
-      relatedSliderRef.current.scrollBy({ left: 280, behavior: 'smooth' });
-    }
-  };
-
   const handleSelectRelated = (relatedProd: Product) => {
-    // 1. Desacoplamiento & limpieza inmediata de estado local previo
     setActiveImageIndex(0);
     setSelectedVariant(undefined);
     setSelectedColor('');
@@ -635,18 +586,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setActiveTab('desc');
     setIsShareOpen(false);
 
-    // 2. Scroll al tope de la ficha
     if (modalScrollRef.current) {
       modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
     }
 
-    // 3. Notificar al componente padre
     if (onSelectProduct) {
       onSelectProduct(relatedProd);
     }
   };
 
-  // SKU generation for clean catalog look
   const skuNumber = (product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
@@ -663,9 +611,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           className="bg-white text-slate-900 rounded-3xl max-w-6xl xl:max-w-7xl w-full max-h-[96vh] overflow-hidden shadow-2xl flex flex-col relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overscroll-contain my-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Window Top Navigation & Breadcrumb Header Bar */}
           <div className="px-4 sm:px-6 py-3 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 shadow-2xs">
-            {/* Breadcrumb links */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-hidden truncate">
               <span className="font-semibold text-slate-800 uppercase tracking-wider shrink-0">
                 {product.brand || 'Zavela Store'}
@@ -680,7 +626,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </span>
             </div>
 
-            {/* Actions: Share & Close */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
                 id="btn-top-share-product"
@@ -704,19 +649,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Modal Scrollable Body */}
           <div 
             ref={modalScrollRef} 
             className="overflow-y-auto overscroll-contain flex-1 p-4 sm:p-6 md:p-8 bg-slate-50/50 space-y-8"
           >
             
-            {/* 1. TOP HERO SECTION: GALLERY & MODERN E-COMMERCE PURCHASE LAYOUT (INSPIRED BY ILKO) */}
             <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-xs grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
               
-              {/* Left Column (5 of 12 cols on desktop): Vertical Thumbnails + Large Main Image */}
               <div className="lg:col-span-6 flex flex-col sm:flex-row gap-4">
                 
-                {/* Vertical Thumbnails List (Desktop left sidebar / Mobile bottom) */}
                 {imagesList.length > 1 && (
                   <div 
                     id="product-gallery-thumbnails"
@@ -752,7 +693,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Main Large Product Photo with interactive controls and swipe */}
                 <div className="order-1 sm:order-2 flex-1 flex flex-col items-center w-full">
                   <div 
                     id="product-gallery-main-view"
@@ -768,26 +708,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
                     />
 
-                    {/* Counter Badge */}
                     <div className="absolute top-3 left-3 bg-slate-900/75 backdrop-blur-xs text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md z-10 pointer-events-none">
                       <Camera className="w-3.5 h-3.5 text-slate-200" />
                       <span>📷 {activeImageIndex + 1} / {imagesList.length}</span>
                     </div>
 
-                    {/* Discount Badge */}
                     {product.discountPercentage > 0 && (
                       <span className="absolute top-3 right-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[11px] sm:text-xs px-3 py-1 rounded-lg uppercase tracking-wider shadow-md z-10 pointer-events-none">
                         -{product.discountPercentage}% OFF
                       </span>
                     )}
 
-                    {/* Warehouse Tag */}
                     <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-800 text-[10px] font-mono px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs z-10 pointer-events-none">
                       <Truck className="w-3.5 h-3.5 text-sky-600" />
                       <span>Despacho: {product.warehouseCity || 'Bogotá D.C.'}</span>
                     </div>
 
-                    {/* Flechas de navegación interactivas (< y >) sobre la imagen principal */}
                     {imagesList.length > 1 && (
                       <>
                         <button
@@ -814,7 +750,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     )}
                   </div>
 
-                  {/* Puntos indicadores inferiores interactivos (dots rojo/gris) */}
                   {imagesList.length > 1 && (
                     <div 
                       id="product-gallery-dots"
@@ -839,7 +774,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Quick Trust Bar under photo */}
                   <div className="w-full mt-4 flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0">
@@ -857,11 +791,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Right Column (7 of 12 cols on desktop): Product Info, Pricing, Actions (Ilko Structure) */}
               <div className="lg:col-span-6 flex flex-col justify-between space-y-5">
                 <div className="space-y-4">
                   
-                  {/* Title & SKU (Identical to Ilko reference layout) */}
                   <div>
                     <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-950 uppercase tracking-tight leading-tight">
                       {product.title}
@@ -890,13 +822,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Bloque de Resumen Visual & Viñetas Clave (Cero Párrafos Densos) */}
                   <div className="space-y-2.5">
                     <p className="text-slate-700 text-xs sm:text-sm leading-relaxed font-medium">
                       {parsedDesc.leadSentence}
                     </p>
 
-                    {/* 3 a 4 Viñetas clave con íconos limpios */}
                     <div className="grid grid-cols-1 gap-1.5 pt-0.5">
                       {parsedDesc.keyBullets.map((bullet, bIdx) => {
                         const icons = [
@@ -917,7 +847,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       })}
                     </div>
 
-                    {/* Acordeón desplegable para información técnica extensa */}
                     <details className="group border border-slate-200 rounded-xl bg-white overflow-hidden transition-all duration-200 mt-2">
                       <summary className="flex items-center justify-between p-2.5 sm:p-3 cursor-pointer font-bold text-xs text-slate-800 hover:text-red-600 hover:bg-slate-50 select-none list-none transition-colors">
                         <span className="flex items-center gap-1.5">
@@ -934,25 +863,32 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </details>
                   </div>
 
-                  {/* Pricing Block */}
                   <div className="pt-2 pb-1 border-y border-slate-100">
-                    <div className="flex items-baseline gap-3">
+                    <div className="flex items-baseline gap-3 flex-wrap">
                       <span className="text-2xl sm:text-3xl lg:text-4xl font-mono font-black text-red-600 tracking-tight">
-                        {formatCOP(currentPrice)}
+                        {formatCOP(currentPricing.discountedTotal)}
                       </span>
-                      {product.compareAtPrice && product.compareAtPrice > currentPrice && (
+                      {((product.compareAtPrice && product.compareAtPrice > currentPrice) || (quantity >= 2 && currentPricing.savings > 0)) && (
                         <span className="text-base sm:text-lg text-slate-400 line-through font-mono font-semibold">
-                          {formatCOP(product.compareAtPrice)}
+                          {formatCOP(currentPricing.regularTotal)}
+                        </span>
+                      )}
+                      {quantity >= 2 && currentPricing.savings > 0 && (
+                        <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">
+                          {formatCOP(currentPricing.unitEffectivePrice)} c/u (¡Envío Único!)
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-emerald-700 font-bold mt-1 flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5" />
-                      <span>¡Pagas en efectivo al recibir en tus manos! (Pago Contra Entrega)</span>
+                      <span>
+                        {quantity >= 2 && currentPricing.savings > 0
+                          ? `¡Pagas 1 solo flete para tus ${quantity} unidades! Pago Contra Entrega en efectivo`
+                          : '¡Pagas en efectivo al recibir en tus manos! (Pago Contra Entrega)'}
+                      </span>
                     </p>
                   </div>
 
-                  {/* Urgency Stock Alert (if stock <= 5) */}
                   {currentStock <= 5 && currentStock > 0 && (
                     <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-slate-900 flex items-center gap-2.5">
                       <Zap className="w-4 h-4 fill-amber-500 text-amber-500 shrink-0" />
@@ -962,10 +898,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Selector de Variantes y Tallas (Ropa, Calzado, Fajas, Accesorios) */}
                   {(hasDistinctColors || hasDistinctSizes) && (
                     <div className="space-y-3 pt-1 pb-1">
-                      {/* Paso 1: Seleccionar Color (si el producto tiene colores reales) */}
                       {hasDistinctColors && (
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -1021,7 +955,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </div>
                       )}
 
-                      {/* Paso 2: Selector Interactivo de Tallas / Medidas (Obligatorio con Borde Resaltado) */}
                       {hasDistinctSizes && availableSizes.length > 0 && (
                         <div className={`p-3 rounded-2xl transition-all ${
                           sizeError 
@@ -1093,7 +1026,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </div>
                       )}
 
-                      {/* Active Selection Summary Card */}
                       {selectedVariant && (
                         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1116,21 +1048,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* 🛒 CRO Bundles / Ofertas por Volumen (Motivador Multi-Unidad) */}
+                  {/* 🛒 CRO Tarjetas de Combos con Envío Único Integrado */}
                   <div className="space-y-2 pt-1 pb-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <span>🔥 Ofertas Especiales por Cantidad:</span>
+                        <span>🔥 Ofertas Especiales por Cantidad (Envío Único):</span>
                       </span>
-                      {quantity >= 2 && (
+                      {quantity >= 2 && currentPricing.savings > 0 && (
                         <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 animate-pulse">
-                          ¡Ahorras {formatCOP(currentPricing.savings)}!
+                          ¡Ahorras {formatCOP(currentPricing.savings)} (Pagas 1 solo flete)!
                         </span>
                       )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {/* Opción 1: 1 Unidad */}
                       <button
                         type="button"
                         onClick={() => setQuantity(1)}
@@ -1143,12 +1074,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <div className="text-[10px] font-bold opacity-80 uppercase">Opción 1</div>
                         <div className="text-xs font-black">1 Unidad</div>
                         <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(baseUnitPrice)}
+                          {formatCOP(pricingOpt1.discountedTotal)}
                         </div>
                         <div className="text-[10px] opacity-70 mt-0.5">Precio estándar</div>
                       </button>
 
-                      {/* Opción 2: 2 Unidades - MÁS POPULAR */}
                       <button
                         type="button"
                         onClick={() => setQuantity(2)}
@@ -1161,19 +1091,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <span className={`absolute -top-2.5 right-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
                           quantity === 2 ? 'bg-amber-400 text-slate-950 font-black' : 'bg-emerald-600 text-white'
                         }`}>
-                          MÁS POPULAR
+                          {pricingOpt2.savings > 0 ? 'FLETE ÚNICO' : 'MÁS POPULAR'}
                         </span>
                         <div className="text-[10px] font-bold opacity-85 uppercase">Opción 2</div>
-                        <div className="text-xs font-black">2 Unidades (10% OFF)</div>
+                        <div className="text-xs font-black">2 Unidades</div>
                         <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(Math.round(baseUnitPrice * 2 * 0.90))}
+                          {formatCOP(pricingOpt2.discountedTotal)}
                         </div>
                         <div className={`text-[10px] font-bold mt-0.5 ${quantity === 2 ? 'text-amber-200' : 'text-emerald-700'}`}>
-                          Ahorras {formatCOP(Math.round(baseUnitPrice * 2 * 0.10))}
+                          {pricingOpt2.savings > 0 ? `Ahorras ${formatCOP(pricingOpt2.savings)}` : 'Precio regular'}
                         </div>
                       </button>
 
-                      {/* Opción 3: 3 Unidades - MEJOR OFERTA */}
                       <button
                         type="button"
                         onClick={() => setQuantity(3)}
@@ -1186,21 +1115,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <span className={`absolute -top-2.5 right-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
                           quantity === 3 ? 'bg-yellow-300 text-slate-950 font-black' : 'bg-red-600 text-white'
                         }`}>
-                          14% OFF + ENVÍO
+                          {pricingOpt3.savings > 0 ? 'MEJOR VALOR' : 'OPCIÓN 3'}
                         </span>
                         <div className="text-[10px] font-bold opacity-85 uppercase">Opción 3</div>
-                        <div className="text-xs font-black">3 Unidades (14% OFF)</div>
+                        <div className="text-xs font-black">3 Unidades</div>
                         <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(Math.round(baseUnitPrice * 3 * 0.86))}
+                          {formatCOP(pricingOpt3.discountedTotal)}
                         </div>
                         <div className={`text-[10px] font-bold mt-0.5 ${quantity === 3 ? 'text-yellow-200' : 'text-red-700'}`}>
-                          Ahorras {formatCOP(Math.round(baseUnitPrice * 3 * 0.14))}
+                          {pricingOpt3.savings > 0 ? `Ahorras ${formatCOP(pricingOpt3.savings)}` : 'Precio regular'}
                         </div>
                       </button>
                     </div>
                   </div>
 
-                  {/* Social Closing Link Ruleta Banner - ONLY IF ENABLED */}
                   {isSocialClosing && isLuckyWheelEnabled && (
                     <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border-2 border-amber-400 text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-xs">
                       <div className="flex items-center gap-2.5">
@@ -1229,10 +1157,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Quantity Stepper + Direct "AGREGAR" Button Row (Exact Ilko Reference Pattern) */}
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                    
-                    {/* Stepper (- 1 +) */}
                     <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-slate-50 h-12 w-full sm:w-36 justify-between px-2 shrink-0">
                       <button
                         id="btn-qty-minus"
@@ -1253,7 +1178,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Primary Button: AGREGAR AL CARRITO (Red / Ilko style) */}
                     <button
                       id="btn-modal-add-cart"
                       disabled={isOutOfStock}
@@ -1275,7 +1199,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Resumen Visual de la Selección Confirmada de Combo */}
                   {quantity >= 2 && isAllComboSelected && (
                     <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1297,7 +1220,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* 💰 CRO Tarjeta Promocional Dinámica por Cantidad (quantity >= 2) */}
                   {quantity >= 2 && (
                     <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1305,10 +1227,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           <span className="text-2xl">🎉</span>
                           <div>
                             <div className="text-[11px] font-black uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
-                              <span>¡Oferta de {quantity} Unidades Aplicada!</span>
-                              <span className="bg-white/20 text-white text-[9px] px-1.5 py-0.5 rounded">
-                                {quantity === 2 ? '10% OFF' : '14% OFF + ENVÍO'}
-                              </span>
+                              <span>¡Oferta de Envío Único Aplicada ({quantity} Unidades)!</span>
                             </div>
                             <div className="text-sm sm:text-base font-black font-mono mt-0.5">
                               Total a pagar: {formatCOP(currentPricing.discountedTotal)}
@@ -1317,15 +1236,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </div>
                         <div className="text-right">
                           <span className="inline-block bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-1 rounded-xl shadow-xs">
-                            ¡Estás ahorrando {formatCOP(currentPricing.savings)}!
+                            ¡Ahorras {formatCOP(currentPricing.savings)} en flete!
                           </span>
                         </div>
                       </div>
                       <div className="mt-2.5 pt-2 border-t border-emerald-500/40 flex items-center justify-between gap-2 flex-wrap">
                         <div className="text-[11px] text-emerald-100">
-                          {quantity === 2 
-                            ? '10% de descuento en la segunda unidad con envío ya incluido.' 
-                            : '14% de descuento total en tu combo y despacho prioritario contra entrega con envío ya incluido.'}
+                          Se cobra un solo envío de {formatCOP(currentPricing.flete)} para todo el paquete.
                         </div>
                         <button
                           type="button"
@@ -1343,7 +1260,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Botón Verde: PERSONALIZAR COMBO (X PRENDAS) */}
                   {quantity >= 2 && (
                     <button
                       type="button"
@@ -1368,7 +1284,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </button>
                   )}
 
-                  {/* Fast Buy Now (Pago Contra Entrega) Button */}
                   <button
                     id="btn-modal-buy-now"
                     disabled={isOutOfStock}
@@ -1389,9 +1304,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </span>
                   </button>
 
-                  {/* Share & Ruleta Options */}
                   <div className={`grid ${isLuckyWheelEnabled ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-2 pt-1`}>
-                    {/* Cierre con Ruleta - STRICTLY HIDDEN IF RULETA IS DISABLED */}
                     {isLuckyWheelEnabled && (
                       <button
                         id="btn-modal-share-ruleta"
@@ -1401,7 +1314,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           setIsShareOpen(true);
                         }}
                         className="h-10 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 hover:from-amber-500/25 hover:to-amber-500/20 text-amber-950 border border-amber-400/60 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider cursor-pointer shadow-2xs"
-                        title="Enviar enlace con Ruleta para cerrar la venta"
                       >
                         <span className="text-sm">🎯</span>
                         <span>Cierre con Ruleta (5%-15%)</span>
@@ -1422,7 +1334,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Payment & Logistics Badges (Ilko Reference Footer Style) */}
                   <div className="pt-4 border-t border-slate-100 space-y-3">
                     <div className="p-3 rounded-2xl bg-sky-50/60 border border-sky-100 flex items-center gap-2.5 text-xs text-sky-950">
                       <div className="w-6 h-6 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
@@ -1449,7 +1360,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Sugerencias de Compra Cruzada: Misma Bodega / Mismo Despacho (Productos Reales MySQL) */}
                   <SameWarehouseRecommendations
                     currentProduct={product}
                     allProducts={allProducts}
@@ -1464,10 +1374,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
 
-            {/* 2. FULL-WIDTH PRODUCT INFORMATION, SPECIFICATIONS & DETAILS */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden w-full">
-              
-              {/* Full-Width Navigation Tabs */}
               <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 pt-3 gap-2">
                 <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto w-full sm:w-auto scrollbar-none">
                   <button
@@ -1543,7 +1450,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                 </div>
 
-                {/* Quick Certificate CTA on large screens */}
                 <div className="hidden lg:flex items-center pb-3 shrink-0">
                   <button
                     type="button"
@@ -1556,10 +1462,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Tab Content Box */}
               <div className="p-5 sm:p-8 w-full">
-                
-                {/* Tab 1: Descripción Completa */}
                 {activeTab === 'desc' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
                     <div className="w-full space-y-4">
@@ -1573,7 +1476,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </span>
                       </div>
 
-                      {/* 3 a 4 Viñetas Destacadas con Íconos Limpios */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {parsedDesc.keyBullets.map((bullet, idx) => {
                           const icons = [
@@ -1598,7 +1500,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         })}
                       </div>
 
-                      {/* Acordeón Desplegable para Información Técnica Extensa */}
                       <details className="group border border-slate-200 rounded-2xl bg-slate-50/70 overflow-hidden transition-all duration-200">
                         <summary className="flex items-center justify-between p-4 sm:p-5 cursor-pointer font-bold text-xs sm:text-sm text-slate-900 hover:text-red-600 hover:bg-slate-100 select-none list-none transition-colors">
                           <span className="flex items-center gap-2">
@@ -1615,7 +1516,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </details>
                     </div>
 
-                    {/* Quality Assurance Box */}
                     <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
                       <div className="flex items-center gap-3">
                         <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0 text-emerald-600">
@@ -1641,7 +1541,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab 2: Ficha Técnica */}
                 {activeTab === 'especificaciones' && (
                   <div className="space-y-4 w-full animate-in fade-in duration-200">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -1675,7 +1574,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab: Reseñas y Calificaciones Verificadas */}
                 {activeTab === 'resenas' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
@@ -1734,7 +1632,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab 3: Garantía Oficial */}
                 {activeTab === 'garantia' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
                     <div className="w-full bg-slate-50/70 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
@@ -1784,7 +1681,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab 4: Envíos Nacionales */}
                 {activeTab === 'envios' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
                     <div className="w-full bg-slate-50/70 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
@@ -1828,7 +1724,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Tab 5: Certificado de Autoría */}
                 {activeTab === 'autoria' && (
                   <div className="space-y-6 w-full animate-in fade-in duration-200">
                     <div className="w-full bg-slate-900 text-white p-6 sm:p-8 rounded-2xl border border-slate-800 relative overflow-hidden shadow-xl">
@@ -1867,7 +1762,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
 
-            {/* 3. COMMERCEMIND AI: RECOMENDACIONES PERSONALIZADAS DEBAJO DEL PRODUCTO ACTUAL */}
             <div className="w-full">
               <CommerceMindRecommendationsCarousel
                 currentProduct={product}
@@ -1888,7 +1782,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Share Modal Portal */}
       <ProductShareModal
         product={product}
         isOpen={isShareOpen}
@@ -1897,7 +1790,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         isLuckyWheelEnabled={isLuckyWheelEnabled}
       />
 
-      {/* 3. ESTRUCTURA Y RENDERIZADO DEL MODAL (VENTANA EMERGENTE): Personaliza tu Combo */}
       {showComboModal && (
         <div 
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200"
@@ -1907,7 +1799,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             className="bg-[#0f172a] text-white rounded-3xl max-w-2xl w-full border border-slate-700 shadow-2xl flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/95">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shrink-0">
@@ -1923,7 +1814,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Botón de cierre "✕" */}
               <button
                 type="button"
                 onClick={() => setShowComboModal(false)}
@@ -1934,9 +1824,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </button>
             </div>
 
-            {/* Contenedor con scroll vertical que itera sobre comboSelections */}
             <div className="max-h-[80vh] overflow-y-auto p-4 sm:p-6 space-y-5 scrollbar-thin">
-              {/* Shortcut opcional: replicar Prenda 1 a todas las demás prendas */}
               {quantity > 1 && comboSelections[0]?.talla && comboSelections[0]?.color && (
                 <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs">
                   <span className="text-slate-300 font-medium">
@@ -1969,7 +1857,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       ? Array.from(new Set(allVariants.map(v => extractVariantSize(v)).filter(Boolean)))
                       : ['S', 'M', 'L', 'XL']);
 
-                // Variantes reales que coinciden con la talla seleccionada
                 const sizeVariants = item.talla
                   ? allVariants.filter(v => {
                       const vSize = extractVariantSize(v).toUpperCase();
@@ -1977,7 +1864,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     })
                   : [];
 
-                // Lista de colores reales basada estrictamente en la base de datos (sin mock data)
                 const realColorList = distinctColors.length > 0
                   ? distinctColors
                   : (sizeVariants.length > 0
@@ -1995,7 +1881,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     key={index} 
                     className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-sm"
                   >
-                    {/* Encabezado de prenda: "Prenda [index + 1] de [quantity]" */}
                     <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                       <div className="flex items-center gap-2.5">
                         <span className="w-7 h-7 rounded-xl bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
@@ -2017,7 +1902,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       )}
                     </div>
 
-                    {/* Fila 1 - Selección de Talla */}
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-slate-300">
                         1. Selecciona la Talla:
@@ -2035,7 +1919,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                   next[index] = {
                                     ...next[index],
                                     talla: sz,
-                                    color: '', // Limpiar color previamente elegido al cambiar talla
+                                    color: '',
                                     dropi_id: undefined,
                                     stock: undefined
                                   };
@@ -2055,7 +1939,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Fila 2 - Selección de Color basada en Inventario Real */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-300">
                         <span>2. Selecciona el Color:</span>
@@ -2073,12 +1956,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       ) : (
                         <div className="flex flex-wrap gap-2 pt-1">
                           {colorsForSize.map(col => {
-                            // Buscar variante en array real según talla y color
                             const matchVariant = sizeVariants.find(v => 
                               extractVariantColor(v).toLowerCase() === col.toLowerCase()
                             ) || (allVariants.length === 1 ? allVariants[0] : undefined);
                             
-                            // Stock real de la base de datos
                             const stockCount = matchVariant?.stock !== undefined 
                               ? Number(matchVariant.stock) 
                               : (matchVariant ? 10 : 0);
@@ -2138,10 +2019,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               })}
             </div>
 
-            {/* Modal Footer with Action Button */}
             <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/95 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-left w-full sm:w-auto">
-                <span className="text-xs text-slate-400 block font-medium">Total de tu Combo ({quantity} Unidades):</span>
+                <span className="text-xs text-slate-400 block font-medium">Total de tu Combo ({quantity} Unidades - Envío Único):</span>
                 <span className="text-base sm:text-lg font-black text-white font-mono">
                   {formatCOP(currentPricing.discountedTotal)}
                 </span>
@@ -2152,7 +2032,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 )}
               </div>
 
-              {/* Botón inferior destacado */}
               <button
                 type="button"
                 id="btn-confirm-combo-modal"

@@ -639,9 +639,10 @@ export default function App() {
   // Cart Handlers
   const handleAddToCart = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
     registerProductObservation(product);
+    const originalPrice = (product as any).originalPrice || product.price;
     const effectivePrice = unitPrice !== undefined && unitPrice > 0 ? unitPrice : product.price;
-    const effectiveProduct = unitPrice !== undefined && unitPrice > 0 ? { ...product, price: effectivePrice } : product;
-    const effectiveVariant = variant && unitPrice !== undefined && unitPrice > 0 ? { ...variant, price: effectivePrice } : variant;
+    const effectiveProduct = { ...product, price: effectivePrice, originalPrice };
+    const effectiveVariant = variant ? { ...variant, price: effectivePrice, originalPrice: variant.price } : undefined;
 
     setCartItems(prev => {
       const existingIdx = prev.findIndex(
@@ -690,9 +691,10 @@ export default function App() {
     setCartItems(prev => {
       let updated = [...prev];
       for (const item of comboItems) {
+        const originalPrice = (product as any).originalPrice || product.price;
         const effectivePrice = item.unitPrice > 0 ? item.unitPrice : product.price;
-        const effectiveProduct = { ...product, price: effectivePrice };
-        const effectiveVariant = item.variant ? { ...item.variant, price: effectivePrice } : undefined;
+        const effectiveProduct = { ...product, price: effectivePrice, originalPrice };
+        const effectiveVariant = item.variant ? { ...item.variant, price: effectivePrice, originalPrice: item.variant.price } : undefined;
 
         const existingIdx = updated.findIndex(
           i => i.product.id === product.id && i.variant?.id === item.variant?.id

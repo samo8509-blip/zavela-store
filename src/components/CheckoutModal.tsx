@@ -25,6 +25,7 @@ import { formatCOP } from '../utils/formatters.ts';
 import { decrementCpanelProductStock } from '../services/cpanelProducts.ts';
 import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
+import { calculateCartTotals } from '../utils/comboPricing.ts';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -130,21 +131,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsCityDropdownOpen(false);
   };
 
-  // Subtotal calculation
-  const subtotal = useMemo(() => {
-    return cartItems.reduce((sum, item) => {
-      const price = item.variant ? item.variant.price : item.product.price;
-      return sum + price * item.quantity;
-    }, 0);
+  // Subtotal & Envío Único calculation
+  const cartTotals = useMemo(() => {
+    return calculateCartTotals(cartItems);
   }, [cartItems]);
+
+  const regularSubtotal = cartTotals.regularSubtotal;
+  const shippingSavings = cartTotals.shippingSavings;
+  const subtotalAfterShippingRule = cartTotals.discountedSubtotal;
+  const subtotal = subtotalAfterShippingRule;
 
   // Discount calculation
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || !appliedCoupon.percentage) return 0;
-    return Math.round((subtotal * appliedCoupon.percentage) / 100);
-  }, [subtotal, appliedCoupon]);
+    return Math.round((subtotalAfterShippingRule * appliedCoupon.percentage) / 100);
+  }, [subtotalAfterShippingRule, appliedCoupon]);
 
-  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+  const discountedSubtotal = Math.max(0, subtotalAfterShippingRule - discountAmount);
 
   // Cantidad total de unidades en el pedido para aplicar envío único
   const totalItemQuantity = useMemo(() => {
@@ -739,8 +742,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               <div className="border-t border-slate-200 pt-2 flex justify-between">
                 <span className="font-medium text-slate-700">Subtotal Productos:</span>
-                <span className="font-mono font-bold text-slate-900">{formatCOP(subtotal)}</span>
+                <span className="font-mono font-bold text-slate-900">{formatCOP(regularSubtotal)}</span>
               </div>
+
+              {/* Ahorro Envío Único Combos */}
+              {shippingSavings > 0 && (
+                <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs">🚚</span>
+                    <span className="font-extrabold text-xs text-emerald-800 truncate">
+                      Ahorro Envío Único (Combos):
+                    </span>
+                  </div>
+                  <span className="font-mono font-black text-xs text-emerald-700">
+                    -{formatCOP(shippingSavings)}
+                  </span>
+                </div>
+              )}
 
               {/* Applied Ruleta Discount Line */}
               {appliedCoupon && discountAmount > 0 && (
