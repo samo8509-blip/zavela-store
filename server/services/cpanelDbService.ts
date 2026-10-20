@@ -205,6 +205,41 @@ export class CpanelDbService {
   }
 
   /**
+   * Descuenta stock de forma atómica y segura en cPanel MySQL durante una compra.
+   * REGLA DE SEGURIDAD EXTREMA: ÚNICAMENTE resta la cantidad comprada a la columna `stock`,
+   * NUNCA sobreescribe nombre, imágenes, precio, descripción ni ninguna otra columna del producto.
+   */
+  async decrementProductStock(productId: string, quantity: number): Promise<boolean> {
+    const cleanId = String(productId).trim();
+    if (!cleanId || quantity <= 0) return false;
+
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=decrement_stock`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'decrement_stock',
+          id: cleanId,
+          id_producto: cleanId,
+          cantidad: quantity,
+          quantity: quantity
+        }),
+        signal: AbortSignal.timeout(3500)
+      });
+      return response.ok;
+    } catch (err: any) {
+      console.warn(`[cPanel Stock Sync Warning for ${cleanId}]:`, err?.message || err);
+      return false;
+    }
+  }
+
+  /**
    * DELETE /api.php?action=productos&id=...
    * Elimina un producto de la base de datos MySQL en cPanel.
    */

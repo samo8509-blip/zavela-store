@@ -491,13 +491,11 @@ router.post('/', async (req, res) => {
           console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
         }
 
-        // 4. Guardar en store local y sincronizar con cPanel MySQL (solo para productos reales)
+        // 4. Guardar en store local y sincronizar descuento seguro con cPanel MySQL (solo para productos reales)
         if (!isEmergencyFallback) {
           db.saveProduct(product);
-          cpanelDbService.saveProduct({
-            ...product,
-            variants: product.variants
-          } as any).catch(err => {
+          // REGLA DE SEGURIDAD EXTREMA: Descuento atómico de inventario SIN sobrescribir nombre, imagen ni precio
+          cpanelDbService.decrementProductStock(product.id, rawItem.quantity).catch(err => {
             console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
           });
         }

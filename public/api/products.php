@@ -343,6 +343,40 @@ try {
         // =====================================================================
         case 'POST':
             $data = $inputData;
+            $action = $data['action'] ?? ($_GET['action'] ?? null);
+
+            // ==============================================================================
+            // ACCIÓN: Descuento Seguro de Inventario (Checkout Seguro)
+            // REGLA DE SEGURIDAD EXTREMA: Modifica ÚNICAMENTE la columna stock.
+            // PROHIBIDO actualizar nombre, imagen, precio, descripción ni ninguna otra columna.
+            // ==============================================================================
+            if ($action === 'decrement_stock' || $action === 'deduct_stock' || $action === 'descontar_inventario') {
+                $id = $data['id'] ?? ($data['id_producto'] ?? ($data['productId'] ?? ($_GET['id'] ?? null)));
+                $cantidad = isset($data['cantidad']) ? (int)$data['cantidad'] : (isset($data['quantity']) ? (int)$data['quantity'] : 1);
+
+                if (!$id || $cantidad <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => 'ID de producto y cantidad válidos son requeridos']);
+                    exit();
+                }
+
+                // CONSULTA SEGURA: Resta la cantidad al stock asegurando no ser menor a 0
+                $sql = "UPDATE {$tableName} SET stock = GREATEST(0, stock - :cantidad), updated_at = NOW() WHERE id = :id_producto";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':cantidad'    => $cantidad,
+                    ':id_producto' => (string)$id
+                ]);
+
+                echo json_encode([
+                    'success'      => true,
+                    'message'      => 'Inventario descontado exitosamente sin alterar datos del producto',
+                    'id_producto'  => (string)$id,
+                    'descontado'   => $cantidad
+                ]);
+                exit();
+            }
+
             $id = $_GET['id'] ?? ($data['id'] ?? null);
 
             if (!$id) {
