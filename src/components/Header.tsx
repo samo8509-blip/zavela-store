@@ -269,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
                 size="md"
                 glowEnabled={settings?.themeStyles?.neonGlowEnabled ?? (activeSeasonalThemeId !== 'standard-light')}
               >
-                <ZavelaLogo size="md" showSlogan={true} theme="light" />
+                <ZavelaLogo size="md" showSlogan={true} theme="light" seasonalTheme={activeSeasonalThemeId} />
               </SeasonalLogoWrapper>
             </button>
 

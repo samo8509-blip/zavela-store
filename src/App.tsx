@@ -775,9 +775,11 @@ export default function App() {
   };
 
   const handleUpdateQuantity = (productId: string, variantId: string | undefined, delta: number) => {
+    const cleanTargetId = String(productId || '').replace(/^proc-/, '').trim();
     setCartItems(prev => {
       return prev.map(item => {
-        if (item.product.id === productId && item.variant?.id === variantId) {
+        const itemCleanId = String(item.product.id || '').replace(/^proc-/, '').trim();
+        if ((item.product.id === productId || itemCleanId === cleanTargetId) && item.variant?.id === variantId) {
           const newQty = item.quantity + delta;
           return newQty > 0 ? { ...item, quantity: newQty } : null;
         }
@@ -787,9 +789,11 @@ export default function App() {
   };
 
   const handleRemoveItem = (productId: string, variantId: string | undefined) => {
-    setCartItems(prev => prev.filter(
-      item => !(item.product.id === productId && item.variant?.id === variantId)
-    ));
+    const cleanTargetId = String(productId || '').replace(/^proc-/, '').trim();
+    setCartItems(prev => prev.filter(item => {
+      const itemCleanId = String(item.product.id || '').replace(/^proc-/, '').trim();
+      return !((item.product.id === productId || itemCleanId === cleanTargetId) && item.variant?.id === variantId);
+    }));
   };
 
   // Categorías dinámicas enriquecidas: combina DEFAULT_CATEGORIES, las del backend y las presentes en productos
@@ -1784,8 +1788,9 @@ export default function App() {
         }}
         onReorder={(items) => {
           items.forEach(item => {
-            const p = products.find(prod => prod.id === item.productId) || {
-              id: item.productId,
+            const cleanItemId = String(item.productId || '').replace(/^proc-/, '').trim();
+            const p = products.find(prod => String(prod.id).replace(/^proc-/, '').trim() === cleanItemId || prod.id === item.productId) || {
+              id: cleanItemId || item.productId,
               title: item.title,
               price: item.price,
               images: [item.image],

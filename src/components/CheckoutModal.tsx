@@ -27,6 +27,26 @@ import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 
+/**
+ * Normaliza y limpia el ID de un producto ignorando el prefijo 'proc-'
+ * para que coincida con los identificadores limpios o numéricos del catálogo y base de datos.
+ */
+export const cleanProductId = (rawId: string | number | undefined | null): string => {
+  if (rawId === undefined || rawId === null) return '';
+  return String(rawId).replace(/^proc-/, '').replace('proc-', '').trim();
+};
+
+/**
+ * Compara dos IDs de producto ignorando el prefijo 'proc-' y diferencias de formato (string/número).
+ */
+export const compareProductIds = (
+  idA: string | number | undefined | null,
+  idB: string | number | undefined | null
+): boolean => {
+  if (!idA || !idB) return false;
+  return cleanProductId(idA) === cleanProductId(idB);
+};
+
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -190,6 +210,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!formData.city?.trim()) errors.city = 'Selecciona o ingresa la ciudad o municipio';
     if (!formData.address?.trim()) errors.address = 'Ingresa la dirección exacta (Calle/Carrera, número, apto)';
 
+    // Validación de correspondencia e integridad de productos en el carrito
+    for (const item of cartItems) {
+      const cleanId = cleanProductId(item.product?.id);
+      if (!cleanId) {
+        errors.products = `El producto "${item.product?.title || 'seleccionado'}" no tiene un identificador válido.`;
+        break;
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -202,6 +231,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     if (cartItems.length === 0) {
       setServerError('El carrito está vacío. Agrega productos antes de continuar.');
+      return;
+    }
+
+    // Validación de existencia: asegura que cada item tenga un ID limpio antes de enviar el pedido
+    const invalidItem = cartItems.find(item => !cleanProductId(item.product?.id));
+    if (invalidItem) {
+      setServerError(`El producto "${invalidItem.product?.title || invalidItem.product?.id}" no existe o no está disponible.`);
       return;
     }
 
@@ -227,7 +263,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         discountPercent: appliedCoupon?.percentage,
         total,
         items: cartItems.map(item => ({
-          productId: item.product.id,
+          productId: cleanProductId(item.product.id),
           variantId: item.variant?.id,
           variantName: item.variant?.name,
           variantColor: item.variant?.color,
@@ -286,7 +322,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL
       try {
         for (const item of cartItems) {
-          await decrementCpanelProductStock(item.product.id, item.quantity);
+          const cleanId = cleanProductId(item.product.id);
+          await decrementCpanelProductStock(cleanId, item.quantity);
         }
       } catch (stockErr) {
         console.warn('Advertencia al sincronizar deducción de inventario en cPanel MySQL:', stockErr);
