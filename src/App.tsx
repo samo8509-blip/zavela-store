@@ -1303,181 +1303,89 @@ export default function App() {
 
           {/* Catalog & Category Section */}
           <div id="catalogo" className="scroll-mt-24"></div>
-          <div id="catalog-products-section" className="space-y-6 pt-2 scroll-mt-24">
+          <div id="catalog-products-section" className="space-y-4 pt-1 scroll-mt-24">
             
-            {/* Category Filter Pills & Sort Bar */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
-              
-              {/* Header: Sección de Categorías & Ordenamiento */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
-                    <Layers className="w-4 h-4" />
-                  </span>
-                  <div>
-                    <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>Categorías de la Tienda</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    </h2>
-                    <p className="text-[11px] text-slate-500 font-medium">
-                      {selectedCategoryId === 'all' 
-                        ? `Explorando todo el catálogo (${products.length} productos disponibles)` 
-                        : `Filtrando por: ${effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)?.name || 'Categoría'}`}
-                    </p>
-                  </div>
-                </div>
+            {/* Fila compacta y sutil de categorías y selector de ordenamiento (Sin barras duplicadas ni saturación) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white/70 backdrop-blur-xs px-3 sm:px-4 py-2 rounded-2xl border border-slate-200/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+                <button
+                  id="cat-pill-all"
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategoryId('all');
+                    setSelectedSubcategoryId('all');
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    selectedCategoryId === 'all'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  Todas ({products.filter(p => p.active !== false).length})
+                </button>
 
-                <div className="flex items-center gap-2.5 self-end sm:self-auto">
-                  {selectedCategoryId !== 'all' && (
+                {effectiveCategories.map((cat) => {
+                  const isSelected = selectedCategoryId === cat.id || selectedCategoryId === cat.slug;
+                  const catCount = getCategoryProductCount(cat.id);
+
+                  return (
                     <button
+                      key={cat.id || cat.slug}
+                      id={`cat-pill-${cat.id}`}
                       type="button"
                       onClick={() => {
-                        setSelectedCategoryId('all');
+                        setSelectedCategoryId(cat.id);
                         setSelectedSubcategoryId('all');
                       }}
-                      className="text-[11px] font-bold text-slate-600 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1"
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
                     >
-                      <span>✕ Quitar Filtro</span>
+                      <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
+                      {catCount > 0 && (
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {catCount}
+                        </span>
+                      )}
                     </button>
-                  )}
-
-                  {/* Selector de Orden */}
-                  <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] hidden xs:inline">Ordenar:</span>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      aria-label="Ordenar productos"
-                      className="bg-transparent text-slate-900 font-bold outline-hidden text-xs cursor-pointer"
-                    >
-                      <option value="featured">Destacados Zavela</option>
-                      <option value="price_asc">Menor Precio</option>
-                      <option value="price_desc">Mayor Precio</option>
-                      <option value="discount">Mayor Descuento</option>
-                    </select>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
-              {/* Barra Dinámica de Botones de Categoría con Desplazamiento Suave */}
-              <div className="relative flex items-center min-w-0">
-                {/* Botón Scroll Izquierda */}
-                {canScrollCatLeft && (
+              {/* Selector de ordenamiento compacto */}
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 text-xs">
+                {selectedCategoryId !== 'all' && (
                   <button
-                    type="button"
-                    onClick={() => handleScrollCatalogCat('left')}
-                    aria-label="Desplazar categorías a la izquierda"
-                    className="absolute left-0 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-sky-600 border border-slate-300 shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                )}
-
-                <div 
-                  ref={catalogCatScrollRef}
-                  className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none scroll-smooth w-full px-1"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                  {/* Botón "TODOS" */}
-                  <button
-                    id="cat-pill-all"
                     type="button"
                     onClick={() => {
                       setSelectedCategoryId('all');
                       setSelectedSubcategoryId('all');
                     }}
-                    className={`group px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      selectedCategoryId === 'all'
-                        ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20 scale-[1.02] ring-2 ring-slate-900/10'
-                        : 'bg-white text-slate-700 hover:text-slate-950 hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs'
-                    }`}
+                    className="text-[11px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
                   >
-                    <Grid className={`w-3.5 h-3.5 transition-transform ${selectedCategoryId === 'all' ? 'text-sky-400' : 'text-slate-500 group-hover:scale-110'}`} />
-                    <span>TODOS</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
-                      selectedCategoryId === 'all'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                    }`}>
-                      {products.filter(p => p.active !== false).length}
-                    </span>
-                  </button>
-
-                  {/* Botones Dinámicos de Categorías Reales */}
-                  {effectiveCategories.map((cat) => {
-                    const isSelected = selectedCategoryId === cat.id || selectedCategoryId === cat.slug;
-                    const catCount = getCategoryProductCount(cat.id);
-                    const isXmas = cat.id === 'cat-navidad' || cat.slug?.includes('navidad') || cat.name?.toLowerCase().includes('navid');
-                    const isAmor = cat.id === 'cat-amor-amistad' || cat.slug?.includes('amor') || cat.name?.toLowerCase().includes('amor');
-                    const isHalloween = cat.id === 'cat-halloween' || cat.slug?.includes('halloween') || cat.name?.toLowerCase().includes('halloween');
-
-                    let activeStyle = 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/20 scale-[1.02] ring-2 ring-sky-500/20';
-                    let inactiveHover = 'hover:border-sky-300 hover:bg-sky-50/40 text-slate-700';
-
-                    if (isXmas) {
-                      activeStyle = 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-md shadow-red-500/25 scale-[1.02] ring-2 ring-red-400/30';
-                      inactiveHover = 'hover:border-red-300 hover:bg-red-50/50 text-slate-700 hover:text-red-900';
-                    } else if (isAmor) {
-                      activeStyle = 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/25 scale-[1.02] ring-2 ring-pink-400/30';
-                      inactiveHover = 'hover:border-pink-300 hover:bg-pink-50/50 text-slate-700 hover:text-pink-900';
-                    } else if (isHalloween) {
-                      activeStyle = 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-500/25 scale-[1.02] ring-2 ring-orange-400/30';
-                      inactiveHover = 'hover:border-orange-300 hover:bg-orange-50/50 text-slate-700 hover:text-orange-950';
-                    }
-
-                    return (
-                      <button
-                        key={cat.id || cat.slug}
-                        id={`cat-pill-${cat.id}`}
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategoryId(cat.id);
-                          setSelectedSubcategoryId('all');
-                        }}
-                        className={`group px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-2 shrink-0 ${
-                          isSelected
-                            ? activeStyle
-                            : `bg-white border border-slate-200/90 ${inactiveHover} shadow-2xs hover:shadow-xs`
-                        }`}
-                      >
-                        {/* Emojis temáticos o indicador activo */}
-                        {isXmas && <span className="text-sm">🎄</span>}
-                        {isAmor && <span className="text-sm">💖</span>}
-                        {isHalloween && <span className="text-sm">🎃</span>}
-                        {!isXmas && !isAmor && !isHalloween && (
-                          <span className={`w-2 h-2 rounded-full transition-transform ${isSelected ? 'bg-white' : 'bg-sky-500 group-hover:scale-125'}`} />
-                        )}
-
-                        <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
-
-                        {catCount > 0 && (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
-                            isSelected
-                              ? 'bg-white/20 text-white'
-                              : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                          }`}>
-                            {catCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Botón Scroll Derecha */}
-                {canScrollCatRight && (
-                  <button
-                    type="button"
-                    onClick={() => handleScrollCatalogCat('right')}
-                    aria-label="Desplazar categorías a la derecha"
-                    className="absolute right-0 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-sky-600 border border-slate-300 shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95"
-                  >
-                    <ChevronRight className="w-4 h-4" />
+                    ✕ Quitar Filtro
                   </button>
                 )}
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full border border-slate-200 text-slate-700">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] uppercase font-bold text-slate-400 hidden xs:inline">Ordenar:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    aria-label="Ordenar productos"
+                    className="bg-transparent text-slate-900 font-bold outline-hidden text-xs cursor-pointer"
+                  >
+                    <option value="featured">Destacados Zavela</option>
+                    <option value="price_asc">Menor Precio</option>
+                    <option value="price_desc">Mayor Precio</option>
+                    <option value="discount">Mayor Descuento</option>
+                  </select>
+                </div>
               </div>
-
             </div>
 
             {/* Main Products Grid */}
@@ -1533,16 +1441,14 @@ export default function App() {
                 );
               })()}
 
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-1 pt-1">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 bg-sky-600 rounded-full shadow-xs" />
-                  <h2 className="text-base font-black text-slate-900 uppercase tracking-wider">
-                    {selectedCategoryId === 'all' 
-                      ? 'Catálogo Disponible con Pago Contra Entrega' 
-                      : effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)?.name || 'Catálogo'}
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-xs animate-pulse" />
+                  <h2 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider">
+                    CATÁLOGO DISPONIBLE CON PAGO CONTRA ENTREGA
                   </h2>
                 </div>
-                <span className="text-[11px] font-mono text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
                   {filteredProducts.length} {filteredProducts.length === 1 ? 'PRODUCTO' : 'PRODUCTOS'}
                 </span>
               </div>
