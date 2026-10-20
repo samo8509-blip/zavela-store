@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
 import { Header } from './components/Header.tsx';
-import { HeroBannerCarousel } from './components/HeroBannerCarousel.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
 import { ProductDetailModal } from './components/ProductDetailModal.tsx';
 import { CartDrawer } from './components/CartDrawer.tsx';
@@ -1215,138 +1214,7 @@ export default function App() {
         /* Store Front View */
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
           
-          {/* Zavela Hero Showcase Section */}
-          <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-            
-            {/* Main Hero Banner Carousel with JPFans Style & Notification Bar Sync */}
-            <HeroBannerCarousel
-              banners={settings?.heroBanners || []}
-              products={products}
-              orders={orders}
-              currentStyle={settings?.heroBannerStyle || 'jpfans'}
-              onSelectCategory={(catId) => {
-                setSelectedCategoryId(catId);
-                setSelectedSubcategoryId('all');
-                const catalogEl = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
-                if (catalogEl) {
-                  catalogEl.scrollIntoView({ behavior: 'smooth' });
-                }
-              }}
-              onViewProduct={setSelectedProduct}
-              onSaveBannerStyle={async (newStyle) => {
-                await saveFirestoreSettings({ heroBannerStyle: newStyle });
-                setSettings(prev => prev ? { ...prev, heroBannerStyle: newStyle } : null);
-              }}
-            />
 
-            {/* Zavela Highlights Side Panel */}
-            <aside className="w-full lg:w-80 flex flex-col gap-6">
-              
-              {/* Highlights Card */}
-              <div className="bg-white rounded-2xl p-5 sm:p-6 text-slate-900 border border-slate-200 shadow-sm flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-bold text-sky-700 uppercase tracking-widest flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-xs" />
-                      ZAVELA COLOMBIA
-                    </h3>
-                    <span className="text-[9px] font-mono bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-bold">
-                      OFICIAL
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-end border-b border-slate-100 pb-3">
-                      <div>
-                        <p className="text-[10px] font-mono text-slate-500 mb-0.5">Inventario</p>
-                        <p className="text-sm font-mono font-bold text-slate-900">Disponible Hoy</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-mono text-slate-500 mb-0.5">Despachos</p>
-                        <p className="text-sm text-emerald-700 font-mono font-bold">Contra Entrega</p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-600 text-[11px]">Cobertura Nacional</span>
-                      <span className="text-[11px] font-mono text-slate-900 font-bold">32 Departamentos</span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-600 text-[11px]">Transportadoras</span>
-                      <span className="text-[10px] font-mono text-slate-600 font-bold">Servientrega, Coordinadora, Envía</span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-600 text-[11px]">Garantía</span>
-                      <span className="text-[11px] font-bold text-emerald-700">30 Días Directa</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 text-[11px]">Panel Administrativo</span>
-                  <button
-                    onClick={() => setCurrentView('admin')}
-                    className="text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 uppercase tracking-wider text-[10px] cursor-pointer"
-                  >
-                    <span>Abrir Panel</span>
-                    <ArrowRight className="w-3 h-3 text-sky-600" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Logs de Pedidos Recientes Widget */}
-              <div className="flex-1 bg-white rounded-2xl border border-slate-200 p-5 flex flex-col shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest">
-                    Últimos Pedidos Despachados
-                  </h3>
-                  <span className="text-[10px] font-mono text-emerald-700 font-bold">EN TIEMPO REAL</span>
-                </div>
-
-                <div className="flex-1 space-y-2.5">
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <span className="text-[10px] font-bold text-slate-900">PEDIDO #ZAV-4821</span>
-                      <span className="text-[10px] text-sky-600 font-mono">hace 3 min</span>
-                    </div>
-                    <p className="text-[10px] text-slate-600 font-mono">Medellín • Coordinadora Contra Entrega</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <span className="text-[10px] font-bold text-slate-900">PEDIDO #ZAV-4820</span>
-                      <span className="text-[10px] text-sky-600 font-mono">hace 18 min</span>
-                    </div>
-                    <p className="text-[10px] text-slate-600 font-mono">Bogotá • Servientrega Contra Entrega</p>
-                  </div>
-
-                  <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 opacity-90">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <span className="text-[10px] font-bold text-slate-900">PEDIDO #ZAV-4819</span>
-                      <span className="text-[10px] text-slate-500 font-mono">hace 45 min</span>
-                    </div>
-                    <p className="text-[10px] text-slate-600 font-mono">Cali • Interrapidísimo Contra Entrega</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 pt-3 border-t border-slate-100 text-center">
-                  <button
-                    onClick={() => {
-                      setTrackingInitialQuery('');
-                      setCurrentView('tracking');
-                    }}
-                    className="text-[10px] font-bold text-sky-600 hover:text-sky-700 cursor-pointer uppercase tracking-wider"
-                  >
-                    Rastrear mi pedido aquí →
-                  </button>
-                </div>
-              </div>
-
-            </aside>
-
-          </div>
 
           {/* Catalog & Category Section */}
           <div id="catalogo" className="scroll-mt-24"></div>
