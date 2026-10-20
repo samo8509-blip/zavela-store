@@ -1728,6 +1728,7 @@ export default function App() {
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
         cartItems={cartItems}
+        products={products}
         appliedCoupon={appliedDiscountCoupon}
         onRemoveCoupon={() => setAppliedDiscountCoupon(null)}
         onOrderCreated={(order) => {
