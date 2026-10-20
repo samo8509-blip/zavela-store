@@ -407,6 +407,26 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     };
   };
 
+  // Helper para verificar si la orden pertenece estrictamente a Dropi o a bodega directa (DeRocha, Propio)
+  const isOrderDropi = (order?: Order | null): boolean => {
+    if (!order) return false;
+    const items = order.items || [];
+    if (items.length === 0) return false;
+    return items.some(item => {
+      const matched = findProductForItem(item);
+      const supplierStr = String(
+        (item as any).supplier || 
+        (item as any).provider || 
+        (matched as any).supplier || 
+        (matched as any).provider || 
+        matched?.brand || 
+        ''
+      ).toLowerCase().trim();
+
+      return supplierStr.includes('dropi');
+    });
+  };
+
   const handleInspectProduct = (item: OrderItem) => {
     const product = findProductForItem(item);
     setInspectingProduct({ product, item });
