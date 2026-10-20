@@ -500,18 +500,19 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Ingreso Admin Button */}
-            {showSecretLogin && (
-              <button
-                id="header-ingreso-action-btn"
-                onClick={onToggleAdmin}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 active:scale-95 text-sky-700 hover:text-sky-900 border border-sky-300 text-xs font-bold transition-all cursor-pointer shadow-sm animate-in fade-in zoom-in-95 duration-200"
-                title="Acceso de administración"
-              >
-                <User className="w-3.5 h-3.5 text-sky-600" />
-                <span className="hidden xs:inline font-mono">Ingreso Admin</span>
-              </button>
-            )}
+            {/* Panel Admin Button */}
+            <a 
+              href="/admin" 
+              onClick={(e) => {
+                e.preventDefault();
+                if (onToggleAdmin) onToggleAdmin();
+                else window.location.href = '/admin';
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all shadow-2xs cursor-pointer"
+              title="Abrir Panel Administrativo"
+            >
+              <span>⚙️ Panel Admin</span>
+            </a>
 
             {/* Shopping Cart Drawer Trigger with Coral CTA */}
             <button

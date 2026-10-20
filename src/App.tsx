@@ -16,9 +16,12 @@ import {
   LayoutDashboard,
   CheckCircle2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Layers,
+  Grid
 } from 'lucide-react';
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
+import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
 import { ProductDetailModal } from './components/ProductDetailModal.tsx';
@@ -86,7 +89,15 @@ import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 
 export default function App() {
   // Navigation State
-  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>('store');
+  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
+      if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
+      if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
+    }
+    return 'store';
+  });
   const [activeSubpageSlug, setActiveSubpageSlug] = useState<string>('');
   const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
@@ -107,7 +118,7 @@ export default function App() {
 
   // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
@@ -781,20 +792,90 @@ export default function App() {
     ));
   };
 
-  // Filter & Sort Products
+  // Categorías dinámicas enriquecidas: combina DEFAULT_CATEGORIES, las del backend y las presentes en productos
+  const effectiveCategories = useMemo(() => {
+    const baseList: Category[] = categories && categories.length > 0 ? [...categories] : [...DEFAULT_CATEGORIES];
+    const categoryMap = new Map<string, Category>();
+
+    baseList.forEach(c => {
+      if (c && c.id) {
+        categoryMap.set(c.id, c);
+      }
+    });
+
+    // Auto-descubrir categorías registradas en los productos del catálogo
+    products.forEach(p => {
+      const pCatName = p.categoryName || (p as any).categoria;
+      const pCatId = p.categoryId || (p as any).category_id;
+      if (pCatName && pCatName.trim() && pCatId && pCatId !== 'all' && !categoryMap.has(pCatId)) {
+        categoryMap.set(pCatId, {
+          id: pCatId,
+          name: pCatName.trim(),
+          slug: pCatName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          active: true,
+          order: 90
+        });
+      }
+    });
+
+    return Array.from(categoryMap.values()).filter(c => c.active !== false);
+  }, [categories, products]);
+
+  const getCategoryProductCount = useCallback((catId: string) => {
+    if (catId === 'all') return products.filter(p => p.active !== false).length;
+    const catObj = effectiveCategories.find(c => c.id === catId || c.slug === catId);
+    if (!catObj) return 0;
+    const targetSlug = (catObj.slug || catId).toLowerCase();
+    const targetId = (catObj.id || catId).toLowerCase();
+    const targetName = (catObj.name || '').toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
+    return products.filter(p => {
+      if (p.active === false) return false;
+      const pCatId = (p.categoryId || (p as any).category_id || '').toLowerCase();
+      const pCatName = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+      const pCatSlug = ((p as any).categorySlug || '').toLowerCase();
+
+      if (pCatId === targetId || pCatId === targetSlug) return true;
+      if (targetName && (pCatName.includes(targetName) || targetName.includes(pCatName))) return true;
+      if (pCatSlug && (pCatSlug === targetSlug || pCatSlug === targetId)) return true;
+
+      if ((targetSlug.includes('navid') || targetId.includes('navid')) && 
+          (pCatId === 'cat-navidad' || p.title.toLowerCase().includes('navid') || p.tags?.some(t => t.toLowerCase().includes('navid')))) {
+        return true;
+      }
+      if ((targetSlug.includes('halloween') || targetId.includes('halloween')) && 
+          (pCatId === 'cat-halloween' || p.title.toLowerCase().includes('halloween') || p.tags?.some(t => t.toLowerCase().includes('halloween')))) {
+        return true;
+      }
+      if ((targetSlug.includes('amor') || targetId.includes('amor')) && 
+          (pCatId === 'cat-amor-amistad' || p.title.toLowerCase().includes('amor') || p.tags?.some(t => t.toLowerCase().includes('amor')))) {
+        return true;
+      }
+
+      return false;
+    }).length;
+  }, [products, effectiveCategories]);
+
+  // Filter & Sort Products en Tiempo Real
   const filteredProducts = products.filter(p => {
-    if (!p.active) return false;
+    if (p.active === false) return false;
     if (selectedCategoryId !== 'all') {
-      const catObj = categories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
+      const catObj = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
       const targetSlug = (catObj?.slug || selectedCategoryId).toLowerCase();
       const targetId = (catObj?.id || selectedCategoryId).toLowerCase();
+      const targetName = (catObj?.name || '').toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
       
-      const isDirectMatch = p.categoryId === selectedCategoryId || (catObj && p.categoryId === catObj.id);
-      const isCategorySlugMatch = Boolean((p as any).categorySlug && String((p as any).categorySlug).toLowerCase() === targetSlug);
+      const pCatId = (p.categoryId || (p as any).category_id || '').toLowerCase();
+      const pCatName = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+      const pCatSlug = ((p as any).categorySlug || '').toLowerCase();
+
+      const isDirectMatch = pCatId === targetId || pCatId === targetSlug;
+      const isNameMatch = targetName && (pCatName.includes(targetName) || targetName.includes(pCatName));
+      const isCategorySlugMatch = Boolean(pCatSlug && (pCatSlug === targetSlug || pCatSlug === targetId));
 
       // Event & Campaign matching (Halloween, Amor y Amistad, Navidad)
       const isHalloweenMatch = (targetSlug.includes('halloween') || targetSlug.includes('disfraz') || targetId.includes('halloween')) && (
-        p.categoryId === 'cat-halloween' ||
+        pCatId === 'cat-halloween' ||
         (p.tags && p.tags.some(t => t.toLowerCase().includes('halloween') || t.toLowerCase().includes('disfraz') || t.toLowerCase().includes('terror') || t.toLowerCase().includes('neón'))) ||
         p.title.toLowerCase().includes('halloween') ||
         p.title.toLowerCase().includes('disfraz') ||
@@ -802,7 +883,7 @@ export default function App() {
       );
 
       const isAmorMatch = (targetSlug.includes('amor') || targetSlug.includes('amistad') || targetId.includes('amor')) && (
-        p.categoryId === 'cat-amor-amistad' ||
+        pCatId === 'cat-amor-amistad' ||
         (p.tags && p.tags.some(t => t.toLowerCase().includes('amor') || t.toLowerCase().includes('amistad') || t.toLowerCase().includes('pareja') || t.toLowerCase().includes('rosa'))) ||
         p.title.toLowerCase().includes('amor') ||
         p.title.toLowerCase().includes('amistad') ||
@@ -811,13 +892,13 @@ export default function App() {
       );
 
       const isNavidadMatch = (targetSlug.includes('navid') || targetSlug.includes('diciem') || targetId.includes('navid')) && (
-        p.categoryId === 'cat-navidad' ||
+        pCatId === 'cat-navidad' ||
         (p.tags && p.tags.some(t => t.toLowerCase().includes('navid') || t.toLowerCase().includes('navidad') || t.toLowerCase().includes('regalo'))) ||
         p.title.toLowerCase().includes('navid') ||
         p.title.toLowerCase().includes('navidad')
       );
 
-      if (!isDirectMatch && !isCategorySlugMatch && !isHalloweenMatch && !isAmorMatch && !isNavidadMatch) {
+      if (!isDirectMatch && !isNameMatch && !isCategorySlugMatch && !isHalloweenMatch && !isAmorMatch && !isNavidadMatch) {
         return false;
       }
     }
@@ -1221,17 +1302,69 @@ export default function App() {
           <div id="catalog-products-section" className="space-y-6 pt-2 scroll-mt-24">
             
             {/* Category Filter Pills & Sort Bar */}
-            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
               
-              {/* Category Pills with Horizontal Scroll Controls */}
-              <div className="relative flex-1 flex items-center min-w-0">
-                {/* Left Scroll Button */}
+              {/* Header: Sección de Categorías & Ordenamiento */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Layers className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h2 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Categorías de la Tienda</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </h2>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      {selectedCategoryId === 'all' 
+                        ? `Explorando todo el catálogo (${products.length} productos disponibles)` 
+                        : `Filtrando por: ${effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)?.name || 'Categoría'}`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                  {selectedCategoryId !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoryId('all');
+                        setSelectedSubcategoryId('all');
+                      }}
+                      className="text-[11px] font-bold text-slate-600 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 px-2.5 py-1.5 rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <span>✕ Quitar Filtro</span>
+                    </button>
+                  )}
+
+                  {/* Selector de Orden */}
+                  <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] hidden xs:inline">Ordenar:</span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      aria-label="Ordenar productos"
+                      className="bg-transparent text-slate-900 font-bold outline-hidden text-xs cursor-pointer"
+                    >
+                      <option value="featured">Destacados Zavela</option>
+                      <option value="price_asc">Menor Precio</option>
+                      <option value="price_desc">Mayor Precio</option>
+                      <option value="discount">Mayor Descuento</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra Dinámica de Botones de Categoría con Desplazamiento Suave */}
+              <div className="relative flex items-center min-w-0">
+                {/* Botón Scroll Izquierda */}
                 {canScrollCatLeft && (
                   <button
                     type="button"
                     onClick={() => handleScrollCatalogCat('left')}
                     aria-label="Desplazar categorías a la izquierda"
-                    className="absolute left-0 z-10 w-7 h-7 rounded-full bg-white hover:bg-slate-100 text-slate-700 hover:text-sky-600 border border-slate-300 shadow-sm flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    className="absolute left-0 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-sky-600 border border-slate-300 shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -1239,97 +1372,115 @@ export default function App() {
 
                 <div 
                   ref={catalogCatScrollRef}
-                  className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none scroll-smooth w-full px-1"
+                  className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none scroll-smooth w-full px-1"
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
+                  {/* Botón "TODOS" */}
                   <button
                     id="cat-pill-all"
-                    onClick={() => setSelectedCategoryId('all')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategoryId('all');
+                      setSelectedSubcategoryId('all');
+                    }}
+                    className={`group px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-2 shrink-0 ${
                       selectedCategoryId === 'all'
-                        ? 'bg-sky-600 text-white shadow-xs scale-102'
-                        : 'bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 hover:border-sky-300'
+                        ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20 scale-[1.02] ring-2 ring-slate-900/10'
+                        : 'bg-white text-slate-700 hover:text-slate-950 hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs'
                     }`}
                   >
-                    Todos ({products.length})
+                    <Grid className={`w-3.5 h-3.5 transition-transform ${selectedCategoryId === 'all' ? 'text-sky-400' : 'text-slate-500 group-hover:scale-110'}`} />
+                    <span>TODOS</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                      selectedCategoryId === 'all'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                    }`}>
+                      {products.filter(p => p.active !== false).length}
+                    </span>
                   </button>
 
-                  {categories.map((cat) => {
-                    const isXmasCat = cat.id === 'cat-navidad' || cat.slug?.includes('navidad');
-                    const isAmorCat = cat.id === 'cat-amor' || cat.slug?.includes('amor');
-                    const isHalloweenCat = cat.id === 'cat-halloween' || cat.slug?.includes('halloween');
-                    const isSelected = selectedCategoryId === cat.id;
+                  {/* Botones Dinámicos de Categorías Reales */}
+                  {effectiveCategories.map((cat) => {
+                    const isSelected = selectedCategoryId === cat.id || selectedCategoryId === cat.slug;
+                    const catCount = getCategoryProductCount(cat.id);
+                    const isXmas = cat.id === 'cat-navidad' || cat.slug?.includes('navidad') || cat.name?.toLowerCase().includes('navid');
+                    const isAmor = cat.id === 'cat-amor-amistad' || cat.slug?.includes('amor') || cat.name?.toLowerCase().includes('amor');
+                    const isHalloween = cat.id === 'cat-halloween' || cat.slug?.includes('halloween') || cat.name?.toLowerCase().includes('halloween');
+
+                    let activeStyle = 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-md shadow-sky-600/20 scale-[1.02] ring-2 ring-sky-500/20';
+                    let inactiveHover = 'hover:border-sky-300 hover:bg-sky-50/40 text-slate-700';
+
+                    if (isXmas) {
+                      activeStyle = 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-md shadow-red-500/25 scale-[1.02] ring-2 ring-red-400/30';
+                      inactiveHover = 'hover:border-red-300 hover:bg-red-50/50 text-slate-700 hover:text-red-900';
+                    } else if (isAmor) {
+                      activeStyle = 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/25 scale-[1.02] ring-2 ring-pink-400/30';
+                      inactiveHover = 'hover:border-pink-300 hover:bg-pink-50/50 text-slate-700 hover:text-pink-900';
+                    } else if (isHalloween) {
+                      activeStyle = 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-500/25 scale-[1.02] ring-2 ring-orange-400/30';
+                      inactiveHover = 'hover:border-orange-300 hover:bg-orange-50/50 text-slate-700 hover:text-orange-950';
+                    }
+
                     return (
                       <button
-                        key={cat.id}
+                        key={cat.id || cat.slug}
                         id={`cat-pill-${cat.id}`}
+                        type="button"
                         onClick={() => {
                           setSelectedCategoryId(cat.id);
                           setSelectedSubcategoryId('all');
                         }}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`group px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-2 shrink-0 ${
                           isSelected
-                            ? isXmasCat
-                              ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white shadow-xs scale-102'
-                              : isAmorCat
-                              ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-xs scale-102'
-                              : isHalloweenCat
-                              ? 'bg-gradient-to-r from-orange-600 to-amber-500 text-white shadow-xs scale-102'
-                              : 'bg-sky-600 text-white shadow-xs scale-102'
-                            : isXmasCat
-                              ? 'bg-red-50 border border-red-200 text-red-700 hover:text-red-900 hover:border-red-300'
-                              : isAmorCat
-                              ? 'bg-pink-50 border border-pink-200 text-pink-700 hover:text-pink-900 hover:border-pink-300'
-                              : isHalloweenCat
-                              ? 'bg-orange-50 border border-orange-200 text-orange-800 hover:text-orange-950 hover:border-orange-300'
-                              : 'bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 hover:border-sky-300'
+                            ? activeStyle
+                            : `bg-white border border-slate-200/90 ${inactiveHover} shadow-2xs hover:shadow-xs`
                         }`}
                       >
-                        {isXmasCat && <span>🎄</span>}
-                        {isAmorCat && <span>💖</span>}
-                        {isHalloweenCat && <span>🎃</span>}
-                        <span>{cat.name}</span>
+                        {/* Emojis temáticos o indicador activo */}
+                        {isXmas && <span className="text-sm">🎄</span>}
+                        {isAmor && <span className="text-sm">💖</span>}
+                        {isHalloween && <span className="text-sm">🎃</span>}
+                        {!isXmas && !isAmor && !isHalloween && (
+                          <span className={`w-2 h-2 rounded-full transition-transform ${isSelected ? 'bg-white' : 'bg-sky-500 group-hover:scale-125'}`} />
+                        )}
+
+                        <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
+
+                        {catCount > 0 && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                          }`}>
+                            {catCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Right Scroll Button */}
+                {/* Botón Scroll Derecha */}
                 {canScrollCatRight && (
                   <button
                     type="button"
                     onClick={() => handleScrollCatalogCat('right')}
                     aria-label="Desplazar categorías a la derecha"
-                    className="absolute right-0 z-10 w-7 h-7 rounded-full bg-white hover:bg-slate-100 text-slate-700 hover:text-sky-600 border border-slate-300 shadow-sm flex items-center justify-center cursor-pointer transition-all active:scale-95"
+                    className="absolute right-0 z-10 w-8 h-8 rounded-full bg-white/95 hover:bg-white text-slate-800 hover:text-sky-600 border border-slate-300 shadow-md flex items-center justify-center cursor-pointer transition-all active:scale-95"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 )}
               </div>
 
-              {/* Sort Selector */}
-              <div className="flex items-center gap-2 self-end md:self-auto text-xs">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-sky-600" />
-                <span className="font-bold text-slate-600 uppercase tracking-wider text-[10px]">Ordenar:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="bg-slate-50 border border-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-xl outline-hidden focus:border-sky-500 text-xs cursor-pointer"
-                >
-                  <option value="featured">Destacados Zavela</option>
-                  <option value="price_asc">Menor Precio</option>
-                  <option value="price_desc">Mayor Precio</option>
-                  <option value="discount">Mayor Descuento</option>
-                </select>
-              </div>
-
             </div>
 
             {/* Main Products Grid */}
             <div className="space-y-4">
-              {/* Category Sub-Menú Pills (Perfumería, Perfumes Mujer, Perfumes Hombre, Combos) */}
+              {/* Category Sub-Menú Pills */}
               {selectedCategoryId !== 'all' && (() => {
-                const currentCat = categories.find(c => c.id === selectedCategoryId);
+                const currentCat = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
                 if (!currentCat || !currentCat.subcategories || currentCat.subcategories.length === 0) return null;
 
                 const subList = currentCat.subcategories.map(s => typeof s === 'string' ? { id: s, name: s } : s);
@@ -1338,7 +1489,8 @@ export default function App() {
                   <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-center gap-2 overflow-x-auto w-full scrollbar-none py-0.5">
                       <span className="text-[11px] font-mono text-sky-700 font-black uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
-                        <span>💎 Sub-Menú:</span>
+                        <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Subcategorías:</span>
                       </span>
 
                       <button
@@ -1350,28 +1502,23 @@ export default function App() {
                             : 'bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 hover:border-sky-300'
                         }`}
                       >
-                        Ver Todos
+                        Ver Todas
                       </button>
 
                       {subList.map((sub) => {
                         const subId = sub.id || sub.name;
                         const isSelectedSub = selectedSubcategoryId === subId;
-                        const isPerfume = sub.name.includes('Perfume') || sub.name.includes('💎') || sub.name.includes('Fragancia');
-
-                        let btnClass = isSelectedSub
-                          ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white border-pink-500 font-black shadow-xs scale-102'
-                          : 'bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 hover:border-pink-300 hover:bg-pink-50/50';
-
-                        if (isSelectedSub && !isPerfume) {
-                          btnClass = 'bg-sky-600 text-white border-sky-600 font-black shadow-xs scale-102';
-                        }
 
                         return (
                           <button
                             key={subId}
                             type="button"
                             onClick={() => setSelectedSubcategoryId(subId)}
-                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all cursor-pointer border ${btnClass}`}
+                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all cursor-pointer border ${
+                              isSelectedSub
+                                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-600 font-black shadow-xs scale-102'
+                                : 'bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 hover:border-sky-300 hover:bg-sky-50/50'
+                            }`}
                           >
                             <span>{sub.name}</span>
                           </button>
@@ -1388,11 +1535,11 @@ export default function App() {
                   <h2 className="text-base font-black text-slate-900 uppercase tracking-wider">
                     {selectedCategoryId === 'all' 
                       ? 'Catálogo Disponible con Pago Contra Entrega' 
-                      : categories.find(c => c.id === selectedCategoryId)?.name || 'Catálogo'}
+                      : effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)?.name || 'Catálogo'}
                   </h2>
                 </div>
                 <span className="text-[11px] font-mono text-sky-700 font-bold bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
-                  {filteredProducts.length} PRODUCTOS
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'PRODUCTO' : 'PRODUCTOS'}
                 </span>
               </div>
 
