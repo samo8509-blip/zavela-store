@@ -299,17 +299,23 @@ router.post('/approve', async (req, res) => {
 // POST /api/orders - Create a new customer order
 router.post('/', async (req, res) => {
   try {
+    const rawDepartment = req.body.department || req.body.departamento || req.body.cliente_departamento;
+    const rawCity = req.body.city || req.body.ciudad || req.body.cliente_ciudad;
+    const rawAddress = req.body.address || req.body.direccion || req.body.cliente_direccion;
+    const rawDane = req.body.dane_code || req.body.daneCode || req.body.codigo_dane;
+
+    const department = String(rawDepartment || '').trim();
+    const city = String(rawCity || '').trim();
+    const address = String(rawAddress || '').trim();
+    const resolvedDane = String(rawDane || '').trim() || getDaneCode(city, department);
+
     const {
       firstName,
       lastName,
       phone,
       email,
-      department,
-      city,
-      address,
       additionalNotes,
       paymentMethod = 'contra_entrega',
-      dane_code,
       discountCode,
       discountAmount = 0,
       discountPercent = 0,
@@ -338,38 +344,57 @@ router.post('/', async (req, res) => {
 
     const orderId = `ord-${Date.now()}`;
     const orderNumber = `NV-${Math.floor(1000 + Math.random() * 9000)}`;
-    const resolvedDane = dane_code || getDaneCode(city, department);
 
     for (const rawItem of items) {
       const rawId = rawItem.productId || rawItem.id || '';
       const cleanProdId = String(rawId).replace(/^proc-/, '').replace(/proc-/g, '').trim();
-      let product = db.getProductById(cleanProdId) || db.getProductById(rawId);
+      let product = db.getProductById(rawId) || db.getProductById(cleanProdId);
 
-      // Si no está en data_store.json, buscar en MySQL (cPanel) por ID limpio o con prefijo
+      // Si no está en data_store.json, buscar en MySQL (cPanel) por ID real, limpio o con prefijo
       if (!product && nativePool) {
         try {
           const [rows]: any = await pool.query(
             'SELECT * FROM productos WHERE id = ? OR id = ? OR id = ? OR slug = ? LIMIT 1',
-            [cleanProdId, `proc-${cleanProdId}`, `prod-${cleanProdId}`, cleanProdId]
+            [rawId, cleanProdId, `proc-${cleanProdId}`, `prod-${cleanProdId}`]
           );
           if (Array.isArray(rows) && rows.length > 0) {
             const row = rows[0];
             let rowVariants = [];
             try { rowVariants = typeof row.variants === 'string' ? JSON.parse(row.variants) : (row.variants || []); } catch {}
+            
+            let parsedImages: string[] = [];
+            try {
+              if (row.images) {
+                parsedImages = typeof row.images === 'string' ? JSON.parse(row.images) : row.images;
+              } else if (row.imagenes) {
+                parsedImages = typeof row.imagenes === 'string' ? JSON.parse(row.imagenes) : row.imagenes;
+              } else if (row.imagen) {
+                parsedImages = [row.imagen];
+              }
+            } catch {}
+            if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
+              if (rawItem.image) parsedImages = [rawItem.image];
+              else if (Array.isArray(rawItem.images) && rawItem.images.length > 0) parsedImages = rawItem.images;
+            }
+
             product = {
               id: String(row.id),
-              title: row.nombre || row.title || 'Producto Zavela',
+              title: row.nombre || row.title || rawItem.title || rawItem.name || 'Producto Zavela',
               slug: row.slug || String(row.id),
-              price: Number(row.precio || row.price) || 0,
-              costPrice: Number(row.supplier_cost) || 0,
-              compareAtPrice: Number(row.suggested_price) || 0,
-              stock: Number(row.stock) || 999,
+              price: Number(row.precio || row.price || rawItem.unitPrice || rawItem.price) || 0,
+              costPrice: Number(row.supplier_cost || row.costPrice) || 0,
+              compareAtPrice: Number(row.suggested_price || row.compareAtPrice) || 0,
+              stock: Number(row.stock !== undefined ? row.stock : 999),
               active: true,
               variants: rowVariants,
-              images: [],
-              description: row.descripcion || '',
-              categoryId: row.category_id || 'cat-general',
-              tags: []
+              images: parsedImages,
+              description: row.descripcion || row.description || '',
+              categoryId: row.category_id || row.categoryId || 'cat-general',
+              tags: [],
+              dropi_product_id: row.dropi_product_id || row.dropiProductId || '',
+              dropiProductId: row.dropi_product_id || row.dropiProductId || '',
+              provider: row.provider || 'derocha',
+              supplier: row.supplier || 'DeRocha'
             } as any;
           }
         } catch (e) {
@@ -377,28 +402,34 @@ router.post('/', async (req, res) => {
         }
       }
 
-      // Si no existe en BD local ni MySQL, pero viene con datos del carrito (título y precio), permitir la orden
+      let isEmergencyFallback = false;
+      // Si no existe en BD local ni MySQL, pero viene con datos del carrito (título y precio), permitir la orden sin corromper el catálogo
       if (!product) {
         if (rawItem.unitPrice || rawItem.price || rawItem.title || rawItem.name) {
+          isEmergencyFallback = true;
           product = {
-            id: cleanProdId || rawId,
-            title: rawItem.title || rawItem.name || `Producto #${cleanProdId}`,
-            slug: cleanProdId,
+            id: rawId || cleanProdId,
+            title: rawItem.title || rawItem.name || `Producto #${rawId || cleanProdId}`,
+            slug: rawItem.slug || rawId || cleanProdId,
             price: Number(rawItem.unitPrice || rawItem.price) || 0,
             costPrice: 0,
             compareAtPrice: 0,
             stock: 9999,
             active: true,
             variants: [],
-            images: [],
+            images: Array.isArray(rawItem.images) && rawItem.images.length > 0 ? rawItem.images : (rawItem.image ? [rawItem.image] : []),
             description: '',
             categoryId: 'cat-general',
-            tags: []
+            tags: [],
+            dropi_product_id: rawItem.dropi_product_id || '',
+            dropiProductId: rawItem.dropi_product_id || '',
+            provider: rawItem.provider || 'derocha',
+            supplier: rawItem.supplier || 'DeRocha'
           } as any;
         } else {
           return res.status(400).json({
             success: false,
-            message: `El producto ${cleanProdId || rawId} no existe o no está disponible.`
+            message: `El producto ${rawId || cleanProdId} no existe o no está disponible.`
           });
         }
       }
@@ -460,14 +491,16 @@ router.post('/', async (req, res) => {
           console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
         }
 
-        // 4. Guardar en store local y sincronizar con cPanel MySQL
-        db.saveProduct(product);
-        cpanelDbService.saveProduct({
-          ...product,
-          variants: product.variants
-        } as any).catch(err => {
-          console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
-        });
+        // 4. Guardar en store local y sincronizar con cPanel MySQL (solo para productos reales)
+        if (!isEmergencyFallback) {
+          db.saveProduct(product);
+          cpanelDbService.saveProduct({
+            ...product,
+            variants: product.variants
+          } as any).catch(err => {
+            console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
+          });
+        }
       }
 
       // Check if stock has reached critical threshold (<= 5 units)

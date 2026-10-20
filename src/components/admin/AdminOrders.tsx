@@ -365,12 +365,22 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     }
 
     const itemProdId = String(item.productId || item.product_id || item.id || '');
-    const directMatch = products.find(p => p.id === itemProdId || p.slug === itemProdId);
+    const cleanId = itemProdId.replace(/^proc-/, '').replace(/proc-/g, '').trim();
+    const directMatch = products.find(p => 
+      p.id === itemProdId || 
+      p.id === cleanId || 
+      p.slug === itemProdId || 
+      p.slug === cleanId ||
+      String(p.id).replace(/^proc-/, '').trim() === cleanId
+    );
     if (directMatch) return directMatch;
 
     const itemTitle = String(item.title || item.productTitle || item.nombre || item.name || '').toLowerCase().trim();
     if (itemTitle) {
-      const titleMatch = products.find(p => (p.title || '').toLowerCase().trim() === itemTitle);
+      const titleMatch = products.find(p => {
+        const pTitle = (p.title || '').toLowerCase().trim();
+        return pTitle === itemTitle || itemTitle.includes(pTitle) || pTitle.includes(itemTitle);
+      });
       if (titleMatch) return titleMatch;
     }
 
@@ -2017,7 +2027,30 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       const matchedProd = findProductForItem(item);
                       const prodId = item.productId || matchedProd.id;
                       const currentDropiId = dropiProductIdsMap[prodId] || item.dropi_product_id || matchedProd.dropi_product_id || '';
-                      const isMissingDropiId = !currentDropiId;
+                      
+                      const rawSupplier = String(
+                        (item as any).supplier || 
+                        (item as any).provider || 
+                        (matchedProd as any).supplier || 
+                        (matchedProd as any).provider || 
+                        (matchedProd as any).supplier_name || 
+                        matchedProd.brand || 
+                        ''
+                      ).trim();
+                      const supplierLower = rawSupplier.toLowerCase();
+                      const isDropiProvider = supplierLower.includes('dropi');
+                      const isMissingDropiId = isDropiProvider && !currentDropiId;
+
+                      let supplierLabel = 'Bodega Propia';
+                      if (supplierLower.includes('derocha')) {
+                        supplierLabel = 'DeRocha';
+                      } else if (supplierLower.includes('propio') || supplierLower.includes('inventario') || supplierLower.includes('zavela')) {
+                        supplierLabel = 'Propio';
+                      } else if (isDropiProvider) {
+                        supplierLabel = 'Dropi';
+                      } else if (rawSupplier) {
+                        supplierLabel = rawSupplier;
+                      }
 
                       return (
                         <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
@@ -2047,15 +2080,19 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                           {/* Inline Dropi Product ID Input / Verifier */}
                           <div className="pt-1.5 border-t border-slate-200/70 flex items-center justify-between gap-3">
                             <div className="flex items-center gap-1.5">
-                              {isMissingDropiId ? (
+                              {currentDropiId ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md font-mono">
+                                  <Check className="w-3 h-3" />
+                                  <span>Mapeado: {currentDropiId}</span>
+                                </span>
+                              ) : isDropiProvider ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md">
                                   <AlertCircle className="w-3 h-3" />
                                   <span>Falta ID Dropi</span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md font-mono">
-                                  <Check className="w-3 h-3" />
-                                  <span>Mapeado: {currentDropiId}</span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-700 bg-slate-200/80 px-2 py-0.5 rounded-md" title={`Bodega: ${supplierLabel}`}>
+                                  <span>Bodega: {supplierLabel}</span>
                                 </span>
                               )}
                             </div>

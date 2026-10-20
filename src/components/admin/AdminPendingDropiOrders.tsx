@@ -76,19 +76,30 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
 
   // Helper to find real product matching an order item
   const findProductForItem = (item: OrderItem): Product => {
-    const directMatch = products.find(p => p.id === item.productId || p.slug === item.productId);
+    const rawId = item.productId || (item as any).id || '';
+    const cleanId = String(rawId).replace(/^proc-/, '').replace(/proc-/g, '').trim();
+
+    const directMatch = products.find(p => 
+      p.id === rawId || 
+      p.id === cleanId || 
+      p.slug === rawId || 
+      p.slug === cleanId ||
+      String(p.id).replace(/^proc-/, '').trim() === cleanId
+    );
     if (directMatch) return directMatch;
     
     // Match by title keywords
-    const itemTitle = (item.title || '').toLowerCase();
-    const titleMatch = products.find(p => {
-      const pTitle = p.title.toLowerCase();
-      return itemTitle.includes(pTitle) || pTitle.includes(itemTitle);
-    });
-    if (titleMatch) return titleMatch;
+    const itemTitle = (item.title || '').toLowerCase().trim();
+    if (itemTitle) {
+      const titleMatch = products.find(p => {
+        const pTitle = p.title.toLowerCase().trim();
+        return itemTitle.includes(pTitle) || pTitle.includes(itemTitle);
+      });
+      if (titleMatch) return titleMatch;
+    }
 
     return {
-      id: item.productId || 'p-generic',
+      id: rawId || 'p-generic',
       title: item.title || 'Producto Zavela',
       slug: 'producto-zavela',
       price: item.unitPrice || 79000,
@@ -106,6 +117,8 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
       stock: 50,
       variants: [],
       tags: [],
+      provider: (item as any).provider || 'derocha',
+      supplier: (item as any).supplier || 'DeRocha',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -595,18 +608,50 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
             const isError = order.status === 'ERROR_DROPI';
             const isPending = !isApproved && !isError;
 
-            // Check if all items have a dropi_product_id
+            // Check if items belonging strictly to Dropi have a dropi_product_id
             const itemsWithDropiCheck = (order.items || []).map(item => {
               const matched = findProductForItem(item);
               const dropiId = item.dropi_product_id || matched.dropi_product_id || '';
+              
+              // Provider / Bodega resolution
+              const rawSupplier = String(
+                (item as any).supplier || 
+                (item as any).provider || 
+                (matched as any).supplier || 
+                (matched as any).provider || 
+                (matched as any).supplier_name || 
+                matched.brand || 
+                ''
+              ).trim();
+              const supplierLower = rawSupplier.toLowerCase();
+
+              // Estrictamente Dropi si el proveedor es Dropi o si tiene configurado un dropi_product_id
+              const isDropiProvider = supplierLower.includes('dropi');
+              const isDeRocha = supplierLower.includes('derocha');
+              const isPropio = supplierLower.includes('propio') || supplierLower.includes('inventario') || supplierLower.includes('zavela');
+
+              let badgeLabel = 'Bodega Propia';
+              if (isDropiProvider) {
+                badgeLabel = 'Dropi';
+              } else if (isDeRocha) {
+                badgeLabel = 'DeRocha';
+              } else if (isPropio) {
+                badgeLabel = 'Propio';
+              } else if (rawSupplier) {
+                badgeLabel = rawSupplier;
+              }
+
               return {
                 ...item,
                 dropiId,
-                hasDropiId: Boolean(dropiId)
+                hasDropiId: Boolean(dropiId),
+                isDropiProvider,
+                badgeLabel
               };
             });
 
-            const allItemsMapped = itemsWithDropiCheck.every(i => i.hasDropiId);
+            // Solo exige ID Dropi si el ítem pertenece estrictamente a Dropi
+            const allItemsMapped = itemsWithDropiCheck.every(i => !i.isDropiProvider || i.hasDropiId);
 
             return (
               <div 
@@ -790,7 +835,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           allItemsMapped ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                         }`}>
-                          {allItemsMapped ? '✓ Dropi IDs Listos' : '⚠ Revisar IDs Dropi'}
+                          {allItemsMapped ? '✓ Bodegas Verificadas' : '⚠ Revisar IDs Dropi'}
                         </span>
                       </div>
 
@@ -817,9 +862,13 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                                 <span className="font-mono text-[9px] font-bold text-cyan-900 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded">
                                   DP #{item.dropiId}
                                 </span>
-                              ) : (
+                              ) : item.isDropiProvider ? (
                                 <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
                                   Sin ID Dropi
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded" title={`Bodega: ${item.badgeLabel}`}>
+                                  {item.badgeLabel}
                                 </span>
                               )}
                             </div>

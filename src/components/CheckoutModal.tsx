@@ -312,11 +312,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         phone: formData.phone.trim(),
         email: formData.email?.trim(),
         department: formData.department,
+        departamento: formData.department,
         city: formData.city.trim(),
+        ciudad: formData.city.trim(),
         address: formData.address.trim(),
+        direccion: formData.address.trim(),
         additionalNotes: formData.additionalNotes?.trim(),
         paymentMethod: formData.paymentMethod,
-        dane_code: shippingCalculation.daneCode,
+        dane_code: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
+        daneCode: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
+        codigo_dane: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
         shippingCost: shippingCalculation.finalRate,
         shippingZone: shippingCalculation.zoneName,
         subtotal,
@@ -325,18 +330,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         discountPercent: appliedCoupon?.percentage,
         total,
         items: cartItems.map(item => {
-          const rawId = item.product?.id || (item as any).productId || (item as any).id;
-          const cleanId = String(rawId || '').replace(/^proc-/, '').replace(/proc-/g, '').trim();
+          const originalId = item.product?.id || (item as any).productId || (item as any).id;
           return {
-            id: cleanId || rawId,
-            productId: cleanId || rawId,
-            title: item.product?.title || '',
-            name: item.product?.title || '',
+            id: originalId,
+            productId: originalId,
+            title: item.product?.title || (item as any).title || '',
+            name: item.product?.title || (item as any).title || '',
+            image: item.product?.images?.[0] || (item as any).image || '',
+            images: item.product?.images || [],
             variantId: item.variant?.id,
             variantName: item.variant?.name,
             variantColor: item.variant?.color,
             variantSize: item.variant?.size || item.variant?.talla,
             dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
+            dropi_product_id: item.product?.dropi_product_id || (item.product as any)?.dropiProductId || (item as any).dropi_product_id || '',
             sku: item.variant?.sku,
             quantity: item.quantity,
             unitPrice: item.variant?.price || item.product?.price || 0,
@@ -388,12 +395,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         return;
       }
 
-      // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL
+      // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL con ID original
       try {
         for (const item of cartItems) {
-          const rawId = item.product?.id || (item as any).productId;
-          const cleanId = String(rawId || '').replace('proc-', '').trim();
-          await decrementCpanelProductStock(cleanId || rawId, item.quantity);
+          const originalId = item.product?.id || (item as any).productId || (item as any).id;
+          if (originalId) {
+            await decrementCpanelProductStock(originalId, item.quantity);
+          }
         }
       } catch (stockErr) {
         console.warn('Advertencia al sincronizar deducción de inventario en cPanel MySQL:', stockErr);

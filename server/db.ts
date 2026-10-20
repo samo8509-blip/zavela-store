@@ -606,7 +606,24 @@ class DatabaseStore {
     for (const remote of remoteOrders) {
       const idx = this.data.orders.findIndex(o => o.id === remote.id || o.orderNumber === remote.orderNumber);
       if (idx >= 0) {
-        this.data.orders[idx] = { ...this.data.orders[idx], ...remote };
+        const existing = this.data.orders[idx];
+        const finalCity = (remote.city && remote.city !== 'Bogotá D.C.') ? remote.city : (existing.city || remote.city);
+        const finalDept = (remote.department && remote.department !== 'Cundinamarca' && remote.department !== 'Bogotá D.C.')
+          ? remote.department
+          : (existing.department || remote.department);
+        const finalDane = remote.dane_code || existing.dane_code;
+        const finalItems = (Array.isArray(remote.items) && remote.items.length > 0 && remote.items[0]?.title && remote.items[0]?.title !== 'Producto')
+          ? remote.items
+          : (existing.items && existing.items.length > 0 ? existing.items : remote.items);
+
+        this.data.orders[idx] = {
+          ...existing,
+          ...remote,
+          city: finalCity,
+          department: finalDept,
+          dane_code: finalDane,
+          items: finalItems
+        };
       } else {
         this.data.orders.unshift(remote);
       }
