@@ -28,23 +28,58 @@ import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 
 /**
- * Normaliza y limpia el ID de un producto ignorando el prefijo 'proc-'
- * para que coincida con los identificadores limpios o numéricos del catálogo y base de datos.
+ * Extrae y normaliza el ID real del producto eliminando el prefijo 'proc-' o variantes,
+ * obteniendo únicamente el identificador limpio.
+ * Ejemplo: 'proc-179245123' -> '179245123'
  */
 export const cleanProductId = (rawId: string | number | undefined | null): string => {
   if (rawId === undefined || rawId === null) return '';
-  return String(rawId).replace(/^proc-/, '').replace('proc-', '').trim();
+  return String(rawId).replace(/proc-/gi, '').replace(/^proc[-_]/i, '').trim();
 };
 
 /**
- * Compara dos IDs de producto ignorando el prefijo 'proc-' y diferencias de formato (string/número).
+ * Compara dos IDs de producto limpiando automáticamente el prefijo 'proc-' en ambos lados.
  */
 export const compareProductIds = (
   idA: string | number | undefined | null,
   idB: string | number | undefined | null
 ): boolean => {
   if (!idA || !idB) return false;
-  return cleanProductId(idA) === cleanProductId(idB);
+  const cleanA = String(idA).replace('proc-', '').trim();
+  const cleanB = String(idB).replace('proc-', '').trim();
+  return cleanA === cleanB;
+};
+
+/**
+ * Busca de forma segura si un ítem del carrito existe en la lista de productos de la tienda,
+ * limpiando el prefijo 'proc-' en ambos lados de la comparación.
+ */
+export const findStoreProductMatch = <T extends { id?: any; productId?: any; slug?: string }>(
+  cartItemOrId: any,
+  storeProducts: T[] = []
+): T | undefined => {
+  const rawTargetId = cartItemOrId?.productId || cartItemOrId?.product?.id || cartItemOrId?.id || cartItemOrId;
+  const targetId = String(rawTargetId || '').replace('proc-', '').trim();
+  const targetSlug = String(cartItemOrId?.product?.slug || cartItemOrId?.slug || '').trim().toLowerCase();
+
+  if (!targetId && !targetSlug) return undefined;
+
+  return storeProducts.find(p => {
+    const rawPId = p.id || p.productId;
+    const pCleanId = String(rawPId || '').replace('proc-', '').trim();
+    const pCleanSlug = String(p.slug || '').trim().toLowerCase();
+
+    // 1. Coincidencia por ID limpio (.replace('proc-', '') en ambos lados)
+    if (targetId && pCleanId && targetId === pCleanId) return true;
+    
+    // 2. Coincidencia por ID directo (con o sin prefijo)
+    if (rawTargetId && rawPId && String(rawPId).trim() === String(rawTargetId).trim()) return true;
+
+    // 3. Coincidencia por Slug si está presente
+    if (targetSlug && pCleanSlug && pCleanSlug === targetSlug) return true;
+
+    return false;
+  });
 };
 
 interface CheckoutModalProps {
@@ -55,6 +90,7 @@ interface CheckoutModalProps {
   freeShippingThreshold?: number;
   appliedCoupon?: ActiveDiscountCoupon | null;
   onRemoveCoupon?: () => void;
+  products?: any[];
 }
 
 export const CheckoutModal: React.FC<CheckoutModalProps> = ({
@@ -64,7 +100,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onOrderCreated,
   freeShippingThreshold = 120000,
   appliedCoupon,
-  onRemoveCoupon
+  onRemoveCoupon,
+  products = []
 }) => {
   if (!isOpen) return null;
 
@@ -212,7 +249,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     // Validación de correspondencia e integridad de productos en el carrito
     for (const item of cartItems) {
-      const cleanId = cleanProductId(item.product?.id);
+      const rawId = item.product?.id || (item as any).productId || (item as any).id;
+      const cleanId = String(rawId || '').replace('proc-', '').trim();
       if (!cleanId) {
         errors.products = `El producto "${item.product?.title || 'seleccionado'}" no tiene un identificador válido.`;
         break;
@@ -234,10 +272,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    // Validación de existencia: asegura que cada item tenga un ID limpio antes de enviar el pedido
-    const invalidItem = cartItems.find(item => !cleanProductId(item.product?.id));
+    // Validación de existencia: asegura que cada ítem del carrito exista en el listado general de productos
+    // Limpia automáticamente el prefijo 'proc-' en ambos lados de la comparación (.replace('proc-', ''))
+    const invalidItem = cartItems.find(item => {
+      const rawCartId = item.product?.id || (item as any).productId || (item as any).id;
+      if (!rawCartId) return true;
+      const cleanCartId = String(rawCartId).replace('proc-', '').trim();
+      if (!cleanCartId) return true;
+
+      // Si se cuenta con el listado general de productos, validar existencia comparando IDs limpios sin 'proc-'
+      if (products && Array.isArray(products) && products.length > 0) {
+        const exists = products.some(prod => {
+          const rawProdId = prod.id || prod.productId;
+          const cleanProdId = String(rawProdId || '').replace('proc-', '').trim();
+          return (
+            cleanCartId === cleanProdId ||
+            String(rawProdId).trim() === String(rawCartId).trim() ||
+            (prod.slug && item.product?.slug && String(prod.slug).trim().toLowerCase() === String(item.product.slug).trim().toLowerCase())
+          );
+        });
+        return !exists;
+      }
+
+      return false;
+    });
+
     if (invalidItem) {
-      setServerError(`El producto "${invalidItem.product?.title || invalidItem.product?.id}" no existe o no está disponible.`);
+      const rawDisplayId = invalidItem.product?.id || (invalidItem as any).productId || '';
+      setServerError(`El producto "${invalidItem.product?.title || rawDisplayId}" no existe o no está disponible.`);
       return;
     }
 
@@ -262,19 +324,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         discountAmount: discountAmount > 0 ? discountAmount : undefined,
         discountPercent: appliedCoupon?.percentage,
         total,
-        items: cartItems.map(item => ({
-          productId: cleanProductId(item.product.id),
-          variantId: item.variant?.id,
-          variantName: item.variant?.name,
-          variantColor: item.variant?.color,
-          variantSize: item.variant?.size || item.variant?.talla,
-          dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
-          sku: item.variant?.sku,
-          quantity: item.quantity,
-          unitPrice: item.variant?.price || item.product.price,
-          comboInfo: item.comboInfo,
-          comboGarmentLabel: item.comboGarmentLabel
-        }))
+        items: cartItems.map(item => {
+          const rawId = item.product?.id || (item as any).productId;
+          const cleanId = String(rawId || '').replace('proc-', '').trim();
+          return {
+            productId: cleanId || rawId,
+            variantId: item.variant?.id,
+            variantName: item.variant?.name,
+            variantColor: item.variant?.color,
+            variantSize: item.variant?.size || item.variant?.talla,
+            dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
+            sku: item.variant?.sku,
+            quantity: item.quantity,
+            unitPrice: item.variant?.price || item.product.price,
+            comboInfo: item.comboInfo,
+            comboGarmentLabel: item.comboGarmentLabel
+          };
+        })
       };
 
       const response = await fetch('/api/orders', {
@@ -322,8 +388,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL
       try {
         for (const item of cartItems) {
-          const cleanId = cleanProductId(item.product.id);
-          await decrementCpanelProductStock(cleanId, item.quantity);
+          const rawId = item.product?.id || (item as any).productId;
+          const cleanId = String(rawId || '').replace('proc-', '').trim();
+          await decrementCpanelProductStock(cleanId || rawId, item.quantity);
         }
       } catch (stockErr) {
         console.warn('Advertencia al sincronizar deducción de inventario en cPanel MySQL:', stockErr);

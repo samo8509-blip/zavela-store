@@ -341,11 +341,12 @@ router.post('/', async (req, res) => {
     const resolvedDane = dane_code || getDaneCode(city, department);
 
     for (const rawItem of items) {
-      const product = db.getProductById(rawItem.productId);
+      const cleanProdId = String(rawItem.productId || '').replace(/^proc-/, '').replace('proc-', '').trim();
+      const product = db.getProductById(cleanProdId) || db.getProductById(rawItem.productId);
       if (!product) {
         return res.status(400).json({
           success: false,
-          message: `El producto ${rawItem.productId} no existe o no está disponible.`
+          message: `El producto ${cleanProdId || rawItem.productId} no existe o no está disponible.`
         });
       }
 

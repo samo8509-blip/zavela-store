@@ -494,19 +494,29 @@ class DatabaseStore {
   getProductById(idOrSlug: string): Product | undefined {
     if (!idOrSlug) return undefined;
     const target = String(idOrSlug).trim();
-    if (this.isProductDeleted(target)) return undefined;
+    const cleanTarget = target.replace(/^proc-/, '').replace('proc-', '').trim();
+    if (this.isProductDeleted(target) || (cleanTarget && this.isProductDeleted(cleanTarget))) return undefined;
 
     const lowerTarget = target.toLowerCase();
+    const lowerCleanTarget = cleanTarget.toLowerCase();
     const enrich = (prod: Product): Product => {
       const backupMap = dropiBackupService.getBackupMap();
       const dId = prod.dropi_product_id ? String(prod.dropi_product_id).trim() : (prod.dropiProductId ? String(prod.dropiProductId).trim() : (backupMap[String(prod.id)] || ''));
       return { ...prod, dropi_product_id: dId, dropiProductId: dId };
     };
 
-    const found = this.data.products.find(p => 
-      String(p.id).trim() === target || p.slug === target || String(p.id).trim().toLowerCase() === lowerTarget ||
-      (p.slug && p.slug.trim().toLowerCase() === lowerTarget) || String((p as any).productId || '').trim() === target
-    );
+    const found = this.data.products.find(p => {
+      const pId = String(p.id).trim();
+      const cleanPId = pId.replace(/^proc-/, '').replace('proc-', '').trim();
+      return (
+        pId === target || pId === cleanTarget || cleanPId === cleanTarget || cleanPId === target ||
+        p.slug === target || p.slug === cleanTarget ||
+        pId.toLowerCase() === lowerTarget || pId.toLowerCase() === lowerCleanTarget ||
+        (p.slug && (p.slug.trim().toLowerCase() === lowerTarget || p.slug.trim().toLowerCase() === lowerCleanTarget)) ||
+        String((p as any).productId || '').trim() === target ||
+        String((p as any).productId || '').trim() === cleanTarget
+      );
+    });
     if (found && !isTestProduct(found)) return enrich(found);
 
     const norm = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+\$/g, '');
