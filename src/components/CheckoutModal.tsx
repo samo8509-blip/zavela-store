@@ -214,8 +214,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       errors.phone = 'Ingresa un número de celular válido (ej: 310 123 4567)';
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+\$/.test(formData.email)) {
-      errors.email = 'Ingresa un correo electrónico válido';
+    // CORRECCIÓN AQUÍ: Solo valida el formato del correo si el usuario realmente escribió algo en ese campo
+    if (formData.email && formData.email.trim() !== '') {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+\$/.test(formData.email.trim())) {
+        errors.email = 'Ingresa un correo electrónico válido';
+      }
     }
 
     if (!formData.department) errors.department = 'Selecciona un departamento';
