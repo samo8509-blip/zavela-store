@@ -26,8 +26,6 @@ import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 
-// NOTA: Se eliminó la importación de decrementCpanelProductStock para proteger el catálogo.
-
 export const cleanProductId = (rawId: string | number | undefined | null): string => {
   if (rawId === undefined || rawId === null) return '';
   return String(rawId).replace(/proc-/gi, '').replace(/^proc[-_]/i, '').trim();
@@ -214,9 +212,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       errors.phone = 'Ingresa un número de celular válido (ej: 310 123 4567)';
     }
 
-    // CORRECCIÓN AQUÍ: Solo valida el formato del correo si el usuario realmente escribió algo en ese campo
+    // Validación permisiva sin escapes ni caracteres corruptos
     if (formData.email && formData.email.trim() !== '') {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+\$/.test(formData.email.trim())) {
+      const emailTrimmed = formData.email.trim();
+      if (!emailTrimmed.includes('@') || !emailTrimmed.includes('.')) {
         errors.email = 'Ingresa un correo electrónico válido';
       }
     }
@@ -327,7 +326,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         })
       };
 
-      // ENVÍO AL BACKEND (api.php maneja todo: registro de pedido y descuento de stock)
       const response = await fetch('/api/api.php?action=pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -340,10 +338,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
-      // Si el pedido se registró bien, definimos la variable de la orden
       const createdOrder: Order = data.data || orderPayload;
 
-      // FLUJO EPAYCO
       if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
         const customerName = `${formData.firstName?.trim()} ${formData.lastName?.trim()}`.trim();
         const customerAddress = `${formData.address?.trim()}, ${formData.city?.trim()}`;
@@ -372,7 +368,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         return;
       }
 
-      // FLUJO CONTRA ENTREGA
       if (data.whatsappAlert && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('zavela_whatsapp_alert_triggered', {
           detail: {
