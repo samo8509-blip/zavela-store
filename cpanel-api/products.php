@@ -495,106 +495,128 @@ try {
                 exit();
             }
 
-            $title = trim($data['nombre'] ?? $data['title'] ?? $data['name'] ?? 'Producto');
-            $price = (float)($data['precio'] ?? $data['price'] ?? 0);
-            $stock = (int)($data['stock'] ?? $data['inventario'] ?? 0);
-            $description = $data['descripcion'] ?? $data['description'] ?? '';
-            $supplierCost = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
-            $suggestedPrice = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
-            
-            $flete = parseShippingCost($data);
-            $dropiFee = parseDropiFee($data);
+            // SEGURIDAD REFORZADA: Actualización parcial dinámica.
+            // Si el payload no incluye nombre, precio o imágenes (ej. solo actualiza stock o estado),
+            // PROHIBIDO sobrescribirlos con valores por defecto o vacíos.
+            $updateFields = [];
+            $params = [':id' => (string)$id];
 
-            $provider = $data['provider'] ?? 'derocha';
-            $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
-            $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? null;
-            if (empty($dropiId)) {
-                $dropiId = null;
+            if (isset($data['nombre']) || isset($data['title']) || isset($data['name'])) {
+                $rawTitle = trim($data['nombre'] ?? $data['title'] ?? $data['name']);
+                if (!empty($rawTitle)) {
+                    $updateFields[] = "nombre = :nombre";
+                    $params[':nombre'] = $rawTitle;
+                }
+            }
+            if (isset($data['precio']) || isset($data['price'])) {
+                $rawPrice = (float)($data['precio'] ?? $data['price']);
+                if ($rawPrice > 0 || (isset($data['allow_zero_price']) && $data['allow_zero_price'])) {
+                    $updateFields[] = "precio = :precio";
+                    $params[':precio'] = $rawPrice;
+                }
+            }
+            if (isset($data['stock']) || isset($data['inventario'])) {
+                $updateFields[] = "stock = :stock";
+                $params[':stock'] = max(0, (int)($data['stock'] ?? $data['inventario']));
+            }
+            if (isset($data['descripcion']) || isset($data['description'])) {
+                $updateFields[] = "descripcion = :descripcion";
+                $params[':descripcion'] = $data['descripcion'] ?? $data['description'];
+            }
+            if (isset($data['supplier_cost']) || isset($data['costPrice']) || isset($data['costo'])) {
+                $updateFields[] = "supplier_cost = :supplier_cost";
+                $params[':supplier_cost'] = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo']);
+            }
+            if (isset($data['suggested_price']) || isset($data['compareAtPrice']) || isset($data['compare_price'])) {
+                $updateFields[] = "suggested_price = :suggested_price";
+                $params[':suggested_price'] = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price']);
+            }
+            if (isset($data['shipping_cost']) || isset($data['shippingCost']) || isset($data['flete_envio']) || isset($data['flete'])) {
+                $flete = parseShippingCost($data);
+                $updateFields[] = "shipping_cost = :shipping_cost";
+                $updateFields[] = "flete_envio = :flete_envio";
+                $updateFields[] = "flete = :flete";
+                $params[':shipping_cost'] = $flete;
+                $params[':flete_envio'] = $flete;
+                $params[':flete'] = $flete;
+            }
+            if (isset($data['dropi_fee']) || isset($data['dropiFee'])) {
+                $dropiFee = parseDropiFee($data);
+                $updateFields[] = "dropi_fee = :dropi_fee";
+                $params[':dropi_fee'] = $dropiFee;
+            }
+            if (isset($data['dropi_product_id']) || isset($data['dropiProductId'])) {
+                $valDropiId = trim((string)($data['dropi_product_id'] ?? $data['dropiProductId']));
+                $updateFields[] = "dropi_product_id = :dropi_product_id";
+                $params[':dropi_product_id'] = !empty($valDropiId) ? $valDropiId : null;
+            }
+            if (isset($data['provider'])) {
+                $updateFields[] = "provider = :provider";
+                $params[':provider'] = $data['provider'];
+            }
+            if (isset($data['supplier'])) {
+                $updateFields[] = "supplier = :supplier";
+                $params[':supplier'] = $data['supplier'];
+            }
+            if (isset($data['supplier_sku']) || isset($data['supplierSku'])) {
+                $updateFields[] = "supplier_sku = :supplier_sku";
+                $params[':supplier_sku'] = $data['supplier_sku'] ?? $data['supplierSku'];
+            }
+            if (isset($data['categoria']) || isset($data['categoryName']) || isset($data['category'])) {
+                $cat = $data['categoria'] ?? $data['categoryName'] ?? $data['category'];
+                $updateFields[] = "categoria = :categoria";
+                $updateFields[] = "category = :category";
+                $params[':categoria'] = $cat;
+                $params[':category'] = $cat;
+            }
+            if (isset($data['category_id']) || isset($data['categoryId'])) {
+                $updateFields[] = "category_id = :category_id";
+                $params[':category_id'] = $data['category_id'] ?? $data['categoryId'];
+            }
+            if (isset($data['images']) || isset($data['imagenes']) || isset($data['imagen']) || isset($data['image'])) {
+                $imagesList = [];
+                if (!empty($data['images']) && is_array($data['images'])) {
+                    $imagesList = $data['images'];
+                } else if (!empty($data['imagenes'])) {
+                    $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
+                }
+                $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
+                if (!empty($mainImage)) {
+                    $updateFields[] = "imagen = :imagen";
+                    $params[':imagen'] = $mainImage;
+                }
+                if (!empty($imagesList)) {
+                    $imagesJson = json_encode($imagesList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $updateFields[] = "imagenes = :imagenes";
+                    $params[':imagenes'] = $imagesJson;
+                }
+            }
+            if (isset($data['variants']) || isset($data['variantes'])) {
+                $vList = $data['variants'] ?? $data['variantes'];
+                $vJson = is_array($vList) ? json_encode($vList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : (string)$vList;
+                $updateFields[] = "variants = :variants";
+                $updateFields[] = "variantes = :variantes";
+                $updateFields[] = "sizes = :sizes";
+                $params[':variants'] = $vJson;
+                $params[':variantes'] = $vJson;
+                $params[':sizes'] = $vJson;
+            }
+            if (isset($data['active']) || isset($data['activo'])) {
+                $isActive = isset($data['active']) ? (bool)$data['active'] : (bool)$data['activo'];
+                $updateFields[] = "active = :active";
+                $updateFields[] = "status = :status";
+                $updateFields[] = "estado = :estado";
+                $params[':active'] = $isActive ? 1 : 0;
+                $params[':status'] = $isActive ? 'active' : 'inactive';
+                $params[':estado'] = $isActive ? 'activo' : 'inactivo';
             }
 
-            $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';
-            $category = $categoria;
-            $categoryId = $data['category_id'] ?? $data['categoryId'] ?? 'cat-general';
-
-            $active = isset($data['active']) ? ($data['active'] ? 1 : 0) : 1;
-            $status = $active ? 'active' : 'inactive';
-            $estado = $active ? 'activo' : 'inactivo';
-
-            $imagesList = [];
-            if (!empty($data['images']) && is_array($data['images'])) {
-                $imagesList = $data['images'];
-            } else if (!empty($data['imagenes'])) {
-                $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
+            if (!empty($updateFields)) {
+                $updateFields[] = "updated_at = NOW()";
+                $sql = "UPDATE {$tableName} SET " . implode(", ", $updateFields) . " WHERE id = :id OR slug = :id";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
             }
-            $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
-            $imagesJson = json_encode($imagesList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-            $variantsList = [];
-            if (!empty($data['variants']) && is_array($data['variants'])) {
-                $variantsList = $data['variants'];
-            } else if (!empty($data['variantes']) && is_array($data['variantes'])) {
-                $variantsList = $data['variantes'];
-            }
-            $variantsJson = json_encode($variantsList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-            $sql = "UPDATE {$tableName} SET 
-                nombre = :nombre,
-                precio = :precio,
-                stock = :stock,
-                descripcion = :descripcion,
-                imagen = :imagen,
-                shipping_cost = :shipping_cost,
-                flete_envio = :flete_envio,
-                flete = :flete,
-                dropi_fee = :dropi_fee,
-                dropi_product_id = :dropi_product_id,
-                provider = :provider,
-                supplier = :supplier,
-                supplier_sku = :supplier_sku,
-                categoria = :categoria,
-                category = :category,
-                category_id = :category_id,
-                supplier_cost = :supplier_cost,
-                suggested_price = :suggested_price,
-                imagenes = :imagenes,
-                variants = :variants,
-                variantes = :variantes,
-                sizes = :sizes,
-                active = :active,
-                status = :status,
-                estado = :estado,
-                updated_at = NOW()
-            WHERE id = :id OR slug = :id";
-
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
-                ':id'               => $id,
-                ':nombre'           => $title,
-                ':precio'           => $price,
-                ':stock'            => $stock,
-                ':descripcion'      => $description,
-                ':imagen'           => $mainImage,
-                ':shipping_cost'    => $flete,
-                ':flete_envio'      => $flete,
-                ':flete'            => $flete,
-                ':dropi_fee'        => $dropiFee,
-                ':dropi_product_id' => $dropiId,
-                ':provider'         => $provider,
-                ':supplier'         => $supplier,
-                ':supplier_sku'     => $supplierSku,
-                ':categoria'        => $categoria,
-                ':category'         => $category,
-                ':category_id'      => $categoryId,
-                ':supplier_cost'    => $supplierCost,
-                ':suggested_price'  => $suggestedPrice,
-                ':imagenes'         => $imagesJson,
-                ':variants'         => $variantsJson,
-                ':variantes'        => $variantsJson,
-                ':sizes'            => $variantsJson,
-                ':active'           => $active,
-                ':status'           => $status,
-                ':estado'           => $estado
-            ]);
 
             $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
             $fetchStmt->execute([':id' => $id]);
@@ -603,12 +625,9 @@ try {
             header('Content-Type: application/json');
             echo json_encode([
                 'success'       => true,
-                'message'       => 'Producto guardado',
-                'shipping_cost' => $flete,
-                'flete_envio'   => $flete,
-                'dropi_fee'     => $dropiFee,
-                'product'       => formatProductOutput($updatedRow),
-                'data'          => formatProductOutput($updatedRow)
+                'message'       => 'Producto guardado de forma segura',
+                'product'       => $updatedRow ? formatProductOutput($updatedRow) : null,
+                'data'          => $updatedRow ? formatProductOutput($updatedRow) : null
             ]);
             exit;
 

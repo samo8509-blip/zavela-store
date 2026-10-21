@@ -407,7 +407,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     };
   };
 
-  // Helper para verificar si la orden pertenece estrictamente a Dropi o a bodega directa (DeRocha, Propio)
+  // Helper para verificar si la orden pertenece estrictamente a Dropi o a bodega directa (DeRocha, Propio, etc.)
   const isOrderDropi = (order?: Order | null): boolean => {
     if (!order) return false;
     const items = order.items || [];
@@ -415,16 +415,41 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     return items.some(item => {
       const matched = findProductForItem(item);
       const supplierStr = String(
+        (item as any).bodega || 
+        (item as any).bodega_origen || 
         (item as any).supplier || 
         (item as any).provider || 
+        (item as any).proveedor || 
+        (matched as any).bodega || 
+        (matched as any).bodega_origen || 
         (matched as any).supplier || 
         (matched as any).provider || 
+        (matched as any).proveedor || 
+        (matched as any).supplier_name || 
         matched?.brand || 
         ''
       ).toLowerCase().trim();
 
+      // Si es DeRocha, Propio o bodega directa, NUNCA es Dropi
+      if (supplierStr.includes('derocha') || supplierStr.includes('propio') || supplierStr.includes('directo') || supplierStr.includes('zavela')) {
+        return false;
+      }
       return supplierStr.includes('dropi');
     });
+  };
+
+  // Despacho directo de bodega propia (DeRocha, Propio, etc.)
+  const handleMarkAsDirectShipped = async (order: Order) => {
+    setIsProcessing(order.id);
+    try {
+      const generatedTracking = order.trackingNumber || `DIR-${Math.floor(100000 + Math.random() * 900000)}`;
+      const carrierName = order.carrier || 'Servientrega';
+      await handleUpdateOrderStatus(order.id, 'enviado', carrierName, generatedTracking);
+    } catch (err) {
+      console.error('Error al despachar pedido directo:', err);
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
   const handleInspectProduct = (item: OrderItem) => {
@@ -1121,27 +1146,42 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
                           
-                          {/* Dropi Approval Action Button */}
-                          {(order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' || order.status === 'ERROR_DROPI') ? (
-                            <button
-                              id={`btn-dropi-approve-${order.id}`}
-                              onClick={() => handleOpenDropiModal(order)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
-                              title="Revisar datos del cliente y transmitir orden a Dropi Colombia"
-                            >
-                              <Send className="w-3 h-3 text-cyan-200" />
-                              <span>{order.status === 'ERROR_DROPI' ? 'Reintentar Dropi' : 'Revisar & Enviar Dropi'}</span>
-                            </button>
-                          ) : order.status === 'APROBADO_DROPI' ? (
-                            <button
-                              onClick={() => handleOpenDropiModal(order)}
-                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
-                              title="Ver ficha de transmisión de Dropi"
-                            >
-                              <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Ficha Dropi</span>
-                            </button>
-                          ) : null}
+                          {/* Dropi Approval Action Button vs Direct Shipping */}
+                          {isOrderDropi(order) ? (
+                            (order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' || order.status === 'ERROR_DROPI') ? (
+                              <button
+                                id={`btn-dropi-approve-${order.id}`}
+                                onClick={() => handleOpenDropiModal(order)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                                title="Revisar datos del cliente y transmitir orden a Dropi Colombia"
+                              >
+                                <Send className="w-3 h-3 text-cyan-200" />
+                                <span>{order.status === 'ERROR_DROPI' ? 'Reintentar Dropi' : 'Revisar & Enviar a Dropi Colombia'}</span>
+                              </button>
+                            ) : order.status === 'APROBADO_DROPI' ? (
+                              <button
+                                onClick={() => handleOpenDropiModal(order)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                                title="Ver ficha de transmisión de Dropi"
+                              >
+                                <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Ficha Dropi</span>
+                              </button>
+                            ) : null
+                          ) : (
+                            (order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' || order.status === 'pago_confirmado' || order.status === 'procesando') ? (
+                              <button
+                                id={`btn-direct-ship-${order.id}`}
+                                onClick={() => handleMarkAsDirectShipped(order)}
+                                disabled={isProcessing === order.id}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                                title="Marcar pedido de bodega directa como despachado (Envío Directo)"
+                              >
+                                <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Marcar como Despachado (Envío Directo)</span>
+                              </button>
+                            ) : null
+                          )}
 
                           <div className="flex items-center gap-1">
                             <button
@@ -1799,42 +1839,73 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                 </div>
               </div>
 
-              {/* Dropi Quick Action in Order View */}
-              {selectedOrder.status !== 'APROBADO_DROPI' ? (
-                <div className="p-3 rounded-2xl bg-cyan-50/70 border border-cyan-200 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-cyan-700 shrink-0" />
-                    <div>
-                      <div className="font-bold text-cyan-950 text-xs">Sincronización con Dropi Colombia</div>
-                      <div className="text-[11px] text-cyan-800">Revisa la orden y transmítela directamente a Dropi para generar la guía.</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const ord = selectedOrder;
-                      setSelectedOrder(null);
-                      handleOpenDropiModal(ord);
-                    }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Aprobar en Dropi</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <div className="font-bold text-emerald-950 text-xs">Aprobado en Dropi Colombia</div>
-                      <div className="text-[11px] text-emerald-800">
-                        Dropi ID: #{selectedOrder.dropi_order_id || 'N/A'} • Guía: {selectedOrder.dropi_guia || selectedOrder.trackingNumber || 'Pendiente'}
+              {/* Dropi Quick Action vs Direct Warehouse in Order View */}
+              {isOrderDropi(selectedOrder) ? (
+                selectedOrder.status !== 'APROBADO_DROPI' ? (
+                  <div className="p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-cyan-700 shrink-0" />
+                      <div>
+                        <div className="font-bold text-cyan-950 text-xs">Sincronización con Dropi Colombia</div>
+                        <div className="text-[11px] text-cyan-800">Revisa la orden y transmítela directamente a Dropi para generar la guía.</div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => {
+                        const ord = selectedOrder;
+                        setSelectedOrder(null);
+                        handleOpenDropiModal(ord);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Revisar & Enviar a Dropi Colombia</span>
+                    </button>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-emerald-200/60 text-emerald-900 font-bold text-[10px]">
-                    Sincronizado
-                  </span>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-emerald-950 text-xs">Aprobado en Dropi Colombia</div>
+                        <div className="text-[11px] text-emerald-800">
+                          Dropi ID: #{selectedOrder.dropi_order_id || 'N/A'} • Guía: {selectedOrder.dropi_guia || selectedOrder.trackingNumber || 'Pendiente'}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-200/60 text-emerald-900 font-bold text-[10px]">
+                      Sincronizado
+                    </span>
+                  </div>
+                )
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Warehouse className="w-4 h-4 text-slate-700 shrink-0" />
+                    <div>
+                      <div className="font-bold text-slate-900 text-xs">Despacho desde Bodega Directa (DeRocha / Propio)</div>
+                      <div className="text-[11px] text-slate-500">Este producto se gestiona con inventario directo. No requiere integración Dropi.</div>
+                    </div>
+                  </div>
+                  {selectedOrder.status !== 'enviado' && selectedOrder.status !== 'entregado' ? (
+                    <button
+                      onClick={async () => {
+                        const ord = selectedOrder;
+                        await handleMarkAsDirectShipped(ord);
+                        setSelectedOrder(prev => prev ? { ...prev, status: 'enviado' } : null);
+                      }}
+                      disabled={isProcessing === selectedOrder.id}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-md transition-all cursor-pointer shrink-0"
+                    >
+                      <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Marcar como Despachado (Envío Directo)</span>
+                    </button>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Despachado (Envío Directo)</span>
+                    </span>
+                  )}
                 </div>
               )}
 

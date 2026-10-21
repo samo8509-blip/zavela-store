@@ -1,571 +1,704 @@
-// ==============================================================================
-// ZavelaStore - Servicio Cliente de Productos en MySQL (cPanel)
-// Reemplazo completo de Cloud Firestore para el Catálogo de Productos
-// ==============================================================================
-
-import { Product } from '../types/index.ts';
-
-const API_PRODUCTS_URL = '/api/products.php';
-const API_BATCH_URL = '/api/products_batch.php';
-const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
-
-const OVERRIDE_STORAGE_PREFIX = 'zavela_product_override_';
-const OVERRIDES_MAP_KEY = 'zavela_product_overrides_map';
-export const CUSTOM_COSTS_STORAGE_KEY = 'zavela_custom_costs_v1';
-
-export interface ProductCostOverride {
-  shippingCost: number;
-  dropiFee: number;
-  dropiProductId: string;
-  provider?: string;
-  updatedAt: number;
-}
-
-export type CustomProductCostRecord = ProductCostOverride;
-
-export function getCustomCostsMap(): Record<string, CustomProductCostRecord> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(CUSTOM_COSTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-export function saveCustomProductCost(
-  productIdOrSlug: string,
-  data: {
-    shippingCost: number;
-    dropiFee: number;
-    dropiProductId?: string;
-    provider?: string;
-    slug?: string;
-    id?: string;
-  }
-): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const map = getCustomCostsMap();
-    const finalRecord: CustomProductCostRecord = {
-      shippingCost: Number(data.shippingCost ?? 0),
-      dropiFee: Number(data.dropiFee ?? 0),
-      dropiProductId: String(data.dropiProductId || '').trim(),
-      provider: String(data.provider || 'dropi'),
-      updatedAt: Date.now()
-    };
-
-    if (productIdOrSlug) map[String(productIdOrSlug).trim()] = finalRecord;
-    if (data.id) map[String(data.id).trim()] = finalRecord;
-    if (data.slug) map[String(data.slug).trim()] = finalRecord;
-
-    localStorage.setItem(CUSTOM_COSTS_STORAGE_KEY, JSON.stringify(map));
-
-    // Compatibilidad retroactiva con prefijo individual y mapa previo
-    if (data.id || productIdOrSlug) {
-      const cleanKey = String(data.id || productIdOrSlug).trim();
-      localStorage.setItem(`${OVERRIDE_STORAGE_PREFIX}${cleanKey}`, JSON.stringify(finalRecord));
-    }
-  } catch (e) {
-    console.warn('[cPanelProducts] Error guardando mapa zavela_custom_costs_v1:', e);
-  }
-}
-
-export function getCustomProductCost(idOrSlug?: string, secondIdOrSlug?: string): CustomProductCostRecord | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const map = getCustomCostsMap();
-    const key1 = idOrSlug ? String(idOrSlug).trim() : '';
-    const key2 = secondIdOrSlug ? String(secondIdOrSlug).trim() : '';
-
-    if (key1 && map[key1]) return map[key1];
-    if (key2 && map[key2]) return map[key2];
-
-    // Fallback retrocompatible
-    if (key1) {
-      const stored = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${key1}`);
-      if (stored) return JSON.parse(stored);
-    }
-    if (key2) {
-      const stored2 = localStorage.getItem(`${OVERRIDE_STORAGE_PREFIX}${key2}`);
-      if (stored2) return JSON.parse(stored2);
-    }
-  } catch {}
-  return null;
-}
-
-export function saveLocalProductOverride(productId: string, data: { shippingCost?: number; dropiFee?: number; dropiProductId?: string; provider?: string }): void {
-  saveCustomProductCost(productId, {
-    id: productId,
-    shippingCost: data.shippingCost !== undefined ? Number(data.shippingCost) : 0,
-    dropiFee: data.dropiFee !== undefined ? Number(data.dropiFee) : 0,
-    dropiProductId: data.dropiProductId,
-    provider: data.provider
-  });
-}
-
-export function getLocalProductOverride(productId: string): ProductCostOverride | null {
-  return getCustomProductCost(productId);
-}
-
-export function overrideProductWithCustomCosts<T extends Partial<Product>>(p: T): T {
-  if (!p) return p;
-  const pId = String(p.id || (p as any).productId || '').trim();
-  const pSlug = String(p.slug || '').trim();
-  const saved = getCustomProductCost(pId, pSlug);
-  if (!saved) return p;
-
-  const sCost = Number(saved.shippingCost ?? 0);
-  const dFee = Number(saved.dropiFee ?? 0);
-
-  p.shippingCost = sCost;
-  (p as any).shipping_cost = sCost;
-  (p as any).flete = sCost;
-  (p as any).flete_envio = sCost;
-  (p as any).estimatedShippingCost = sCost;
-  p.dropiFee = dFee;
-  (p as any).dropi_fee = dFee;
-  if (saved.dropiProductId) {
-    p.dropiProductId = saved.dropiProductId;
-    (p as any).dropi_product_id = saved.dropiProductId;
-  }
-  if (saved.provider) {
-    p.provider = saved.provider;
-  }
-
-  const cost = Number(p.costPrice || (p as any).supplier_cost || (p as any).costo || 0);
-  const price = Number(p.price || (p as any).precio || 0);
-  const opCost = cost + sCost + dFee;
-  p.totalOperatingCost = opCost;
-  p.realNetProfit = price - opCost;
-  p.realNetMarginPercentage = price > 0 ? Math.round(((price - opCost) / price) * 100) : 0;
-
-  return p;
-}
-
-export function normalizeCpanelProduct(p: any): Product {
-  const pId = String(p.id || p.productId || '').trim();
-  const pSlug = String(p.slug || '').trim();
-
-  // PRIORIDAD ABSOLUTA: Consultar zavela_custom_costs_v1 en localStorage por ID o por Slug
-  const saved = getCustomProductCost(pId, pSlug);
-
-  let shipping = 0;
-  let fee = 0;
-  let dropiId = String(p.dropiProductId || p.dropi_product_id || p.dropi_id || '').trim();
-  let provider = p.provider || (dropiId ? 'dropi' : 'derocha');
-
-  if (saved) {
-    shipping = Number(saved.shippingCost ?? 0);
-    fee = Number(saved.dropiFee ?? 0);
-    if (saved.dropiProductId !== undefined && saved.dropiProductId !== '') {
-      dropiId = String(saved.dropiProductId).trim();
-    }
-    if (saved.provider) {
-      provider = String(saved.provider);
-    }
-  } else {
-    // Si no hay override en localStorage, leer lo que viene de la BD pero proteger contra 16500 de Dropi
-    const rawShipping = p.shippingCost ?? p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.estimatedShippingCost;
-    if (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') {
-      const num = Number(rawShipping);
-      const isDropiProduct = provider === 'dropi' || Boolean(dropiId) || String(p.supplier || '').toLowerCase().includes('dropi');
-      if (num === 16500 && isDropiProduct) {
-        shipping = 0;
-      } else {
-        shipping = isNaN(num) ? 0 : num;
-      }
-    }
-
-    const rawFee = p.dropiFee ?? p.dropi_fee;
-    if (rawFee !== undefined && rawFee !== null && rawFee !== '') {
-      const numFee = Number(rawFee);
-      fee = isNaN(numFee) ? 0 : numFee;
-    }
-  }
-
-  const supplier = p.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Directa'));
-  const costPrice = Number(p.costPrice || p.supplier_cost || p.costo || 0);
-  const price = Number(p.price || p.precio || 0);
-  const totalOperatingCost = costPrice + shipping + fee;
-  const realNetProfit = price - totalOperatingCost;
-  const realNetMarginPercentage = price > 0 ? Math.round((realNetProfit / price) * 100) : 0;
-
-  const normalized: Product = {
-    ...p,
-    id: pId || String(p.id),
-    title: p.title || p.nombre || p.name || '',
-    nombre: p.nombre || p.title || p.name || '',
-    slug: pSlug || p.slug || pId,
-    costPrice,
-    supplier_cost: costPrice,
-    price,
-    precio: price,
-    shippingCost: shipping,
-    shipping_cost: shipping,
-    flete_envio: shipping,
-    flete: shipping,
-    estimatedShippingCost: shipping,
-    dropiFee: fee,
-    dropi_fee: fee,
-    dropiProductId: dropiId,
-    dropi_product_id: dropiId,
-    totalOperatingCost,
-    realNetProfit,
-    realNetMarginPercentage,
-    provider,
-    supplier
-  };
-
-  if (saved) {
-    normalized.shippingCost = saved.shippingCost;
-    (normalized as any).shipping_cost = saved.shippingCost;
-    (normalized as any).flete = saved.shippingCost;
-    (normalized as any).flete_envio = saved.shippingCost;
-    normalized.dropiFee = saved.dropiFee;
-    (normalized as any).dropi_fee = saved.dropiFee;
-    if (saved.dropiProductId) {
-      normalized.dropiProductId = saved.dropiProductId;
-      (normalized as any).dropi_product_id = saved.dropiProductId;
-    }
-    if (saved.provider) {
-      normalized.provider = saved.provider;
-    }
-  }
-
-  return normalized;
-}
-
+<?php
 /**
- * 1. OBTENER / LISTAR PRODUCTOS DESDE CPANEL MYSQL
- * @param onlyActive Si es true, retorna únicamente productos activos
+ * ==============================================================================
+ * ZavelaStore - API REST de Productos para cPanel (MySQL con PDO)
+ * Archivo: products.php
+ * Ubicación recomendada en cPanel: /public_html/api/products.php o /public_html/products.php
+ * ==============================================================================
  */
-export async function getCpanelProducts(onlyActive: boolean = false): Promise<Product[]> {
-  const url = onlyActive 
-    ? `${API_PRODUCTS_URL}?only_active=1`
-    : API_PRODUCTS_URL;
 
-  try {
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' }
-    });
-    if (!res.ok) {
-      // Intento de fallback a endpoint administrativo
-      const adminRes = await fetch(API_ADMIN_PRODUCTS_URL);
-      if (adminRes.ok) {
-        const adminData = await adminRes.json();
-        const rawList = Array.isArray(adminData.data) ? adminData.data : [];
-        const mappedList = rawList.map(normalizeCpanelProduct);
-        return onlyActive ? mappedList.filter((p: Product) => p.active !== false) : mappedList;
-      }
-      throw new Error(`HTTP ${res.status} al consultar productos de cPanel MySQL`);
-    }
+// 1. Headers CORS y Respuesta JSON
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Content-Type: application/json; charset=utf-8');
 
-    const data = await res.json();
-    const rawList: any[] = Array.isArray(data.data) 
-      ? data.data 
-      : (Array.isArray(data) ? data : []);
-
-    const mappedList = rawList.map(normalizeCpanelProduct);
-    return onlyActive ? mappedList.filter(p => p.active !== false) : mappedList;
-  } catch (error: any) {
-    console.warn('[cPanel MySQL] Error al obtener productos:', error.message);
-    // Fallback hacia /api/admin/products
-    try {
-      const fallbackRes = await fetch(API_ADMIN_PRODUCTS_URL);
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        const rawList = Array.isArray(fallbackData.data) ? fallbackData.data : [];
-        const mappedList = rawList.map(normalizeCpanelProduct);
-        return onlyActive ? mappedList.filter((p: Product) => p.active !== false) : mappedList;
-      }
-    } catch {}
-    return [];
-  }
+// Responder a peticiones pre-flight de CORS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
 }
 
-/**
- * 2. GUARDAR / CREAR O ACTUALIZAR PRODUCTO EN CPANEL MYSQL
- */
-export async function saveCpanelProduct(productData: Partial<Product>): Promise<Product> {
-  const targetId = productData.id || (productData as any).productId;
-  const isEdit = Boolean(targetId);
-  const url = isEdit ? `${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(targetId!)}` : API_ADMIN_PRODUCTS_URL;
-  const method = isEdit ? 'PUT' : 'POST';
+// 2. Configuración de Conexión a la Base de Datos MySQL
+$db_host = getenv('DB_HOST') ?: 'localhost';
+$db_name = getenv('DB_NAME') ?: 'zavela_store';
+$db_user = getenv('DB_USER') ?: 'root';
+$db_pass = getenv('DB_PASS') ?: '';
 
-  const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
-  const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
+try {
+    $pdo = new PDO(
+        "mysql:host={$db_host};dbname={$db_name};charset=utf8mb4",
+        $db_user,
+        $db_pass,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]
+    );
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error de conexión a la base de datos MySQL en cPanel',
+        'error'   => $e->getMessage()
+    ]);
+    exit();
+}
 
-  // Asegurar extracción del número digitado en el input sin valores forzados (0 por defecto)
-  const shippingValue = Number(
-    (productData as any).shippingCost ??
-    (productData as any).shipping_cost ??
-    (productData as any).flete_envio ??
-    (productData as any).flete ??
-    productData.estimatedShippingCost ?? 0
-  );
-  const dropiFeeValue = Number((productData as any).dropiFee ?? (productData as any).dropi_fee ?? 0);
-  const dropiCode = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
-  const provider = productData.provider || (dropiCode ? 'dropi' : 'derocha');
+// 3. Capturar Método HTTP y Entrada
+$method = $_SERVER['REQUEST_METHOD'];
+$inputJSON = file_get_contents('php://input');
+$inputData = json_decode($inputJSON, true) ?: [];
 
-  // Guardar inmediatamente en zavela_custom_costs_v1 en localStorage como blindaje
-  if (targetId || productData.slug) {
-    saveCustomProductCost(String(targetId || productData.slug), {
-      id: targetId ? String(targetId) : undefined,
-      slug: productData.slug,
-      shippingCost: shippingValue,
-      dropiFee: dropiFeeValue,
-      dropiProductId: dropiCode,
-      provider
-    });
-  }
-
-  const payloadFinal = {
-    ...productData,
-    ...(targetId ? { id: targetId } : {}),
-    shippingCost: Number(shippingValue),
-    shipping_cost: Number(shippingValue),
-    flete: Number(shippingValue),
-    flete_envio: Number(shippingValue),
-    dropiFee: Number(dropiFeeValue),
-    dropi_fee: Number(dropiFeeValue),
-    dropiProductId: String(dropiCode || ''),
-    dropi_product_id: String(dropiCode || ''),
-    provider: String(provider),
-    estimatedShippingCost: Number(shippingValue),
-    categoria: catValue,
-    category: catValue,
-    categoryName: catValue,
-    categoryId: catIdValue,
-    category_id: catIdValue,
-    categoria_id: catIdValue
-  };
-
-  console.log('Payload al guardar:', payloadFinal);
-  console.log('payload:', payloadFinal);
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadFinal)
-    });
-
-    if (!res.ok) {
-      // Fallback a API directa de productos
-      const phpUrl = isEdit ? `${API_PRODUCTS_URL}?id=${encodeURIComponent(targetId!)}` : API_PRODUCTS_URL;
-      const phpRes = await fetch(phpUrl, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadFinal)
-      });
-      if (phpRes.ok) {
-        const phpData = await phpRes.json();
-        const finalId = phpData.data?.id || targetId;
-        if (finalId) {
-          saveCustomProductCost(String(finalId), {
-            id: String(finalId),
-            slug: productData.slug,
-            shippingCost: shippingValue,
-            dropiFee: dropiFeeValue,
-            dropiProductId: dropiCode,
-            provider
-          });
+// Detectar tabla activa en la base de datos
+$tableName = 'productos';
+try {
+    $tblCheck = $pdo->query("SHOW TABLES LIKE 'productos'");
+    if ($tblCheck->rowCount() === 0) {
+        $tblProductsCheck = $pdo->query("SHOW TABLES LIKE 'products'");
+        if ($tblProductsCheck->rowCount() > 0) {
+            $tableName = 'products';
         }
-        return normalizeCpanelProduct(phpData.data || payloadFinal);
-      }
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || err.error || `HTTP ${res.status} al guardar producto`);
     }
 
-    const data = await res.json();
-    const finalData = data.data || payloadFinal;
-    const finalId = finalData?.id || targetId;
-    if (finalId) {
-      saveCustomProductCost(String(finalId), {
-        id: String(finalId),
-        slug: productData.slug,
-        shippingCost: shippingValue,
-        dropiFee: dropiFeeValue,
-        dropiProductId: dropiCode,
-        provider
-      });
+    // Auto-crear tabla configuraciones para tokens
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `configuraciones` (
+        `clave` VARCHAR(64) NOT NULL PRIMARY KEY,
+        `valor` LONGTEXT NULL,
+        `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Auto-migración en tabla productos: columnas de flete, dropi, imágenes y variantes
+    if ($tableName === 'productos') {
+        $cols = [
+            'dropi_product_id' => "ALTER TABLE `productos` ADD COLUMN `dropi_product_id` VARCHAR(100) NULL AFTER `descripcion`",
+            'provider'         => "ALTER TABLE `productos` ADD COLUMN `provider` VARCHAR(100) NULL DEFAULT 'derocha'",
+            'supplier'         => "ALTER TABLE `productos` ADD COLUMN `supplier` VARCHAR(100) NULL DEFAULT 'DeRocha'",
+            'supplier_sku'     => "ALTER TABLE `productos` ADD COLUMN `supplier_sku` VARCHAR(100) NULL",
+            'categoria'        => "ALTER TABLE `productos` ADD COLUMN `categoria` VARCHAR(255) NULL",
+            'category'         => "ALTER TABLE `productos` ADD COLUMN `category` VARCHAR(255) NULL",
+            'category_id'      => "ALTER TABLE `productos` ADD COLUMN `category_id` VARCHAR(100) NULL",
+            'supplier_cost'    => "ALTER TABLE `productos` ADD COLUMN `supplier_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'suggested_price'  => "ALTER TABLE `productos` ADD COLUMN `suggested_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'imagenes'         => "ALTER TABLE `productos` ADD COLUMN `imagenes` LONGTEXT NULL AFTER `imagen`",
+            'raw_dropi_payload'=> "ALTER TABLE `productos` ADD COLUMN `raw_dropi_payload` LONGTEXT NULL",
+            'variants'         => "ALTER TABLE `productos` ADD COLUMN `variants` LONGTEXT NULL",
+            'variantes'        => "ALTER TABLE `productos` ADD COLUMN `variantes` LONGTEXT NULL",
+            'sizes'            => "ALTER TABLE `productos` ADD COLUMN `sizes` LONGTEXT NULL",
+            'shipping_cost'    => "ALTER TABLE `productos` ADD COLUMN `shipping_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'flete_envio'      => "ALTER TABLE `productos` ADD COLUMN `flete_envio` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'flete'            => "ALTER TABLE `productos` ADD COLUMN `flete` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'dropi_fee'        => "ALTER TABLE `productos` ADD COLUMN `dropi_fee` DECIMAL(12,2) NOT NULL DEFAULT 0.00",
+            'active'           => "ALTER TABLE `productos` ADD COLUMN `active` TINYINT(1) NOT NULL DEFAULT 1",
+            'status'           => "ALTER TABLE `productos` ADD COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'active'",
+            'estado'           => "ALTER TABLE `productos` ADD COLUMN `estado` VARCHAR(50) NOT NULL DEFAULT 'activo'"
+        ];
+        foreach ($cols as $colName => $alterSql) {
+            $check = $pdo->query("SHOW COLUMNS FROM `productos` LIKE '{$colName}'");
+            if ($check->rowCount() === 0) {
+                $pdo->exec($alterSql);
+            }
+        }
     }
-    return normalizeCpanelProduct(finalData);
-  } catch (err: any) {
-    console.error('[cPanel MySQL] Error al guardar producto:', err);
-    throw err;
-  }
+} catch (Exception $e) {
+    $tableName = 'productos';
 }
 
-export const createCpanelProduct = saveCpanelProduct;
-export const updateCpanelProduct = async (id: string, updates: Partial<Product>): Promise<Product> => {
-  return saveCpanelProduct({ ...updates, id });
-};
+// Función auxiliar para parsear y limpiar montos monetarios o fletes (DEFAULT 0, SIN 16500)
+function parseShippingCost($data) {
+    $raw = $data['shippingCost'] 
+        ?? $data['shipping_cost'] 
+        ?? $data['flete'] 
+        ?? $data['flete_envio'] 
+        ?? $data['costo_envio'] 
+        ?? $data['estimatedShippingCost'] 
+        ?? null;
 
-/**
- * 3. ELIMINAR PRODUCTO (Físico o Soft Delete) EN CPANEL MYSQL
- */
-export async function deleteCpanelProduct(id: string, softDelete: boolean = false): Promise<boolean> {
-  if (!id) return false;
-
-  if (softDelete) {
-    const res = await fetch(`${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, active: false })
-    });
-    return res.ok;
-  }
-
-  try {
-    const res = await fetch(`${API_ADMIN_PRODUCTS_URL}/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-    if (!res.ok) {
-      const phpRes = await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
-      return phpRes.ok;
-    }
-    return true;
-  } catch (err: any) {
-    console.error('[cPanel MySQL] Error al eliminar producto:', err);
-    return false;
-  }
-}
-
-/**
- * 4. ELIMINACIÓN EN LOTE (BATCH DELETE) EN CPANEL MYSQL
- */
-export async function deleteMultipleCpanelProducts(ids: string[], softDelete: boolean = false): Promise<number> {
-  if (!ids || ids.length === 0) return 0;
-
-  try {
-    const res = await fetch(API_BATCH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ids,
-        action: softDelete ? 'update_status' : 'delete',
-        active: false
-      })
-    });
-
-    if (!res.ok) {
-      // Fallback
-      const adminRes = await fetch('/api/admin/products/bulk-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, softDelete })
-      });
-      if (adminRes.ok) {
-        const data = await adminRes.json();
-        return data.count || ids.length;
-      }
-      return 0;
+    if ($raw === null || $raw === '') {
+        return 0.00;
     }
 
-    const data = await res.json();
-    return data.deletedCount || data.affectedCount || ids.length;
-  } catch (err) {
-    console.error('[cPanel MySQL] Error en eliminación en lote:', err);
-    return 0;
-  }
-}
-
-/**
- * 5. ACTUALIZAR ESTADO EN LOTE (ACTIVAR / PAUSAR) EN CPANEL MYSQL
- */
-export async function updateMultipleCpanelProducts(ids: string[], updates: Partial<Product>): Promise<boolean> {
-  if (!ids || ids.length === 0) return false;
-
-  try {
-    const res = await fetch(API_BATCH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ids,
-        action: 'update_status',
-        active: updates.active !== false
-      })
-    });
-    return res.ok;
-  } catch (err) {
-    console.error('[cPanel MySQL] Error al actualizar estado en lote:', err);
-    return false;
-  }
-}
-
-/**
- * 6. DUPLICAR PRODUCTO EN CPANEL MYSQL
- */
-export async function duplicateCpanelProduct(product: Product): Promise<Product> {
-  const newId = `prod-${Date.now()}`;
-  const duplicated: Partial<Product> = {
-    ...product,
-    id: newId,
-    title: `${product.title} (Copia)`,
-    slug: `${product.slug}-copia-${Date.now().toString().slice(-4)}`,
-    stock: product.stock > 0 ? product.stock : 10,
-    active: false, // Inicia pausado por seguridad
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  return saveCpanelProduct(duplicated);
-}
-
-/**
- * 7. DECREMENTAR STOCK TRAS UNA COMPRA (CHECKOUT)
- */
-export async function decrementCpanelProductStock(productId: string, quantity: number = 1): Promise<void> {
-  if (!productId || quantity <= 0) return;
-
-  try {
-    // LLAMADA SEGURA: Usamos la acción 'decrement_stock' de tu products.php
-    // Esto garantiza que MySQL SOLO reste el stock y tenga prohibido borrar el nombre, foto o precio.
-    await fetch(API_PRODUCTS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        action: 'decrement_stock',
-        id_producto: productId,
-        cantidad: quantity
-      })
-    });
-  } catch (e) {
-    console.warn('[cPanel Stock] No se pudo decrementar stock:', e);
-  }
-}
-
-/**
- * 8. SUBIR O PROCESAR IMAGEN DE PRODUCTO PARA CPANEL MYSQL
- */
-export async function uploadProductImage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
- * 9. VERIFICAR CONEXIÓN CON CPANEL MYSQL
- */
-export async function checkCpanelConnection(): Promise<{ connected: boolean; message: string }> {
-  try {
-    const res = await fetch(`${API_PRODUCTS_URL}?only_active=1`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(3500)
-    });
-    if (res.ok) {
-      return { connected: true, message: 'cPanel MySQL Conectado y Operativo' };
+    if (is_numeric($raw)) {
+        return (float)$raw;
     }
-    return { connected: false, message: `Respuesta HTTP ${res.status}` };
-  } catch (err: any) {
-    return { connected: false, message: `Sin conexión: ${err.message}` };
-  }
+
+    $clean = preg_replace('/[^0-9.]/', '', (string)$raw);
+    return is_numeric($clean) ? (float)$clean : 0.00;
+}
+
+// Función auxiliar para parsear tarifas de Dropi (DEFAULT 0, SIN VALORES FORZADOS)
+function parseDropiFee($data) {
+    $raw = $data['dropiFee'] ?? $data['dropi_fee'] ?? null;
+    if ($raw === null || $raw === '') {
+        return 0.00;
+    }
+    return is_numeric($raw) ? (float)$raw : 0.00;
+}
+
+// Helper para normalizar producto de MySQL a JSON del frontend
+function formatProductOutput($row) {
+    $images = [];
+    $rawImagenes = $row['imagenes'] ?? $row['images'] ?? null;
+    if (!empty($rawImagenes)) {
+        if (is_array($rawImagenes)) {
+            $images = $rawImagenes;
+        } else {
+            $decoded = json_decode($rawImagenes, true);
+            if (is_array($decoded)) {
+                $images = $decoded;
+            } else if (is_string($rawImagenes)) {
+                $images = array_map('trim', explode(',', $rawImagenes));
+            }
+        }
+    }
+    if (empty($images) && !empty($row['imagen'])) {
+        $images = [$row['imagen']];
+    }
+    if (empty($images) && !empty($row['image'])) {
+        $images = [$row['image']];
+    }
+    if (empty($images)) {
+        $images = ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'];
+    }
+    $mainImage = $images[0];
+
+    $title = $row['nombre'] ?? $row['title'] ?? 'Producto Zavela';
+    $slug = $row['slug'] ?? '';
+    if (empty($slug)) {
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+        if (empty($slug)) $slug = (string)$row['id'];
+    }
+
+    $description = $row['descripcion'] ?? $row['description'] ?? '';
+    $shortDescription = $row['short_description'] ?? $row['shortDescription'] ?? '';
+
+    $price = (float)($row['precio'] ?? $row['price'] ?? 0);
+    $costPrice = (float)($row['supplier_cost'] ?? $row['costo'] ?? $row['cost_price'] ?? 0);
+    $comparePrice = (float)($row['suggested_price'] ?? $row['compare_price'] ?? ($price > 0 ? $price + 20000 : 0));
+    $marginAmount = $price - $costPrice;
+    $marginPercentage = $costPrice > 0 ? round(($marginAmount / $costPrice) * 100, 1) : 0;
+
+    $stock = (int)($row['stock'] ?? $row['inventario'] ?? 0);
+    $active = isset($row['active']) ? (bool)$row['active'] : (isset($row['activo']) ? (bool)$row['activo'] : true);
+    $featured = isset($row['featured']) ? (bool)$row['featured'] : (isset($row['destacado']) ? (bool)$row['destacado'] : false);
+
+    $dropiId = $row['dropi_product_id'] ?? $row['dropiProductId'] ?? $row['dropi_id'] ?? '';
+
+    $tags = [];
+    if (!empty($row['tags'])) {
+        $decodedTags = is_string($row['tags']) ? json_decode($row['tags'], true) : $row['tags'];
+        $tags = is_array($decodedTags) ? $decodedTags : explode(',', (string)$row['tags']);
+    }
+
+    $variants = [];
+    $rawVariants = $row['variants'] ?? $row['variantes'] ?? $row['sizes'] ?? null;
+    if (!empty($rawVariants)) {
+        $decodedVars = is_string($rawVariants) ? json_decode($rawVariants, true) : $rawVariants;
+        $variants = is_array($decodedVars) ? $decodedVars : [];
+    }
+
+    // Flete: Default 0.00 absoluto
+    $shippingVal = $row['shipping_cost'] ?? $row['flete_envio'] ?? $row['flete'] ?? null;
+    $shippingCost = ($shippingVal !== null && $shippingVal !== '') ? (float)$shippingVal : 0.00;
+    $dropiFee = (float)($row['dropi_fee'] ?? 0.00);
+
+    return [
+        'id'                    => (string)$row['id'],
+        'title'                 => $title,
+        'nombre'                => $title,
+        'name'                  => $title,
+        'slug'                  => $slug,
+        'description'           => $description,
+        'descripcion'           => $description,
+        'shortDescription'      => $shortDescription,
+        'price'                 => $price,
+        'precio'                => $price,
+        'costPrice'             => $costPrice,
+        'supplier_cost'         => $costPrice,
+        'compareAtPrice'        => $comparePrice,
+        'suggested_price'       => $comparePrice,
+        'discountPercentage'    => (int)($row['discount_percentage'] ?? 0),
+        'marginAmount'          => $marginAmount,
+        'marginPercentage'      => $marginPercentage,
+        'shippingCost'          => $shippingCost,
+        'shipping_cost'         => $shippingCost,
+        'flete_envio'           => $shippingCost,
+        'flete'                 => $shippingCost,
+        'estimatedShippingCost' => $shippingCost,
+        'dropiFee'              => $dropiFee,
+        'dropi_fee'             => $dropiFee,
+        'stock'                 => $stock,
+        'active'                => $active,
+        'featured'              => $featured,
+        'image'                 => $mainImage,
+        'imagen'                => $mainImage,
+        'images'                => $images,
+        'imagenes'              => $images,
+        'provider'              => $row['provider'] ?? 'derocha',
+        'supplier'              => $row['supplier'] ?? 'DeRocha',
+        'supplierSku'           => $row['supplier_sku'] ?? '',
+        'supplier_sku'          => $row['supplier_sku'] ?? '',
+        'categoryId'            => $row['category_id'] ?? 'cat-general',
+        'categoryName'          => $row['categoria'] ?? $row['category'] ?? 'General',
+        'categoria'             => $row['categoria'] ?? $row['category'] ?? 'General',
+        'category'              => $row['categoria'] ?? $row['category'] ?? 'General',
+        'dropi_product_id'      => (string)$dropiId,
+        'dropiProductId'        => (string)$dropiId,
+        'dropi_id'              => (string)$dropiId,
+        'variants'              => $variants,
+        'variantes'             => $variants,
+        'createdAt'             => $row['created_at'] ?? date('c'),
+        'updatedAt'             => $row['updated_at'] ?? ($row['created_at'] ?? date('c'))
+    ];
+}
+
+// 4. Enrutamiento CRUD según Método HTTP
+try {
+    switch ($method) {
+        case 'GET':
+            $id = $_GET['id'] ?? null;
+            $slug = $_GET['slug'] ?? null;
+            $onlyActive = isset($_GET['only_active']) && ($_GET['only_active'] === 'true' || $_GET['only_active'] === '1');
+            $search = $_GET['search'] ?? null;
+
+            if ($id || $slug) {
+                $checkField = $id ? "id = :query" : "(id = :query OR slug = :query)";
+                $sql = "SELECT * FROM {$tableName} WHERE {$checkField} LIMIT 1";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([':query' => $id ?: $slug]);
+                $product = $stmt->fetch();
+
+                if (!$product) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'message' => 'Producto no encontrado en MySQL']);
+                    exit();
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'data'    => formatProductOutput($product)
+                ]);
+                exit();
+            }
+
+            $whereClauses = [];
+            $params = [];
+
+            if ($onlyActive) {
+                $whereClauses[] = "active = 1";
+            }
+            if ($search) {
+                $whereClauses[] = "(nombre LIKE :search OR descripcion LIKE :search OR dropi_product_id LIKE :search)";
+                $params[':search'] = "%{$search}%";
+            }
+
+            $sql = "SELECT * FROM {$tableName}";
+            if (!empty($whereClauses)) {
+                $sql .= " WHERE " . implode(' AND ', $whereClauses);
+            }
+            $sql .= " ORDER BY created_at DESC";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+
+            $products = array_map('formatProductOutput', $rows);
+
+            echo json_encode([
+                'success' => true,
+                'count'   => count($products),
+                'data'    => $products
+            ]);
+            break;
+
+        case 'POST':
+            $data = $inputData;
+            $action = $data['action'] ?? ($_GET['action'] ?? null);
+
+            // ==============================================================================
+            // ACCIÓN: Descuento Seguro de Inventario (Checkout Seguro)
+            // REGLA DE SEGURIDAD EXTREMA: Modifica ÚNICAMENTE la columna stock.
+            // PROHIBIDO actualizar nombre, imagen, precio, descripción ni ninguna otra columna.
+            // ==============================================================================
+            if ($action === 'decrement_stock' || $action === 'deduct_stock' || $action === 'descontar_inventario') {
+                $id = $data['id'] ?? ($data['id_producto'] ?? ($data['productId'] ?? ($_GET['id'] ?? null)));
+                $cantidad = isset($data['cantidad']) ? (int)$data['cantidad'] : (isset($data['quantity']) ? (int)$data['quantity'] : 1);
+
+                if (!$id || $cantidad <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => 'ID de producto y cantidad válidos son requeridos']);
+                    exit();
+                }
+
+                // CONSULTA SEGURA: Resta la cantidad al stock asegurando no ser menor a 0
+                $sql = "UPDATE {$tableName} SET stock = GREATEST(0, stock - :cantidad), updated_at = NOW() WHERE id = :id_producto";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':cantidad'    => $cantidad,
+                    ':id_producto' => (string)$id
+                ]);
+
+                echo json_encode([
+                    'success'      => true,
+                    'message'      => 'Inventario descontado exitosamente sin alterar datos del producto',
+                    'id_producto'  => (string)$id,
+                    'descontado'   => $cantidad
+                ]);
+                exit();
+            }
+
+            $id = $_GET['id'] ?? ($data['id'] ?? null);
+
+            if (!$id) {
+                $id = 'prod-' . round(microtime(true) * 1000);
+            }
+
+            $title = trim($data['nombre'] ?? $data['title'] ?? $data['name'] ?? 'Nuevo Producto');
+            $slug = $data['slug'] ?? '';
+            if (empty($slug)) {
+                $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+                if (empty($slug)) $slug = $id;
+            }
+
+            $description = $data['descripcion'] ?? $data['description'] ?? '';
+            $price = (float)($data['precio'] ?? $data['price'] ?? 0);
+            $stock = (int)($data['stock'] ?? $data['inventario'] ?? 0);
+            $supplierCost = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
+            $suggestedPrice = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
+            
+            // Flete y Tarifa Dropi: 0 por defecto
+            $flete = parseShippingCost($data);
+            $dropiFee = parseDropiFee($data);
+
+            $provider = $data['provider'] ?? 'derocha';
+            $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
+            $dropiId = $data['dropi_product_id'] ?? $data['dropiProductId'] ?? null;
+            if (empty($dropiId)) {
+                $dropiId = null;
+            }
+
+            $categoria = $data['categoria'] ?? $data['categoryName'] ?? $data['category'] ?? 'General';
+            $category = $categoria;
+            $categoryId = $data['category_id'] ?? $data['categoryId'] ?? 'cat-general';
+
+            $active = isset($data['active']) ? ($data['active'] ? 1 : 0) : 1;
+            $status = $active ? 'active' : 'inactive';
+            $estado = $active ? 'activo' : 'inactivo';
+
+            $imagesList = [];
+            if (!empty($data['images']) && is_array($data['images'])) {
+                $imagesList = $data['images'];
+            } else if (!empty($data['imagenes'])) {
+                $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
+            }
+            $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
+            $imagesJson = json_encode($imagesList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            $variantsList = [];
+            if (!empty($data['variants']) && is_array($data['variants'])) {
+                $variantsList = $data['variants'];
+            } else if (!empty($data['variantes']) && is_array($data['variantes'])) {
+                $variantsList = $data['variantes'];
+            }
+            $variantsJson = json_encode($variantsList ?: [], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            $sql = "INSERT INTO {$tableName} (
+                id, nombre, precio, stock, descripcion, imagen, shipping_cost, flete_envio, flete, dropi_fee,
+                dropi_product_id, provider, supplier, supplier_sku, categoria, category, category_id,
+                supplier_cost, suggested_price, imagenes, variants, variantes, sizes, active, status, estado,
+                created_at, updated_at
+            ) VALUES (
+                :id, :nombre, :precio, :stock, :descripcion, :imagen, :shipping_cost, :flete_envio, :flete, :dropi_fee,
+                :dropi_product_id, :provider, :supplier, :supplier_sku, :categoria, :category, :category_id,
+                :supplier_cost, :suggested_price, :imagenes, :variants, :variantes, :sizes, :active, :status, :estado,
+                NOW(), NOW()
+            ) ON DUPLICATE KEY UPDATE
+                nombre = VALUES(nombre),
+                precio = VALUES(precio),
+                stock = VALUES(stock),
+                descripcion = VALUES(descripcion),
+                imagen = VALUES(imagen),
+                shipping_cost = VALUES(shipping_cost),
+                flete_envio = VALUES(flete_envio),
+                flete = VALUES(flete),
+                dropi_fee = VALUES(dropi_fee),
+                dropi_product_id = VALUES(dropi_product_id),
+                provider = VALUES(provider),
+                supplier = VALUES(supplier),
+                supplier_sku = VALUES(supplier_sku),
+                categoria = VALUES(categoria),
+                category = VALUES(category),
+                category_id = VALUES(category_id),
+                supplier_cost = VALUES(supplier_cost),
+                suggested_price = VALUES(suggested_price),
+                imagenes = VALUES(imagenes),
+                variants = VALUES(variants),
+                variantes = VALUES(variantes),
+                sizes = VALUES(sizes),
+                active = VALUES(active),
+                status = VALUES(status),
+                estado = VALUES(estado),
+                updated_at = NOW()";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':id'               => $id,
+                ':nombre'           => $title,
+                ':precio'           => $price,
+                ':stock'            => $stock,
+                ':descripcion'      => $description,
+                ':imagen'           => $mainImage,
+                ':shipping_cost'    => $flete,
+                ':flete_envio'      => $flete,
+                ':flete'            => $flete,
+                ':dropi_fee'        => $dropiFee,
+                ':dropi_product_id' => $dropiId,
+                ':provider'         => $provider,
+                ':supplier'         => $supplier,
+                ':supplier_sku'     => $supplierSku,
+                ':categoria'        => $categoria,
+                ':category'         => $category,
+                ':category_id'      => $categoryId,
+                ':supplier_cost'    => $supplierCost,
+                ':suggested_price'  => $suggestedPrice,
+                ':imagenes'         => $imagesJson,
+                ':variants'         => $variantsJson,
+                ':variantes'        => $variantsJson,
+                ':sizes'            => $variantsJson,
+                ':active'           => $active,
+                ':status'           => $status,
+                ':estado'           => $estado
+            ]);
+
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
+            $fetchStmt->execute([':id' => $id]);
+            $savedRow = $fetchStmt->fetch();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success'       => true,
+                'message'       => 'Producto guardado',
+                'shipping_cost' => $flete,
+                'flete_envio'   => $flete,
+                'dropi_fee'     => $dropiFee,
+                'data'          => formatProductOutput($savedRow)
+            ]);
+            exit;
+
+        case 'PUT':
+            $data = $inputData;
+            $id = $_GET['id'] ?? ($data['id'] ?? null);
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
+                exit();
+            }
+
+            // SEGURIDAD REFORZADA: Actualización parcial dinámica.
+            // Si el payload no incluye nombre, precio o imágenes (ej. solo actualiza stock o estado),
+            // PROHIBIDO sobrescribirlos con valores por defecto o vacíos.
+            $updateFields = [];
+            $params = [':id' => (string)$id];
+
+            if (isset($data['nombre']) || isset($data['title']) || isset($data['name'])) {
+                $rawTitle = trim($data['nombre'] ?? $data['title'] ?? $data['name']);
+                if (!empty($rawTitle)) {
+                    $updateFields[] = "nombre = :nombre";
+                    $params[':nombre'] = $rawTitle;
+                }
+            }
+            if (isset($data['precio']) || isset($data['price'])) {
+                $rawPrice = (float)($data['precio'] ?? $data['price']);
+                if ($rawPrice > 0 || (isset($data['allow_zero_price']) && $data['allow_zero_price'])) {
+                    $updateFields[] = "precio = :precio";
+                    $params[':precio'] = $rawPrice;
+                }
+            }
+            if (isset($data['stock']) || isset($data['inventario'])) {
+                $updateFields[] = "stock = :stock";
+                $params[':stock'] = max(0, (int)($data['stock'] ?? $data['inventario']));
+            }
+            if (isset($data['descripcion']) || isset($data['description'])) {
+                $updateFields[] = "descripcion = :descripcion";
+                $params[':descripcion'] = $data['descripcion'] ?? $data['description'];
+            }
+            if (isset($data['supplier_cost']) || isset($data['costPrice']) || isset($data['costo'])) {
+                $updateFields[] = "supplier_cost = :supplier_cost";
+                $params[':supplier_cost'] = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo']);
+            }
+            if (isset($data['suggested_price']) || isset($data['compareAtPrice']) || isset($data['compare_price'])) {
+                $updateFields[] = "suggested_price = :suggested_price";
+                $params[':suggested_price'] = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price']);
+            }
+            if (isset($data['shipping_cost']) || isset($data['shippingCost']) || isset($data['flete_envio']) || isset($data['flete'])) {
+                $flete = parseShippingCost($data);
+                $updateFields[] = "shipping_cost = :shipping_cost";
+                $updateFields[] = "flete_envio = :flete_envio";
+                $updateFields[] = "flete = :flete";
+                $params[':shipping_cost'] = $flete;
+                $params[':flete_envio'] = $flete;
+                $params[':flete'] = $flete;
+            }
+            if (isset($data['dropi_fee']) || isset($data['dropiFee'])) {
+                $dropiFee = parseDropiFee($data);
+                $updateFields[] = "dropi_fee = :dropi_fee";
+                $params[':dropi_fee'] = $dropiFee;
+            }
+            if (isset($data['dropi_product_id']) || isset($data['dropiProductId'])) {
+                $valDropiId = trim((string)($data['dropi_product_id'] ?? $data['dropiProductId']));
+                $updateFields[] = "dropi_product_id = :dropi_product_id";
+                $params[':dropi_product_id'] = !empty($valDropiId) ? $valDropiId : null;
+            }
+            if (isset($data['provider'])) {
+                $updateFields[] = "provider = :provider";
+                $params[':provider'] = $data['provider'];
+            }
+            if (isset($data['supplier'])) {
+                $updateFields[] = "supplier = :supplier";
+                $params[':supplier'] = $data['supplier'];
+            }
+            if (isset($data['supplier_sku']) || isset($data['supplierSku'])) {
+                $updateFields[] = "supplier_sku = :supplier_sku";
+                $params[':supplier_sku'] = $data['supplier_sku'] ?? $data['supplierSku'];
+            }
+            if (isset($data['categoria']) || isset($data['categoryName']) || isset($data['category'])) {
+                $cat = $data['categoria'] ?? $data['categoryName'] ?? $data['category'];
+                $updateFields[] = "categoria = :categoria";
+                $updateFields[] = "category = :category";
+                $params[':categoria'] = $cat;
+                $params[':category'] = $cat;
+            }
+            if (isset($data['category_id']) || isset($data['categoryId'])) {
+                $updateFields[] = "category_id = :category_id";
+                $params[':category_id'] = $data['category_id'] ?? $data['categoryId'];
+            }
+            if (isset($data['images']) || isset($data['imagenes']) || isset($data['imagen']) || isset($data['image'])) {
+                $imagesList = [];
+                if (!empty($data['images']) && is_array($data['images'])) {
+                    $imagesList = $data['images'];
+                } else if (!empty($data['imagenes'])) {
+                    $imagesList = is_array($data['imagenes']) ? $data['imagenes'] : json_decode($data['imagenes'], true);
+                }
+                $mainImage = !empty($imagesList) ? $imagesList[0] : ($data['imagen'] ?? $data['image'] ?? '');
+                if (!empty($mainImage)) {
+                    $updateFields[] = "imagen = :imagen";
+                    $params[':imagen'] = $mainImage;
+                }
+                if (!empty($imagesList)) {
+                    $imagesJson = json_encode($imagesList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $updateFields[] = "imagenes = :imagenes";
+                    $params[':imagenes'] = $imagesJson;
+                }
+            }
+            if (isset($data['variants']) || isset($data['variantes'])) {
+                $vList = $data['variants'] ?? $data['variantes'];
+                $vJson = is_array($vList) ? json_encode($vList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : (string)$vList;
+                $updateFields[] = "variants = :variants";
+                $updateFields[] = "variantes = :variantes";
+                $updateFields[] = "sizes = :sizes";
+                $params[':variants'] = $vJson;
+                $params[':variantes'] = $vJson;
+                $params[':sizes'] = $vJson;
+            }
+            if (isset($data['active']) || isset($data['activo'])) {
+                $isActive = isset($data['active']) ? (bool)$data['active'] : (bool)$data['activo'];
+                $updateFields[] = "active = :active";
+                $updateFields[] = "status = :status";
+                $updateFields[] = "estado = :estado";
+                $params[':active'] = $isActive ? 1 : 0;
+                $params[':status'] = $isActive ? 'active' : 'inactive';
+                $params[':estado'] = $isActive ? 'activo' : 'inactivo';
+            }
+
+            if (!empty($updateFields)) {
+                $updateFields[] = "updated_at = NOW()";
+                $sql = "UPDATE {$tableName} SET " . implode(", ", $updateFields) . " WHERE id = :id OR slug = :id";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+            }
+
+            $fetchStmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id OR slug = :id LIMIT 1");
+            $fetchStmt->execute([':id' => $id]);
+            $updatedRow = $fetchStmt->fetch();
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success'       => true,
+                'message'       => 'Producto guardado de forma segura',
+                'product'       => $updatedRow ? formatProductOutput($updatedRow) : null,
+                'data'          => $updatedRow ? formatProductOutput($updatedRow) : null
+            ]);
+            exit;
+
+        case 'PATCH':
+            $data = $inputData;
+            $id = $_GET['id'] ?? ($data['id'] ?? ($data['id_producto'] ?? null));
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
+                exit();
+            }
+
+            $cantidad = isset($data['cantidad']) ? (int)$data['cantidad'] : (isset($data['quantity']) ? (int)$data['quantity'] : (isset($data['decrement']) ? (int)$data['decrement'] : null));
+
+            if ($cantidad !== null && $cantidad > 0) {
+                // Descuento seguro de inventario (REGLA DE SEGURIDAD EXTREMA: Solo modifica la columna stock)
+                $sql = "UPDATE {$tableName} SET stock = GREATEST(0, stock - :cantidad), updated_at = NOW() WHERE id = :id_producto";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':cantidad'    => $cantidad,
+                    ':id_producto' => (string)$id
+                ]);
+
+                echo json_encode([
+                    'success'     => true,
+                    'message'     => 'Stock descontado correctamente sin tocar otros campos',
+                    'id_producto' => (string)$id,
+                    'descontado'  => $cantidad
+                ]);
+                exit();
+            } else if (isset($data['stock'])) {
+                $newStock = max(0, (int)$data['stock']);
+                $sql = "UPDATE {$tableName} SET stock = :stock, updated_at = NOW() WHERE id = :id_producto";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    ':stock'       => $newStock,
+                    ':id_producto' => (string)$id
+                ]);
+                echo json_encode([
+                    'success'      => true,
+                    'message'      => 'Stock actualizado correctamente',
+                    'id_producto'  => (string)$id,
+                    'nuevo_stock'  => $newStock
+                ]);
+                exit();
+            }
+            break;
+
+        case 'DELETE':
+            $id = $_GET['id'] ?? ($inputData['id'] ?? null);
+            if (!$id) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID de producto requerido']);
+                exit();
+            }
+
+            $stmt = $pdo->prepare("DELETE FROM {$tableName} WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+
+            echo json_encode(['success' => true, 'message' => "Producto eliminado permanentemente"]);
+            break;
+
+        default:
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Método no permitido']);
+            break;
+    }
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error'   => $e->getMessage()
+    ]);
 }

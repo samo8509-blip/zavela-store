@@ -518,28 +518,12 @@ export async function duplicateCpanelProduct(product: Product): Promise<Product>
 
 /**
  * 7. DECREMENTAR STOCK TRAS UNA COMPRA (CHECKOUT)
+ * NEUTRALIZADA: El backend (api.php / createOrder.php) gestiona el descuento seguro de inventario.
+ * El frontend TIENE PROHIBIDO actualizar o mutar el inventario de productos durante el checkout.
  */
-export async function decrementCpanelProductStock(productId: string, quantity: number = 1): Promise<void> {
-  if (!productId || quantity <= 0) return;
-
-  try {
-    // Consultar producto actual
-    const res = await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(productId)}`);
-    if (res.ok) {
-      const data = await res.json();
-      const current = data.data;
-      if (current) {
-        const newStock = Math.max(0, (Number(current.stock) || 0) - quantity);
-        await fetch(`${API_PRODUCTS_URL}?id=${encodeURIComponent(productId)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: productId, stock: newStock })
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('[cPanel Stock] No se pudo decrementar stock:', e);
-  }
+export async function decrementCpanelProductStock(_productId?: string, _quantity?: number): Promise<void> {
+  // Función intencionalmente neutralizada para evitar peticiones fantasma que corrompan el catálogo.
+  return;
 }
 
 /**

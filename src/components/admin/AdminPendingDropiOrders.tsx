@@ -633,26 +633,32 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               
               // Provider / Bodega resolution
               const rawSupplier = String(
+                (item as any).bodega || 
+                (item as any).bodega_origen || 
                 (item as any).supplier || 
                 (item as any).provider || 
+                (item as any).proveedor || 
+                (matched as any).bodega || 
+                (matched as any).bodega_origen || 
                 (matched as any).supplier || 
                 (matched as any).provider || 
+                (matched as any).proveedor || 
                 (matched as any).supplier_name || 
                 matched.brand || 
                 ''
               ).trim();
               const supplierLower = rawSupplier.toLowerCase();
 
-              // Estrictamente Dropi si el proveedor es Dropi o si tiene configurado un dropi_product_id
-              const isDropiProvider = supplierLower.includes('dropi');
               const isDeRocha = supplierLower.includes('derocha');
-              const isPropio = supplierLower.includes('propio') || supplierLower.includes('inventario') || supplierLower.includes('zavela');
+              const isPropio = supplierLower.includes('propio') || supplierLower.includes('inventario') || supplierLower.includes('zavela') || supplierLower.includes('directo');
+              // SOLO es proveedor Dropi si explícitamente es Dropi y NO es DeRocha ni Propio
+              const isDropiProvider = supplierLower.includes('dropi') && !isDeRocha && !isPropio;
 
               let badgeLabel = 'Bodega Propia';
-              if (isDropiProvider) {
-                badgeLabel = 'Dropi';
-              } else if (isDeRocha) {
+              if (isDeRocha) {
                 badgeLabel = 'DeRocha';
+              } else if (isDropiProvider) {
+                badgeLabel = 'Dropi';
               } else if (isPropio) {
                 badgeLabel = 'Propio';
               } else if (rawSupplier) {
