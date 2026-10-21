@@ -22,24 +22,17 @@ import { CartItem, CheckoutFormData, Order, ActiveDiscountCoupon } from '../type
 import { COLOMBIA_DEPARTMENTS, getDaneCode } from '../data/colombiaGeo.ts';
 import { calculateShippingCost, SHIPPING_ZONES, ShippingCalculationResult } from '../data/shippingRates.ts';
 import { formatCOP } from '../utils/formatters.ts';
-import { decrementCpanelProductStock } from '../services/cpanelProducts.ts';
 import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 
-/**
- * Extrae y normaliza el ID real del producto eliminando el prefijo 'proc-' o variantes,
- * obteniendo únicamente el identificador limpio.
- * Ejemplo: 'proc-179245123' -> '179245123'
- */
+// NOTA: Se eliminó la importación de decrementCpanelProductStock para proteger el catálogo.
+
 export const cleanProductId = (rawId: string | number | undefined | null): string => {
   if (rawId === undefined || rawId === null) return '';
   return String(rawId).replace(/proc-/gi, '').replace(/^proc[-_]/i, '').trim();
 };
 
-/**
- * Compara dos IDs de producto limpiando automáticamente el prefijo 'proc-' en ambos lados.
- */
 export const compareProductIds = (
   idA: string | number | undefined | null,
   idB: string | number | undefined | null
@@ -50,10 +43,6 @@ export const compareProductIds = (
   return cleanA === cleanB;
 };
 
-/**
- * Busca de forma segura si un ítem del carrito existe en la lista de productos de la tienda,
- * limpiando el prefijo 'proc-' en ambos lados de la comparación.
- */
 export const findStoreProductMatch = <T extends { id?: any; productId?: any; slug?: string }>(
   cartItemOrId: any,
   storeProducts: T[] = []
@@ -69,13 +58,8 @@ export const findStoreProductMatch = <T extends { id?: any; productId?: any; slu
     const pCleanId = String(rawPId || '').replace('proc-', '').trim();
     const pCleanSlug = String(p.slug || '').trim().toLowerCase();
 
-    // 1. Coincidencia por ID limpio (.replace('proc-', '') en ambos lados)
     if (targetId && pCleanId && targetId === pCleanId) return true;
-    
-    // 2. Coincidencia por ID directo (con o sin prefijo)
     if (rawTargetId && rawPId && String(rawPId).trim() === String(rawTargetId).trim()) return true;
-
-    // 3. Coincidencia por Slug si está presente
     if (targetSlug && pCleanSlug && pCleanSlug === targetSlug) return true;
 
     return false;
@@ -159,14 +143,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Department / City data
   const currentDepartmentInfo = useMemo(() => {
     return COLOMBIA_DEPARTMENTS.find(
       d => d.name.toLowerCase() === formData.department.toLowerCase()
     ) || COLOMBIA_DEPARTMENTS[0];
   }, [formData.department]);
 
-  // Filtered cities list based on search
   const filteredCities = useMemo(() => {
     if (!citySearchQuery.trim()) {
       return currentDepartmentInfo.cities;
@@ -175,7 +157,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return currentDepartmentInfo.cities.filter(c => c.toLowerCase().includes(query));
   }, [currentDepartmentInfo, citySearchQuery]);
 
-  // Handle department change with linked city reset
   const handleDepartmentChange = (deptName: string) => {
     const dept = COLOMBIA_DEPARTMENTS.find(d => d.name === deptName);
     const defaultCity = dept && dept.cities.length > 0 ? dept.cities[0] : '';
@@ -188,7 +169,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsCityDropdownOpen(false);
   };
 
-  // Subtotal & Envío Único calculation
   const cartTotals = useMemo(() => {
     return calculateCartTotals(cartItems);
   }, [cartItems]);
@@ -198,7 +178,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const subtotalAfterShippingRule = cartTotals.discountedSubtotal;
   const subtotal = subtotalAfterShippingRule;
 
-  // Discount calculation
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || !appliedCoupon.percentage) return 0;
     return Math.round((subtotalAfterShippingRule * appliedCoupon.percentage) / 100);
@@ -206,12 +185,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const discountedSubtotal = Math.max(0, subtotalAfterShippingRule - discountAmount);
 
-  // Cantidad total de unidades en el pedido para aplicar envío único
   const totalItemQuantity = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
   }, [cartItems]);
 
-  // Dynamic 3-Zone Shipping calculation (Garantiza flete único por pedido sin multiplicar por unidad)
   const shippingCalculation: ShippingCalculationResult = useMemo(() => {
     return calculateShippingCost({
       department: formData.department,
@@ -226,20 +203,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const shippingCost = shippingCalculation.finalRate;
   const total = discountedSubtotal + shippingCost;
 
-  // Validation function
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
 
     if (!formData.firstName?.trim()) errors.firstName = 'Ingresa tu nombre';
     if (!formData.lastName?.trim()) errors.lastName = 'Ingresa tu apellido';
     
-    // Colombian phone validation (10 digits starting with 3 or landline)
     const cleanPhone = (formData.phone || '').replace(/\D/g, '');
     if (!cleanPhone || cleanPhone.length < 7 || cleanPhone.length > 12) {
       errors.phone = 'Ingresa un número de celular válido (ej: 310 123 4567)';
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+\$/.test(formData.email)) {
       errors.email = 'Ingresa un correo electrónico válido';
     }
 
@@ -247,7 +222,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!formData.city?.trim()) errors.city = 'Selecciona o ingresa la ciudad o municipio';
     if (!formData.address?.trim()) errors.address = 'Ingresa la dirección exacta (Calle/Carrera, número, apto)';
 
-    // Validación de correspondencia e integridad de productos en el carrito
     for (const item of cartItems) {
       const rawId = item.product?.id || (item as any).productId || (item as any).id;
       const cleanId = String(rawId || '').replace('proc-', '').trim();
@@ -272,15 +246,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
-    // Validación de existencia: asegura que cada ítem del carrito exista en el listado general de productos
-    // Limpia automáticamente el prefijo 'proc-' en ambos lados de la comparación (.replace('proc-', ''))
     const invalidItem = cartItems.find(item => {
       const rawCartId = item.product?.id || (item as any).productId || (item as any).id;
       if (!rawCartId) return true;
       const cleanCartId = String(rawCartId).replace('proc-', '').trim();
       if (!cleanCartId) return true;
 
-      // Si se cuenta con el listado general de productos, validar existencia comparando IDs limpios sin 'proc-'
       if (products && Array.isArray(products) && products.length > 0) {
         const exists = products.some(prod => {
           const rawProdId = prod.id || prod.productId;
@@ -353,7 +324,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         })
       };
 
-      const response = await fetch('/api/orders', {
+      // ENVÍO AL BACKEND (api.php maneja todo: registro de pedido y descuento de stock)
+      const response = await fetch('/api/api.php?action=pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)
@@ -361,17 +333,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
+      if (!response.ok || (data.status !== 'ok' && !data.success)) {
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
+      // Si el pedido se registró bien, definimos la variable de la orden
+      const createdOrder: Order = data.data || orderPayload;
+
+      // FLUJO EPAYCO
       if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
-        const createdOrder: Order = data.data;
         const customerName = `${formData.firstName?.trim()} ${formData.lastName?.trim()}`.trim();
         const customerAddress = `${formData.address?.trim()}, ${formData.city?.trim()}`;
         const customerPhone = formData.phone.trim();
 
-        // Disparar checkout seguro oficial de ePayco Colombia
         try {
           await triggerEpaycoCheckout({
             orderId: createdOrder.orderNumber || createdOrder.id,
@@ -381,7 +355,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             customerAddress,
             customerPhone,
             customerEmail: formData.email?.trim(),
-            description: `Compra en Zavela Store - Pedido #${createdOrder.orderNumber}`
+            description: `Compra en Zavela Store - Pedido #${createdOrder.orderNumber || createdOrder.id}`
           });
         } catch (epaycoErr: any) {
           console.error('[ePayco Modal Error]:', epaycoErr);
@@ -390,36 +364,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           return;
         }
 
-        onOrderCreated(createdOrder);
+        onOrderCreated(createdOrder as any);
         onClose();
         return;
       }
 
-      // Flujo Pago Contra Entrega: Descontar inventario en cPanel MySQL con ID original
-      try {
-        for (const item of cartItems) {
-          const originalId = item.product?.id || (item as any).productId || (item as any).id;
-          if (originalId) {
-            await decrementCpanelProductStock(originalId, item.quantity);
-          }
-        }
-      } catch (stockErr) {
-        console.warn('Advertencia al sincronizar deducción de inventario en cPanel MySQL:', stockErr);
-      }
-
-      // Notificar al sistema de alertas de WhatsApp en frontend
+      // FLUJO CONTRA ENTREGA
       if (data.whatsappAlert && typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('zavela_whatsapp_alert_triggered', {
           detail: {
             type: 'NEW_SALE',
             title: `Nueva Venta #${data.data?.orderNumber || ''}`,
             ...data.whatsappAlert,
-            order: data.data
+            order: createdOrder
           }
         }));
       }
 
-      onOrderCreated(data.data);
+      onOrderCreated(createdOrder as any);
       onClose();
     } catch (err: any) {
       setServerError(err.message || 'Ocurrió un error inesperado al conectar con el servidor.');
@@ -439,7 +401,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         className="bg-white text-slate-900 rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white">
           <div>
             <div className="flex items-center gap-2">
@@ -464,22 +425,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {/* Modalidad A: Free Shipping Notification Banner */}
         <div className="px-4 sm:px-6 py-2.5 bg-slate-100 border-b border-slate-200">
           <div className="flex items-center justify-between gap-2 text-xs font-black text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
             <div className="flex items-center gap-1.5 min-w-0">
               <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
               <span className="truncate">
-                ¡Felicidades! Tu compra incluye <strong>ENVÍO GRATIS NACIONAL ($0 COP)</strong> a {formData.city ? `${formData.city}, ${formData.department}` : 'toda Colombia'}
+                ¡Felicidades! Tu compra incluye <strong>ENVÍO GRATIS NACIONAL (\$0 COP)</strong> a {formData.city ? `${formData.city}, ${formData.department}` : 'toda Colombia'}
               </span>
             </div>
             <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold shadow-2xs shrink-0">
-              $0 Flete
+              \$0 Flete
             </span>
           </div>
         </div>
 
-        {/* Scrollable Form */}
         <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-6 bg-white">
           {serverError && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
@@ -488,7 +447,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           )}
 
-          {/* Section 1: Personal Information */}
           <div className="space-y-3">
             {loggedCustomer && (
               <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 text-sky-900 text-xs flex items-center justify-between animate-fadeIn shadow-2xs">
@@ -582,7 +540,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Linked Shipping Selectors (Department & City) + Dynamic Zone Rate */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -595,7 +552,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Linked Selector A: Department */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   Departamento de Colombia *
@@ -618,7 +574,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {formErrors.department && <span className="text-[11px] text-rose-600 mt-0.5 block">{formErrors.department}</span>}
               </div>
 
-              {/* Linked Selector B: City / Municipality (Filtered dynamically) */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   Ciudad o Municipio ({formData.department}) *
@@ -641,7 +596,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {formErrors.city && <span className="text-[11px] text-rose-600 mt-0.5 block">{formErrors.city}</span>}
               </div>
 
-              {/* Dynamic Shipping Zone Card */}
               <div className="sm:col-span-2">
                 <div className={`p-4 rounded-2xl border transition-all ${
                   shippingCalculation.isFreeShipping
@@ -695,7 +649,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </div>
                       <div className="text-xs font-black">
                         {shippingCalculation.isFreeShipping ? (
-                          <span className="text-emerald-700 font-mono text-sm">GRATIS ($0)</span>
+                          <span className="text-emerald-700 font-mono text-sm">GRATIS (\$0)</span>
                         ) : (
                           <span className="text-slate-900 font-mono text-sm">{formatCOP(shippingCalculation.finalRate)}</span>
                         )}
@@ -704,7 +658,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* 🎉 Promoción de Envío Único por Cantidad (totalItemQuantity >= 2) */}
                 {totalItemQuantity >= 2 && (
                   <div className="mt-2.5 p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border-2 border-emerald-500/30 text-slate-900 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200 shadow-2xs">
                     <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
@@ -725,7 +678,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
               </div>
 
-              {/* Exact Address */}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   Dirección Exacta (Calle, Carrera, Manzana, Número de Casa/Edificio, Apto) *
@@ -743,7 +695,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {formErrors.address && <span className="text-[11px] text-rose-600 mt-0.5 block">{formErrors.address}</span>}
               </div>
 
-              {/* Notes */}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Barrio o Indicaciones Adicionales para el Domiciliario (Opcional)
@@ -760,7 +711,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
-          {/* Section 3: Payment Method */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 border-b border-slate-200 pb-1.5">
               <Banknote className="w-4 h-4 text-sky-600" />
@@ -768,7 +718,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Cash On Delivery Option */}
               <label 
                 className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
                   formData.paymentMethod === 'contra_entrega'
@@ -795,7 +744,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </label>
 
-              {/* Online Payment Option - ePayco */}
               <label 
                 className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex items-start gap-3 ${
                   formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
@@ -832,7 +780,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Order Summary Breakdown */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <h4 className="font-black text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -860,7 +807,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span className="font-mono font-bold text-slate-900">{formatCOP(regularSubtotal)}</span>
               </div>
 
-              {/* Ahorro Envío Único Combos */}
               {shippingSavings > 0 && (
                 <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -875,7 +821,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Applied Ruleta Discount Line */}
               {appliedCoupon && discountAmount > 0 && (
                 <div className="flex justify-between items-center py-1.5 bg-emerald-50 px-2.5 rounded-xl border border-emerald-300 text-emerald-900">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -902,7 +847,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Dynamic Shipping Breakdown Line */}
               <div className="flex justify-between items-center py-1.5 bg-white px-2.5 rounded-xl border border-slate-200">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Truck className="w-3.5 h-3.5 text-emerald-600" />
@@ -920,12 +864,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     </span>
                   )}
                   <span className="font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
-                    ¡GRATIS! ($0 COP)
+                    ¡GRATIS! (\$0 COP)
                   </span>
                 </div>
               </div>
 
-              {/* Total Row */}
               <div className="border-t-2 border-slate-300 pt-2.5 flex justify-between items-center text-sm font-black text-slate-950">
                 <span>Total a Pagar en Destino:</span>
                 <div className="text-right">
@@ -938,7 +881,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
-          {/* Submit Button */}
           <div className="pt-2">
             <button
               id="btn-submit-order"
