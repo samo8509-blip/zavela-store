@@ -26,6 +26,8 @@ import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 
+// NOTA: Se eliminó la importación de decrementCpanelProductStock para proteger el catálogo.
+
 export const cleanProductId = (rawId: string | number | undefined | null): string => {
   if (rawId === undefined || rawId === null) return '';
   return String(rawId).replace(/proc-/gi, '').replace(/^proc[-_]/i, '').trim();
@@ -212,7 +214,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       errors.phone = 'Ingresa un número de celular válido (ej: 310 123 4567)';
     }
 
-    // Validación permisiva sin escapes ni caracteres corruptos
     if (formData.email && formData.email.trim() !== '') {
       const emailTrimmed = formData.email.trim();
       if (!emailTrimmed.includes('@') || !emailTrimmed.includes('.')) {
@@ -326,7 +327,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         })
       };
 
-      const response = await fetch('/api/api.php?action=pedidos', {
+      // CORRECCIÓN DEL 404: Apuntando a la ruta absoluta donde realmente vive api.php
+      const response = await fetch('https://zavelastore.com.co/api.php?action=pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)
