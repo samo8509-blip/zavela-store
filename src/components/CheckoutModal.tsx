@@ -340,7 +340,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
-      const createdOrder: Order = data.data || orderPayload;
+      const createdOrder: Order = { ...orderPayload, ...(data.data || {}) } as unknown as Order;
 
       if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
         const customerName = `${formData.firstName?.trim()} ${formData.lastName?.trim()}`.trim();
