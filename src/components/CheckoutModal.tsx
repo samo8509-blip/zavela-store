@@ -328,7 +328,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       };
 
       // CORRECCIÓN DEL 404: Apuntando a la ruta absoluta donde realmente vive api.php
-      const response = await fetch('https://zavelastore.com.co/api.php?action=pedidos', {
+      const response = await fetch('https://api.zavelastore.com.co/api.php?action=pedidos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)
