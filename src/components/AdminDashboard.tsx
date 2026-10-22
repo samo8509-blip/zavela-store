@@ -177,16 +177,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const fetchAdminData = async () => {
     try {
       // 1. Cargar datos del backend y cPanel MySQL en paralelo
-      const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
-        fetch('/api/admin/metrics').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/products').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/orders').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/customers').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/categories').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/settings').then(r => r.json()).catch(() => ({ success: false })),
-        getCpanelProducts(false).catch(() => null),
-        getFirestoreSettings().catch(() => null)
-      ]);
+   const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
+  fetch('https://api.zavelastore.com.co/api.php?action=metrics').then(r => r.json()).catch(() => ({ success: false })),
+  fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false })),
+  fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
+  fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
+  fetch('https://api.zavelastore.com.co/api.php?action=categories').then(r => r.json()).catch(() => ({ success: false })),
+  fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
+  getCpanelProducts(false).catch(() => null),
+  getFirestoreSettings().catch(() => null)
+]);
 
       if (statsRes.success) setStats(statsRes.data);
 
