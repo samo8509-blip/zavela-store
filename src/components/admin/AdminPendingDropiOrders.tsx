@@ -126,14 +126,17 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
     };
   };
 
-  // Metrics Calculation
-  const pendingOrders = useMemo(() => {
-    return orders.filter(o => 
-      o.status === 'PENDIENTE_REVISION' || 
-      o.status === 'pendiente' || 
-      (!o.dropi_order_id && o.status !== 'APROBADO_DROPI' && o.status !== 'CANCELADO' && o.status !== 'cancelado')
-    );
+  // 1. Constante derivada del estado global que filtra estricta y únicamente los pedidos pendientes
+  // (Excluye 'enviado', 'despachado', 'entregado', 'cancelado', etc.)
+  const pedidosPendientes = useMemo(() => {
+    return orders.filter(p => {
+      const s = String(p.status || (p as any).estado || '').toLowerCase().trim();
+      return s === 'pendiente' || s === 'pendiente_revision';
+    });
   }, [orders]);
+
+  // Alias para mantener compatibilidad interna
+  const pendingOrders = pedidosPendientes;
 
   const errorOrders = useMemo(() => {
     return orders.filter(o => o.status === 'ERROR_DROPI');
@@ -144,17 +147,16 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
   }, [orders]);
 
   const totalCodPendingAmount = useMemo(() => {
-    return pendingOrders.reduce((sum, o) => sum + (o.total || o.subtotal || 0), 0);
-  }, [pendingOrders]);
+    return pedidosPendientes.reduce((sum, o) => sum + (o.total || o.subtotal || 0), 0);
+  }, [pedidosPendientes]);
 
   // Filtered Orders List according to Active Tab & Search
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      // Tab Filtering
+      // Tab Filtering: Pestaña 'Pendientes' filtra estrictamente los pedidos pendientes
       if (filterTab === 'pending') {
-        const isPending = order.status === 'PENDIENTE_REVISION' || 
-                          order.status === 'pendiente' || 
-                          (!order.dropi_order_id && order.status !== 'APROBADO_DROPI' && order.status !== 'CANCELADO' && order.status !== 'cancelado');
+        const s = String(order.status || (order as any).estado || '').toLowerCase().trim();
+        const isPending = s === 'pendiente' || s === 'pendiente_revision';
         if (!isPending) return false;
       } else if (filterTab === 'errors') {
         if (order.status !== 'ERROR_DROPI') return false;
@@ -497,7 +499,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               <Clock className="w-4 h-4" />
             </div>
             <div className="text-2xl sm:text-3xl font-black text-white font-mono">
-              {pendingOrders.length}
+              {pedidosPendientes.length}
             </div>
             <div className="text-[11px] text-slate-400">
               Requieren revisión logística
@@ -610,7 +612,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>Pendientes por Revisión ({pendingOrders.length})</span>
+              <span>Pendientes por Revisión ({pedidosPendientes.length})</span>
             </button>
 
             <button

@@ -801,11 +801,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
   const pendingDropiCount = safeOrdersList.filter(o => {
     const st = String(o.status || (o as any).estado || '').toLowerCase().trim();
-    return (
-      st === 'pendiente_revision' || 
-      st === 'pendiente' || 
-      (!o.dropi_order_id && st !== 'aprobado_dropi' && st !== 'cancelado')
-    );
+    return st === 'pendiente_revision' || st === 'pendiente';
   }).length;
 
   return (

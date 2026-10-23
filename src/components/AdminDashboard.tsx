@@ -498,7 +498,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }}
           onBackToStore={onBackToStore}
           onLogout={handleLogoutClick}
-          pendingOrdersCount={orders.filter(o => o.status === 'PENDIENTE_REVISION' || o.status === 'pendiente' || (!o.dropi_order_id && o.status !== 'APROBADO_DROPI' && o.status !== 'CANCELADO' && o.status !== 'cancelado')).length}
+          pendingOrdersCount={orders.filter(o => {
+            const s = String(o.status || (o as any).estado || '').toLowerCase().trim();
+            return s === 'pendiente' || s === 'pendiente_revision';
+          }).length}
           totalProductsCount={products.length}
           lowStockCount={products.filter(p => (p.active ?? true) && Number(p.stock) <= 5).length}
         />
