@@ -569,6 +569,10 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
+  clienteEmail?: string;
+  cliente_email?: string;
+  email?: string;
+  email_cliente?: string;
   department?: string;
   city?: string;
   address?: string;
@@ -591,6 +595,9 @@ export interface Order {
   netMargin?: number; // Ganancia neta real líquida (Total - Costo Producto - Flete - Tarifa Dropi)
 
   paymentMethod: PaymentMethod;
+  paymentType?: string;
+  metodo_pago?: string;
+  medio_pago?: string;
   paymentStatus?: PaymentStatus;
   status: OrderStatus;
 

@@ -29,7 +29,9 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  Trash2
+  Trash2,
+  Mail,
+  CreditCard
 } from 'lucide-react';
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
@@ -678,6 +680,34 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
             const allItemsMapped = itemsWithDropiCheck.every(i => !i.isDropiProvider || i.hasDropiId);
             const isOrderStrictlyDropi = itemsWithDropiCheck.some(i => i.isDropiProvider);
 
+            // Detección del Método de Pago (PSE vs. Contra Entrega)
+            const rawPaymentMethod = String(
+              (order as any).paymentMethod || 
+              (order as any).paymentType || 
+              (order as any).metodo_pago || 
+              (order as any).medio_pago || 
+              (order as any).payment_method || 
+              ''
+            ).toLowerCase().trim();
+
+            const isOnlinePayment = rawPaymentMethod.includes('epayco') || 
+                                    rawPaymentMethod.includes('pse') || 
+                                    rawPaymentMethod.includes('online') || 
+                                    rawPaymentMethod.includes('tarjeta') || 
+                                    rawPaymentMethod.includes('transferencia') ||
+                                    rawPaymentMethod === 'pago_online' ||
+                                    Boolean((order as any).epayco_ref_pay || (order as any).x_ref_payco);
+
+            // Correo Electrónico del Comprador
+            const buyerEmail = String(
+              order.customerEmail || 
+              (order as any).clienteEmail || 
+              (order as any).cliente_email || 
+              (order as any).email || 
+              (order as any).email_cliente || 
+              ''
+            ).trim();
+
             return (
               <div 
                 key={order.id}
@@ -712,10 +742,18 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                       <span>{ORDER_STATUS_MAP[order.status]?.label || order.status}</span>
                     </span>
 
-                    {/* COD Method Tag */}
-                    <span className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md">
-                      Contra Entrega (COD)
-                    </span>
+                    {/* Payment Method Badge: PSE vs Contra Entrega */}
+                    {isOnlinePayment ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md shadow-2xs">
+                        <CreditCard className="w-3 h-3 text-indigo-600" />
+                        <span>PSE - Pagado / Pendiente Validar</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-2xs">
+                        <DollarSign className="w-3 h-3 text-emerald-600" />
+                        <span>Contra Entrega (COD)</span>
+                      </span>
+                    )}
 
                     {/* Date */}
                     <span className="text-[11px] text-slate-400 font-medium">
@@ -794,6 +832,22 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                         <div>
                           <div className="font-bold text-slate-900 text-sm">{order.customerName}</div>
                           <div className="text-slate-500 font-mono text-[11px]">{order.customerPhone}</div>
+                          
+                          {/* Correo Electrónico del Comprador */}
+                          <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-600">
+                            <Mail className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                            {buyerEmail ? (
+                              <a 
+                                href={`mailto:${buyerEmail}`}
+                                className="font-medium text-cyan-700 hover:text-cyan-900 hover:underline truncate max-w-[210px]"
+                                title={buyerEmail}
+                              >
+                                {buyerEmail}
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic">Correo no registrado</span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="pt-1">
@@ -1121,6 +1175,12 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                       <span className="font-mono font-bold text-slate-900">{dropiModalOrder.customerPhone}</span>
                     </div>
                     <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold text-slate-500 block">Correo Electrónico:</span>
+                      <span className="font-medium text-slate-800">
+                        {dropiModalOrder.customerEmail || dropiModalOrder.clienteEmail || dropiModalOrder.email || (dropiModalOrder as any).cliente_email || (dropiModalOrder as any).email_cliente || 'Correo no registrado'}
+                      </span>
+                    </div>
+                    <div className="sm:col-span-2">
                       <span className="text-[10px] font-bold text-slate-500 block">Dirección de Entrega:</span>
                       <span className="font-medium text-slate-800">{dropiModalOrder.address}</span>
                     </div>
@@ -1333,6 +1393,49 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                   <span className="text-slate-500">Cliente:</span>
                   <span className="font-bold text-slate-900">{selectedOrderForView.customerName}</span>
                 </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Correo Electrónico:</span>
+                  <span className="font-medium text-slate-900 text-right">
+                    {selectedOrderForView.customerEmail || selectedOrderForView.clienteEmail || selectedOrderForView.email || (selectedOrderForView as any).cliente_email || (selectedOrderForView as any).email_cliente ? (
+                      <a 
+                        href={`mailto:${selectedOrderForView.customerEmail || selectedOrderForView.clienteEmail || selectedOrderForView.email || (selectedOrderForView as any).cliente_email || (selectedOrderForView as any).email_cliente}`}
+                        className="text-cyan-700 hover:underline"
+                      >
+                        {selectedOrderForView.customerEmail || selectedOrderForView.clienteEmail || selectedOrderForView.email || (selectedOrderForView as any).cliente_email || (selectedOrderForView as any).email_cliente}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 italic">Correo no registrado</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Método de Pago:</span>
+                  {(() => {
+                    const payMethod = String(
+                      selectedOrderForView.paymentMethod || 
+                      selectedOrderForView.paymentType || 
+                      (selectedOrderForView as any).metodo_pago || 
+                      (selectedOrderForView as any).medio_pago || 
+                      ''
+                    ).toLowerCase();
+                    const isOnline = payMethod.includes('epayco') || 
+                      payMethod.includes('pse') || 
+                      payMethod.includes('online') || 
+                      Boolean((selectedOrderForView as any).epayco_ref_pay || (selectedOrderForView as any).x_ref_payco);
+                    
+                    return isOnline ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <CreditCard className="w-3 h-3 text-indigo-600" />
+                        PSE - Pagado / Pendiente Validar
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <DollarSign className="w-3 h-3 text-emerald-600" />
+                        Contra Entrega (COD)
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Teléfono:</span>
                   <span className="font-mono font-bold text-slate-900">{selectedOrderForView.customerPhone}</span>
@@ -1360,7 +1463,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                   </div>
                 ))}
                 <div className="pt-2 border-t border-slate-200/60 flex justify-between font-black text-xs text-slate-900">
-                  <span>Total Pedido COD:</span>
+                  <span>Total Pedido:</span>
                   <span>{formatCOP(selectedOrderForView.total || selectedOrderForView.subtotal || 0)}</span>
                 </div>
               </div>

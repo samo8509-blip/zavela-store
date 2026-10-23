@@ -36,7 +36,9 @@ import {
   Zap,
   Info,
   Sliders,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Mail,
+  CreditCard
 } from 'lucide-react';
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
@@ -948,7 +950,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       <td className="px-4 py-3.5">
                         <div className="font-bold text-slate-800">{order.customerName}</div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3 text-cyan-600" />
+                          <Phone className="w-3 h-3 text-cyan-600 shrink-0" />
                           <a 
                             href={`https://wa.me/57${order.customerPhone?.replace(/\D/g, '')}?text=Hola%20${encodeURIComponent(order.customerName || '')},%20te%20escribimos%20de%20Zavela%20Store%20sobre%20tu%20pedido%20${order.orderNumber}`}
                             target="_blank" 
@@ -958,6 +960,20 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                           >
                             {order.customerPhone}
                           </a>
+                        </div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          {order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email ? (
+                            <a 
+                              href={`mailto:${order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}`}
+                              className="hover:text-cyan-700 hover:underline truncate max-w-[150px] inline-block font-medium"
+                              title={order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}
+                            >
+                              {order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">Correo no registrado</span>
+                          )}
                         </div>
                       </td>
 
@@ -1050,16 +1066,40 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                           <TrendingUp className="w-2.5 h-2.5" />
                           <span>+{formatCOP(order.grossMargin || Math.round((order.total || 0) * 0.4))} ganancia</span>
                         </div>
-                        {order.paymentMethod === 'epayco' || (order as any).epayco_ref_pay ? (
-                          <div className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded mt-1 inline-flex items-center gap-1">
-                            <span>🔒 ePayco</span>
-                            {(order as any).epayco_ref_pay && <span className="font-mono text-[9px]">#{(order as any).epayco_ref_pay}</span>}
-                          </div>
-                        ) : (
-                          <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                            Contra entrega
-                          </div>
-                        )}
+                        {(() => {
+                          const payMethod = String(
+                            order.paymentMethod || 
+                            (order as any).paymentType || 
+                            (order as any).metodo_pago || 
+                            (order as any).medio_pago || 
+                            ''
+                          ).toLowerCase();
+                          const isOnline = payMethod.includes('epayco') || 
+                            payMethod.includes('pse') || 
+                            payMethod.includes('online') || 
+                            Boolean((order as any).epayco_ref_pay || (order as any).x_ref_payco);
+
+                          return isOnline ? (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <CreditCard className="w-3 h-3 text-indigo-600" />
+                                PSE - Pagado / Pendiente Validar
+                              </span>
+                              {(order as any).epayco_ref_pay && (
+                                <div className="text-[9px] font-mono text-indigo-600 mt-0.5">
+                                  Ref: #{(order as any).epayco_ref_pay}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <DollarSign className="w-3 h-3 text-emerald-600" />
+                                Contra Entrega (COD)
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* 6. Carrier & Tracking / Dropi Logistics */}
@@ -1744,11 +1784,52 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Destinatario</span>
                   <span className="font-bold text-slate-900 text-sm block">{selectedOrder.customerName}</span>
                   <span className="text-slate-600 block mt-0.5 font-mono">📞 {selectedOrder.customerPhone}</span>
+                  <div className="text-slate-600 flex items-center gap-1 text-xs mt-1">
+                    <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                    {selectedOrder.customerEmail || (selectedOrder as any).clienteEmail || (selectedOrder as any).cliente_email || (selectedOrder as any).email ? (
+                      <a 
+                        href={`mailto:${selectedOrder.customerEmail || (selectedOrder as any).clienteEmail || (selectedOrder as any).cliente_email || (selectedOrder as any).email}`}
+                        className="text-cyan-700 hover:underline font-medium truncate max-w-[200px]"
+                      >
+                        {selectedOrder.customerEmail || (selectedOrder as any).clienteEmail || (selectedOrder as any).cliente_email || (selectedOrder as any).email}
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 italic">Correo no registrado</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Destino</span>
                   <span className="font-bold text-slate-900 block">{selectedOrder.city}, {selectedOrder.department}</span>
                   <span className="text-slate-600 block text-[11px] mt-0.5">{selectedOrder.address}</span>
+                  <div className="mt-2">
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block mb-0.5">Método de Pago</span>
+                    {(() => {
+                      const payMethod = String(
+                        selectedOrder.paymentMethod || 
+                        (selectedOrder as any).paymentType || 
+                        (selectedOrder as any).metodo_pago || 
+                        (selectedOrder as any).medio_pago || 
+                        ''
+                      ).toLowerCase();
+                      const isOnline = payMethod.includes('epayco') || 
+                        payMethod.includes('pse') || 
+                        payMethod.includes('online') || 
+                        Boolean((selectedOrder as any).epayco_ref_pay || (selectedOrder as any).x_ref_payco);
+
+                      return isOnline ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
+                          PSE - Pagado / Pendiente Validar
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                          Contra Entrega (COD)
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
 
@@ -2034,6 +2115,12 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                     <div>
                       <span className="text-[10px] font-bold text-slate-500 block">Celular / Teléfono:</span>
                       <span className="font-mono font-bold text-slate-900">{dropiModalOrder.customerPhone}</span>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold text-slate-500 block">Correo Electrónico:</span>
+                      <span className="font-medium text-slate-800">
+                        {dropiModalOrder.customerEmail || (dropiModalOrder as any).clienteEmail || (dropiModalOrder as any).email || (dropiModalOrder as any).cliente_email || (dropiModalOrder as any).email_cliente || 'Correo no registrado'}
+                      </span>
                     </div>
                     <div className="sm:col-span-2">
                       <span className="text-[10px] font-bold text-slate-500 block">Dirección de Entrega:</span>
