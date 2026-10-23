@@ -993,17 +993,17 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
       {/* Orders Table with Dedicated "Artículos Comprados / ¿Qué Compró?" Column */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs table-fixed">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="px-4 py-3.5">Pedido</th>
-                <th className="px-4 py-3.5">Cliente</th>
-                <th className="px-4 py-3.5 min-w-[260px]">¿Qué Compró? (Artículos & Enlace)</th>
-                <th className="px-4 py-3.5">Destino</th>
-                <th className="px-4 py-3.5">Total Recaudar</th>
-                <th className="px-4 py-3.5">Guía / Logística</th>
-                <th className="px-4 py-3.5">Estado</th>
-                <th className="px-4 py-3.5 text-right">Acciones</th>
+                <th className="w-[8%] px-2.5 py-3">Pedido</th>
+                <th className="w-[14%] px-2.5 py-3">Cliente</th>
+                <th className="w-[24%] px-2.5 py-3">¿Qué Compró? (Artículos)</th>
+                <th className="w-[14%] px-2.5 py-3">Destino</th>
+                <th className="w-[11%] px-2.5 py-3">Total Recaudar</th>
+                <th className="w-[11%] px-2.5 py-3">Guía / Logística</th>
+                <th className="w-[9%] px-2.5 py-3">Estado</th>
+                <th className="w-[9%] px-2.5 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -1031,50 +1031,50 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                     <tr key={order.id} className="hover:bg-slate-50/80 transition-colors align-top">
                       
                       {/* 1. Order Number & Date */}
-                      <td className="px-4 py-3.5">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      <td className="px-2.5 py-3">
+                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-[11px] block text-center truncate">
                           {order.orderNumber}
                         </span>
-                        <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{formatDate(order.createdAt)}</span>
+                        <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-center gap-1">
+                          <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{formatDate(order.createdAt)}</span>
                         </div>
                       </td>
 
                       {/* 2. Customer Info */}
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-800">{order.customerName}</div>
+                      <td className="px-2.5 py-3 break-words whitespace-normal">
+                        <div className="font-bold text-slate-800 break-words leading-tight">{order.customerName}</div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-cyan-600 shrink-0" />
                           <a 
                             href={`https://wa.me/57${order.customerPhone?.replace(/\D/g, '')}?text=Hola%20${encodeURIComponent(order.customerName || '')},%20te%20escribimos%20de%20Zavela%20Store%20sobre%20tu%20pedido%20${order.orderNumber}`}
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="hover:text-cyan-700 hover:underline font-mono"
+                            className="hover:text-cyan-700 hover:underline font-mono text-[10px] truncate"
                             title="Chatear por WhatsApp"
                           >
                             {order.customerPhone}
                           </a>
                         </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                        <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <Mail className="w-3 h-3 text-slate-400 shrink-0" />
                           {order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email ? (
                             <a 
                               href={`mailto:${order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}`}
-                              className="hover:text-cyan-700 hover:underline truncate max-w-[150px] inline-block font-medium"
+                              className="hover:text-cyan-700 hover:underline break-all block leading-tight text-[10px]"
                               title={order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}
                             >
                               {order.customerEmail || (order as any).clienteEmail || (order as any).cliente_email || (order as any).email}
                             </a>
                           ) : (
-                            <span className="text-slate-400 italic">Correo no registrado</span>
+                            <span className="text-slate-400 italic text-[10px]">No registrado</span>
                           )}
                         </div>
                       </td>
 
-                      {/* 3. DEDICATED COLUMN: ¿QUÉ COMPRÓ? WITH DIRECT PRODUCT LINKS & THUMBNAILS */}
-                      <td className="px-4 py-3.5">
-                        <div className="space-y-2">
+                      {/* 3. DEDICATED COLUMN: ¿QUÉ COMPRÓ? */}
+                      <td className="px-2.5 py-3 break-words whitespace-normal">
+                        <div className="space-y-1.5">
                           {orderItems.map((item, idx) => {
                             const matchedProduct = findProductForItem(item);
                             const itemImage = item.image || matchedProduct.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
@@ -1082,14 +1082,14 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                             return (
                               <div 
                                 key={idx}
-                                className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-slate-50 border border-slate-200/80 hover:border-cyan-300 hover:bg-cyan-50/30 transition-all group"
+                                className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-cyan-300 hover:bg-cyan-50/30 transition-all group"
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
                                   {/* Product Thumbnail with click to inspect */}
                                   <button
                                     type="button"
                                     onClick={() => handleInspectProduct(item)}
-                                    className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-white group-hover:scale-105 transition-transform cursor-pointer"
+                                    className="relative w-9 h-9 rounded-md overflow-hidden border border-slate-200 shrink-0 bg-white group-hover:scale-105 transition-transform cursor-pointer"
                                     title="Ver foto y ficha técnica"
                                   >
                                     <img 
@@ -1100,25 +1100,25 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                                         (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
                                       }}
                                     />
-                                    <span className="absolute bottom-0 right-0 bg-slate-900/90 text-white font-mono text-[9px] font-bold px-1 rounded-tl">
+                                    <span className="absolute bottom-0 right-0 bg-slate-900/90 text-white font-mono text-[8px] font-bold px-1 rounded-tl">
                                       x{item.quantity}
                                     </span>
                                   </button>
 
                                   {/* Product Title and Details */}
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex-1">
                                     <button
                                       type="button"
                                       onClick={() => handleInspectProduct(item)}
-                                      className="text-left font-bold text-slate-800 hover:text-cyan-600 transition-colors line-clamp-1 cursor-pointer block text-xs"
+                                      className="text-left font-bold text-slate-800 hover:text-cyan-600 transition-colors line-clamp-2 break-words cursor-pointer block text-[11px] leading-tight"
                                       title={item.title}
                                     >
                                       {item.title}
                                     </button>
                                     
-                                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                    <div className="flex items-center gap-1 flex-wrap mt-0.5">
                                       {item.variantName && (
-                                        <span className="text-[10px] bg-cyan-100 text-cyan-900 px-1.5 py-0.2 rounded font-medium truncate max-w-[130px]">
+                                        <span className="text-[9px] bg-cyan-100 text-cyan-900 px-1 py-0.2 rounded font-medium truncate max-w-[100px]">
                                           {item.variantName}
                                         </span>
                                       )}
@@ -1133,10 +1133,10 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleInspectProduct(item)}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-cyan-600 text-cyan-700 hover:text-white border border-cyan-200 hover:border-cyan-600 text-[10px] font-bold shadow-2xs transition-all cursor-pointer shrink-0"
+                                  className="flex items-center gap-0.5 px-1.5 py-1 rounded bg-white hover:bg-cyan-600 text-cyan-700 hover:text-white border border-cyan-200 hover:border-cyan-600 text-[9px] font-bold transition-all cursor-pointer shrink-0"
                                   title="Abrir detalles de lo que compró"
                                 >
-                                  <span>Ver Producto</span>
+                                  <span>Ver</span>
                                   <ExternalLink className="w-2.5 h-2.5" />
                                 </button>
                               </div>
@@ -1146,20 +1146,20 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       </td>
 
                       {/* 4. Shipping Destination */}
-                      <td className="px-4 py-3.5">
-                        <div className="text-slate-800 font-semibold">{order.city}, {order.department}</div>
-                        <div className="text-[10px] text-slate-500 truncate max-w-[180px] mt-0.5 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span title={order.address}>{order.address}</span>
+                      <td className="px-2.5 py-3 break-words whitespace-normal">
+                        <div className="text-slate-800 font-semibold text-[11px] break-words leading-tight">{order.city}, {order.department}</div>
+                        <div className="text-[10px] text-slate-500 break-words whitespace-normal mt-0.5 flex items-start gap-1">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0 mt-0.5" />
+                          <span className="break-words leading-snug">{order.address}</span>
                         </div>
                       </td>
 
                       {/* 5. Total COP and Gross Margin */}
-                      <td className="px-4 py-3.5">
-                        <div className="font-black text-slate-900 text-sm">{formatCOP(order.total || order.subtotal || 0)}</div>
-                        <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-0.5 mt-0.5">
-                          <TrendingUp className="w-2.5 h-2.5" />
-                          <span>+{formatCOP(order.grossMargin || Math.round((order.total || 0) * 0.4))} ganancia</span>
+                      <td className="px-2.5 py-3 break-words">
+                        <div className="font-black text-slate-900 text-xs sm:text-[13px]">{formatCOP(order.total || order.subtotal || 0)}</div>
+                        <div className="text-[9px] text-emerald-700 font-bold flex items-center gap-0.5 mt-0.5">
+                          <TrendingUp className="w-2.5 h-2.5 shrink-0" />
+                          <span>+{formatCOP(order.grossMargin || Math.round((order.total || 0) * 0.4))}</span>
                         </div>
                         {(() => {
                           const payMethod = String(
@@ -1176,21 +1176,21 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
                           return isOnline ? (
                             <div className="mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                <CreditCard className="w-3 h-3 text-indigo-600" />
-                                PSE - Pagado / Pendiente Validar
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 leading-tight">
+                                <CreditCard className="w-2.5 h-2.5 shrink-0" />
+                                PSE
                               </span>
                               {(order as any).epayco_ref_pay && (
-                                <div className="text-[9px] font-mono text-indigo-600 mt-0.5">
-                                  Ref: #{(order as any).epayco_ref_pay}
+                                <div className="text-[8px] font-mono text-indigo-600 truncate mt-0.5">
+                                  #{(order as any).epayco_ref_pay}
                                 </div>
                               )}
                             </div>
                           ) : (
                             <div className="mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <DollarSign className="w-3 h-3 text-emerald-600" />
-                                Contra Entrega (COD)
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 leading-tight">
+                                <DollarSign className="w-2.5 h-2.5 shrink-0" />
+                                Contra Entrega
                               </span>
                             </div>
                           );
@@ -1198,65 +1198,65 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       </td>
 
                       {/* 6. Carrier & Tracking / Dropi Logistics */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-2.5 py-3 break-words whitespace-normal">
                         {order.status === 'APROBADO_DROPI' ? (
                           <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 font-bold text-emerald-800 text-xs">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span>{order.carrier || 'Dropi Express'}</span>
+                            <div className="flex items-center gap-1 font-bold text-emerald-800 text-[11px] leading-tight">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span className="truncate">{order.carrier || 'Dropi Express'}</span>
                             </div>
-                            <div className="font-mono text-[11px] text-slate-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md inline-block font-bold">
-                              Guía: {order.dropi_guia || order.trackingNumber || 'Asignada'}
+                            <div className="font-mono text-[10px] text-slate-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded inline-block font-bold break-all">
+                              {order.dropi_guia || order.trackingNumber || 'Asignada'}
                             </div>
                             {order.dropi_order_id && (
-                              <div className="text-[10px] text-slate-500 font-mono">
-                                Dropi ID: #{order.dropi_order_id}
+                              <div className="text-[9px] text-slate-500 font-mono truncate">
+                                Dropi #{order.dropi_order_id}
                               </div>
                             )}
                           </div>
                         ) : order.status === 'ERROR_DROPI' ? (
                           <div className="space-y-1">
-                            <div className="flex items-center gap-1 font-bold text-rose-800 text-xs">
-                              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                              <span>Error al sincronizar</span>
+                            <div className="flex items-center gap-1 font-bold text-rose-800 text-[11px] leading-tight">
+                              <AlertCircle className="w-3 h-3 text-rose-600 shrink-0" />
+                              <span>Error Dropi</span>
                             </div>
                             <div 
-                              className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 p-1 rounded-md line-clamp-2"
+                              className="text-[9px] text-rose-700 bg-rose-50 border border-rose-200 p-1 rounded break-words line-clamp-2 leading-tight"
                               title={order.error_message || 'Rechazado por Dropi'}
                             >
-                              {order.error_message || 'Falta ID de Dropi o datos incompletos'}
+                              {order.error_message || 'Falta ID Dropi'}
                             </div>
                           </div>
                         ) : order.trackingNumber ? (
                           <div className="space-y-0.5">
-                            <div className="font-bold text-cyan-900 flex items-center gap-1">
-                              <Truck className="w-3.5 h-3.5 text-cyan-600" />
-                              <span>{order.carrier || 'Transportadora'}</span>
+                            <div className="font-bold text-cyan-900 flex items-center gap-1 text-[11px] leading-tight">
+                              <Truck className="w-3 h-3 text-cyan-600 shrink-0" />
+                              <span className="truncate">{order.carrier || 'Transportadora'}</span>
                             </div>
-                            <span className="font-mono text-[11px] text-slate-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200 inline-block font-semibold">
+                            <span className="font-mono text-[10px] text-slate-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200 inline-block font-semibold break-all">
                               {order.trackingNumber}
                             </span>
                           </div>
                         ) : (
-                          <div className="space-y-1">
-                            <span className="text-[11px] text-slate-400 italic flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-300" />
-                              <span>Sin guía asignada</span>
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-slate-400 italic flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                              <span>Sin guía</span>
                             </span>
-                            <div className="text-[10px] text-cyan-700 font-medium">
-                              {order.carrier ? `Pref: ${order.carrier}` : 'Servientrega (por defecto)'}
+                            <div className="text-[9px] text-cyan-700 font-medium truncate">
+                              {order.carrier ? `Pref: ${order.carrier}` : 'Servientrega'}
                             </div>
                           </div>
                         )}
                       </td>
 
                       {/* 7. Status Selector */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-2.5 py-3">
                         <select
                           value={order.status}
                           onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value as OrderStatus)}
                           disabled={isProcessing === order.id}
-                          className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border cursor-pointer outline-hidden transition-all ${
+                          className={`w-full text-[11px] font-bold px-1.5 py-1.5 rounded-lg border cursor-pointer outline-hidden transition-all ${
                             order.status === 'APROBADO_DROPI' || order.status === 'entregado' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
                             order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                             order.status === 'ERROR_DROPI' || order.status === 'CANCELADO' || order.status === 'cancelado' ? 'bg-rose-50 text-rose-800 border-rose-300' :
@@ -1264,22 +1264,22 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                             'bg-blue-50 text-blue-800 border-blue-300'
                           }`}
                         >
-                          <option value="PENDIENTE_REVISION">⏳ Pendiente Revisión</option>
-                          <option value="PAGADO">💳 Pagado (ePayco)</option>
-                          <option value="APROBADO_DROPI">🚀 Aprobado Dropi</option>
+                          <option value="PENDIENTE_REVISION">⏳ Pendiente</option>
+                          <option value="PAGADO">💳 Pagado</option>
+                          <option value="APROBADO_DROPI">🚀 Dropi OK</option>
                           <option value="ERROR_DROPI">❌ Error Dropi</option>
                           <option value="pendiente">Pendiente</option>
                           <option value="pago_confirmado">Pago Confirmado</option>
                           <option value="procesando">En Preparación</option>
-                          <option value="enviado">Enviado / En Ruta</option>
+                          <option value="enviado">Enviado</option>
                           <option value="entregado">Entregado</option>
                           <option value="CANCELADO">Cancelado</option>
                         </select>
                       </td>
 
-                      {/* 8. Action Buttons & Dropi Approval Trigger */}
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
+                      {/* 8. Action Buttons */}
+                      <td className="px-2.5 py-3 text-right">
+                        <div className="flex flex-col items-end gap-1.5">
                           
                           {/* Dropi Approval Action Button vs Direct Shipping */}
                           {isOrderDropi(order) ? (
@@ -1287,20 +1287,20 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                               <button
                                 id={`btn-dropi-approve-${order.id}`}
                                 onClick={() => handleOpenDropiModal(order)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer leading-tight text-center"
                                 title="Revisar datos del cliente y transmitir orden a Dropi Colombia"
                               >
-                                <Send className="w-3 h-3 text-cyan-200" />
-                                <span>{order.status === 'ERROR_DROPI' ? 'Reintentar Dropi' : 'Revisar & Enviar a Dropi Colombia'}</span>
+                                <Send className="w-2.5 h-2.5 shrink-0 text-cyan-200" />
+                                <span>{order.status === 'ERROR_DROPI' ? 'Reintentar' : 'Enviar Dropi'}</span>
                               </button>
                             ) : order.status === 'APROBADO_DROPI' ? (
                               <button
                                 onClick={() => handleOpenDropiModal(order)}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                                className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold transition-all cursor-pointer leading-tight text-center"
                                 title="Ver ficha de transmisión de Dropi"
                               >
-                                <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Ficha Dropi</span>
+                                <FileCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                                <span>Ficha</span>
                               </button>
                             ) : null
                           ) : (
@@ -1309,36 +1309,36 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                                 id={`btn-direct-ship-${order.id}`}
                                 onClick={() => handleMarkAsDirectShipped(order)}
                                 disabled={isProcessing === order.id}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer leading-tight text-center"
                                 title="Marcar pedido de bodega directa como despachado (Envío Directo)"
                               >
-                                <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                                <span>Marcar como Despachado (Envío Directo)</span>
+                                <Truck className="w-2.5 h-2.5 shrink-0 text-emerald-400" />
+                                <span>Despachar</span>
                               </button>
                             ) : null
                           )}
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => setSelectedOrder(order)}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                              className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
                               title="Ver Detalle Completo e Imprimir Comprobante"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setEditingOrder(order)}
-                              className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
+                              className="p-1 rounded-md bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
                               title="Modificar Datos de Entrega o Guía"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDeleteOrder(order.id, order.orderNumber)}
-                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                              className="p-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
                               title="Eliminar Pedido"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
 
