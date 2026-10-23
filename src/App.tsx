@@ -374,22 +374,22 @@ export default function App() {
   // Fetch Initial Store Data and Setup Firestore Real-time Listener
   const loadStoreData = async () => {
     try {
-      const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
-        getCpanelProducts(true).catch(() => null),
-        fetch('/api/products/categories').then(r => r.json()).catch(() => ({ success: false })),
-        fetch('/api/admin/settings').then(r => r.json()).catch(() => ({ success: false })),
-        getFirestoreSettings().catch(() => null),
-        fetch('/api/orders').then(r => r.json()).catch(() => ({ success: false }))
-      ]);
+     const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
+          getCpanelProducts(true).catch(() => null),
+          fetch('https://api.zavelastore.com.co/api.php?action=categories').then(r => r.json()).catch(() => ({ success: false })),
+          fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
+          getFirestoreSettings().catch(() => null),
+          fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
+        ]);
 
-      if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds.map(normalizeCpanelProduct));
-      } else {
-        const prodRes = await fetch('/api/products').then(r => r.json()).catch(() => ({ success: false }));
-        if (prodRes.success && Array.isArray(prodRes.data)) {
-          setProducts(prodRes.data.map(normalizeCpanelProduct));
+        if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+          setProducts(cpanelProds.map(normalizeCpanelProduct));
+        } else {
+          const prodRes = await fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false }));
+          if (prodRes.success && Array.isArray(prodRes.data)) {
+            setProducts(prodRes.data.map(normalizeCpanelProduct));
+          }
         }
-      }
 
       if (catRes.success) setCategories(catRes.data);
       if (ordersRes.success && Array.isArray(ordersRes.data)) setOrders(ordersRes.data);
