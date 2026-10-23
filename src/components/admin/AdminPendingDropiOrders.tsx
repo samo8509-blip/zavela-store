@@ -195,8 +195,64 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [orders, filterTab, selectedCarrierFilter, selectedDeptFilter, searchQuery]);
 
+  // Helper para verificar si un pedido pertenece a DeRocha (o bodega propia)
+  const isOrderDeRocha = (order?: Order | null): boolean => {
+    if (!order) return false;
+    if (order.esDeRocha === true || (order as any).es_derocha === true) return true;
+    const orderProveedor = String(order.proveedor || order.supplier || (order as any).bodega || '').toLowerCase();
+    if (orderProveedor.includes('derocha')) return true;
+    return (order.items || []).some(item => {
+      if (item.esDeRocha === true || (item as any).es_derocha === true) return true;
+      const matched = findProductForItem(item);
+      const itemProveedor = String(
+        item.proveedor || 
+        item.supplier || 
+        (item as any).bodega || 
+        (matched as any).proveedor || 
+        (matched as any).supplier || 
+        (matched as any).bodega || 
+        ''
+      ).toLowerCase();
+      return itemProveedor.includes('derocha');
+    });
+  };
+
+  // Helper para verificar si el pedido es estrictamente de Dropi
+  const isOrderDropi = (order?: Order | null): boolean => {
+    if (!order) return false;
+    // Si es DeRocha, bajo ninguna circunstancia debe abrir Dropi
+    if (isOrderDeRocha(order)) return false;
+    // Si la API explícitamente envía isDropi === true
+    if (order.isDropi === true) return true;
+    // Si la API explícitamente envía isDropi === false
+    if (order.isDropi === false) return false;
+    // Fallback: verificar ítems
+    return (order.items || []).some(item => {
+      if (item.esDeRocha === true || (item as any).es_derocha === true) return false;
+      if (item.isDropi === true) return true;
+      if (item.isDropi === false) return false;
+      const matched = findProductForItem(item);
+      const rawSupplier = String(
+        item.proveedor || 
+        item.supplier || 
+        (item as any).bodega || 
+        (matched as any).proveedor || 
+        (matched as any).supplier || 
+        (matched as any).bodega || 
+        ''
+      ).toLowerCase();
+      return rawSupplier.includes('dropi') && !rawSupplier.includes('derocha') && !rawSupplier.includes('propio');
+    });
+  };
+
   // Open Dropi Manual Approval Modal
   const handleOpenDropiModal = (order: Order) => {
+    // Si el pedido es de DeRocha o no es Dropi, no abrir modal Dropi
+    if (isOrderDeRocha(order) || !isOrderDropi(order)) {
+      handleMarkAsDirectShipped(order);
+      return;
+    }
+
     setDropiModalOrder(order);
     setDropiSelectedCarrier(order.carrier || 'Servientrega');
     setDropiCustomDaneCode(order.dane_code || getDaneCode(order.city, order.department));
@@ -242,18 +298,76 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
     }
   };
 
-  // Marcar pedido de bodega directa (DeRocha, Propio, etc.) como despachado sin pasar por Dropi
+  // Marcar pedido como despachado (Envío Directo / DeRocha) llamando al endpoint ?action=update_status
   const handleMarkAsDirectShipped = async (order: Order) => {
     setIsProcessingId(order.id);
     try {
-      const res = await fetch(`/api/admin/orders/${order.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'enviado' })
-      });
-      if (!res.ok) throw new Error('Error al actualizar estado del pedido a despachado');
+      const payload = {
+        orderId: order.id,
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: 'enviado',
+        estado: 'enviado'
+      };
+
+      let success = false;
+      let lastErrorMessage = '';
+
+      // 1. Petición HTTP principal al endpoint de la API (?action=update_status)
+      try {
+        const cpanelRes = await fetch('https://api.zavelastore.com.co/api.php?action=update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (cpanelRes.ok) {
+          const resData = await cpanelRes.json().catch(() => null);
+          if (resData && (resData.status === 'ok' || resData.success !== false)) {
+            success = true;
+          }
+        }
+      } catch (err: any) {
+        console.warn('Intento directo a api.zavelastore.com.co falló:', err);
+        lastErrorMessage = err.message || '';
+      }
+
+      // 2. Fallback con ruta relativa a la API (?action=update_status)
+      if (!success) {
+        try {
+          const relativeRes = await fetch('/api/api.php?action=update_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (relativeRes.ok) {
+            const relData = await relativeRes.json().catch(() => null);
+            if (relData && (relData.status === 'ok' || relData.success !== false)) {
+              success = true;
+            }
+          }
+        } catch (errRel: any) {
+          console.warn('Fallback relativo /api/api.php falló:', errRel);
+        }
+      }
+
+      // 3. Fallback a ruta local de administración
+      if (!success) {
+        const adminRes = await fetch(`/api/admin/orders/${order.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (adminRes.ok) {
+          success = true;
+        } else {
+          const dataErr = await adminRes.json().catch(() => null);
+          throw new Error(dataErr?.message || lastErrorMessage || 'Error al actualizar estado del pedido a despachado');
+        }
+      }
+
       onRefresh();
     } catch (err: any) {
+      console.error('Error al marcar como despachado:', err);
       alert(err.message || 'Error al marcar como despachado');
     } finally {
       setIsProcessingId(null);
@@ -628,6 +742,10 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
             const isError = order.status === 'ERROR_DROPI';
             const isPending = !isApproved && !isError;
 
+            // Detección de DeRocha y Dropi a nivel de pedido con base en la API
+            const orderIsDeRocha = isOrderDeRocha(order);
+            const isOrderStrictlyDropi = isOrderDropi(order);
+
             // Check if items belonging strictly to Dropi have a dropi_product_id
             const itemsWithDropiCheck = (order.items || []).map(item => {
               const matched = findProductForItem(item);
@@ -635,11 +753,11 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               
               // Provider / Bodega resolution
               const rawSupplier = String(
-                (item as any).bodega || 
+                item.bodega || 
                 (item as any).bodega_origen || 
-                (item as any).supplier || 
+                item.supplier || 
                 (item as any).provider || 
-                (item as any).proveedor || 
+                item.proveedor || 
                 (matched as any).bodega || 
                 (matched as any).bodega_origen || 
                 (matched as any).supplier || 
@@ -651,13 +769,13 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               ).trim();
               const supplierLower = rawSupplier.toLowerCase();
 
-              const isDeRocha = supplierLower.includes('derocha');
+              const itemIsDeRocha = orderIsDeRocha || item.esDeRocha === true || (item as any).es_derocha === true || supplierLower.includes('derocha');
               const isPropio = supplierLower.includes('propio') || supplierLower.includes('inventario') || supplierLower.includes('zavela') || supplierLower.includes('directo');
-              // SOLO es proveedor Dropi si explícitamente es Dropi y NO es DeRocha ni Propio
-              const isDropiProvider = supplierLower.includes('dropi') && !isDeRocha && !isPropio;
+              // SOLO es proveedor Dropi si la orden es estrictamente Dropi y NO es DeRocha ni Propio
+              const isDropiProvider = isOrderStrictlyDropi && !itemIsDeRocha && !isPropio && (item.isDropi === true || supplierLower.includes('dropi'));
 
               let badgeLabel = 'Bodega Propia';
-              if (isDeRocha) {
+              if (itemIsDeRocha) {
                 badgeLabel = 'DeRocha';
               } else if (isDropiProvider) {
                 badgeLabel = 'Dropi';
@@ -672,13 +790,15 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                 dropiId,
                 hasDropiId: Boolean(dropiId),
                 isDropiProvider,
+                isDeRocha: itemIsDeRocha,
                 badgeLabel
               };
             });
 
-            // Solo exige ID Dropi si el ítem pertenece estrictamente a Dropi
-            const allItemsMapped = itemsWithDropiCheck.every(i => !i.isDropiProvider || i.hasDropiId);
-            const isOrderStrictlyDropi = itemsWithDropiCheck.some(i => i.isDropiProvider);
+            // Si es DeRocha, NO exige IDs Dropi en absoluto
+            const allItemsMapped = orderIsDeRocha 
+              ? true 
+              : itemsWithDropiCheck.every(i => !i.isDropiProvider || i.hasDropiId);
 
             // Detección del Método de Pago (PSE vs. Contra Entrega)
             const rawPaymentMethod = String(
@@ -941,6 +1061,10 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                                 <span className="font-mono text-[9px] font-bold text-cyan-900 bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded">
                                   DP #{item.dropiId}
                                 </span>
+                              ) : item.isDeRocha || orderIsDeRocha ? (
+                                <span className="text-[9px] font-bold text-sky-800 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded" title="Bodega Directa DeRocha (No requiere Dropi)">
+                                  DeRocha
+                                </span>
                               ) : item.isDropiProvider ? (
                                 <span className="text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
                                   Sin ID Dropi
@@ -978,9 +1102,9 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                       ) : (
                         <>
                           <span>•</span>
-                          <span className="flex items-center gap-1 font-bold text-slate-700">
+                          <span className="flex items-center gap-1 font-bold text-emerald-700">
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Bodega: Directa ({itemsWithDropiCheck[0]?.badgeLabel || 'DeRocha'})</span>
+                            <span>Bodega: Directa ({orderIsDeRocha ? 'DeRocha' : (itemsWithDropiCheck[0]?.badgeLabel || 'Interna')})</span>
                           </span>
                         </>
                       )}
@@ -1006,7 +1130,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                         <span>Ver Ficha</span>
                       </button>
 
-                      {/* Main Action Button: Dropi vs Direct Warehouse */}
+                      {/* Main Action Button: Dropi vs Direct Warehouse (DeRocha) */}
                       {isOrderStrictlyDropi ? (
                         isApproved ? (
                           <button
@@ -1034,8 +1158,17 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                           className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black shadow-md transition-all cursor-pointer flex items-center gap-2 hover:scale-101 disabled:opacity-50"
                           title="Marcar pedido de bodega directa como despachado sin pasar por Dropi"
                         >
-                          <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Marcar como Despachado (Envío Directo)</span>
+                          {isProcessingId === order.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                          ) : (
+                            <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                          )}
+                          <span>
+                            {isProcessingId === order.id 
+                              ? 'Actualizando despacho...' 
+                              : (orderIsDeRocha ? 'Marcar como Despacho (DeRocha)' : 'Marcar como Despacho (Envío Directo)')
+                            }
+                          </span>
                         </button>
                       )}
                     </div>
@@ -1476,16 +1609,32 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               >
                 Cerrar
               </button>
-              <button
-                onClick={() => {
-                  const o = selectedOrderForView;
-                  setSelectedOrderForView(null);
-                  handleOpenDropiModal(o);
-                }}
-                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer"
-              >
-                Revisar en Dropi
-              </button>
+              {isOrderDropi(selectedOrderForView) ? (
+                <button
+                  onClick={() => {
+                    const o = selectedOrderForView;
+                    setSelectedOrderForView(null);
+                    handleOpenDropiModal(o);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Revisar en Dropi</span>
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    const o = selectedOrderForView;
+                    setSelectedOrderForView(null);
+                    await handleMarkAsDirectShipped(o);
+                  }}
+                  disabled={isProcessingId === selectedOrderForView.id}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Truck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Marcar como Despacho (Envío Directo)</span>
+                </button>
+              )}
             </div>
 
           </div>

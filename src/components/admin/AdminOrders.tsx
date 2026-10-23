@@ -268,6 +268,12 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
   // Open Dropi Manual Order Approval & Logistics Review
   const handleOpenDropiModal = (order: Order) => {
+    // Si la orden pertenece a DeRocha o no es Dropi, despachar directo sin abrir Dropi
+    if (isOrderDeRocha(order) || !isOrderDropi(order)) {
+      handleMarkAsDirectShipped(order);
+      return;
+    }
+
     setDropiModalOrder(order);
     setDropiSelectedCarrier(order.carrier || 'Servientrega');
     setDropiCustomDaneCode(order.dane_code || getDaneCode(order.city, order.department));
@@ -409,19 +415,53 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     };
   };
 
+  // Helper para verificar si la orden pertenece a DeRocha (o bodega propia)
+  const isOrderDeRocha = (order?: Order | null): boolean => {
+    if (!order) return false;
+    if (order.esDeRocha === true || (order as any).es_derocha === true) return true;
+    const orderProveedor = String(order.proveedor || order.supplier || (order as any).bodega || '').toLowerCase();
+    if (orderProveedor.includes('derocha')) return true;
+    const items = order.items || [];
+    return items.some(item => {
+      if (item.esDeRocha === true || (item as any).es_derocha === true) return true;
+      const matched = findProductForItem(item);
+      const supplierStr = String(
+        item.bodega || 
+        item.supplier || 
+        item.proveedor || 
+        (matched as any).bodega || 
+        (matched as any).supplier || 
+        (matched as any).proveedor || 
+        ''
+      ).toLowerCase();
+      return supplierStr.includes('derocha');
+    });
+  };
+
   // Helper para verificar si la orden pertenece estrictamente a Dropi o a bodega directa (DeRocha, Propio, etc.)
   const isOrderDropi = (order?: Order | null): boolean => {
     if (!order) return false;
+    // Si es DeRocha, bajo ninguna circunstancia es Dropi
+    if (isOrderDeRocha(order)) return false;
+    // Si la API explícitamente envía isDropi === true
+    if (order.isDropi === true) return true;
+    // Si la API explícitamente envía isDropi === false
+    if (order.isDropi === false) return false;
+
     const items = order.items || [];
     if (items.length === 0) return false;
     return items.some(item => {
+      if (item.esDeRocha === true || (item as any).es_derocha === true) return false;
+      if (item.isDropi === true) return true;
+      if (item.isDropi === false) return false;
+
       const matched = findProductForItem(item);
       const supplierStr = String(
-        (item as any).bodega || 
+        item.bodega || 
         (item as any).bodega_origen || 
-        (item as any).supplier || 
+        item.supplier || 
         (item as any).provider || 
-        (item as any).proveedor || 
+        item.proveedor || 
         (matched as any).bodega || 
         (matched as any).bodega_origen || 
         (matched as any).supplier || 
@@ -459,23 +499,82 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     setInspectingProduct({ product, item });
   };
 
+  // Actualización de estado del pedido conectando a ?action=update_status
   const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus, customCarrier?: string, customTracking?: string) => {
     setIsProcessing(orderId);
     try {
-      const payload: any = { status: newStatus };
+      const payload: any = { 
+        orderId, 
+        id: orderId,
+        status: newStatus,
+        estado: newStatus 
+      };
       if (customCarrier !== undefined) payload.carrier = customCarrier;
       if (customTracking !== undefined) payload.trackingNumber = customTracking;
 
-      const res = await fetch(`/api/admin/orders/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Error al actualizar pedido');
+      let updateSuccess = false;
+      let lastErrorMessage = '';
+
+      // 1. Petición HTTP principal al endpoint de la API (?action=update_status)
+      try {
+        const cpanelRes = await fetch('https://api.zavelastore.com.co/api.php?action=update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (cpanelRes.ok) {
+          const cpanelData = await cpanelRes.json().catch(() => null);
+          if (cpanelData && (cpanelData.status === 'ok' || cpanelData.success !== false)) {
+            updateSuccess = true;
+          }
+        }
+      } catch (err: any) {
+        console.warn('Intento directo cPanel falló, recurriendo a fallbacks:', err);
+        lastErrorMessage = err.message || '';
+      }
+
+      // 2. Fallback relativo (?action=update_status)
+      if (!updateSuccess) {
+        try {
+          const relRes = await fetch('/api/api.php?action=update_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (relRes.ok) {
+            const relData = await relRes.json().catch(() => null);
+            if (relData && (relData.status === 'ok' || relData.success !== false)) {
+              updateSuccess = true;
+            }
+          }
+        } catch (errRel: any) {
+          console.warn('Fallback relativo /api/api.php falló:', errRel);
+        }
+      }
+
+      // 3. Fallback a ruta Express / admin local
+      if (!updateSuccess) {
+        const res = await fetch(`/api/admin/orders/${orderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          updateSuccess = true;
+        } else {
+          const dataErr = await res.json().catch(() => null);
+          throw new Error(dataErr?.message || lastErrorMessage || 'Error al actualizar pedido');
+        }
+      }
+
       onRefresh();
-      if (selectedOrder?.id === orderId && data.data) {
-        setSelectedOrder(data.data);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? {
+          ...prev,
+          status: newStatus,
+          ...(customCarrier ? { carrier: customCarrier } : {}),
+          ...(customTracking ? { trackingNumber: customTracking } : {})
+        } : null);
       }
     } catch (err: any) {
       alert(err.message || 'Error al actualizar pedido');

@@ -532,6 +532,11 @@ export interface OrderItem {
   
   // Dropi Colombia Mapping
   dropi_product_id?: string | number;
+  esDeRocha?: boolean;
+  isDropi?: boolean;
+  proveedor?: string;
+  supplier?: string;
+  bodega?: string;
 }
 
 export interface CustomerInfo {
@@ -616,6 +621,13 @@ export interface Order {
   dane_code?: string;
   dropi_approved_at?: string;
   dropi_response?: any;
+
+  // Supplier & Fulfillment Flags
+  esDeRocha?: boolean;
+  isDropi?: boolean;
+  proveedor?: string;
+  supplier?: string;
+  bodega?: string;
 
   // ePayco Colombia Payment Fields
   epayco_ref_pay?: string;
