@@ -1288,6 +1288,9 @@ router.put('/orders/:id', (req, res) => {
       ...order,
       ...req.body,
       id: order.id,
+      carrier: req.body.transportadora || req.body.carrier || carrier || order.carrier,
+      trackingNumber: req.body.numero_guia || req.body.guia || req.body.trackingNumber || trackingNumber || order.trackingNumber,
+      cedula: req.body.cedula || order.cedula,
       shippedAt: status === 'enviado' && !order.shippedAt ? new Date().toISOString() : order.shippedAt,
       deliveredAt: status === 'entregado' && !order.deliveredAt ? new Date().toISOString() : order.deliveredAt,
       updatedAt: new Date().toISOString()

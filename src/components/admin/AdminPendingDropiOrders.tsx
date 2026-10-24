@@ -1571,6 +1571,12 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                     );
                   })()}
                 </div>
+                {Boolean((selectedOrderForView as any).cedula || (selectedOrderForView as any).documento) && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Cédula / Documento:</span>
+                    <span className="font-mono font-bold text-slate-900">{(selectedOrderForView as any).cedula || (selectedOrderForView as any).documento}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-500">Teléfono:</span>
                   <span className="font-mono font-bold text-slate-900">{selectedOrderForView.customerPhone}</span>

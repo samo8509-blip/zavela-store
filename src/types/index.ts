@@ -578,6 +578,8 @@ export interface Order {
   cliente_email?: string;
   email?: string;
   email_cliente?: string;
+  cedula?: string;
+  documento?: string;
   department?: string;
   city?: string;
   address?: string;

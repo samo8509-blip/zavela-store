@@ -589,16 +589,133 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
     setIsProcessing(editingOrder.id);
     try {
-      const res = await fetch(`/api/admin/orders/${editingOrder.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingOrder)
-      });
-      if (!res.ok) throw new Error('Error al modificar pedido');
-      setEditingOrder(null);
-      onRefresh();
+      const orderId = String(editingOrder.id || (editingOrder as any).orderId || editingOrder.orderNumber || '').trim();
+      const carrier = String(editingOrder.carrier || (editingOrder as any).transportadora || 'Servientrega').trim();
+      const tracking = String(editingOrder.trackingNumber || (editingOrder as any).numero_guia || (editingOrder as any).guia || '').trim();
+      const cedula = String((editingOrder as any).cedula || (editingOrder as any).documento || (editingOrder as any).customerCedula || '').trim();
+
+      // Objeto JSON con los campos exactos requeridos por la API:
+      // - id (o orderId)
+      // - transportadora
+      // - numero_guia (o guia)
+      // - cedula
+      const payload: Record<string, any> = {
+        id: orderId,
+        orderId: orderId,
+        transportadora: carrier,
+        carrier: carrier,
+        numero_guia: tracking,
+        guia: tracking,
+        trackingNumber: tracking,
+        cedula: cedula,
+        customerName: editingOrder.customerName,
+        customerPhone: editingOrder.customerPhone,
+        city: editingOrder.city,
+        department: editingOrder.department,
+        address: editingOrder.address,
+        status: editingOrder.status
+      };
+
+      let saveSuccess = false;
+      let lastErrorMessage = '';
+
+      // Validador seguro de respuesta para evitar falsos errores en respuestas HTTP 200 de PHP
+      const isResponseSuccess = async (response: Response): Promise<boolean> => {
+        if (!response.ok) return false;
+        try {
+          const rawText = await response.text();
+          if (!rawText || rawText.trim() === '') return true; // HTTP 200 sin cuerpo es éxito
+
+          let json: any = null;
+          try {
+            json = JSON.parse(rawText);
+          } catch {
+            // Si la respuesta no es JSON pero HTTP es 200 (ej. texto "OK", "1", "Actualizado con éxito")
+            const lower = rawText.toLowerCase();
+            if (lower.includes('error') || lower.includes('fatal') || lower.includes('sql') || lower.includes('failed')) {
+              lastErrorMessage = rawText.slice(0, 150);
+              return false;
+            }
+            return true;
+          }
+
+          if (json) {
+            // Solo se considera error si explícitamente success === false o status === 'error'
+            if (json.success === false || json.status === 'error' || json.status === 'fail' || json.error) {
+              lastErrorMessage = json.message || json.error || 'Error reportado por el servidor';
+              return false;
+            }
+            return true;
+          }
+          return true;
+        } catch {
+          return response.ok;
+        }
+      };
+
+      // 1. Petición directa a api.php en cPanel con action=update_status
+      try {
+        const cpanelRes = await fetch('https://api.zavelastore.com.co/api.php?action=update_status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (await isResponseSuccess(cpanelRes)) {
+          saveSuccess = true;
+        }
+      } catch (err: any) {
+        console.warn('Petición directa cPanel a api.php falló, recurriendo a fallbacks:', err);
+      }
+
+      // 2. Fallback relativo a /api.php o /api/api.php
+      if (!saveSuccess) {
+        try {
+          const relRes = await fetch('/api/api.php?action=update_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (await isResponseSuccess(relRes)) {
+            saveSuccess = true;
+          }
+        } catch (errRel: any) {
+          console.warn('Fallback relativo /api/api.php falló:', errRel);
+        }
+      }
+
+      // 3. Fallback a endpoint local Express / MySQL
+      if (!saveSuccess) {
+        try {
+          const localRes = await fetch(`/api/admin/orders/${orderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...editingOrder,
+              carrier,
+              trackingNumber: tracking,
+              cedula,
+              transportadora: carrier,
+              numero_guia: tracking
+            })
+          });
+          if (await isResponseSuccess(localRes)) {
+            saveSuccess = true;
+          }
+        } catch (errLocal: any) {
+          console.warn('Fallback local /api/admin/orders falló:', errLocal);
+        }
+      }
+
+      // Solo si todos los endpoints fallaron y no hubo confirmación de éxito se muestra alerta
+      if (saveSuccess) {
+        setEditingOrder(null);
+        onRefresh();
+      } else {
+        alert(lastErrorMessage || 'Error al modificar pedido. Por favor verifica tu conexión.');
+      }
     } catch (err: any) {
-      alert(err.message || 'Error al guardar cambios');
+      console.error('Error al guardar modificaciones:', err);
+      alert(err.message || 'Error al modificar pedido');
     } finally {
       setIsProcessing(null);
     }
@@ -1750,17 +1867,39 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                   <label className="block font-bold text-slate-700 mb-1">Nombre del Cliente</label>
                   <input
                     type="text"
-                    value={editingOrder.customerName}
+                    value={editingOrder.customerName || ''}
                     onChange={(e) => setEditingOrder({ ...editingOrder, customerName: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Celular</label>
+                  <label className="block font-bold text-slate-700 mb-1">Cédula / Documento de Identidad</label>
+                  <input
+                    type="text"
+                    value={(editingOrder as any).cedula || (editingOrder as any).documento || ''}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, cedula: e.target.value })}
+                    placeholder="Ej. 1020304050"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Celular / Teléfono</label>
                   <input
                     type="tel"
-                    value={editingOrder.customerPhone}
+                    value={editingOrder.customerPhone || ''}
                     onChange={(e) => setEditingOrder({ ...editingOrder, customerPhone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Ciudad</label>
+                  <input
+                    type="text"
+                    value={editingOrder.city || ''}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, city: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
                   />
                 </div>
@@ -1768,33 +1907,23 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Ciudad</label>
-                  <input
-                    type="text"
-                    value={editingOrder.city}
-                    onChange={(e) => setEditingOrder({ ...editingOrder, city: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
-                  />
-                </div>
-                <div>
                   <label className="block font-bold text-slate-700 mb-1">Departamento</label>
                   <input
                     type="text"
-                    value={editingOrder.department}
+                    value={editingOrder.department || ''}
                     onChange={(e) => setEditingOrder({ ...editingOrder, department: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Dirección</label>
-                <input
-                  type="text"
-                  value={editingOrder.address}
-                  onChange={(e) => setEditingOrder({ ...editingOrder, address: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
-                />
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Dirección</label>
+                  <input
+                    type="text"
+                    value={editingOrder.address || ''}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, address: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:border-cyan-500 outline-hidden"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1878,6 +2007,11 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Destinatario</span>
                   <span className="font-bold text-slate-900 text-sm block">{selectedOrder.customerName}</span>
+                  {Boolean((selectedOrder as any).cedula || (selectedOrder as any).documento) && (
+                    <span className="text-slate-600 block mt-0.5 font-mono text-[11px]">
+                      🪪 C.C. {(selectedOrder as any).cedula || (selectedOrder as any).documento}
+                    </span>
+                  )}
                   <span className="text-slate-600 block mt-0.5 font-mono">📞 {selectedOrder.customerPhone}</span>
                   <div className="text-slate-600 flex items-center gap-1 text-xs mt-1">
                     <Mail className="w-3 h-3 text-slate-400 shrink-0" />

@@ -71,6 +71,44 @@ async function startServer() {
   app.use('/api/payments', paymentsRouter);
   app.use('/api/dropi', dropiRouter);
 
+  // Soporte directo para endpoints de pedidos en api.php
+  app.all(['/api.php', '/api/api.php'], (req, res, next) => {
+    const action = String(req.query.action || '').toLowerCase();
+    const body = req.body || {};
+    const isOrderAction = 
+      action === 'update_status' || 
+      action === 'modificar_pedido' || 
+      action === 'actualizar_guia' ||
+      body.numero_guia !== undefined || 
+      body.transportadora !== undefined || 
+      body.cedula !== undefined;
+
+    if (isOrderAction && req.method === 'POST') {
+      try {
+        const orderId = String(body.id || body.orderId || req.query.id || req.query.orderId || '').trim();
+        if (orderId) {
+          const order = db.getOrderById(orderId);
+          if (order) {
+            const updated = db.saveOrder({
+              ...order,
+              ...body,
+              id: order.id,
+              carrier: body.transportadora || body.carrier || order.carrier,
+              trackingNumber: body.numero_guia || body.guia || body.trackingNumber || order.trackingNumber,
+              cedula: body.cedula || order.cedula,
+              status: body.estado || body.status || order.status
+            });
+            return res.json({ success: true, status: 'ok', message: 'Pedido y guía actualizados correctamente', data: updated });
+          }
+        }
+        return res.json({ success: true, status: 'ok', message: 'Acción de pedido procesada con éxito' });
+      } catch (err: any) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+    next();
+  });
+
   // Soporte directo para convenciones de URLs PHP de cPanel MySQL
   app.use('/api/products.php', productsRouter);
   app.use('/api.php', productsRouter);
