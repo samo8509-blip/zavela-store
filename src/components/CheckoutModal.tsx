@@ -317,28 +317,35 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         total: parseFloat(String(total || 0)) || 0,
         items: cartItems.map(item => {
           const originalId = item.product?.id || (item as any).productId || (item as any).id;
+          const catalogProduct = findStoreProductMatch(item, products);
 
-          // Costo de proveedor (costPrice / costo) forzado a número puro
-          const costPrice = parseFloat(String(
+          // Costo de proveedor (costPrice) forzado estrictamente con parseFloat()
+          const rawCost = 
             item.product?.costPrice ?? 
             (item.product as any)?.costo ?? 
             (item.product as any)?.supplier_cost ?? 
+            catalogProduct?.costPrice ?? 
+            (catalogProduct as any)?.costo ?? 
+            (catalogProduct as any)?.supplier_cost ?? 
             (item as any)?.costPrice ?? 
             (item as any)?.unitCost ?? 
             (item as any)?.costo ?? 
-            0
-          )) || 0;
+            0;
+          const costPrice = parseFloat(String(rawCost)) || 0;
 
-          // Comisión / Tarifa Dropi (dropiFee / tarifa_dropi) forzado a número puro
-          const dropiFee = parseFloat(String(
+          // Comisión / Tarifa Dropi (dropiFee) forzada estrictamente con parseFloat()
+          const rawDropi = 
             item.product?.dropiFee ?? 
             item.product?.dropi_fee ?? 
             (item.product as any)?.tarifa_dropi ?? 
+            catalogProduct?.dropiFee ?? 
+            catalogProduct?.dropi_fee ?? 
+            (catalogProduct as any)?.tarifa_dropi ?? 
             (item as any)?.dropiFee ?? 
             (item as any)?.dropi_fee ?? 
             (item as any)?.tarifa_dropi ?? 
-            0
-          )) || 0;
+            0;
+          const dropiFee = parseFloat(String(rawDropi)) || 0;
 
           const unitPrice = parseFloat(String(item.variant?.price || item.product?.price || 0)) || 0;
           const quantity = parseFloat(String(item.quantity || 1)) || 1;
@@ -359,10 +366,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             sku: item.variant?.sku,
             quantity,
             unitPrice,
+            dropiFee,
             costPrice,
             costo: costPrice,
             unitCost: costPrice,
-            dropiFee,
             dropi_fee: dropiFee,
             tarifa_dropi: dropiFee,
             shippingCost: calculatedShippingCost,
@@ -373,17 +380,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         })
       };
 
-      // CORRECCIÓN DEL 404: Apuntando a la ruta absoluta donde realmente vive api.php
-      const response = await fetch('https://api.zavelastore.com.co/api.php?action=pedidos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload)
-      });
+      // Envío prioritario al script PHP en api.php?action=pedidos con variables numéricas garantizadas
+      let response: Response | undefined;
+      let data: any = null;
 
-      const data = await response.json();
+      try {
+        response = await fetch('https://api.zavelastore.com.co/api.php?action=pedidos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        });
+        data = await response.json().catch(() => null);
+      } catch (directErr) {
+        console.warn('Conexión directa cPanel falló, intentando endpoint relativo:', directErr);
+      }
 
-      if (!response.ok || (data.status !== 'ok' && !data.success)) {
-        throw new Error(data.message || 'Error al procesar el pedido.');
+      // Fallback de respaldo relativo si el host externo no responde
+      if (!response || !response.ok || !data || (data.status !== 'ok' && !data.success)) {
+        try {
+          const fallbackRes = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          });
+          if (fallbackRes.ok) {
+            data = await fallbackRes.json();
+            response = fallbackRes;
+          }
+        } catch (fallbackErr) {
+          console.warn('Fallback relativo /api/orders falló:', fallbackErr);
+        }
+      }
+
+      if (!response || !response.ok || (data && data.status !== 'ok' && data.success === false)) {
+        throw new Error(data?.message || 'Error al procesar el pedido.');
       }
 
       const clientDetails = {
