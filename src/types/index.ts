@@ -532,6 +532,8 @@ export interface OrderItem {
   shippingCost?: number;
   flete?: number;
   dropiFee?: number;
+  dropi_fee?: number;
+  tarifa_dropi?: number;
   subtotal?: number;
   image?: string;
   

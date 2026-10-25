@@ -524,6 +524,9 @@ router.post('/', async (req, res) => {
       subtotal += itemSubtotal;
       productCostTotal += (itemUnitCost || 0) * rawItem.quantity;
 
+      const rawCostPrice = parseFloat(String(rawItem.costPrice ?? rawItem.costo ?? itemUnitCost ?? product.costPrice ?? 0)) || 0;
+      const rawDropiFee = parseFloat(String(rawItem.dropiFee ?? rawItem.dropi_fee ?? rawItem.tarifa_dropi ?? product.dropiFee ?? product.dropi_fee ?? 0)) || 0;
+
       validatedItems.push({
         id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         orderId,
@@ -537,7 +540,11 @@ router.post('/', async (req, res) => {
         dropiVariationId,
         quantity: rawItem.quantity,
         unitPrice: itemUnitPrice,
-        unitCost: itemUnitCost,
+        unitCost: rawCostPrice || itemUnitCost,
+        costPrice: rawCostPrice,
+        costo: rawCostPrice,
+        dropiFee: rawDropiFee,
+        dropi_fee: rawDropiFee,
         subtotal: itemSubtotal,
         image: product.images[0],
         dropi_product_id: product.dropi_product_id || product.dropiProductId
@@ -557,11 +564,10 @@ router.post('/', async (req, res) => {
       freeShippingThreshold: threshold
     });
 
-    // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
-    const shippingCost = 0;
+    const shippingCost = parseFloat(String(req.body.shippingCost ?? req.body.costo_envio ?? req.body.flete ?? shippingCalc.finalRate ?? 0)) || 0;
     const validDiscountAmount = Math.max(0, Math.min(Number(discountAmount) || 0, subtotal));
-    const total = Math.max(0, subtotal - validDiscountAmount);
-    const grossMargin = total - productCostTotal;
+    const total = Math.max(0, subtotal - validDiscountAmount + shippingCost);
+    const grossMargin = total - productCostTotal - shippingCost;
 
     const newOrder: Order = {
       id: orderId,

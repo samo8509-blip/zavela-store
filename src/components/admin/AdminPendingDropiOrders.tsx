@@ -143,7 +143,15 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
   }, [orders]);
 
   const approvedOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'APROBADO_DROPI' || Boolean(o.dropi_order_id));
+    return orders.filter(o => 
+      o.isDropi === true || 
+      (o as any).is_dropi === true || 
+      o.supplier === 'Dropi' || 
+      (o as any).proveedor === 'Dropi' ||
+      String(o.supplier || (o as any).proveedor || '').toLowerCase() === 'dropi' ||
+      o.status === 'APROBADO_DROPI' || 
+      Boolean(o.dropi_order_id)
+    );
   }, [orders]);
 
   const totalCodPendingAmount = useMemo(() => {
@@ -161,7 +169,15 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
       } else if (filterTab === 'errors') {
         if (order.status !== 'ERROR_DROPI') return false;
       } else if (filterTab === 'approved') {
-        if (order.status !== 'APROBADO_DROPI' && !order.dropi_order_id) return false;
+        const isDropiOrder = 
+          order.isDropi === true || 
+          (order as any).is_dropi === true || 
+          order.supplier === 'Dropi' || 
+          (order as any).proveedor === 'Dropi' ||
+          String(order.supplier || (order as any).proveedor || '').toLowerCase() === 'dropi' ||
+          order.status === 'APROBADO_DROPI' || 
+          Boolean(order.dropi_order_id);
+        if (!isDropiOrder) return false;
       }
 
       // Carrier Filter
@@ -636,7 +652,7 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Aprobados en Dropi ({approvedOrders.length})</span>
+              <span>Aprobados en Dropi / Ventas Dropi ({approvedOrders.length})</span>
             </button>
 
             <button

@@ -280,6 +280,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSubmitting(true);
 
     try {
+      const calculatedShippingCost = parseFloat(String(
+        shippingCalculation?.finalRate ?? 
+        (shippingCalculation as any)?.costo_envio ?? 
+        (shippingCalculation as any)?.costoEnvio ?? 
+        (shippingCalculation as any)?.shippingCost ?? 
+        shippingCost ?? 
+        0
+      )) || 0;
+
       const orderPayload = {
         firstName: formData.firstName?.trim(),
         lastName: formData.lastName?.trim(),
@@ -296,15 +305,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         dane_code: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
         daneCode: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
         codigo_dane: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
-        shippingCost: shippingCalculation.finalRate,
+        shippingCost: calculatedShippingCost,
+        costo_envio: calculatedShippingCost,
+        costoEnvio: calculatedShippingCost,
+        flete: calculatedShippingCost,
         shippingZone: shippingCalculation.zoneName,
-        subtotal,
+        subtotal: parseFloat(String(subtotal || 0)) || 0,
         discountCode: appliedCoupon?.code,
-        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        discountAmount: discountAmount > 0 ? (parseFloat(String(discountAmount)) || 0) : undefined,
         discountPercent: appliedCoupon?.percentage,
-        total,
+        total: parseFloat(String(total || 0)) || 0,
         items: cartItems.map(item => {
           const originalId = item.product?.id || (item as any).productId || (item as any).id;
+
+          // Costo de proveedor (costPrice / costo) forzado a número puro
+          const costPrice = parseFloat(String(
+            item.product?.costPrice ?? 
+            (item.product as any)?.costo ?? 
+            (item.product as any)?.supplier_cost ?? 
+            (item as any)?.costPrice ?? 
+            (item as any)?.unitCost ?? 
+            (item as any)?.costo ?? 
+            0
+          )) || 0;
+
+          // Comisión / Tarifa Dropi (dropiFee / tarifa_dropi) forzado a número puro
+          const dropiFee = parseFloat(String(
+            item.product?.dropiFee ?? 
+            item.product?.dropi_fee ?? 
+            (item.product as any)?.tarifa_dropi ?? 
+            (item as any)?.dropiFee ?? 
+            (item as any)?.dropi_fee ?? 
+            (item as any)?.tarifa_dropi ?? 
+            0
+          )) || 0;
+
+          const unitPrice = parseFloat(String(item.variant?.price || item.product?.price || 0)) || 0;
+          const quantity = parseFloat(String(item.quantity || 1)) || 1;
+
           return {
             id: originalId,
             productId: originalId,
@@ -319,8 +357,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             dropi_variation_id: item.variant?.dropi_variation_id || item.variant?.dropiVariationId,
             dropi_product_id: item.product?.dropi_product_id || (item.product as any)?.dropiProductId || (item as any).dropi_product_id || '',
             sku: item.variant?.sku,
-            quantity: item.quantity,
-            unitPrice: item.variant?.price || item.product?.price || 0,
+            quantity,
+            unitPrice,
+            costPrice,
+            costo: costPrice,
+            unitCost: costPrice,
+            dropiFee,
+            dropi_fee: dropiFee,
+            tarifa_dropi: dropiFee,
+            shippingCost: calculatedShippingCost,
+            costo_envio: calculatedShippingCost,
             comboInfo: item.comboInfo,
             comboGarmentLabel: item.comboGarmentLabel
           };

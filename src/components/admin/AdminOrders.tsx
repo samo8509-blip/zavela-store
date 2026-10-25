@@ -149,6 +149,9 @@ export const normalizeOrderSafe = (order: any): Order => {
   const createdAt = order.createdAt || order.created_at || order.fecha || new Date().toISOString();
   const updatedAt = order.updatedAt || order.updated_at || createdAt;
 
+  const isDropi = order.isDropi === true || (order as any).is_dropi === true || (order as any).isDropi === 1 || (order as any).is_dropi === 1;
+  const supplier = order.supplier || (order as any).proveedor || (order as any).provider || '';
+
   return {
     ...order,
     id: String(order.id || orderNumber),
@@ -168,6 +171,8 @@ export const normalizeOrderSafe = (order: any): Order => {
     subtotal,
     shippingCost,
     items,
+    isDropi: isDropi || order.isDropi,
+    supplier: supplier || order.supplier,
     createdAt,
     updatedAt
   } as Order;
@@ -260,7 +265,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
   const statusOptions = [
     { value: 'all', label: 'Todos los estados' },
     { value: 'PENDIENTE_REVISION', label: '⏳ Pendiente Revisión' },
-    { value: 'APROBADO_DROPI', label: '🚀 Aprobado en Dropi' },
+    { value: 'APROBADO_DROPI', label: '🚀 Ventas Dropi / Aprobados' },
     { value: 'ERROR_DROPI', label: '❌ Error en Dropi' },
     { value: 'pendiente', label: 'Pendientes' },
     { value: 'pago_confirmado', label: 'Pago Confirmado' },
@@ -875,7 +880,22 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
   const filteredOrders = useMemo(() => {
     return safeOrdersList.filter((o) => {
       const orderStatus = String(o.status || (o as any).estado || '').toLowerCase().trim();
-      if (statusFilter !== 'all' && orderStatus !== statusFilter.toLowerCase().trim()) return false;
+      
+      // Pestaña Dropi (Ventas Dropi / Aprobados en Dropi):
+      // Devuelve todos los pedidos donde pedido.isDropi === true o pedido.supplier === 'Dropi', ignorando su estado
+      if (statusFilter === 'APROBADO_DROPI' || statusFilter === 'dropi' || statusFilter === 'ventas_dropi') {
+        const isDropiOrder = 
+          o.isDropi === true || 
+          (o as any).is_dropi === true || 
+          o.supplier === 'Dropi' || 
+          (o as any).proveedor === 'Dropi' || 
+          String(o.supplier || (o as any).proveedor || '').toLowerCase() === 'dropi' ||
+          orderStatus === 'aprobado_dropi' ||
+          Boolean(o.dropi_order_id);
+        if (!isDropiOrder) return false;
+      } else if (statusFilter !== 'all' && orderStatus !== statusFilter.toLowerCase().trim()) {
+        return false;
+      }
       
       // Date filter con conversión estricta a zona horaria de Colombia (UTC-5)
       const orderDateStr = o.createdAt || (o as any).created_at || (o as any).fecha;
