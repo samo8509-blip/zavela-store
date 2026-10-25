@@ -280,14 +280,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const calculatedShippingCost = parseFloat(String(
-        shippingCalculation?.finalRate ?? 
-        (shippingCalculation as any)?.costo_envio ?? 
-        (shippingCalculation as any)?.costoEnvio ?? 
-        (shippingCalculation as any)?.shippingCost ?? 
-        shippingCost ?? 
-        0
-      )) || 0;
+      // Extracción del valor numérico real del flete seleccionado (shippingCost / costo_envio)
+      const rawShippingValue = 
+        shippingCalculation?.finalRate > 0 
+          ? shippingCalculation.finalRate 
+          : (
+              shippingCost > 0 
+                ? shippingCost 
+                : (
+                    (shippingCalculation?.baseRate && shippingCalculation.baseRate > 0)
+                      ? shippingCalculation.baseRate 
+                      : (
+                          cartItems.reduce((max, it) => {
+                            const p = findStoreProductMatch(it, products) || it.product;
+                            const f = Number((p as any)?.shippingCost ?? (p as any)?.shipping_cost ?? (p as any)?.flete ?? (p as any)?.fleteEnvio ?? (p as any)?.estimatedShippingCost ?? 0);
+                            return Math.max(max, f);
+                          }, 0) || 0
+                        )
+                  )
+            );
+      const calculatedShippingCost = parseFloat(String(rawShippingValue)) || 0;
 
       const orderPayload = {
         firstName: formData.firstName?.trim(),
@@ -319,7 +331,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           const originalId = item.product?.id || (item as any).productId || (item as any).id;
           const catalogProduct = findStoreProductMatch(item, products);
 
-          // Costo de proveedor (costPrice) forzado estrictamente con parseFloat()
+          // Costo de proveedor (costPrice / costo) forzado estrictamente con parseFloat()
           const rawCost = 
             item.product?.costPrice ?? 
             (item.product as any)?.costo ?? 
@@ -333,7 +345,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             0;
           const costPrice = parseFloat(String(rawCost)) || 0;
 
-          // Comisión / Tarifa Dropi (dropiFee) forzada estrictamente con parseFloat()
+          // Comisión / Tarifa Dropi (dropiFee / tarifa_dropi) forzada estrictamente con parseFloat()
           const rawDropi = 
             item.product?.dropiFee ?? 
             item.product?.dropi_fee ?? 
@@ -346,6 +358,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             (item as any)?.tarifa_dropi ?? 
             0;
           const dropiFee = parseFloat(String(rawDropi)) || 0;
+
+          // Flete individual por item
+          const itemFlete = parseFloat(String(
+            (item.product as any)?.shippingCost ?? 
+            (item.product as any)?.shipping_cost ?? 
+            (item.product as any)?.flete ?? 
+            catalogProduct?.shippingCost ?? 
+            (catalogProduct as any)?.shipping_cost ?? 
+            (catalogProduct as any)?.flete ?? 
+            calculatedShippingCost ?? 
+            0
+          )) || calculatedShippingCost;
 
           const unitPrice = parseFloat(String(item.variant?.price || item.product?.price || 0)) || 0;
           const quantity = parseFloat(String(item.quantity || 1)) || 1;
@@ -372,8 +396,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             unitCost: costPrice,
             dropi_fee: dropiFee,
             tarifa_dropi: dropiFee,
-            shippingCost: calculatedShippingCost,
-            costo_envio: calculatedShippingCost,
+            shippingCost: itemFlete,
+            costo_envio: itemFlete,
+            flete: itemFlete,
             comboInfo: item.comboInfo,
             comboGarmentLabel: item.comboGarmentLabel
           };
