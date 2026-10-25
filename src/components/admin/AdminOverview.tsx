@@ -71,6 +71,21 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
   const liveCalculatedStats = useMemo(() => calculateDashboardMetrics(orders, products), [orders, products]);
   const effectiveStats = stats ? { ...stats, ...liveCalculatedStats } : liveCalculatedStats;
 
+  // Variables independientes de costos operativos globales
+  const totalProductCost = effectiveStats.totalProductCosts || 0;
+  const totalShippingCost = effectiveStats.totalCarrierCosts || 0;
+  const totalDropiFees = effectiveStats.totalDropiFees || 0;
+  const totalOperatingCost = effectiveStats.totalOperatingCost !== undefined 
+    ? effectiveStats.totalOperatingCost 
+    : (totalProductCost + totalShippingCost + totalDropiFees);
+
+  // Ganancia Neta Real = Total Recaudado - Costo Operativo Total
+  const totalRevenue = effectiveStats.totalRevenue || 0;
+  const totalNetProfitReal = totalRevenue - totalOperatingCost;
+  const effectiveNetMarginPercent = totalRevenue > 0 
+    ? ((totalNetProfitReal / totalRevenue) * 100).toFixed(1) 
+    : '0';
+
   // Profit breakdown list
   const profitList: ProductProfitItem[] = effectiveStats.productProfitBreakdown || products.map(p => {
     const cost = Number(p.costPrice) > 0 ? Number(p.costPrice) : Math.round(p.price * 0.45);
@@ -295,8 +310,8 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           
           <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Costo ventas hoy:</span>
-              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.todayProductCosts || 0)}</span>
+              <span className="text-slate-400">Costo operativo hoy:</span>
+              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.todayOperatingCost !== undefined ? effectiveStats.todayOperatingCost : (effectiveStats.todayProductCosts || 0))}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Ganancia neta hoy:</span>
@@ -324,8 +339,8 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           
           <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Costo ventas mes:</span>
-              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.monthProductCosts || 0)}</span>
+              <span className="text-slate-400">Costo operativo mes:</span>
+              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.monthOperatingCost !== undefined ? effectiveStats.monthOperatingCost : (effectiveStats.monthProductCosts || 0))}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Ganancia del mes:</span>
@@ -334,22 +349,30 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           </div>
         </div>
 
-        {/* 3. COSTO TOTAL DE TODAS LAS VENTAS (MERCANCÍA) */}
+        {/* 3. COSTO OPERATIVO TOTAL (PRODUCTO + FLETE + DROPI) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1">
               <Package className="w-3.5 h-3.5 text-slate-600" />
-              <span>Costo Total de Ventas</span>
+              <span>Costo Operativo Total</span>
             </span>
             <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
               {effectiveStats.totalOrders}
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            {formatCOP(effectiveStats.totalProductCosts || 0)}
+          <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">
+            {formatCOP(totalOperatingCost)}
+          </div>
+          {/* Desglose visual: Producto, Envío, Dropi */}
+          <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-medium">
+            <span>Producto: <strong className="text-slate-700 font-mono">{formatCOP(totalProductCost)}</strong></span>
+            <span>•</span>
+            <span>Envío: <strong className="text-slate-700 font-mono">{formatCOP(totalShippingCost)}</strong></span>
+            <span>•</span>
+            <span>Dropi: <strong className="text-slate-700 font-mono">{formatCOP(totalDropiFees)}</strong></span>
           </div>
           <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Costo base mercancía:</span>
+            <span>Mercancía + Logística + Dropi:</span>
             <span className="text-slate-900 font-bold">{effectiveStats.totalOrders} pedidos</span>
           </div>
         </div>
@@ -362,15 +385,15 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span>Ganancia Neta Total</span>
             </span>
             <div className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs">
-              {effectiveStats.netMarginPercentage}% rent.
+              {effectiveNetMarginPercent}% rent.
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">
-            +{formatCOP(effectiveStats.totalNetProfit !== undefined ? effectiveStats.totalNetProfit : effectiveStats.totalGrossProfit)}
+          <div className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight font-mono">
+            +{formatCOP(totalNetProfitReal)}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
             <span>Margen sobre venta:</span>
-            <span className="text-emerald-700 font-black">+{effectiveStats.netMarginPercentage}% rentabilidad</span>
+            <span className="text-emerald-700 font-black">+{effectiveNetMarginPercent}% rentabilidad</span>
           </div>
         </div>
 

@@ -152,11 +152,18 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
   };
 
   /**
-   * REGLA 3: Cálculo de Costos Internos
-   * Para el "Costo Operativo", se itera sobre los items del pedido y se suma:
-   * (item.costPrice || item.costo || 0) * (item.quantity || 1) + pedido.costo_envio
+   * CÁLCULO DE VARIABLES INDEPENDIENTES:
+   * 1. Costo Productos: Itera pedido.items sumando (item.costPrice || item.costo || 0) * (item.quantity || 1).
+   * 2. Costo Fletes/Envíos: Suma parseFloat(pedido.costo_envio || 0) o busca en items.
+   * 3. Comisiones Dropi: Suma parseFloat(item.dropiFee || item.tarifa_dropi || 0) en items o en pedido.
+   * 4. Costo Operativo Total: Costo Productos + Costo Fletes + Comisiones Dropi.
    */
-  const calculateOperatingCost = (order: Order): { costoMercancia: number; costoEnvio: number; costoOperativo: number } => {
+  const calculateOperatingCost = (order: Order): { 
+    costoProductos: number; 
+    costoEnvio: number; 
+    comisionesDropi: number; 
+    costoOperativoTotal: number; 
+  } => {
     let itemsList: any[] = [];
     if (typeof order.items === 'string') {
       try {
@@ -169,9 +176,9 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
       itemsList = order.items;
     }
 
-    let costoMercancia = 0;
+    // 1. Costo Productos
+    let costoProductos = 0;
     for (const item of itemsList) {
-      // Priorizar costPrice o costo especificado en el item
       let unitCost = parseFloat(String(
         item.costPrice || 
         item.costo || 
@@ -180,7 +187,6 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
         0
       )) || 0;
 
-      // Si no viene en el item, buscar en el catálogo
       if (unitCost === 0 && productMap && item.productId) {
         const prod = productMap.get(item.productId);
         if (prod) {
@@ -189,24 +195,52 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
       }
 
       const qty = parseFloat(String(item.quantity || (item as any).cantidad || 1)) || 1;
-      costoMercancia += unitCost * qty;
+      costoProductos += unitCost * qty;
     }
 
-    // Costo de envío del pedido (pedido.costo_envio con fallbacks seguros)
-    const costoEnvio = parseFloat(String(
+    // 2. Costo Fletes / Envíos
+    let costoEnvio = parseFloat(String(
       (order as any).costo_envio ?? 
       order.shippingCost ?? 
+      (order as any).shipping_cost ?? 
+      (order as any).flete ?? 
+      (order as any).flete_envio ?? 
       (order as any).shippingFee ?? 
       order.carrierFee ?? 
       0
     )) || 0;
 
-    const costoOperativo = costoMercancia + costoEnvio;
+    if (costoEnvio === 0 && itemsList.length > 0) {
+      for (const item of itemsList) {
+        const itemFlete = parseFloat(String((item as any).shippingCost || (item as any).flete || (item as any).flete_envio || 0)) || 0;
+        costoEnvio += itemFlete;
+      }
+    }
+
+    // 3. Comisiones Dropi
+    let comisionesDropi = parseFloat(String(
+      (order as any).dropiFee ?? 
+      (order as any).tarifa_dropi ?? 
+      (order as any).dropi_fee ?? 
+      order.dropiFee ?? 
+      0
+    )) || 0;
+
+    if (comisionesDropi === 0 && itemsList.length > 0) {
+      for (const item of itemsList) {
+        const itemFee = parseFloat(String((item as any).dropiFee || (item as any).tarifa_dropi || (item as any).dropi_fee || (item as any).comisionDropi || 0)) || 0;
+        comisionesDropi += itemFee;
+      }
+    }
+
+    // 4. Costo Operativo Total
+    const costoOperativoTotal = costoProductos + costoEnvio + comisionesDropi;
 
     return {
-      costoMercancia,
+      costoProductos,
       costoEnvio,
-      costoOperativo
+      comisionesDropi,
+      costoOperativoTotal
     };
   };
 
@@ -262,23 +296,29 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
   }, [orders, selectedDate]);
 
   /**
-   * REGLA 2: Cálculos de Totales
-   * Los recuadros superiores (Recaudo Bruto, Costo Operativo, Margen Neto y Pedidos Auditados)
-   * suman sus valores basándose ÚNICAMENTE en el array ya filtrado por esa fecha (pedidosDelDia),
-   * no en el array global.
+   * REGLA 2: Cálculos de Totales y Variables Independientes
+   * Los recuadros superiores discriminan Costo Productos, Costo Envíos y Comisiones Dropi.
+   * Ganancia Neta Real = Total Recaudado - Costo Operativo Total.
    */
   const dailyTotals = useMemo(() => {
     let totalSales = 0;
     let totalCost = 0;
+    let totalProductCost = 0;
+    let totalShippingCost = 0;
+    let totalDropiFees = 0;
 
     for (const pedido of pedidosDelDia) {
       const sale = parseFloat(String(pedido.totalAmount ?? pedido.total ?? (pedido as any).total_amount ?? 0)) || 0;
       totalSales += sale;
 
-      const { costoOperativo } = calculateOperatingCost(pedido);
-      totalCost += costoOperativo;
+      const { costoProductos, costoEnvio, comisionesDropi, costoOperativoTotal } = calculateOperatingCost(pedido);
+      totalCost += costoOperativoTotal;
+      totalProductCost += costoProductos;
+      totalShippingCost += costoEnvio;
+      totalDropiFees += comisionesDropi;
     }
 
+    // Ganancia Neta Real: Total Recaudado - Costo Operativo Total
     const totalNet = totalSales - totalCost;
     const marginPercent = totalSales > 0 ? ((totalNet / totalSales) * 100).toFixed(1) : '0';
 
@@ -286,6 +326,9 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
       count: pedidosDelDia.length, // Pedidos Auditados
       totalSales,                  // Recaudo Bruto
       totalCost,                   // Costo Operativo Total
+      totalProductCost,            // Costo Productos
+      totalShippingCost,           // Costo Fletes/Envíos
+      totalDropiFees,              // Comisiones Dropi
       totalNet,                    // Margen Neto Acumulado
       marginPercent                // % de rentabilidad
     };
@@ -312,9 +355,9 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
         return `${it.title || 'Producto'} (x${it.quantity || 1})`;
       }).join(' + ') || 'Sin productos';
 
-      const { costoOperativo } = calculateOperatingCost(order);
+      const { costoOperativoTotal } = calculateOperatingCost(order);
       const totalSale = parseFloat(String(order.totalAmount ?? order.total ?? (order as any).total_amount ?? 0)) || 0;
-      const netProfit = totalSale - costoOperativo;
+      const netProfit = totalSale - costoOperativoTotal;
 
       const rawDate = order.createdAt || (order as any).created_at || '';
       let timeStr = '--:--';
@@ -338,7 +381,7 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
         products: prodSummary,
         supplier: Array.from(supSet).join(', ') || 'Dropi Colombia',
         totalSale,
-        operatingCost: costoOperativo,
+        operatingCost: costoOperativoTotal,
         netProfit,
         status: order.status || 'PENDIENTE_REVISION',
         paymentMethod: order.paymentMethod || 'contra_entrega',
@@ -779,8 +822,18 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
               <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
                 {formatCOP(dailyTotals.totalCost)}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Costo de productos a bodega + fletes de envío
+              
+              {/* Desglose visual: Producto, Envío, Dropi */}
+              <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 font-medium">
+                <span>Producto: <strong className="text-slate-700 font-mono">{formatCOP(dailyTotals.totalProductCost)}</strong></span>
+                <span>•</span>
+                <span>Envío: <strong className="text-slate-700 font-mono">{formatCOP(dailyTotals.totalShippingCost)}</strong></span>
+                <span>•</span>
+                <span>Dropi: <strong className="text-slate-700 font-mono">{formatCOP(dailyTotals.totalDropiFees)}</strong></span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-1">
+                Mercancía + fletes transportadora + comisiones Dropi
               </p>
             </div>
           </div>

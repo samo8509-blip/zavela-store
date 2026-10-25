@@ -789,6 +789,7 @@ export interface AdminStats {
   averageMarginPercentage: number;
   
   // Desglose de Costos Operativos y Logísticos
+  totalOperatingCost?: number; // Costo Operativo Total (Mercancía + Fletes + Dropi)
   totalCarrierCosts?: number; // Total fletes pagados a transportadoras (Servientrega, Coordinadora, etc.)
   totalDropiFees?: number; // Total cobros/comisiones de plataforma Dropi
   totalNetProfit?: number; // Utilidad Neta Real Líquida en Mano (Ventas - Costos Producto - Fletes - Dropi)
@@ -799,6 +800,7 @@ export interface AdminStats {
   todayOrders: number;
   todayGrossProfit: number;
   todayProductCosts: number;
+  todayOperatingCost?: number;
   todayCarrierCosts?: number;
   todayDropiFees?: number;
   todayNetProfit?: number;
@@ -807,6 +809,7 @@ export interface AdminStats {
   monthOrders: number;
   monthGrossProfit: number;
   monthProductCosts: number;
+  monthOperatingCost?: number;
   monthCarrierCosts?: number;
   monthDropiFees?: number;
   monthNetProfit?: number;

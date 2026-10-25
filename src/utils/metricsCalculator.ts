@@ -269,6 +269,10 @@ export function calculateDashboardMetrics(orders: Order[], products: Product[]):
     ? Math.round((totalNetProfit / totalRevenue) * 100 * 10) / 10
     : 0;
 
+  const totalOperatingCost = totalProductCosts + totalCarrierCosts + totalDropiFees;
+  const todayOperatingCost = todayProductCosts + todayCarrierCosts + todayDropiFees;
+  const monthOperatingCost = monthProductCosts + monthCarrierCosts + monthDropiFees;
+
   return {
     totalRevenue,
     totalSales: totalRevenue,
@@ -277,6 +281,7 @@ export function calculateDashboardMetrics(orders: Order[], products: Product[]):
     totalProductCosts,
     totalCarrierCosts,
     totalDropiFees,
+    totalOperatingCost,
     totalNetProfit,
     averageMarginPercentage,
     netMarginPercentage,
@@ -285,6 +290,7 @@ export function calculateDashboardMetrics(orders: Order[], products: Product[]):
     todayOrders,
     todayGrossProfit,
     todayProductCosts,
+    todayOperatingCost,
     todayCarrierCosts,
     todayDropiFees,
     todayNetProfit: todayGrossProfit,
@@ -293,6 +299,7 @@ export function calculateDashboardMetrics(orders: Order[], products: Product[]):
     monthOrders,
     monthGrossProfit,
     monthProductCosts,
+    monthOperatingCost,
     monthCarrierCosts,
     monthDropiFees,
     monthNetProfit: monthGrossProfit,
