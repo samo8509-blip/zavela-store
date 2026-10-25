@@ -70,7 +70,7 @@ interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onOrderCreated: (order: Order) => void;
+  onOrderCreated: (order: Order, clientDetails?: { firstName: string; lastName: string; phone: string }) => void;
   freeShippingThreshold?: number;
   appliedCoupon?: ActiveDiscountCoupon | null;
   onRemoveCoupon?: () => void;
@@ -340,12 +340,38 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         throw new Error(data.message || 'Error al procesar el pedido.');
       }
 
-      const createdOrder: Order = { ...orderPayload, ...(data.data || {}) } as unknown as Order;
+      const clientDetails = {
+        firstName: formData.firstName?.trim() || '',
+        lastName: formData.lastName?.trim() || '',
+        phone: formData.phone.trim()
+      };
+      const customerFullName = `${clientDetails.firstName} ${clientDetails.lastName}`.trim();
+
+      const createdOrder: Order = { 
+        ...orderPayload, 
+        customerName: customerFullName,
+        customerPhone: clientDetails.phone,
+        firstName: clientDetails.firstName,
+        lastName: clientDetails.lastName,
+        phone: clientDetails.phone,
+        ...(data.data || {}) 
+      } as unknown as Order;
+
+      // Garantizar que customerName y customerPhone no queden vacíos si la API devuelve data parcial
+      if (!createdOrder.customerName) {
+        createdOrder.customerName = customerFullName;
+      }
+      if (!createdOrder.customerPhone) {
+        createdOrder.customerPhone = clientDetails.phone;
+      }
+      createdOrder.firstName = createdOrder.firstName || clientDetails.firstName;
+      createdOrder.lastName = createdOrder.lastName || clientDetails.lastName;
+      createdOrder.phone = createdOrder.phone || clientDetails.phone;
 
       if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
-        const customerName = `${formData.firstName?.trim()} ${formData.lastName?.trim()}`.trim();
+        const customerName = customerFullName;
         const customerAddress = `${formData.address?.trim()}, ${formData.city?.trim()}`;
-        const customerPhone = formData.phone.trim();
+        const customerPhone = clientDetails.phone;
 
         try {
           await triggerEpaycoCheckout({
@@ -365,7 +391,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           return;
         }
 
-        onOrderCreated(createdOrder as any);
+        onOrderCreated(createdOrder, clientDetails);
         onClose();
         return;
       }
@@ -381,7 +407,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }));
       }
 
-      onOrderCreated(createdOrder as any);
+      onOrderCreated(createdOrder, clientDetails);
       onClose();
     } catch (err: any) {
       setServerError(err.message || 'Ocurrió un error inesperado al conectar con el servidor.');

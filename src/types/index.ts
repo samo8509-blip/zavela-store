@@ -579,6 +579,9 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
   clienteEmail?: string;
   cliente_email?: string;
   email?: string;

@@ -136,6 +136,11 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [orderDetails, setOrderDetails] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+  } | null>(null);
 
   // Dynamic Browser Tab Title Management (Home vs Product)
   useEffect(() => {
@@ -1637,10 +1642,26 @@ export default function App() {
         products={products}
         appliedCoupon={appliedDiscountCoupon}
         onRemoveCoupon={() => setAppliedDiscountCoupon(null)}
-        onOrderCreated={(order) => {
+        onOrderCreated={(order, clientDetails) => {
+          // 1. Guardar una copia exacta del firstName, lastName y phone justo antes de limpiar el carrito y el formulario principal
+          const savedDetails = {
+            firstName: clientDetails?.firstName || order.firstName || (order.customerName ? order.customerName.split(' ')[0] : ''),
+            lastName: clientDetails?.lastName || order.lastName || (order.customerName ? order.customerName.split(' ').slice(1).join(' ') : ''),
+            phone: clientDetails?.phone || order.phone || order.customerPhone || ''
+          };
+          setOrderDetails(savedDetails);
+
+          // Limpiar carrito y cupón
           setCartItems([]);
           setAppliedDiscountCoupon(null);
-          setCompletedOrder(order);
+          setCompletedOrder({
+            ...order,
+            firstName: savedDetails.firstName,
+            lastName: savedDetails.lastName,
+            phone: savedDetails.phone,
+            customerName: order.customerName || `${savedDetails.firstName} ${savedDetails.lastName}`.trim(),
+            customerPhone: order.customerPhone || savedDetails.phone
+          });
           recordCustomerPurchase(order);
         }}
         freeShippingThreshold={settings?.freeShippingThreshold || 120000}
@@ -1677,8 +1698,12 @@ export default function App() {
       {/* Order Success Modal */}
       <OrderSuccessModal
         order={completedOrder}
+        orderDetails={orderDetails}
         whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
-        onClose={() => setCompletedOrder(null)}
+        onClose={() => {
+          setCompletedOrder(null);
+          setOrderDetails(null);
+        }}
         onTrackOrder={(orderNumber) => {
           setTrackingInitialQuery(orderNumber);
           setCurrentView('tracking');

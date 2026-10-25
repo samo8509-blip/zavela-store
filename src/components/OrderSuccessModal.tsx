@@ -16,6 +16,11 @@ import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../utils/formatters.ts'
 
 interface OrderSuccessModalProps {
   order: Order | null;
+  orderDetails?: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+  } | null;
   whatsappNumber?: string;
   onClose: () => void;
   onTrackOrder: (orderNumber: string) => void;
@@ -23,6 +28,7 @@ interface OrderSuccessModalProps {
 
 export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   order,
+  orderDetails,
   whatsappNumber,
   onClose,
   onTrackOrder
@@ -40,6 +46,13 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
 
   if (!order) return null;
 
+  // Copia segura de datos de la orden para Destinatario y Teléfono
+  const ordenGuardada = {
+    firstName: orderDetails?.firstName || order.firstName || (order.customerName ? order.customerName.split(' ')[0] : '') || '',
+    lastName: orderDetails?.lastName || order.lastName || (order.customerName ? order.customerName.split(' ').slice(1).join(' ') : '') || '',
+    phone: (orderDetails?.phone || order.phone || order.customerPhone || '').replace(/^\+?57\s*/, '').trim()
+  };
+
   const rawPhone = whatsappNumber || '573157894512';
   let cleanPhone = rawPhone.replace(/[^\d]/g, '');
   if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
@@ -48,9 +61,10 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   if (!cleanPhone) cleanPhone = '573157894512';
 
   const statusConfig = ORDER_STATUS_MAP[order.status] || ORDER_STATUS_MAP.pendiente;
+  const destinatarioName = `${ordenGuardada.firstName} ${ordenGuardada.lastName}`.trim() || order.customerName || 'Cliente';
 
   const whatsappMessage = encodeURIComponent(
-    `¡Hola! Acabo de realizar el pedido *${order.orderNumber}* en ZAVELA STORE Colombia por valor de *${formatCOP(order.total)}* a nombre de *${order.customerName}* en *${order.city}, ${order.department}*. Quedo atento a la guía de despacho. ¡Gracias!`
+    `¡Hola! Acabo de realizar el pedido *${order.orderNumber}* en ZAVELA STORE Colombia por valor de *${formatCOP(order.total)}* a nombre de *${destinatarioName}* en *${order.city}, ${order.department}*. Quedo atento a la guía de despacho. ¡Gracias!`
   );
 
   return (
@@ -109,11 +123,11 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs space-y-2">
             <div className="flex justify-between">
               <span className="text-slate-600">Destinatario:</span>
-              <span className="font-bold text-slate-900">{order.customerName}</span>
+              <span className="font-bold text-slate-900">{ordenGuardada.firstName} {ordenGuardada.lastName}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Teléfono:</span>
-              <span className="font-bold text-slate-900">+57 {order.customerPhone}</span>
+              <span className="font-bold text-slate-900">+57 {ordenGuardada.phone}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">Ciudad y Depto:</span>
