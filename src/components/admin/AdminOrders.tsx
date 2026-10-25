@@ -38,7 +38,8 @@ import {
   Sliders,
   FileSpreadsheet,
   Mail,
-  CreditCard
+  CreditCard,
+  MessageCircle
 } from 'lucide-react';
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
@@ -594,6 +595,104 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     }
   };
 
+  // Acción Inteligente: Confirmar pedido con distribuidor / proveedor local (DeRocha) vía WhatsApp y pasar a "En Preparación"
+  const handleConfirmSupplierWhatsApp = async (order: Order) => {
+    setIsProcessing(order.id);
+    try {
+      const orderItems = parseOrderItems(order.items);
+      const itemsListText = orderItems.map((item) => 
+        `• ${item.quantity}x ${item.title}${item.variantName ? ` [${item.variantName}]` : ''}`
+      ).join('\n');
+
+      const message = 
+`📦 *CONFIRMACIÓN DE PEDIDO - PROVEEDOR / BODEGA*
+*Pedido:* #${order.orderNumber}
+*Fecha:* ${new Date(order.createdAt).toLocaleDateString('es-CO')}
+*Proveedor:* DeRocha / Bodega Local
+
+👤 *DATOS DEL DESTINATARIO:*
+• *Cliente:* ${order.customerName}
+• *Teléfono:* +57 ${order.customerPhone}
+• *Ciudad:* ${order.city}, ${order.department}
+• *Dirección:* ${order.address}
+${order.additionalNotes ? `• *Notas:* ${order.additionalNotes}\n` : ''}
+🛒 *PRODUCTOS SOLICITADOS:*
+${itemsListText}
+
+💰 *VALOR A RECAUDAR:* ${formatCOP(order.total || order.subtotal || 0)}
+🚚 *MÉTODO:* Pago Contra Entrega (${order.carrier || 'Servientrega'})
+
+Por favor confirmar disponibilidad y alistamiento de la mercancía. ¡Muchas gracias!`;
+
+      // 1. Actualizar estado del pedido internamente a "En Preparación" (procesando)
+      await handleUpdateOrderStatus(order.id, 'procesando');
+
+      // 2. Abrir WhatsApp con los datos listos para el distribuidor
+      const encodedMsg = encodeURIComponent(message);
+      const waUrl = `https://api.whatsapp.com/send?text=${encodedMsg}`;
+      window.open(waUrl, '_blank');
+    } catch (err: any) {
+      console.error('Error al confirmar con proveedor:', err);
+      alert('Error al confirmar con proveedor: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  // Acción Inteligente: Enviar y autorizar pedido a Dropi Colombia vía API
+  const handleDirectSendToDropi = async (order: Order) => {
+    setIsProcessing(order.id);
+    try {
+      const safeOrderItems = parseOrderItems(order.items);
+      const resolvedItems = safeOrderItems.map(item => {
+        const matchedProd = findProductForItem(item);
+        const prodId = item.productId || matchedProd.id;
+        const mappedDropiId = item.dropi_product_id || matchedProd.dropi_product_id || (matchedProd as any).dropiProductId || '';
+        return {
+          ...item,
+          dropi_product_id: mappedDropiId
+        };
+      });
+
+      // Si falta el Dropi Product ID en algún ítem, abrir el modal de asignación
+      const hasMissingDropiId = resolvedItems.some(it => !it.dropi_product_id);
+      if (hasMissingDropiId) {
+        handleOpenDropiModal(order);
+        return;
+      }
+
+      const payload = {
+        orderId: order.id,
+        carrier: order.carrier || 'Servientrega',
+        dane_code: order.dane_code || getDaneCode(order.city, order.department),
+        items: resolvedItems
+      };
+
+      const res = await fetch('/api/orders/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error_message || data.message || 'Error al autorizar en Dropi');
+      }
+
+      const guia = data.data?.dropi_guia || data.dropi_guia || '';
+      const carrier = data.data?.carrier || payload.carrier;
+      await handleUpdateOrderStatus(order.id, 'APROBADO_DROPI', carrier, guia);
+
+      alert(`¡Pedido #${order.orderNumber} enviado y autorizado exitosamente con Dropi Colombia!${guia ? ` Guía: ${guia}` : ''}`);
+      onRefresh();
+    } catch (err: any) {
+      console.warn('Envío automático directo requirió revisión manual:', err.message);
+      handleOpenDropiModal(order);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const handleSaveEditOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingOrder) return;
@@ -1007,13 +1106,13 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Gestión de Pedidos Contra Entrega</span>
+            <span>Centro de Despachos & Envíos por Proveedor</span>
             <span className="px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-800 text-xs font-bold font-mono">
               {orders.length} pedidos
             </span>
           </h2>
           <p className="text-xs text-slate-500">
-            Revisa exactamente qué compró cada cliente, abre los enlaces directos a cada producto, genera comprobantes o actualiza despachos.
+            Control de órdenes según origen: Envío directo por API a Dropi Colombia o confirmación con proveedores y bodegas locales vía WhatsApp.
           </p>
         </div>
 
@@ -1174,12 +1273,12 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
               <tr>
                 <th className="w-[8%] px-2.5 py-3">Pedido</th>
                 <th className="w-[14%] px-2.5 py-3">Cliente</th>
-                <th className="w-[24%] px-2.5 py-3">¿Qué Compró? (Artículos)</th>
-                <th className="w-[14%] px-2.5 py-3">Destino</th>
+                <th className="w-[22%] px-2.5 py-3">¿Qué Compró? (Artículos)</th>
+                <th className="w-[13%] px-2.5 py-3">Destino</th>
                 <th className="w-[11%] px-2.5 py-3">Total Recaudar</th>
-                <th className="w-[11%] px-2.5 py-3">Guía / Logística</th>
-                <th className="w-[9%] px-2.5 py-3">Estado</th>
-                <th className="w-[9%] px-2.5 py-3 text-right">Acciones</th>
+                <th className="w-[10%] px-2.5 py-3">Guía / Logística</th>
+                <th className="w-[10%] px-2.5 py-3">Estado</th>
+                <th className="w-[12%] px-2.5 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
@@ -1457,42 +1556,83 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                       <td className="px-2.5 py-3 text-right">
                         <div className="flex flex-col items-end gap-1.5">
                           
-                          {/* Dropi Approval Action Button vs Direct Shipping */}
-                          {isOrderDropi(order) ? (
-                            (order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' || order.status === 'ERROR_DROPI') ? (
+                          {/* Lógica condicional inteligente basada en el proveedor del producto */}
+                          {(() => {
+                            const isDropi = order.isDropi === true || isOrderDropi(order) || String(order.supplier || (order as any).proveedor || '').toLowerCase() === 'dropi';
+                            
+                            // 1. Pedido de Dropi: Botón distintivo naranja "Enviar a Dropi"
+                            if (isDropi) {
+                              if (order.status === 'APROBADO_DROPI') {
+                                return (
+                                  <button
+                                    onClick={() => handleOpenDropiModal(order)}
+                                    className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold transition-all cursor-pointer leading-tight text-center shadow-2xs"
+                                    title="Ver comprobante y ficha de Dropi"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                    <span className="truncate">Aprobado en Dropi</span>
+                                  </button>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  id={`btn-dropi-approve-${order.id}`}
+                                  onClick={() => handleDirectSendToDropi(order)}
+                                  disabled={isProcessing === order.id}
+                                  className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 hover:from-orange-600 hover:to-amber-600 text-slate-950 text-[10px] font-black shadow-xs hover:shadow-md transition-all cursor-pointer leading-tight text-center border border-orange-400/60 active:scale-98 disabled:opacity-50"
+                                  title="Conectar por API y autorizar automáticamente el pedido en Dropi Colombia"
+                                >
+                                  {isProcessing === order.id ? (
+                                    <>
+                                      <RotateCw className="w-3 h-3 animate-spin shrink-0 text-slate-950" />
+                                      <span className="truncate">Autorizando...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Zap className="w-3 h-3 text-slate-950 shrink-0 fill-slate-950" />
+                                      <span className="truncate">{order.status === 'ERROR_DROPI' ? 'Reintentar Dropi' : 'Enviar a Dropi'}</span>
+                                    </>
+                                  )}
+                                </button>
+                              );
+                            }
+
+                            // 2. Pedido de Proveedor Local / DeRocha: Botón verde "Confirmar con Proveedor" (WhatsApp y En Preparación)
+                            return (
                               <button
-                                id={`btn-dropi-approve-${order.id}`}
-                                onClick={() => handleOpenDropiModal(order)}
-                                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer leading-tight text-center"
-                                title="Revisar datos del cliente y transmitir orden a Dropi Colombia"
-                              >
-                                <Send className="w-2.5 h-2.5 shrink-0 text-cyan-200" />
-                                <span>{order.status === 'ERROR_DROPI' ? 'Reintentar' : 'Enviar Dropi'}</span>
-                              </button>
-                            ) : order.status === 'APROBADO_DROPI' ? (
-                              <button
-                                onClick={() => handleOpenDropiModal(order)}
-                                className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-bold transition-all cursor-pointer leading-tight text-center"
-                                title="Ver ficha de transmisión de Dropi"
-                              >
-                                <FileCheck className="w-3 h-3 text-emerald-600 shrink-0" />
-                                <span>Ficha</span>
-                              </button>
-                            ) : null
-                          ) : (
-                            (order.status === 'PENDIENTE_REVISION' || order.status === 'pendiente' || order.status === 'pago_confirmado' || order.status === 'procesando') ? (
-                              <button
-                                id={`btn-direct-ship-${order.id}`}
-                                onClick={() => handleMarkAsDirectShipped(order)}
+                                id={`btn-confirm-supplier-${order.id}`}
+                                onClick={() => handleConfirmSupplierWhatsApp(order)}
                                 disabled={isProcessing === order.id}
-                                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer leading-tight text-center"
-                                title="Marcar pedido de bodega directa como despachado (Envío Directo)"
+                                className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-bold shadow-xs hover:shadow-md transition-all cursor-pointer leading-tight text-center active:scale-98 disabled:opacity-50 ${
+                                  order.status === 'procesando'
+                                    ? 'bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-300'
+                                    : order.status === 'enviado' || order.status === 'entregado'
+                                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                    : 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white border border-emerald-500/40 shadow-emerald-500/20'
+                                }`}
+                                title="Enviar datos del cliente y producto por WhatsApp al distribuidor y actualizar estado a En Preparación"
                               >
-                                <Truck className="w-2.5 h-2.5 shrink-0 text-emerald-400" />
-                                <span>Despachar</span>
+                                {isProcessing === order.id ? (
+                                  <>
+                                    <RotateCw className="w-3 h-3 animate-spin shrink-0 text-current" />
+                                    <span className="truncate">Alistando...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <MessageCircle className="w-3 h-3 text-current shrink-0" />
+                                    <span className="truncate">
+                                      {order.status === 'procesando'
+                                        ? 'En Preparación'
+                                        : order.status === 'enviado'
+                                        ? 'Despachado'
+                                        : 'Confirmar con Proveedor'}
+                                    </span>
+                                  </>
+                                )}
                               </button>
-                            ) : null
-                          )}
+                            );
+                          })()}
 
                           <div className="flex items-center justify-end gap-1">
                             <button

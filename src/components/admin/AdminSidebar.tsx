@@ -152,7 +152,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         },
         { 
           key: 'orders', 
-          label: 'Gestión de Pedidos Contra Entrega', 
+          label: 'Centro de Despachos & Envíos', 
           icon: ShoppingCart, 
           badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Totales` : undefined, 
           badgeColor: 'bg-emerald-500 text-slate-950 font-bold' 
