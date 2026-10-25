@@ -24,9 +24,10 @@ import {
   Check,
   ArrowUpDown
 } from 'lucide-react';
-import { Order, Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { getDaneCode } from '../../data/colombiaGeo.ts';
+import { calculateOrderFinancials } from '../../utils/metricsCalculator.ts';
+import { Order, Product } from '../../types/index.ts';
 
 interface CalendarOrderRow {
   id: string;
@@ -56,23 +57,66 @@ interface SalesCalendarSheetProps {
   onRefresh?: () => void;
 }
 
+/**
+ * REGLA 1: Extracción de Fecha
+ * Extrae de manera precisa la parte YYYY-MM-DD del string de fecha de pedido (ej: "2026-10-24 17:02:34").
+ * Soporta formatos SQL datetime ("2026-10-24 17:02:34"), ISO ("2026-10-24T..."), etc.
+ */
+export const extractOrderDateKey = (rawDate?: string | null): string => {
+  if (!rawDate) return '';
+  const trimmed = String(rawDate).trim();
+  if (trimmed.includes('T')) {
+    return trimmed.split('T')[0].substring(0, 10);
+  }
+  return trimmed.split(' ')[0].substring(0, 10);
+};
+
 export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
   orders = [],
   products = [],
   onRefresh
 }) => {
-  // Current viewing month and selected date
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  // Función para obtener fecha actual en formato YYYY-MM-DD
+  const getTodayStr = (): string => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth()); // 0-indexed
+  const todayStr = getTodayStr();
 
-  // Data from backend or fallback to props
-  const [dayOrders, setDayOrders] = useState<CalendarOrderRow[]>([]);
+  // Fecha seleccionada y mes visible
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (orders && orders.length > 0) {
+      const dates = orders
+        .map(o => extractOrderDateKey(o.createdAt || (o as any).created_at))
+        .filter(d => Boolean(d && d.length === 10));
+      if (dates.includes(todayStr)) return todayStr;
+      if (dates.length > 0) {
+        dates.sort();
+        return dates[dates.length - 1];
+      }
+    }
+    return todayStr;
+  });
+
+  const [currentYear, setCurrentYear] = useState<number>(() => {
+    if (selectedDate && selectedDate.includes('-')) {
+      return parseInt(selectedDate.split('-')[0], 10);
+    }
+    return new Date().getFullYear();
+  });
+
+  const [currentMonth, setCurrentMonth] = useState<number>(() => {
+    if (selectedDate && selectedDate.includes('-')) {
+      return parseInt(selectedDate.split('-')[1], 10) - 1;
+    }
+    return new Date().getMonth();
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [salesDatesMap, setSalesDatesMap] = useState<Record<string, { count: number; totalSales: number }>>({});
   
   // Table filters & sorting
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -81,13 +125,13 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
   const [sortField, setSortField] = useState<'time' | 'totalSale' | 'netProfit'>('time');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
-  // Month names in Spanish
+  // Nombres de meses en español
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  // Helper product map for supplier resolution
+  // Helper product map for supplier & cost resolution
   const productMap = useMemo(() => {
     const map = new Map<string, Product>();
     products.forEach(p => {
@@ -107,73 +151,194 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
     return 'DeRocha Store';
   };
 
-  // Fetch sales for selected date from API
-  const fetchCalendarData = async (dateToFetch: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/orders/calendar?date=${dateToFetch}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setDayOrders(data.orders || []);
-          if (data.salesDates) {
-            setSalesDatesMap(data.salesDates);
-          }
-          setIsLoading(false);
-          return;
-        }
+  /**
+   * REGLA 3: Cálculo de Costos Internos
+   * Para el "Costo Operativo", se itera sobre los items del pedido y se suma:
+   * (item.costPrice || item.costo || 0) * (item.quantity || 1) + pedido.costo_envio
+   */
+  const calculateOperatingCost = (order: Order): { costoMercancia: number; costoEnvio: number; costoOperativo: number } => {
+    let itemsList: any[] = [];
+    if (typeof order.items === 'string') {
+      try {
+        const parsed = JSON.parse(order.items);
+        itemsList = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+      } catch {
+        itemsList = [];
       }
-    } catch (e) {
-      console.warn('Fallback a cálculo local de calendario:', e);
+    } else if (Array.isArray(order.items)) {
+      itemsList = order.items;
     }
 
-    // Fallback: Compute from props.orders
-    const datesMap: Record<string, { count: number; totalSales: number }> = {};
-    orders.forEach(o => {
-      if (!o.createdAt) return;
-      const d = o.createdAt.slice(0, 10);
-      if (!datesMap[d]) datesMap[d] = { count: 0, totalSales: 0 };
-      datesMap[d].count += 1;
-      datesMap[d].totalSales += (o.total || 0);
+    let costoMercancia = 0;
+    for (const item of itemsList) {
+      // Priorizar costPrice o costo especificado en el item
+      let unitCost = parseFloat(String(
+        item.costPrice || 
+        item.costo || 
+        (item as any).unitCost || 
+        (item as any).cost || 
+        0
+      )) || 0;
+
+      // Si no viene en el item, buscar en el catálogo
+      if (unitCost === 0 && productMap && item.productId) {
+        const prod = productMap.get(item.productId);
+        if (prod) {
+          unitCost = parseFloat(String(prod.costPrice || (prod as any).costo || 0)) || 0;
+        }
+      }
+
+      const qty = parseFloat(String(item.quantity || (item as any).cantidad || 1)) || 1;
+      costoMercancia += unitCost * qty;
+    }
+
+    // Costo de envío del pedido (pedido.costo_envio con fallbacks seguros)
+    const costoEnvio = parseFloat(String(
+      (order as any).costo_envio ?? 
+      order.shippingCost ?? 
+      (order as any).shippingFee ?? 
+      order.carrierFee ?? 
+      0
+    )) || 0;
+
+    const costoOperativo = costoMercancia + costoEnvio;
+
+    return {
+      costoMercancia,
+      costoEnvio,
+      costoOperativo
+    };
+  };
+
+  // Mapa de días con ventas para el calendario interactivo
+  const salesDatesMap = useMemo(() => {
+    const map: Record<string, { count: number; totalSales: number }> = {};
+    for (const o of orders) {
+      const rawDate = o.createdAt || (o as any).created_at;
+      if (!rawDate) continue;
+      const dateKey = extractOrderDateKey(rawDate);
+      if (!dateKey || dateKey.length < 10) continue;
+
+      const total = parseFloat(String(o.totalAmount ?? o.total ?? (o as any).total_amount ?? 0)) || 0;
+      if (!map[dateKey]) {
+        map[dateKey] = { count: 0, totalSales: 0 };
+      }
+      map[dateKey].count += 1;
+      map[dateKey].totalSales += total;
+    }
+    return map;
+  }, [orders]);
+
+  // Si orders se cargan asíncronamente y selectedDate inicial no tenía ventas, sincronizar a la fecha más reciente con ventas
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const dates = Object.keys(salesDatesMap).sort();
+      if (dates.length > 0 && !dates.includes(selectedDate)) {
+        if (dates.includes(todayStr)) {
+          setSelectedDate(todayStr);
+        } else {
+          const latest = dates[dates.length - 1];
+          setSelectedDate(latest);
+          const [y, m] = latest.split('-');
+          setCurrentYear(parseInt(y, 10));
+          setCurrentMonth(parseInt(m, 10) - 1);
+        }
+      }
+    }
+  }, [orders, salesDatesMap]);
+
+  /**
+   * REGLA 1: Extracción de Fecha y Filtrado del Array de Pedidos
+   * Compara la fecha seleccionada con la fecha extraída YYYY-MM-DD del pedido.
+   */
+  const pedidosDelDia = useMemo(() => {
+    if (!selectedDate) return [];
+
+    return orders.filter(pedido => {
+      const rawDate = pedido.createdAt || (pedido as any).created_at;
+      const fechaPedido = extractOrderDateKey(rawDate);
+      return fechaPedido === selectedDate;
     });
-    setSalesDatesMap(datesMap);
+  }, [orders, selectedDate]);
 
-    const filtered = orders.filter(o => o.createdAt && o.createdAt.slice(0, 10) === dateToFetch);
-    const mapped: CalendarOrderRow[] = filtered.map(order => {
-      const items = Array.isArray(order.items) ? order.items : [];
-      let itemsCost = 0;
+  /**
+   * REGLA 2: Cálculos de Totales
+   * Los recuadros superiores (Recaudo Bruto, Costo Operativo, Margen Neto y Pedidos Auditados)
+   * suman sus valores basándose ÚNICAMENTE en el array ya filtrado por esa fecha (pedidosDelDia),
+   * no en el array global.
+   */
+  const dailyTotals = useMemo(() => {
+    let totalSales = 0;
+    let totalCost = 0;
+
+    for (const pedido of pedidosDelDia) {
+      const sale = parseFloat(String(pedido.totalAmount ?? pedido.total ?? (pedido as any).total_amount ?? 0)) || 0;
+      totalSales += sale;
+
+      const { costoOperativo } = calculateOperatingCost(pedido);
+      totalCost += costoOperativo;
+    }
+
+    const totalNet = totalSales - totalCost;
+    const marginPercent = totalSales > 0 ? ((totalNet / totalSales) * 100).toFixed(1) : '0';
+
+    return {
+      count: pedidosDelDia.length, // Pedidos Auditados
+      totalSales,                  // Recaudo Bruto
+      totalCost,                   // Costo Operativo Total
+      totalNet,                    // Margen Neto Acumulado
+      marginPercent                // % de rentabilidad
+    };
+  }, [pedidosDelDia, productMap]);
+
+  // Mapeo de pedidos del día a filas de la hoja de cálculo DataGrid
+  const dayOrders = useMemo(() => {
+    return pedidosDelDia.map(order => {
+      let itemsList: any[] = [];
+      if (typeof order.items === 'string') {
+        try {
+          const parsed = JSON.parse(order.items);
+          itemsList = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+        } catch {
+          itemsList = [];
+        }
+      } else if (Array.isArray(order.items)) {
+        itemsList = order.items;
+      }
+
       const supSet = new Set<string>();
-
-      const prodSummary = items.map(it => {
-        const prod = productMap.get(it.productId);
-        const cost = Number(it.unitCost || prod?.costPrice || (prod as any)?.cost || 0);
-        itemsCost += cost * (it.quantity || 1);
+      const prodSummary = itemsList.map(it => {
         supSet.add(resolveSupplier(it.productId, (it as any).supplier || (it as any).supplier_name));
         return `${it.title || 'Producto'} (x${it.quantity || 1})`;
       }).join(' + ') || 'Sin productos';
 
-      const opCost = (order.productCostTotal && order.productCostTotal > 0)
-        ? order.productCostTotal + (order.shippingCost || 0)
-        : itemsCost + (order.shippingCost || 0);
+      const { costoOperativo } = calculateOperatingCost(order);
+      const totalSale = parseFloat(String(order.totalAmount ?? order.total ?? (order as any).total_amount ?? 0)) || 0;
+      const netProfit = totalSale - costoOperativo;
 
-      const netProfit = (order.total || 0) - opCost;
-      const timeStr = order.createdAt ? new Date(order.createdAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--:--';
+      const rawDate = order.createdAt || (order as any).created_at || '';
+      let timeStr = '--:--';
+      if (rawDate.includes(' ')) {
+        timeStr = rawDate.split(' ')[1]?.substring(0, 5) || '--:--';
+      } else if (rawDate.includes('T')) {
+        timeStr = new Date(rawDate).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
 
       return {
         id: order.id,
         orderNumber: order.orderNumber || order.id,
-        createdAt: order.createdAt,
+        createdAt: rawDate,
         time: timeStr,
-        date: dateToFetch,
-        customerName: order.customerName || 'Cliente Anónimo',
-        customerPhone: order.customerPhone || 'N/A',
-        city: order.city || 'Bogotá D.C.',
-        department: order.department || 'Cundinamarca',
+        date: selectedDate,
+        customerName: order.customerName || (order.customerInfo?.fullName) || 'Cliente Anónimo',
+        customerPhone: order.customerPhone || (order.customerInfo?.phone) || 'N/A',
+        city: order.city || (order.customerInfo?.city) || 'Bogotá D.C.',
+        department: order.department || (order.customerInfo?.department) || 'Cundinamarca',
         daneCode: order.dane_code || getDaneCode(order.city, order.department),
         products: prodSummary,
         supplier: Array.from(supSet).join(', ') || 'Dropi Colombia',
-        totalSale: order.total || 0,
-        operatingCost: opCost,
+        totalSale,
+        operatingCost: costoOperativo,
         netProfit,
         status: order.status || 'PENDIENTE_REVISION',
         paymentMethod: order.paymentMethod || 'contra_entrega',
@@ -181,16 +346,18 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
         trackingNumber: order.trackingNumber || order.dropi_guia || ''
       };
     });
+  }, [pedidosDelDia, productMap, selectedDate]);
 
-    setDayOrders(mapped);
+  // Recarga manual de datos
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    if (onRefresh) {
+      await onRefresh();
+    }
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    fetchCalendarData(selectedDate);
-  }, [selectedDate]);
-
-  // Navigate Months
+  // Navegación de meses
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -209,17 +376,16 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
     }
   };
 
-  // Calendar Grid Days Calculation
+  // Cuadrícula de días del calendario
   const calendarGrid = useMemo(() => {
-    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0 is Sun, 1 is Mon...
-    // Let's adjust so Monday is first day of week (0..6)
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
     const startOffset = (firstDayIndex + 6) % 7;
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
 
     const days = [];
 
-    // Prev month padding
+    // Días del mes previo
     for (let i = startOffset - 1; i >= 0; i--) {
       const d = daysInPrevMonth - i;
       const m = currentMonth === 0 ? 12 : currentMonth;
@@ -228,13 +394,13 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
       days.push({ dayNumber: d, dateStr, isCurrentMonth: false });
     }
 
-    // Current month days
+    // Días del mes actual
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       days.push({ dayNumber: d, dateStr, isCurrentMonth: true });
     }
 
-    // Next month padding to fill complete rows of 7
+    // Relleno mes siguiente
     const remaining = (7 - (days.length % 7)) % 7;
     for (let d = 1; d <= remaining; d++) {
       const m = currentMonth === 11 ? 1 : currentMonth + 2;
@@ -246,7 +412,7 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
     return days;
   }, [currentYear, currentMonth]);
 
-  // Filtered & Sorted Rows
+  // Filas mostradas con filtros de búsqueda, proveedor y estado
   const displayedOrders = useMemo(() => {
     let result = [...dayOrders];
 
@@ -281,22 +447,6 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
 
     return result;
   }, [dayOrders, searchQuery, supplierFilter, statusFilter, sortField, sortAsc]);
-
-  // Totals of the day
-  const dailyTotals = useMemo(() => {
-    const totalSales = displayedOrders.reduce((sum, o) => sum + o.totalSale, 0);
-    const totalCost = displayedOrders.reduce((sum, o) => sum + o.operatingCost, 0);
-    const totalNet = displayedOrders.reduce((sum, o) => sum + o.netProfit, 0);
-    const marginPercent = totalSales > 0 ? ((totalNet / totalSales) * 100).toFixed(1) : '0';
-
-    return {
-      count: displayedOrders.length,
-      totalSales,
-      totalCost,
-      totalNet,
-      marginPercent
-    };
-  }, [displayedOrders]);
 
   // Export to Excel / CSV with UTF-8 BOM
   const handleExportCSV = () => {
@@ -393,8 +543,7 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
       if (!res.ok) {
         await fetch(`/api/admin/orders/${orderId}`, { method: 'DELETE' });
       }
-      fetchCalendarData(selectedDate);
-      if (onRefresh) onRefresh();
+      if (onRefresh) await onRefresh();
     } catch (e: any) {
       alert('Error al eliminar orden: ' + (e.message || 'Error de conexión'));
     }
@@ -455,9 +604,10 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => {
+              const now = new Date();
               setSelectedDate(todayStr);
-              setCurrentYear(today.getFullYear());
-              setCurrentMonth(today.getMonth());
+              setCurrentYear(now.getFullYear());
+              setCurrentMonth(now.getMonth());
             }}
             className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/10"
           >
@@ -466,7 +616,7 @@ export const SalesCalendarSheet: React.FC<SalesCalendarSheetProps> = ({
           </button>
 
           <button
-            onClick={() => fetchCalendarData(selectedDate)}
+            onClick={handleRefresh}
             disabled={isLoading}
             className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-white/10"
             title="Recargar datos del día"

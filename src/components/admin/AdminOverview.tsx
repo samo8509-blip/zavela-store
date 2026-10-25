@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { AdminStats, Order, Product, ProductProfitItem } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { calculateDashboardMetrics } from '../../utils/metricsCalculator.ts';
 import { AdminViewKey } from './AdminSidebar.tsx';
 import { SalesSimulatorModal } from './SalesSimulatorModal.tsx';
 import { ProductCatalogMagazineModal } from './ProductCatalogMagazineModal.tsx';
@@ -66,16 +67,12 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
   const [salesFilter, setSalesFilter] = useState<'all' | 'with_sales' | 'without_sales'>('all');
   const [sortBy, setSortBy] = useState<'profit' | 'units' | 'revenue' | 'margin'>('profit');
 
-  if (!stats) {
-    return (
-      <div className="p-8 text-center text-slate-500">
-        Cargando estadísticas de Zavela Store...
-      </div>
-    );
-  }
+  // Cálculo en vivo estricto según las reglas de costos, logística, Dropi y hora de Colombia
+  const liveCalculatedStats = useMemo(() => calculateDashboardMetrics(orders, products), [orders, products]);
+  const effectiveStats = stats ? { ...stats, ...liveCalculatedStats } : liveCalculatedStats;
 
   // Profit breakdown list
-  const profitList: ProductProfitItem[] = stats.productProfitBreakdown || products.map(p => {
+  const profitList: ProductProfitItem[] = effectiveStats.productProfitBreakdown || products.map(p => {
     const cost = Number(p.costPrice) > 0 ? Number(p.costPrice) : Math.round(p.price * 0.45);
     const unitMargin = p.price - cost;
     const marginPct = cost > 0 ? (unitMargin / cost) * 100 : 0;
@@ -279,7 +276,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
       {/* PRIMARY COMPARISON METRICS: VENTAS DEL DÍA vs. VENTAS DEL MES vs. COSTO vs. GANANCIA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* 1. VENTAS DEL DÍA (HOY) */}
+        {/* 1. VENTAS DEL DÍA (HOY - ZONA HORARIA COLOMBIA UTC-5) */}
         <div className="bg-gradient-to-br from-cyan-950 via-slate-900 to-slate-900 p-5 rounded-2xl border border-cyan-800/50 text-white shadow-xs space-y-2.5 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between text-cyan-300">
@@ -288,22 +285,22 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span>Ventas del Día (Hoy)</span>
             </span>
             <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-200 font-mono text-[11px] font-black border border-cyan-400/30">
-              {stats.todayOrders} pedidos
+              {effectiveStats.todayOrders} pedidos
             </span>
           </div>
           
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {formatCOP(stats.todaySales || 0)}
+            {formatCOP(effectiveStats.todaySales || 0)}
           </div>
           
           <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Costo ventas hoy:</span>
-              <span className="font-mono text-slate-300 font-semibold">{formatCOP(stats.todayProductCosts || 0)}</span>
+              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.todayProductCosts || 0)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Ganancia de hoy:</span>
-              <span className="font-mono font-black text-emerald-400">+{formatCOP(stats.todayGrossProfit || 0)}</span>
+              <span className="text-slate-400">Ganancia neta hoy:</span>
+              <span className="font-mono font-black text-emerald-400">+{formatCOP(effectiveStats.todayGrossProfit || 0)}</span>
             </div>
           </div>
         </div>
@@ -317,27 +314,27 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span>Ventas del Mes</span>
             </span>
             <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-200 font-mono text-[11px] font-black border border-indigo-400/30">
-              {stats.monthOrders} pedidos
+              {effectiveStats.monthOrders} pedidos
             </span>
           </div>
           
           <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            {formatCOP(stats.monthSales || stats.totalRevenue || 0)}
+            {formatCOP(effectiveStats.monthSales || effectiveStats.totalRevenue || 0)}
           </div>
           
           <div className="pt-2 border-t border-slate-800/80 space-y-1 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Costo ventas mes:</span>
-              <span className="font-mono text-slate-300 font-semibold">{formatCOP(stats.monthProductCosts || 0)}</span>
+              <span className="font-mono text-slate-300 font-semibold">{formatCOP(effectiveStats.monthProductCosts || 0)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Ganancia del mes:</span>
-              <span className="font-mono font-black text-emerald-400">+{formatCOP(stats.monthGrossProfit || stats.totalGrossProfit || 0)}</span>
+              <span className="font-mono font-black text-emerald-400">+{formatCOP(effectiveStats.monthGrossProfit || effectiveStats.totalGrossProfit || 0)}</span>
             </div>
           </div>
         </div>
 
-        {/* 3. COSTO TOTAL DE TODAS LAS VENTAS */}
+        {/* 3. COSTO TOTAL DE TODAS LAS VENTAS (MERCANCÍA) */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1">
@@ -345,19 +342,19 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span>Costo Total de Ventas</span>
             </span>
             <div className="w-7 h-7 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs">
-              {stats.totalOrders}
+              {effectiveStats.totalOrders}
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            {formatCOP(stats.totalProductCosts || 0)}
+            {formatCOP(effectiveStats.totalProductCosts || 0)}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Costo base de mercancía:</span>
-            <span className="text-slate-900 font-bold">{stats.totalOrders} unidades despachadas</span>
+            <span>Costo base mercancía:</span>
+            <span className="text-slate-900 font-bold">{effectiveStats.totalOrders} pedidos</span>
           </div>
         </div>
 
-        {/* 4. GANANCIA TOTAL / UTILIDAD NETA */}
+        {/* 4. GANANCIA NETA TOTAL REAL (LÍQUIDA) */}
         <div className="bg-white p-5 rounded-2xl border border-emerald-300 shadow-xs space-y-2.5 relative">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1">
@@ -365,15 +362,15 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               <span>Ganancia Neta Total</span>
             </span>
             <div className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs">
-              {stats.averageMarginPercentage}% rent.
+              {effectiveStats.netMarginPercentage}% rent.
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">
-            +{formatCOP(stats.totalGrossProfit)}
+            +{formatCOP(effectiveStats.totalNetProfit !== undefined ? effectiveStats.totalNetProfit : effectiveStats.totalGrossProfit)}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Margen sobre costo:</span>
-            <span className="text-emerald-700 font-black">+{stats.averageMarginPercentage}% de utilidad</span>
+            <span>Margen sobre venta:</span>
+            <span className="text-emerald-700 font-black">+{effectiveStats.netMarginPercentage}% rentabilidad</span>
           </div>
         </div>
 
@@ -450,16 +447,17 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           
           {/* Fletes Transportadora */}
+          {/* Fletes Transportadora */}
           <div className="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 space-y-1.5">
             <div className="flex items-center justify-between text-amber-400">
               <span className="font-bold flex items-center gap-1">
                 <Truck className="w-3.5 h-3.5 text-amber-400" />
                 <span>Fletes Transportadoras</span>
               </span>
-              <span className="text-[10px] font-mono text-slate-400">{stats.totalOrders} envíos</span>
+              <span className="text-[10px] font-mono text-slate-400">{effectiveStats.totalOrders} envíos</span>
             </div>
             <div className="text-xl font-black text-amber-300 font-mono">
-              {formatCOP(stats.totalCarrierCosts || 0)}
+              {formatCOP(effectiveStats.totalCarrierCosts || 0)}
             </div>
             <p className="text-[11px] text-slate-400">
               Servientrega, Coordinadora, Interrapidísimo, Envía, TCC.
@@ -473,13 +471,13 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                 <Building2 className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Comisiones Dropi</span>
               </span>
-              <span className="text-[10px] font-mono text-slate-400">5% Recaudo</span>
+              <span className="text-[10px] font-mono text-slate-400">Tarifa / Pasarela</span>
             </div>
             <div className="text-xl font-black text-indigo-300 font-mono">
-              {formatCOP(stats.totalDropiFees || Math.round((stats.totalRevenue || 0) * 0.05))}
+              {formatCOP(effectiveStats.totalDropiFees || 0)}
             </div>
             <p className="text-[11px] text-slate-400">
-              Tarifa de servicio de pasarela y recaudo en Dropi Colombia.
+              Tarifa de servicio y recaudo en Dropi Colombia.
             </p>
           </div>
 
@@ -490,10 +488,10 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                 <Package className="w-3.5 h-3.5 text-slate-300" />
                 <span>Costo Proveedores</span>
               </span>
-              <span className="text-[10px] font-mono text-slate-400">Mayorista</span>
+              <span className="text-[10px] font-mono text-slate-400">Mercancía</span>
             </div>
             <div className="text-xl font-black text-slate-200 font-mono">
-              {formatCOP(stats.totalProductCosts || 0)}
+              {formatCOP(effectiveStats.totalProductCosts || 0)}
             </div>
             <p className="text-[11px] text-slate-400">
               Costo de fabricación y abastecimiento de los productos.
@@ -508,14 +506,14 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                 <span>Utilidad Neta Real</span>
               </span>
               <span className="text-[10px] font-mono font-bold text-emerald-300">
-                {stats.netMarginPercentage !== undefined ? `${stats.netMarginPercentage}%` : 'En mano'}
+                {effectiveStats.netMarginPercentage !== undefined ? `${effectiveStats.netMarginPercentage}%` : 'En mano'}
               </span>
             </div>
             <div className="text-xl font-black text-emerald-400 font-mono">
-              +{formatCOP(stats.totalNetProfit !== undefined ? stats.totalNetProfit : (stats.totalGrossProfit - (stats.totalCarrierCosts || 0) - (stats.totalDropiFees || 0)))}
+              +{formatCOP(effectiveStats.totalNetProfit !== undefined ? effectiveStats.totalNetProfit : (effectiveStats.totalRevenue - effectiveStats.totalProductCosts - (effectiveStats.totalCarrierCosts || 0) - (effectiveStats.totalDropiFees || 0)))}
             </div>
             <p className="text-[11px] text-emerald-300/80">
-              Beneficio líquido real descontando fletes y Dropi.
+              Total Recaudado - Mercancía - Fletes - Dropi Fees.
             </p>
           </div>
 

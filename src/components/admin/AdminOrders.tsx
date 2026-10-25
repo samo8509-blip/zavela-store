@@ -43,6 +43,12 @@ import {
 import { Order, OrderStatus, Product, OrderItem } from '../../types/index.ts';
 import { formatCOP, formatDate, ORDER_STATUS_MAP } from '../../utils/formatters.ts';
 import { getDaneCode, COLOMBIA_DEPARTMENTS } from '../../data/colombiaGeo.ts';
+import { 
+  isOrderTodayColombia, 
+  isOrderMonthColombia, 
+  calculateOrderFinancials,
+  safeFloat 
+} from '../../utils/metricsCalculator.ts';
 import { SalesSimulatorModal } from './SalesSimulatorModal.tsx';
 
 /**
@@ -860,10 +866,6 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
     }
   };
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
   // Normalización segura de la lista de pedidos entrantes
   const safeOrdersList = useMemo(() => {
     if (!Array.isArray(orders)) return [];
@@ -875,15 +877,10 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
       const orderStatus = String(o.status || (o as any).estado || '').toLowerCase().trim();
       if (statusFilter !== 'all' && orderStatus !== statusFilter.toLowerCase().trim()) return false;
       
-      // Date filter
+      // Date filter con conversión estricta a zona horaria de Colombia (UTC-5)
       const orderDateStr = o.createdAt || (o as any).created_at || (o as any).fecha;
-      if (orderDateStr) {
-        const orderDate = new Date(orderDateStr);
-        if (!isNaN(orderDate.getTime())) {
-          if (dateFilter === 'today' && orderDate < startOfToday) return false;
-          if (dateFilter === 'month' && orderDate < startOfMonth) return false;
-        }
-      }
+      if (dateFilter === 'today' && !isOrderTodayColombia(orderDateStr)) return false;
+      if (dateFilter === 'month' && !isOrderMonthColombia(orderDateStr)) return false;
 
       if (!search.trim()) return true;
       const q = (search || '').toLowerCase().trim();
@@ -910,11 +907,45 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
         hasMatchingProduct
       );
     });
-  }, [safeOrdersList, statusFilter, dateFilter, search, startOfToday, startOfMonth]);
+  }, [safeOrdersList, statusFilter, dateFilter, search]);
 
-  const totalFilteredSales = filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const totalFilteredCost = filteredOrders.reduce((sum, o) => sum + (o.productCostTotal || 0), 0);
-  const totalFilteredProfit = totalFilteredSales - totalFilteredCost;
+  const productsMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => {
+      map.set(p.id, p);
+      if (p.slug) map.set(p.slug, p);
+    });
+    return map;
+  }, [products]);
+
+  // Reglas de cálculo exactas:
+  // - Costos: suma de (item.costPrice || item.costo || 0) * (item.quantity || 1) usando parseFloat
+  // - Logística y Dropi: suma pedido.costo_envio o (item.shippingCost || item.flete || 0) + (item.dropiFee || 0)
+  // - Ganancia Neta: Total Recaudado - Costo de Mercancía - Costo de Envío - Dropi Fees
+  const { totalFilteredSales, totalFilteredCost, totalFilteredShipping, totalFilteredDropiFees, totalFilteredProfit } = useMemo(() => {
+    let sales = 0;
+    let cost = 0;
+    let shipping = 0;
+    let dropi = 0;
+    let profit = 0;
+
+    for (const order of filteredOrders) {
+      const fin = calculateOrderFinancials(order, productsMap);
+      sales += fin.totalRecaudado;
+      cost += fin.costoMercancia;
+      shipping += fin.costoEnvio;
+      dropi += fin.dropiFees;
+      profit += fin.gananciaNeta;
+    }
+
+    return {
+      totalFilteredSales: sales,
+      totalFilteredCost: cost,
+      totalFilteredShipping: shipping,
+      totalFilteredDropiFees: dropi,
+      totalFilteredProfit: profit
+    };
+  }, [filteredOrders, productsMap]);
 
   const pendingDropiCount = safeOrdersList.filter(o => {
     const st = String(o.status || (o as any).estado || '').toLowerCase().trim();
@@ -1039,10 +1070,18 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
         <div>
           <div className="text-[10px] uppercase font-bold text-slate-400">Costo de Ventas (Mercancía)</div>
           <div className="text-lg sm:text-xl font-black font-mono text-slate-300 mt-0.5">{formatCOP(totalFilteredCost)}</div>
+          {(totalFilteredShipping > 0 || totalFilteredDropiFees > 0) && (
+            <div className="text-[9px] text-slate-400 mt-0.5 truncate">
+              Fletes: {formatCOP(totalFilteredShipping)} | Dropi: {formatCOP(totalFilteredDropiFees)}
+            </div>
+          )}
         </div>
         <div>
-          <div className="text-[10px] uppercase font-bold text-emerald-400">Ganancia Neta Calculada</div>
+          <div className="text-[10px] uppercase font-bold text-emerald-400">Ganancia Neta Real</div>
           <div className="text-lg sm:text-xl font-black font-mono text-emerald-400 mt-0.5">+{formatCOP(totalFilteredProfit)}</div>
+          <div className="text-[9px] text-emerald-300/80 mt-0.5">
+            Recaudo - Costo - Flete - Dropi
+          </div>
         </div>
       </div>
 
@@ -1076,7 +1115,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                 dateFilter === 'today' ? 'bg-white text-cyan-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Ventas de Hoy ({orders.filter(o => new Date(o.createdAt) >= startOfToday).length})
+              Ventas de Hoy ({orders.filter(o => isOrderTodayColombia(o.createdAt || (o as any).created_at)).length})
             </button>
             <button
               onClick={() => setDateFilter('month')}
@@ -1084,7 +1123,7 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
                 dateFilter === 'month' ? 'bg-white text-indigo-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Este Mes ({orders.filter(o => new Date(o.createdAt) >= startOfMonth).length})
+              Este Mes ({orders.filter(o => isOrderMonthColombia(o.createdAt || (o as any).created_at)).length})
             </button>
           </div>
         </div>

@@ -36,6 +36,7 @@ import {
   getFirestoreSettings, 
   saveFirestoreSettings 
 } from '../services/firestoreSettings.ts';
+import { calculateDashboardMetrics } from '../utils/metricsCalculator.ts';
 import { AdminMaintenanceModal } from './admin/AdminMaintenanceModal.tsx';
 import { AdminSidebar, AdminSectionKey } from './admin/AdminSidebar.tsx';
 import { AdminOverview } from './admin/AdminOverview.tsx';
@@ -188,18 +189,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   getFirestoreSettings().catch(() => null)
 ]);
 
-      if (statsRes.success) setStats(statsRes.data);
-
       // Priorizar datos de la base de datos sincronizada aplicando el normalizador y blindaje con zavela_custom_costs_v1
+      let loadedProducts: Product[] = [];
       if (productsRes.success && Array.isArray(productsRes.data)) {
-        setProducts(productsRes.data.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p))));
+        loadedProducts = productsRes.data.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
       } else if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
-        setProducts(cpanelProds.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p))));
+        loadedProducts = cpanelProds.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
       }
 
-      if (ordersRes.success) setOrders(ordersRes.data);
+      const loadedOrders: Order[] = (ordersRes.success && Array.isArray(ordersRes.data)) ? ordersRes.data : [];
+
+      setProducts(loadedProducts);
+      setOrders(loadedOrders);
       if (customersRes.success) setCustomers(customersRes.data);
       if (categoriesRes.success) setCategories(categoriesRes.data);
+
+      // Cálculo estricto y en vivo de métricas según las reglas de costos, logística, Dropi y hora de Colombia
+      const calculatedStats = calculateDashboardMetrics(loadedOrders, loadedProducts);
+      if (statsRes.success && statsRes.data) {
+        setStats({ ...statsRes.data, ...calculatedStats });
+      } else {
+        setStats(calculatedStats);
+      }
       
       if (firestoreSet) {
         setSettings(firestoreSet);
@@ -220,6 +231,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     fetchAdminData();
   }, []);
+
+  // Recalcular métricas automáticamente cuando los pedidos o productos cambien
+  useEffect(() => {
+    if (orders.length > 0 || products.length > 0) {
+      setStats(prev => {
+        const fresh = calculateDashboardMetrics(orders, products);
+        return prev ? { ...prev, ...fresh } : fresh;
+      });
+    }
+  }, [orders, products]);
 
   const handleSaveSettings = async (updatedSettings: Partial<StoreSettings>) => {
     try {

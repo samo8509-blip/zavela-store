@@ -527,6 +527,11 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   unitCost?: number;
+  costPrice?: number;
+  costo?: number;
+  shippingCost?: number;
+  flete?: number;
+  dropiFee?: number;
   subtotal?: number;
   image?: string;
   

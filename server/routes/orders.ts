@@ -686,21 +686,24 @@ router.get('/calendar', async (req, res) => {
     // Calculate dates list with order counts
     const salesDatesMap: Record<string, { count: number; totalSales: number }> = {};
     for (const o of allOrders) {
-      if (!o.createdAt) continue;
-      const d = o.createdAt.slice(0, 10);
+      const rawDate = o.createdAt || (o as any).created_at;
+      if (!rawDate) continue;
+      const d = String(rawDate).trim().split(' ')[0].substring(0, 10);
+      if (!d || d.length < 10) continue;
       if (!salesDatesMap[d]) {
         salesDatesMap[d] = { count: 0, totalSales: 0 };
       }
       salesDatesMap[d].count += 1;
-      salesDatesMap[d].totalSales += (o.total || 0);
+      salesDatesMap[d].totalSales += (parseFloat(String(o.total || o.totalAmount || 0)) || 0);
     }
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const targetDate = requestedDate || (Object.keys(salesDatesMap).sort().reverse()[0] || todayStr);
 
     const filteredOrders = allOrders.filter(o => {
-      if (!o.createdAt) return false;
-      const orderDate = o.createdAt.slice(0, 10);
+      const rawDate = o.createdAt || (o as any).created_at;
+      if (!rawDate) return false;
+      const orderDate = String(rawDate).trim().split(' ')[0].substring(0, 10);
       return orderDate === targetDate;
     });
 
@@ -709,25 +712,36 @@ router.get('/calendar', async (req, res) => {
     let totalNetProfit = 0;
 
     const enrichedOrders = filteredOrders.map(order => {
-      const items = Array.isArray(order.items) ? order.items : [];
+      let items: any[] = [];
+      if (typeof order.items === 'string') {
+        try {
+          const parsed = JSON.parse(order.items);
+          items = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+        } catch {
+          items = [];
+        }
+      } else if (Array.isArray(order.items)) {
+        items = order.items;
+      }
+
       let itemsCost = 0;
       const suppliersSet = new Set<string>();
 
       const productsSummary = items.map(it => {
         const prod = productMap.get(it.productId);
-        const unitCost = Number(it.unitCost || prod?.supplier_cost || prod?.cost || 0);
-        itemsCost += unitCost * (it.quantity || 1);
+        const unitCost = parseFloat(String(it.costPrice || it.costo || it.unitCost || prod?.costPrice || (prod as any)?.cost || 0)) || 0;
+        const qty = parseFloat(String(it.quantity || 1)) || 1;
+        itemsCost += unitCost * qty;
         suppliersSet.add(getSupplierName(it));
-        return `${it.title || 'Producto'} (x${it.quantity || 1})`;
+        return `${it.title || 'Producto'} (x${qty})`;
       }).join(' + ') || 'Sin productos';
 
-      const operatingCost = (order.productCostTotal && order.productCostTotal > 0)
-        ? order.productCostTotal + (order.shippingCost || 0)
-        : itemsCost + (order.shippingCost || 0);
+      const shippingCost = parseFloat(String((order as any).costo_envio ?? order.shippingCost ?? order.carrierFee ?? 0)) || 0;
+      const operatingCost = itemsCost + shippingCost;
+      const orderTotal = parseFloat(String(order.total || order.totalAmount || 0)) || 0;
+      const netProfit = orderTotal - operatingCost;
 
-      const netProfit = (order.total || 0) - operatingCost;
-
-      totalSales += (order.total || 0);
+      totalSales += orderTotal;
       totalOperatingCost += operatingCost;
       totalNetProfit += netProfit;
 
