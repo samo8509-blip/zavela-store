@@ -23,8 +23,28 @@ export async function approveOrderForDropi(orderId: string, options?: {
     order = allOrders.find(o => o.id === orderId || o.orderNumber === orderId);
   }
 
+  // BLINDAJE CONTRA REINICIOS DE RENDER: Reconstruir pedido desde los datos de la vista
   if (!order) {
-    throw new Error('Pedido no encontrado en el sistema.');
+    if (options?.customer && options?.items && options.items.length > 0) {
+      order = {
+        id: orderId,
+        orderNumber: orderId.includes('ord-') ? orderId.replace('ord-', 'NV-').substring(0, 10) : `NV-${Math.floor(1000+Math.random()*9000)}`,
+        customerName: options.customer.name || options.customer.firstName || 'Cliente',
+        customerPhone: options.customer.phone || '',
+        customerEmail: options.customer.email || '',
+        department: options.customer.department || options.customer.state || '',
+        city: options.customer.city || '',
+        address: options.customer.address || '',
+        dane_code: options.dane_code || '',
+        items: options.items,
+        status: 'PENDIENTE_REVISION',
+        paymentMethod: 'contra_entrega',
+        total: options.items.reduce((sum: number, it: any) => sum + ((it.unitPrice || it.price || 0) * (it.quantity || 1)), 0),
+        totalAmount: options.items.reduce((sum: number, it: any) => sum + ((it.unitPrice || it.price || 0) * (it.quantity || 1)), 0)
+      } as any;
+    } else {
+      throw new Error('Error de memoria local: El pedido se borró temporalmente y faltan datos para reconstruirlo.');
+    }
   }
 
   // Allow overrides if admin verified / updated fields
@@ -116,9 +136,8 @@ export async function approveOrderForDropi(orderId: string, options?: {
   const isCashOnDelivery = order.paymentMethod === 'contra_entrega' || order.paymentMethod === 'cash_on_delivery';
   const totalAmount = order.total || order.totalAmount || 0;
 
-  // Dropi API Payload
+  // Dropi API Payload - SIN ORDER_ID PARA NO BLOQUEAR CREACIÓN
   const dropiPayload = {
-   order_id: order.orderNumber,
     customer: {
       name: `${firstName} ${lastName}`.trim(),
       first_name: firstName,
@@ -158,9 +177,11 @@ export async function approveOrderForDropi(orderId: string, options?: {
       const responseData = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const errorDetail = responseData.message || responseData.error || responseData.detail || `Error HTTP ${response.status} de la API de Dropi`;
+        const errorDetail = responseData.message || responseData.error || responseData.detail || `Error HTTP ${response.status}`;
+        const finalErrorMsg = `Respuesta de Dropi: ${typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail}`;
+        
         order.status = 'ERROR_DROPI';
-        order.error_message = errorDetail;
+        order.error_message = finalErrorMsg;
         order.carrier = selectedCarrier;
         order.dane_code = daneCode;
         order.items = orderItems;
@@ -171,11 +192,11 @@ export async function approveOrderForDropi(orderId: string, options?: {
           type: 'STATUS_UPDATE',
           orderId: order.id,
           action: 'Error API Dropi Colombia',
-          details: `Error al despachar pedido ${order.orderNumber} en Dropi: ${errorDetail}`,
+          details: `Error al despachar pedido en Dropi: ${finalErrorMsg}`,
           status: 'error'
         });
 
-        throw new Error(errorDetail);
+        throw new Error(finalErrorMsg);
       }
 
       // Success from Dropi API
@@ -204,7 +225,7 @@ export async function approveOrderForDropi(orderId: string, options?: {
         type: 'STATUS_UPDATE',
         orderId: order.id,
         action: 'Pedido Aprobado y Enviado a Dropi',
-        details: `Pedido ${order.orderNumber} montado en Dropi Colombia con éxito. Dropi ID: #${dropiOrderId} - Guía ${resolvedCarrier}: ${dropiGuia}`,
+        details: `Pedido montado en Dropi Colombia con éxito. Dropi ID: #${dropiOrderId} - Guía ${resolvedCarrier}: ${dropiGuia}`,
         status: 'success'
       });
 
@@ -260,7 +281,7 @@ export async function approveOrderForDropi(orderId: string, options?: {
     type: 'STATUS_UPDATE',
     orderId: order.id,
     action: 'Pedido Aprobado en Dropi',
-    details: `Pedido ${order.orderNumber} aprobado. Dropi Order ID: #${simulatedDropiId} - Guía ${selectedCarrier}: ${simulatedGuia}`,
+    details: `Pedido aprobado. Dropi Order ID: #${simulatedDropiId} - Guía ${selectedCarrier}: ${simulatedGuia}`,
     status: 'success'
   });
 
@@ -487,7 +508,6 @@ router.post('/', async (req, res) => {
         }
 
         // 3. Descuento atómico de stock en MySQL (base espejo en ventas):
-        // UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?;
         try {
           await pool.query(
             'UPDATE productos SET stock = GREATEST(0, stock - ?), variants = ? WHERE id = ?',
@@ -497,27 +517,24 @@ router.post('/', async (req, res) => {
           console.warn(`[MySQL Stock Deduction Warning for ${product.id}]:`, sqlErr.message);
         }
 
-        // 4. Guardar en store local y sincronizar descuento seguro con cPanel MySQL (solo para productos reales)
+        // 4. Guardar en store local y sincronizar descuento seguro con cPanel MySQL
         if (!isEmergencyFallback) {
           db.saveProduct(product);
-          // REGLA DE SEGURIDAD EXTREMA: Descuento atómico de inventario SIN sobrescribir nombre, imagen ni precio
           cpanelDbService.decrementProductStock(product.id, rawItem.quantity).catch(err => {
             console.warn('[cPanel Sync Stock Warning]:', err?.message || err);
           });
         }
       }
 
-      // Check if stock has reached critical threshold (<= 5 units)
       if (product.stock <= 5) {
         db.addLog({
           type: 'STATUS_UPDATE',
           orderId,
           action: '⚠️ ALERTA INVENTARIO CRÍTICO (≤ 5 UNIDADES)',
-          details: `El producto "${product.title}" (${product.id}) tiene solo ${product.stock} unidad(es) disponible(s). Revisar reabastecimiento con proveedor Dropi.`,
+          details: `El producto "${product.title}" (${product.id}) tiene solo ${product.stock} unidad(es) disponible(s).`,
           status: 'info'
         });
 
-        // Trigger WhatsApp automatic alert to admin (+573008784427)
         sendLowStockAlert({
           id: product.id,
           title: product.title,
@@ -557,7 +574,6 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Dynamic 3-Zone Shipping calculation for Colombia
     const threshold = settings.freeShippingThreshold || 120000;
     const shippingCalc = calculateShippingCost({
       department,
@@ -609,23 +625,20 @@ router.post('/', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    // Save to database
     db.saveOrder(newOrder);
 
-    // Persistencia externa en base de datos MySQL en cPanel vía POST /api.php?action=pedidos
     cpanelDbService.createOrder(newOrder).catch(cpanelErr => {
-      console.warn('[cPanel DB Sync] Error al persistir orden en cPanel (continúa seguro en BD local):', cpanelErr);
+      console.warn('[cPanel DB Sync] Error al persistir orden en cPanel:', cpanelErr);
     });
 
     db.addLog({
       type: 'ORDER_CREATED',
       orderId: newOrder.id,
       action: 'Pedido Registrado (Pendiente Revisión)',
-      details: `Nuevo pedido ${newOrder.orderNumber} registrado por ${newOrder.customerName} - Total: $${newOrder.total.toLocaleString()} COP. Listo para revisión Dropi.`,
+      details: `Nuevo pedido registrado. Listo para revisión Dropi.`,
       status: 'success'
     });
 
-    // Immediate Automatic Notification to Admin WhatsApp (+573008784427)
     let whatsappAlertResult = null;
     try {
       whatsappAlertResult = await sendSaleNotification(newOrder);
@@ -695,7 +708,6 @@ router.get('/calendar', async (req, res) => {
       return 'DeRocha Store / Propio';
     };
 
-    // Calculate dates list with order counts
     const salesDatesMap: Record<string, { count: number; totalSales: number }> = {};
     for (const o of allOrders) {
       const rawDate = o.createdAt || (o as any).created_at;
@@ -819,23 +831,19 @@ router.delete('/:id', async (req, res) => {
     const targetOrder = db.getOrderById(orderId);
     const orderNumber = targetOrder?.orderNumber || orderId;
 
-    // 1. Local JSON deletion
     const deletedLocal = db.deleteOrder(orderId);
 
-    // 2. MySQL deletion in orders and pedidos tables
     const p = pool || nativePool;
     if (p) {
       try {
         await p.query('DELETE FROM order_items WHERE order_id = ? OR orderId = ?', [orderId, orderId]);
         await p.query('DELETE FROM orders WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
         await p.query('DELETE FROM pedidos WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
-        console.log(`[MySQL] ✓ Pedido ${orderNumber} (${orderId}) eliminado de tablas MySQL.`);
       } catch (sqlErr: any) {
         console.warn('[MySQL Delete Order Warning]:', sqlErr.message);
       }
     }
 
-    // 3. Activity logging
     db.addLog({
       type: 'ORDER_DELETED' as any,
       orderId,
