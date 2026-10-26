@@ -118,7 +118,7 @@ export async function approveOrderForDropi(orderId: string, options?: {
 
   // Dropi API Payload
   const dropiPayload = {
-    order_id: order.orderNumber,
+   order_id: order.id,
     customer: {
       name: `${firstName} ${lastName}`.trim(),
       first_name: firstName,
