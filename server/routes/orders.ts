@@ -16,7 +16,13 @@ export async function approveOrderForDropi(orderId: string, options?: {
   items?: any[];
   dane_code?: string;
 }) {
-  const order = db.getOrderById(orderId);
+  // Búsqueda flexible: por ID exacto, por orden o en la lista general
+  let order = db.getOrderById(orderId);
+  if (!order) {
+    const allOrders = db.getOrders();
+    order = allOrders.find(o => o.id === orderId || o.orderNumber === orderId);
+  }
+
   if (!order) {
     throw new Error('Pedido no encontrado en el sistema.');
   }
@@ -848,4 +854,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 export default router;
-
