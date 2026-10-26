@@ -825,9 +825,14 @@ function executeFallbackQuery(sql: string, params: any[] = []): [any, any] {
 
   if (upper.includes('DELETE FROM CATEGORIAS')) {
     ensureLocalCategoriesInitialized();
-    const targetId = String(params[0] || '').trim();
-    const existed = localCategoriesStore.delete(targetId);
-    return [{ affectedRows: existed ? 1 : 0 }, []];
+    let deletedCount = 0;
+    for (const p of params) {
+      const targetId = String(p || '').trim();
+      if (localCategoriesStore.delete(targetId)) {
+        deletedCount++;
+      }
+    }
+    return [{ affectedRows: deletedCount }, []];
   }
 
   // 5. SELECT productos / products

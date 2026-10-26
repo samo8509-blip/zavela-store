@@ -52,12 +52,27 @@ export const AdminCategoriesMenu: React.FC<AdminCategoriesMenuProps> = ({
   });
 
   const [newSubcategory, setNewSubcategory] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [toastFeedback, setToastFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showFeedback = (message: string, type: 'success' | 'error' = 'success') => {
     setToastFeedback({ message, type });
     setTimeout(() => setToastFeedback(null), 3500);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === safeCategories.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(safeCategories.map(c => c.id));
+    }
   };
 
   const handleToggleVisibility = async (cat: Category) => {
@@ -157,10 +172,37 @@ export const AdminCategoriesMenu: React.FC<AdminCategoriesMenuProps> = ({
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Error al eliminar categoría');
+      setSelectedIds(prev => prev.filter(x => x !== id));
       await onRefresh();
       showFeedback(`Categoría "${name}" eliminada correctamente.`);
     } catch (err: any) {
       showFeedback(err.message || 'Error al eliminar', 'error');
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`¿Eliminar las ${selectedIds.length} categorías seleccionadas permanentemente de MySQL? Los productos asignados no se borrarán.`)) return;
+
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/admin/categories/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Error al eliminar categorías seleccionadas');
+      }
+
+      showFeedback(`¡Se eliminaron ${selectedIds.length} categorías exitosamente de MySQL!`);
+      setSelectedIds([]);
+      await onRefresh();
+    } catch (err: any) {
+      showFeedback(err.message || 'Error al procesar la eliminación múltiple', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -252,19 +294,70 @@ export const AdminCategoriesMenu: React.FC<AdminCategoriesMenuProps> = ({
         </button>
       </div>
 
+      {/* Barra de Acciones y Selección Múltiple */}
+      {safeCategories.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700">
+              <input
+                type="checkbox"
+                checked={safeCategories.length > 0 && selectedIds.length === safeCategories.length}
+                onChange={handleSelectAll}
+                className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 border-slate-300 cursor-pointer"
+              />
+              <span>
+                {selectedIds.length === safeCategories.length 
+                  ? 'Deseleccionar todas' 
+                  : 'Seleccionar todas las categorías'}
+              </span>
+            </label>
+
+            {selectedIds.length > 0 && (
+              <span className="px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 text-xs font-extrabold font-mono">
+                {selectedIds.length} de {safeCategories.length} seleccionada(s)
+              </span>
+            )}
+          </div>
+
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={handleBatchDelete}
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Eliminar {selectedIds.length} Seleccionada(s)</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Categories Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {safeCategories.map((cat) => {
           const productCount = safeProducts.filter(p => p.categoryId === cat.id).length;
+          const isSelected = selectedIds.includes(cat.id);
 
           return (
             <div
               key={cat.id}
-              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 flex flex-col justify-between"
+              className={`bg-white p-5 rounded-2xl border transition-all duration-150 shadow-xs space-y-3 flex flex-col justify-between ${
+                isSelected 
+                  ? 'border-cyan-500 ring-2 ring-cyan-500/20 bg-cyan-50/10' 
+                  : 'border-slate-200 hover:border-slate-300'
+              }`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(cat.id)}
+                      className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 border-slate-300 cursor-pointer"
+                      title="Seleccionar para acción en lote"
+                    />
                     <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center font-bold text-xs">
                       #{cat.order || 1}
                     </div>

@@ -259,36 +259,90 @@ router.put('/categories/:id', async (req, res) => {
   }
 });
 
-// Acepta cualquier ID sin importar su prefijo (sea "cat-", "prod-", numérico o alfanumérico)
-router.delete(['/categories/:id', '/categories'], async (req, res) => {
+// Acepta eliminación individual o múltiple sin importar el prefijo (cat-, prod-, etc.)
+router.delete(['/categories/batch', '/categories/:id', '/categories'], async (req, res) => {
   try {
-    const rawId = req.params.id || req.query.id || req.body?.id;
-    const targetId = decodeURIComponent(String(rawId || '').trim());
+    const rawIds = req.body?.ids || req.body?.categoryIds || req.query?.ids || req.params.id || req.query.id || req.body?.id;
 
-    if (!targetId) {
+    let idsList: string[] = [];
+    if (Array.isArray(rawIds)) {
+      idsList = rawIds;
+    } else if (typeof rawIds === 'string') {
+      idsList = rawIds.includes(',') ? rawIds.split(',') : [rawIds];
+    }
+
+    const idsToDelete = idsList
+      .map(id => decodeURIComponent(String(id || '').trim()))
+      .filter(Boolean);
+
+    if (idsToDelete.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'ID no proporcionado para eliminar el registro de categorías.'
+        message: 'No se proporcionaron IDs válidos para eliminar de categorías.'
       });
     }
 
-    // Consulta directa DELETE FROM categorias en MySQL (acepta cualquier prefijo)
-    await pool.query('DELETE FROM categorias WHERE id = ?', [targetId]);
+    // Consulta directa DELETE FROM categorias en MySQL
+    const placeholders = idsToDelete.map(() => '?').join(', ');
+    await pool.query(`DELETE FROM categorias WHERE id IN (${placeholders})`, idsToDelete);
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
-      action: 'Categoría Eliminada',
-      details: `Elemento con ID "${targetId}" eliminado exitosamente de la tabla MySQL categorias.`,
+      action: 'Categorías Eliminadas',
+      details: `${idsToDelete.length} categoría(s) eliminada(s) de la tabla MySQL categorias: ${idsToDelete.join(', ')}.`,
       status: 'info'
     });
 
     res.json({
       success: true,
-      message: `Elemento "${targetId}" eliminado exitosamente de la tabla categorias.`
+      deletedCount: idsToDelete.length,
+      deletedIds: idsToDelete,
+      message: idsToDelete.length === 1 
+        ? `Categoría "${idsToDelete[0]}" eliminada exitosamente.` 
+        : `Se eliminaron ${idsToDelete.length} categorías exitosamente de MySQL.`
     });
   } catch (error: any) {
     console.error('[DELETE /categories Error]:', error);
-    res.status(500).json({ success: false, message: error.message || 'Error al eliminar de categorias en MySQL' });
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar categorías en MySQL' });
+  }
+});
+
+// Endpoint POST para clientes o proxies HTTP que restrinjan el envío de cuerpo en peticiones DELETE
+router.post('/categories/batch-delete', async (req, res) => {
+  try {
+    const rawIds = req.body?.ids || req.body?.categoryIds;
+    const idsList = Array.isArray(rawIds) ? rawIds : (typeof rawIds === 'string' ? rawIds.split(',') : []);
+
+    const idsToDelete = idsList
+      .map(id => decodeURIComponent(String(id || '').trim()))
+      .filter(Boolean);
+
+    if (idsToDelete.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debes proporcionar un array "ids" con los identificadores de categorías a eliminar.'
+      });
+    }
+
+    const placeholders = idsToDelete.map(() => '?').join(', ');
+    await pool.query(`DELETE FROM categorias WHERE id IN (${placeholders})`, idsToDelete);
+
+    db.addLog({
+      type: 'SETTINGS_UPDATE',
+      action: 'Eliminación Múltiple de Categorías',
+      details: `${idsToDelete.length} categoría(s) eliminada(s) en lote de MySQL categorias: ${idsToDelete.join(', ')}.`,
+      status: 'info'
+    });
+
+    res.json({
+      success: true,
+      deletedCount: idsToDelete.length,
+      deletedIds: idsToDelete,
+      message: `Se eliminaron ${idsToDelete.length} categorías exitosamente de la base de datos MySQL.`
+    });
+  } catch (error: any) {
+    console.error('[POST /categories/batch-delete Error]:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar categorías en lote' });
   }
 });
 

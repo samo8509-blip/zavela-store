@@ -1765,6 +1765,46 @@
   },
   "logs": [
     {
+      "id": "log-1793056194017-uc39v",
+      "type": "SETTINGS_UPDATE",
+      "action": "Eliminación Múltiple de Categorías",
+      "details": "1 categoría(s) eliminada(s) en lote de MySQL categorias: cat-batch-test-3.",
+      "status": "info",
+      "createdAt": "2026-10-26T23:09:54.017Z"
+    },
+    {
+      "id": "log-1793056194009-9zoni",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categorías Eliminadas",
+      "details": "2 categoría(s) eliminada(s) de la tabla MySQL categorias: cat-batch-test-1, cat-batch-test-2.",
+      "status": "info",
+      "createdAt": "2026-10-26T23:09:54.009Z"
+    },
+    {
+      "id": "log-1793056194005-4u7p2",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Creada",
+      "details": "Categoría \"Batch 3\" (ID: cat-batch-test-3) guardada exitosamente en la tabla MySQL categorias.",
+      "status": "success",
+      "createdAt": "2026-10-26T23:09:54.005Z"
+    },
+    {
+      "id": "log-1793056194002-u420g",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Creada",
+      "details": "Categoría \"Batch 2\" (ID: cat-batch-test-2) guardada exitosamente en la tabla MySQL categorias.",
+      "status": "success",
+      "createdAt": "2026-10-26T23:09:54.002Z"
+    },
+    {
+      "id": "log-1793056193993-w6yd8",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Creada",
+      "details": "Categoría \"Batch 1\" (ID: cat-batch-test-1) guardada exitosamente en la tabla MySQL categorias.",
+      "status": "success",
+      "createdAt": "2026-10-26T23:09:53.993Z"
+    },
+    {
       "id": "log-1793055536186-zk0il",
       "type": "SETTINGS_UPDATE",
       "action": "Categoría Eliminada",
