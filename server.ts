@@ -106,6 +106,19 @@ async function startServer() {
         return res.status(500).json({ success: false, error: err.message });
       }
     }
+    // Soporte para DELETE de pedidos en api.php
+    if (req.method === 'DELETE' || action === 'delete' || action === 'eliminar_pedido') {
+      try {
+        const orderId = String(req.query.id || req.query.orderId || body.id || body.orderId || '').trim();
+        if (orderId) {
+          db.deleteOrder(orderId);
+        }
+        return res.json({ success: true, message: 'Pedido eliminado correctamente' });
+      } catch (delErr: any) {
+        return res.status(500).json({ success: false, error: delErr.message });
+      }
+    }
+
     next();
   });
 

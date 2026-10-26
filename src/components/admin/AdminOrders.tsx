@@ -914,10 +914,48 @@ Por favor confirmar disponibilidad y alistamiento de la mercancía. ¡Muchas gra
 
     setIsProcessing(id);
     try {
-      const res = await fetch(`/api/admin/orders/${id}`, {
-        method: 'DELETE'
-      });
-      if (!res.ok) throw new Error('Error al eliminar pedido');
+      let isDeleted = false;
+
+      // 1. Enviar DELETE a la API de cPanel api.php pasando id tanto en query como en body
+      try {
+        const cpanelRes = await fetch(`https://api.zavelastore.com.co/api.php?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, orderId: id, orderNumber })
+        });
+        if (cpanelRes.ok) {
+          const cpanelData = await cpanelRes.json().catch(() => null);
+          if (cpanelData && (cpanelData.success !== false && cpanelData.status !== 'error')) {
+            isDeleted = true;
+          }
+        }
+      } catch (errCpanel) {
+        console.warn('DELETE directo cPanel api.php falló, intentando endpoints locales:', errCpanel);
+      }
+
+      // 2. Enviar DELETE al backend Express (/api/admin/orders/:id y /api/orders/:id)
+      try {
+        const localRes = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+        if (localRes.ok) {
+          isDeleted = true;
+        } else {
+          const fallbackRes = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+            method: 'DELETE'
+          });
+          if (fallbackRes.ok) {
+            isDeleted = true;
+          }
+        }
+      } catch (errLocal) {
+        console.warn('DELETE local falló:', errLocal);
+      }
+
+      if (!isDeleted) {
+        throw new Error('Error al eliminar pedido del servidor. Por favor verifica tu conexión.');
+      }
+
       if (selectedOrder?.id === id) setSelectedOrder(null);
       if (editingOrder?.id === id) setEditingOrder(null);
       onRefresh();

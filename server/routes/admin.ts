@@ -1871,6 +1871,45 @@ router.post('/orders/clear-all', (req, res) => {
   }
 });
 
+// DELETE /api/admin/orders/:id - Delete single order by ID
+router.delete('/orders/:id', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const targetOrder = db.getOrderById(orderId);
+    const orderNumber = targetOrder?.orderNumber || orderId;
+
+    // 1. Eliminación en store local
+    db.deleteOrder(orderId);
+
+    // 2. Eliminación directa en tablas MySQL si está conectada
+    if (pool) {
+      try {
+        await pool.query('SET FOREIGN_KEY_CHECKS = 0');
+        await pool.query('DELETE FROM order_items WHERE order_id = ? OR orderId = ?', [orderId, orderId]);
+        await pool.query('DELETE FROM orders WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
+        await pool.query('DELETE FROM pedidos WHERE id = ? OR order_number = ?', [orderId, orderNumber]);
+        await pool.query('SET FOREIGN_KEY_CHECKS = 1');
+        console.log(`[MySQL Admin] ✓ Pedido ${orderNumber} (${orderId}) eliminado.`);
+      } catch (sqlErr: any) {
+        console.warn('[MySQL Admin Delete Order Warning]:', sqlErr.message);
+        try { await pool.query('SET FOREIGN_KEY_CHECKS = 1'); } catch {}
+      }
+    }
+
+    db.addLog({
+      type: 'STATUS_UPDATE',
+      action: 'Pedido Eliminado',
+      details: `Pedido ${orderNumber} (${orderId}) eliminado permanentemente.`,
+      status: 'info'
+    });
+
+    res.json({ success: true, message: `Pedido ${orderNumber} eliminado con éxito.` });
+  } catch (error: any) {
+    console.error('Error al eliminar pedido en admin:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // POST /api/admin/clean-tests - Clear test orders, simulated sales, test customers and test products
 router.post('/clean-tests', (req, res) => {
   try {
