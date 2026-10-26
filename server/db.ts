@@ -431,9 +431,28 @@ class DatabaseStore {
   }
 
   saveCategory(cat: Partial<Category>): Category {
-    const existingIndex = this.data.categories.findIndex(c => c.id === cat.id);
+    const rawId = cat.id ? String(cat.id).trim() : '';
+    
+    // Validación de seguridad: Rechazar IDs con prefijo de producto
+    if (rawId.toLowerCase().startsWith('prod-') || rawId.toLowerCase().startsWith('product-')) {
+      throw new Error(`Prefijo no permitido: El identificador "${rawId}" corresponde a un producto y no puede ser guardado en categorías.`);
+    }
+
+    // Validación de seguridad: Rechazar objetos con campos exclusivos de productos
+    const productFields = ['price', 'precio', 'costPrice', 'supplier_cost', 'stock', 'cantidad', 'variants', 'variantes', 'dropiProductId', 'dropi_product_id'];
+    for (const field of productFields) {
+      if ((cat as any)[field] !== undefined && (cat as any)[field] !== null && (cat as any)[field] !== '') {
+        throw new Error(`Estructura inválida: El objeto contiene el campo de producto "${field}" y no puede guardarse como categoría.`);
+      }
+    }
+
+    const cleanId = rawId || `cat-${Date.now()}`;
+    const existingIndex = this.data.categories.findIndex(c => 
+      String(c.id).trim().toLowerCase() === cleanId.toLowerCase()
+    );
+
     const updatedCategory: Category = {
-      id: cat.id || `cat-${Date.now()}`,
+      id: cleanId,
       name: cat.name || 'Nueva Categoría',
       slug: cat.slug || (cat.name ? cat.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : `cat-${Date.now()}`),
       description: cat.description || '',
@@ -453,7 +472,25 @@ class DatabaseStore {
   }
 
   deleteCategory(id: string): boolean {
-    const idx = this.data.categories.findIndex(c => c.id === id);
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return false;
+    const lowerClean = cleanId.toLowerCase();
+
+    // Acepta cualquier prefijo (cat-, prod-, numérico, etc.) y busca coincidencia
+    // por ID exacto, en minúsculas, por productId o slug
+    const idx = this.data.categories.findIndex(c => {
+      const catId = String(c.id || '').trim();
+      const catProductId = String((c as any).productId || (c as any).id_producto || '').trim();
+      const catSlug = String(c.slug || '').trim();
+
+      return (
+        catId === cleanId ||
+        catId.toLowerCase() === lowerClean ||
+        (catProductId && (catProductId === cleanId || catProductId.toLowerCase() === lowerClean)) ||
+        (catSlug && catSlug.toLowerCase() === lowerClean)
+      );
+    });
+
     if (idx >= 0) {
       this.data.categories.splice(idx, 1);
       this.saveData(this.data);

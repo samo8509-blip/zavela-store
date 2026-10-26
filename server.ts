@@ -58,6 +58,11 @@ async function startServer() {
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/admin', adminRouter);
+  // Soporte directo para /api/categories (GET, POST, PUT, DELETE)
+  app.use('/api/categories', (req, res, next) => {
+    req.url = '/categories' + (req.url === '/' ? '' : req.url);
+    adminRouter(req, res, next);
+  });
   app.use('/api/ai', aiRouter);
   app.use('/api/commercemind', aiRouter);
   app.use('/commercemind', aiRouter);

@@ -38,6 +38,55 @@ router.get('/metrics', (req, res) => {
 // ==========================================
 // 2. CATEGORIES CRUD
 // ==========================================
+function validateCategoryPayload(data: any): { valid: boolean; message?: string } {
+  if (!data || typeof data !== 'object') {
+    return { valid: false, message: 'El cuerpo de la solicitud debe ser un objeto JSON válido.' };
+  }
+
+  // 1. Bloqueo estricto por prefijo de ID de producto
+  const rawId = String(data.id || '').trim().toLowerCase();
+  if (rawId.startsWith('prod-') || rawId.startsWith('product-')) {
+    return {
+      valid: false,
+      message: `Bloqueado: El identificador "${data.id}" posee prefijo de producto ("prod-" / "product-") y no puede ser guardado en la base de datos de categorías.`
+    };
+  }
+
+  // 2. Bloqueo estricto por presencia de atributos exclusivos de productos
+  const productSpecificFields = [
+    'price', 'precio',
+    'costPrice', 'cost_price', 'supplier_cost',
+    'compareAtPrice', 'suggested_price',
+    'stock', 'cantidad',
+    'dropiProductId', 'dropi_product_id',
+    'variants', 'variantes',
+    'shippingCost', 'flete_envio', 'flete', 'estimatedShippingCost',
+    'dropiFee', 'dropi_fee',
+    'supplierSku', 'supplier_sku',
+    'weightKg', 'warehouseCity',
+    'provider', 'supplier'
+  ];
+
+  for (const field of productSpecificFields) {
+    if (data[field] !== undefined && data[field] !== null && data[field] !== '') {
+      return {
+        valid: false,
+        message: `Bloqueado: El objeto contiene el campo de producto "${field}". No se permite registrar productos dentro de la colección de categorías.`
+      };
+    }
+  }
+
+  // 3. Estructura de producto con 'title' en vez de 'name'
+  if (data.title && !data.name) {
+    return {
+      valid: false,
+      message: 'Bloqueado: El objeto tiene atributo "title" propio de un producto en lugar de "name" para categoría.'
+    };
+  }
+
+  return { valid: true };
+}
+
 router.get('/categories', (req, res) => {
   try {
     const categories = db.getCategories();
@@ -49,22 +98,53 @@ router.get('/categories', (req, res) => {
 
 router.post('/categories', (req, res) => {
   try {
+    // Validación estricta anti-inyección de productos en categorías
+    const validation = validateCategoryPayload(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_CATEGORY_PAYLOAD',
+        message: validation.message
+      });
+    }
+
+    const name = String(req.body?.name || '').trim();
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'El nombre de la categoría es obligatorio.'
+      });
+    }
+
     const saved = db.saveCategory(req.body);
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Creada',
-      details: `Categoría "${saved.name}" creada exitosamente.`,
+      details: `Categoría "${saved.name}" (ID: ${saved.id}) creada exitosamente.`,
       status: 'success'
     });
     res.status(201).json({ success: true, data: saved });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
 router.put('/categories/:id', (req, res) => {
   try {
-    const saved = db.saveCategory({ ...req.body, id: req.params.id });
+    const rawId = req.params.id || req.body?.id;
+    const targetId = decodeURIComponent(String(rawId || '').trim());
+
+    // Validar que no se intente sobreescribir con datos de producto
+    const validation = validateCategoryPayload({ ...req.body, id: targetId });
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_CATEGORY_PAYLOAD',
+        message: validation.message
+      });
+    }
+
+    const saved = db.saveCategory({ ...req.body, id: targetId });
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Modificada',
@@ -77,21 +157,42 @@ router.put('/categories/:id', (req, res) => {
   }
 });
 
-router.delete('/categories/:id', (req, res) => {
+// Acepta cualquier ID sin importar su prefijo (sea "cat-", "prod-", numérico o alfanumérico)
+router.delete(['/categories/:id', '/categories'], (req, res) => {
   try {
-    const deleted = db.deleteCategory(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, message: 'Categoría no encontrada' });
+    const rawId = req.params.id || req.query.id || req.body?.id;
+    const targetId = decodeURIComponent(String(rawId || '').trim());
+
+    if (!targetId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID no proporcionado para eliminar el registro de categorías.'
+      });
     }
+
+    // Eliminación universal en la colección de categorías (acepta cat-, prod-, etc.)
+    const deleted = db.deleteCategory(targetId);
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: `No se encontró ningún elemento con ID "${targetId}" en la base de datos de categorías.`
+      });
+    }
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Eliminada',
-      details: `Categoría con ID ${req.params.id} eliminada.`,
+      details: `Elemento con ID "${targetId}" eliminado exitosamente de la base de datos de categorías.`,
       status: 'info'
     });
-    res.json({ success: true, message: 'Categoría eliminada' });
+
+    res.json({
+      success: true,
+      message: `Elemento "${targetId}" eliminado exitosamente de categorías.`
+    });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[DELETE /categories Error]:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar de categorías' });
   }
 });
 

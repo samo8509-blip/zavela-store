@@ -1142,18 +1142,6 @@
       "textColor": "#ffffff",
       "items": [
         {
-          "id": "tick-amor",
-          "text": "💖 ESPECIAL AMOR Y AMISTAD: Rosas eternas LED, joyería dúo y regalos con pago contra entrega",
-          "highlightText": "ESPECIAL AMOR Y AMISTAD",
-          "active": true
-        },
-        {
-          "id": "tick-halo",
-          "text": "🎃 TEMPORADA HALLOWEEN: Disfraces virales, máscaras neón LED y generadores de niebla",
-          "highlightText": "TEMPORADA HALLOWEEN",
-          "active": true
-        },
-        {
           "id": "tick-1",
           "text": "🚚 PAGO CONTRA ENTREGA en toda Colombia • Paga solo al recibir tu pedido",
           "highlightText": "PAGO CONTRA ENTREGA",
@@ -1169,12 +1157,6 @@
           "id": "tick-3",
           "text": "🛡️ Garantía oficial de 30 días en todos los productos Zavela",
           "highlightText": "Garantía oficial",
-          "active": true
-        },
-        {
-          "id": "tick-4",
-          "text": "📦 Despachos rápidos el mismo día con Servientrega, Coordinadora y Envía",
-          "highlightText": "Despachos rápidos",
           "active": true
         }
       ]
@@ -1201,32 +1183,7 @@
         }
       ]
     },
-    "heroBanners": [
-      {
-        "id": "ban-perfume-1",
-        "title": "💎 Alta Perfumería & Fragancias Exclusivas Zavela",
-        "subtitle": "Fragancias de alta fijación con estuche de lujo, calidad premium garantizada y Pago Contra Entrega en toda Colombia.",
-        "badge": "💎 ALTA PERFUMERÍA • 100% GARANTIZADO",
-        "badgeText": "💎 ALTA PERFUMERÍA • 100% GARANTIZADO",
-        "ctaText": "Ver Fragancias en Stock",
-        "ctaLink": "#productos",
-        "imageUrl": "https://images.unsplash.com/photo-1541643600914-78b084683601?w=1600&auto=format&fit=crop&q=80",
-        "active": true,
-        "order": 1
-      },
-      {
-        "id": "ban-perfume-2",
-        "title": "🚚 Pide Hoy y Paga en Efectivo al Recibir",
-        "subtitle": "Envíos rápidos a las principales ciudades de Colombia con Servientrega, Coordinadora y Envía.",
-        "badge": "🇨🇴 PAGO CONTRA ENTREGA",
-        "badgeText": "🇨🇴 PAGO CONTRA ENTREGA",
-        "ctaText": "Pedir con Envío Rápido",
-        "ctaLink": "#productos",
-        "imageUrl": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600&auto=format&fit=crop&q=80",
-        "active": true,
-        "order": 2
-      }
-    ],
+    "heroBanners": [],
     "homeSections": [
       {
         "id": "sec-1",
@@ -1807,6 +1764,30 @@
     "heroBannerStyle": "modern"
   },
   "logs": [
+    {
+      "id": "log-1793054010788-w6ejc",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Eliminada",
+      "details": "Elemento con ID \"cat-1793054010784\" eliminado exitosamente de la base de datos de categorías.",
+      "status": "info",
+      "createdAt": "2026-10-26T22:33:30.788Z"
+    },
+    {
+      "id": "log-1793054010785-p6943",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Creada",
+      "details": "Categoría \"Automóviles y Repuestos\" (ID: cat-1793054010784) creada exitosamente.",
+      "status": "success",
+      "createdAt": "2026-10-26T22:33:30.785Z"
+    },
+    {
+      "id": "log-1793054010780-05qw8",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Eliminada",
+      "details": "Elemento con ID \"prod-accidental-item-456\" eliminado exitosamente de la base de datos de categorías.",
+      "status": "info",
+      "createdAt": "2026-10-26T22:33:30.780Z"
+    },
     {
       "id": "log-1792153686294-0omam",
       "type": "PRODUCT_UPDATE",
@@ -2498,59 +2479,5 @@
       }
     }
   },
-  "socialPosts": [
-    {
-      "id": "soc-post-1",
-      "productId": "prod-amor-102",
-      "productTitle": "Set Pulseras Pareja Amor Infinito Imantadas en Piedra Natural",
-      "productPrice": 36900,
-      "productImageUrl": "https://images.unsplash.com/photo-1611591475102-470e89ec3e65?w=800&auto=format&fit=crop&q=80",
-      "productSlug": "set-pulseras-pareja-amor-infinito-imantadas",
-      "platforms": [
-        "facebook",
-        "instagram",
-        "tiktok"
-      ],
-      "copies": {
-        "facebook": "✨ ¡El detalle perfecto para tu persona favorita! Set de Pulseras Imantadas que se atraen al estar juntos. 🚚 PAGO CONTRA ENTREGA en toda Colombia: recibes en casa y pagas seguro. ¡Últimas unidades con 35% de descuento!",
-        "instagram": "🔒 Conectados sin importar la distancia. 🖤 Set Dúo Amor Infinito con broche magnético de atracción mutua. Pide el tuyo con un clic en el link de la bio o DM. 📦 Pago Contra Entrega.",
-        "tiktok": "POV: Le das esto a tu pareja y no se lo vuelve a quitar 🥺✨ Pulseras imantadas que se unen al tocarse. Envíos contra entrega a toda Colombia 🇨🇴 #AmorYAmistad #RegaloPareja #Colombia #PagoContraEntrega"
-      },
-      "status": "published",
-      "publishedAt": "2026-08-28T09:24:49.105Z",
-      "views": 4890,
-      "clicks": 412,
-      "likes": 685,
-      "shares": 94,
-      "attributedSalesCOP": 553500,
-      "postUrl": "https://instagram.com/p/sample1"
-    },
-    {
-      "id": "soc-post-2",
-      "productId": "prod-amor-105",
-      "productTitle": "Lámpara Proyector Astronauta Galaxia y Nebulosa 360° para Citas y Noches Mágicas",
-      "productPrice": 79900,
-      "productImageUrl": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80",
-      "productSlug": "lampara-proyector-astronauta-galaxia-360",
-      "platforms": [
-        "facebook",
-        "instagram",
-        "tiktok"
-      ],
-      "copies": {
-        "facebook": "🚀 Transforma tu habitación en un universo infinito. Proyector Astronauta 360° con 8 nebulosas y control remoto. 🎁 Paga al recibir en tu puerta.",
-        "instagram": "Noches mágicas garantizadas 🌌 Proyector Astronauta Galaxia con giro magnético 360°. ¡Envío rápido y pago contra entrega en toda Colombia! 🚀💫",
-        "tiktok": "No puedo creer lo que hace este astronauta en mi cuarto 😱🌌 Proyector Galaxia 360. ¡Pagas al recibir en casa! 🇨🇴 #HabitacionGamer #Tendencia #TikTokMadeMeBuyIt"
-      },
-      "status": "published",
-      "publishedAt": "2026-08-27T14:24:49.105Z",
-      "views": 12450,
-      "clicks": 1120,
-      "likes": 1890,
-      "shares": 340,
-      "attributedSalesCOP": 1598000,
-      "postUrl": "https://tiktok.com/@zavelastore_oficial/video/sample2"
-    }
-  ],
-  "deletedProductIds": []
+  "socialPosts": []
 }
