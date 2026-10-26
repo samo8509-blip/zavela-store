@@ -246,6 +246,21 @@ export async function initDatabaseSchema(poolInstance?: mysql.Pool | null): Prom
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // 5b. Tabla `categorias` dedicada en MySQL cPanel
+    await p.query(`
+      CREATE TABLE IF NOT EXISTS categorias (
+        id VARCHAR(64) NOT NULL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        icon VARCHAR(64) DEFAULT 'Sparkles',
+        description TEXT NULL,
+        \`order\` INT NOT NULL DEFAULT 1,
+        subcategories JSON NULL,
+        createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
     // 6. Tabla de pedidos
     await p.query(`
       CREATE TABLE IF NOT EXISTS pedidos (
@@ -594,6 +609,25 @@ export const pool = {
 
 // Fallback key-value storage for MySQL tables when running locally or during disconnection
 const localConfigStore = new Map<string, string>();
+const localCategoriesStore = new Map<string, any>();
+
+function ensureLocalCategoriesInitialized() {
+  if (localCategoriesStore.size === 0) {
+    const defaultCats = [
+      { id: 'cat-amor-amistad', name: '💖 Amor y Amistad', slug: 'amor-y-amistad', active: 1, icon: 'Heart', description: 'Especial Amor y Amistad en Colombia: Joyería de pareja, rosas preservadas LED, proyectores galaxia, relojes dúo y regalos inolvidables con pago contra entrega.', order: 0, subcategories: '[]' },
+      { id: 'cat-halloween', name: '🎃 Halloween & Disfraces', slug: 'halloween-disfraces', active: 1, icon: 'Ghost', description: 'Especial Halloween y Noche de Brujas: Disfraces impactantes, máscaras LED de neón, calderos de niebla RGB, proyectores de terror y disfraces para mascotas con pago contra entrega.', order: 1, subcategories: '[]' },
+      { id: 'cat-navidad', name: '🎄 Artículos Navideños y Diciembre', slug: 'navidad-diciembre', active: 1, icon: 'Gift', description: 'Luces navideñas inteligentes, árboles nevados, proyectores láser 3D, guirnaldas y decoración especial para celebrar la mejor época del año con pago contra entrega.', order: 2, subcategories: '[]' },
+      { id: 'cat-1', name: 'Belleza y Cuidado Personal', slug: 'belleza-cuidado', active: 1, icon: 'Sparkles', description: 'Perfumería fina de mujer y hombre, combos exclusivos de fragancias, cuidado capilar y bienestar personal con pago contra entrega.', order: 3, subcategories: '[]' },
+      { id: 'cat-2', name: 'Hogar y Cocina', slug: 'hogar-cocina', active: 1, icon: 'Home', description: 'Soluciones inteligentes, electrodomésticos portátiles y decoración para el hogar.', order: 4, subcategories: '[]' },
+      { id: 'cat-3', name: 'Tecnología y Gadgets', slug: 'tecnologia', active: 1, icon: 'Smartphone', description: 'Smartwatches, audio inalámbrico y accesorios de última tecnología.', order: 5, subcategories: '[]' },
+      { id: 'cat-4', name: 'Salud y Fitness', slug: 'salud-fitness', active: 1, icon: 'Activity', description: 'Equipos de masaje, terapia muscular y accesorios de entrenamiento.', order: 6, subcategories: '[]' },
+      { id: 'cat-5', name: 'Moda y Accesorios', slug: 'moda-accesorios', active: 1, icon: 'ShoppingBag', description: 'Bolsos, billeteras y accesorios de alta tendencia.', order: 7, subcategories: '[]' }
+    ];
+    for (const c of defaultCats) {
+      localCategoriesStore.set(c.id, { ...c, createdAt: new Date().toISOString() });
+    }
+  }
+}
 
 function ensureLocalConfigInitialized() {
   if (localConfigStore.size === 0) {
@@ -738,6 +772,62 @@ function executeFallbackQuery(sql: string, params: any[] = []): [any, any] {
   // 4. INSERT INTO banners
   if (upper.includes('INSERT INTO BANNERS')) {
     return [{ affectedRows: 1, insertId: 0 }, []];
+  }
+
+  // 4b. Consultas a la tabla categorias (MySQL cPanel)
+  if (upper.includes('FROM CATEGORIAS')) {
+    ensureLocalCategoriesInitialized();
+    if (upper.includes('WHERE ID =')) {
+      const targetId = String(params[0] || '').trim();
+      const cat = localCategoriesStore.get(targetId);
+      return [cat ? [cat] : [], []];
+    }
+    const rows = Array.from(localCategoriesStore.values()).sort((a, b) => (a.order || 0) - (b.order || 0));
+    return [rows, []];
+  }
+
+  if (upper.includes('INSERT INTO CATEGORIAS')) {
+    ensureLocalCategoriesInitialized();
+    const [id, name, slug, active, icon, description, order, subcategories] = params;
+    const catRow = {
+      id: String(id),
+      name: String(name || ''),
+      slug: String(slug || ''),
+      active: active === 1 || active === true ? 1 : 0,
+      icon: String(icon || 'Sparkles'),
+      description: String(description || ''),
+      order: Number(order !== undefined ? order : 1),
+      subcategories: typeof subcategories === 'string' ? subcategories : JSON.stringify(subcategories || []),
+      createdAt: new Date().toISOString()
+    };
+    localCategoriesStore.set(catRow.id, catRow);
+    return [{ affectedRows: 1, insertId: 0 }, []];
+  }
+
+  if (upper.includes('UPDATE CATEGORIAS')) {
+    ensureLocalCategoriesInitialized();
+    const [name, slug, active, icon, description, order, subcategories, targetId] = params;
+    const cleanId = String(targetId || '').trim();
+    const existing = localCategoriesStore.get(cleanId);
+    if (existing) {
+      existing.name = String(name || existing.name);
+      existing.slug = String(slug || existing.slug);
+      existing.active = active === 1 || active === true ? 1 : 0;
+      existing.icon = String(icon || existing.icon);
+      existing.description = String(description !== undefined ? description : existing.description);
+      existing.order = Number(order !== undefined ? order : existing.order);
+      existing.subcategories = typeof subcategories === 'string' ? subcategories : JSON.stringify(subcategories || []);
+      localCategoriesStore.set(cleanId, existing);
+      return [{ affectedRows: 1 }, []];
+    }
+    return [{ affectedRows: 0 }, []];
+  }
+
+  if (upper.includes('DELETE FROM CATEGORIAS')) {
+    ensureLocalCategoriesInitialized();
+    const targetId = String(params[0] || '').trim();
+    const existed = localCategoriesStore.delete(targetId);
+    return [{ affectedRows: existed ? 1 : 0 }, []];
   }
 
   // 5. SELECT productos / products

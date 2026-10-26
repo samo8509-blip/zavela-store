@@ -1765,6 +1765,30 @@
   },
   "logs": [
     {
+      "id": "log-1793055536186-zk0il",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Eliminada",
+      "details": "Elemento con ID \"cat-1793055536178\" eliminado exitosamente de la tabla MySQL categorias.",
+      "status": "info",
+      "createdAt": "2026-10-26T22:58:56.186Z"
+    },
+    {
+      "id": "log-1793055536183-e7g4y",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Modificada",
+      "details": "Categoría \"Herramientas Pro y Taller\" (ID: cat-1793055536178) actualizada en tabla MySQL categorias.",
+      "status": "success",
+      "createdAt": "2026-10-26T22:58:56.183Z"
+    },
+    {
+      "id": "log-1793055536178-he2e7",
+      "type": "SETTINGS_UPDATE",
+      "action": "Categoría Creada",
+      "details": "Categoría \"Herramientas y Ferretería\" (ID: cat-1793055536178) guardada exitosamente en la tabla MySQL categorias.",
+      "status": "success",
+      "createdAt": "2026-10-26T22:58:56.178Z"
+    },
+    {
       "id": "log-1793054010788-w6ejc",
       "type": "SETTINGS_UPDATE",
       "action": "Categoría Eliminada",

@@ -87,16 +87,46 @@ function validateCategoryPayload(data: any): { valid: boolean; message?: string 
   return { valid: true };
 }
 
-router.get('/categories', (req, res) => {
+router.get('/categories', async (req, res) => {
   try {
-    const categories = db.getCategories();
+    const [rows]: any = await pool.query('SELECT * FROM categorias ORDER BY `order` ASC, createdAt ASC');
+    const list = Array.isArray(rows) ? rows : [];
+
+    const categories = list.map((row: any) => {
+      let subcategories: any[] = [];
+      if (row.subcategories !== null && row.subcategories !== undefined) {
+        if (typeof row.subcategories === 'string' && row.subcategories.trim()) {
+          try {
+            subcategories = JSON.parse(row.subcategories);
+          } catch {
+            subcategories = [];
+          }
+        } else if (Array.isArray(row.subcategories)) {
+          subcategories = row.subcategories;
+        }
+      }
+
+      return {
+        id: String(row.id),
+        name: row.name || '',
+        slug: row.slug || '',
+        active: row.active === 1 || row.active === true || row.active === '1',
+        icon: row.icon || 'Sparkles',
+        description: row.description || '',
+        order: Number(row.order !== undefined ? row.order : (row['`order`'] ?? 0)),
+        subcategories: Array.isArray(subcategories) ? subcategories : [],
+        createdAt: row.createdAt || row.created_at || new Date().toISOString()
+      };
+    });
+
     res.json({ success: true, data: categories });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[GET /categories Error]:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al consultar categorías en MySQL' });
   }
 });
 
-router.post('/categories', (req, res) => {
+router.post('/categories', async (req, res) => {
   try {
     // Validación estricta anti-inyección de productos en categorías
     const validation = validateCategoryPayload(req.body);
@@ -116,23 +146,58 @@ router.post('/categories', (req, res) => {
       });
     }
 
-    const saved = db.saveCategory(req.body);
+    const rawId = req.body?.id ? String(req.body.id).trim() : '';
+    const id = rawId || `cat-${Date.now()}`;
+    const slug = String(req.body?.slug || '').trim() || name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const active = req.body?.active !== false ? 1 : 0;
+    const icon = String(req.body?.icon || 'Sparkles').trim();
+    const description = String(req.body?.description || '').trim();
+    const order = Number(req.body?.order !== undefined ? req.body.order : 1);
+
+    // Serializar obligatoriamente el array de subcategorías con JSON.stringify() antes de guardarlo en MySQL
+    const rawSubcategories = Array.isArray(req.body?.subcategories) ? req.body.subcategories : [];
+    const subcategoriesJson = JSON.stringify(rawSubcategories);
+
+    // Consulta directa INSERT INTO categorias a MySQL
+    await pool.query(
+      'INSERT INTO categorias (id, name, slug, active, icon, description, `order`, subcategories) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, slug, active, icon, description, order, subcategoriesJson]
+    );
+
+    const createdCategory = {
+      id,
+      name,
+      slug,
+      active: active === 1,
+      icon,
+      description,
+      order,
+      subcategories: rawSubcategories,
+      createdAt: new Date().toISOString()
+    };
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Creada',
-      details: `Categoría "${saved.name}" (ID: ${saved.id}) creada exitosamente.`,
+      details: `Categoría "${name}" (ID: ${id}) guardada exitosamente en la tabla MySQL categorias.`,
       status: 'success'
     });
-    res.status(201).json({ success: true, data: saved });
+
+    res.status(201).json({ success: true, data: createdCategory });
   } catch (error: any) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error('[POST /categories Error]:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al guardar la categoría en MySQL' });
   }
 });
 
-router.put('/categories/:id', (req, res) => {
+router.put('/categories/:id', async (req, res) => {
   try {
     const rawId = req.params.id || req.body?.id;
     const targetId = decodeURIComponent(String(rawId || '').trim());
+
+    if (!targetId) {
+      return res.status(400).json({ success: false, message: 'ID de categoría no especificado.' });
+    }
 
     // Validar que no se intente sobreescribir con datos de producto
     const validation = validateCategoryPayload({ ...req.body, id: targetId });
@@ -144,21 +209,58 @@ router.put('/categories/:id', (req, res) => {
       });
     }
 
-    const saved = db.saveCategory({ ...req.body, id: targetId });
+    const name = String(req.body?.name || '').trim();
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'El nombre de la categoría es obligatorio.'
+      });
+    }
+
+    const slug = String(req.body?.slug || '').trim() || name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const active = req.body?.active !== false ? 1 : 0;
+    const icon = String(req.body?.icon || 'Sparkles').trim();
+    const description = String(req.body?.description || '').trim();
+    const order = Number(req.body?.order !== undefined ? req.body.order : 1);
+
+    // Serializar subcategorías con JSON.stringify() antes de actualizar en MySQL
+    const rawSubcategories = Array.isArray(req.body?.subcategories) ? req.body.subcategories : [];
+    const subcategoriesJson = JSON.stringify(rawSubcategories);
+
+    // Consulta directa UPDATE categorias en MySQL
+    await pool.query(
+      'UPDATE categorias SET name = ?, slug = ?, active = ?, icon = ?, description = ?, `order` = ?, subcategories = ? WHERE id = ?',
+      [name, slug, active, icon, description, order, subcategoriesJson, targetId]
+    );
+
+    const updatedCategory = {
+      id: targetId,
+      name,
+      slug,
+      active: active === 1,
+      icon,
+      description,
+      order,
+      subcategories: rawSubcategories,
+      updatedAt: new Date().toISOString()
+    };
+
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Modificada',
-      details: `Categoría "${saved.name}" actualizada.`,
+      details: `Categoría "${name}" (ID: ${targetId}) actualizada en tabla MySQL categorias.`,
       status: 'success'
     });
-    res.json({ success: true, data: saved });
+
+    res.json({ success: true, data: updatedCategory });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[PUT /categories Error]:', error);
+    res.status(500).json({ success: false, message: error.message || 'Error al actualizar la categoría en MySQL' });
   }
 });
 
 // Acepta cualquier ID sin importar su prefijo (sea "cat-", "prod-", numérico o alfanumérico)
-router.delete(['/categories/:id', '/categories'], (req, res) => {
+router.delete(['/categories/:id', '/categories'], async (req, res) => {
   try {
     const rawId = req.params.id || req.query.id || req.body?.id;
     const targetId = decodeURIComponent(String(rawId || '').trim());
@@ -170,29 +272,23 @@ router.delete(['/categories/:id', '/categories'], (req, res) => {
       });
     }
 
-    // Eliminación universal en la colección de categorías (acepta cat-, prod-, etc.)
-    const deleted = db.deleteCategory(targetId);
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        message: `No se encontró ningún elemento con ID "${targetId}" en la base de datos de categorías.`
-      });
-    }
+    // Consulta directa DELETE FROM categorias en MySQL (acepta cualquier prefijo)
+    await pool.query('DELETE FROM categorias WHERE id = ?', [targetId]);
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
       action: 'Categoría Eliminada',
-      details: `Elemento con ID "${targetId}" eliminado exitosamente de la base de datos de categorías.`,
+      details: `Elemento con ID "${targetId}" eliminado exitosamente de la tabla MySQL categorias.`,
       status: 'info'
     });
 
     res.json({
       success: true,
-      message: `Elemento "${targetId}" eliminado exitosamente de categorías.`
+      message: `Elemento "${targetId}" eliminado exitosamente de la tabla categorias.`
     });
   } catch (error: any) {
     console.error('[DELETE /categories Error]:', error);
-    res.status(500).json({ success: false, message: error.message || 'Error al eliminar de categorías' });
+    res.status(500).json({ success: false, message: error.message || 'Error al eliminar de categorias en MySQL' });
   }
 });
 
