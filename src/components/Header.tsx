@@ -509,122 +509,49 @@ export const Header: React.FC<HeaderProps> = ({
             onMouseEnter={() => setIsMegaMenuOpen(true)}
             onMouseLeave={() => setIsMegaMenuOpen(false)}
           >
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
               
-              {/* Columna 1: Artículos de Temporada & Navidad */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <div className="w-6 h-6 rounded-lg bg-red-100 text-red-600 flex items-center justify-center text-xs">
-                    🎄
-                  </div>
-                  <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
-                    Temporada & Navidad
-                  </h4>
-                </div>
-                <ul className="space-y-2 text-xs font-semibold text-slate-600">
-                  {activeCategories
-                    .filter(c => c.slug.includes('navid') || c.slug.includes('halo') || c.slug.includes('amor') || c.id === 'cat-navidad')
-                    .map(cat => (
-                      <li key={cat.id}>
-                        <button
-                          onClick={() => handleCategorySelection(cat.id)}
-                          className="hover:text-sky-600 transition-colors text-left w-full flex items-center justify-between"
-                        >
-                          <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {products.filter(p => p.categoryId === cat.id).length}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  <li>
-                    <button
-                      onClick={handleOfertasClick}
-                      className="text-red-600 hover:text-red-700 font-bold flex items-center gap-1 mt-1"
-                    >
-                      <Flame className="w-3 h-3 text-red-500" />
-                      <span>Ver promociones flash</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Columna 2: Hogar, Cocina & Herramientas */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">
-                    <Home className="w-3.5 h-3.5" />
-                  </div>
-                  <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
-                    Hogar & Cocina
-                  </h4>
-                </div>
-                <ul className="space-y-2 text-xs font-semibold text-slate-600">
-                  {activeCategories
-                    .filter(c => c.slug.includes('hogar') || c.slug.includes('cocina') || c.id === 'cat-2' || c.name.toLowerCase().includes('hogar'))
-                    .map(cat => (
-                      <li key={cat.id}>
-                        <button
-                          onClick={() => handleCategorySelection(cat.id)}
-                          className="hover:text-sky-600 transition-colors text-left w-full flex items-center justify-between"
-                        >
-                          <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {products.filter(p => p.categoryId === cat.id).length}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  <li>
-                    <button
-                      onClick={() => handleCategorySelection('all')}
-                      className="text-slate-500 hover:text-slate-800 text-[11px] underline"
-                    >
-                      Organización y soluciones del hogar
-                    </button>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Columna 3: Tecnología & Belleza */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+              {/* Columna Principal: Cuadrícula dinámica de categorías de MySQL */}
+              <div className="flex-1">
+                <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-100">
                   <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
-                    <Smartphone className="w-3.5 h-3.5" />
+                    <Layers className="w-3.5 h-3.5" />
                   </div>
                   <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
-                    Tecnología & Belleza
+                    Nuestras Categorías
                   </h4>
                 </div>
-                <ul className="space-y-2 text-xs font-semibold text-slate-600">
-                  {activeCategories
-                    .filter(c => c.slug.includes('tecno') || c.slug.includes('belle') || c.slug.includes('salud') || c.id === 'cat-3' || c.id === 'cat-1')
-                    .map(cat => (
-                      <li key={cat.id}>
-                        <button
-                          onClick={() => handleCategorySelection(cat.id)}
-                          className="hover:text-sky-600 transition-colors text-left w-full flex items-center justify-between"
-                        >
-                          <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {products.filter(p => p.categoryId === cat.id).length}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  <li>
+                
+                {/* Grid dinámico (3 o 4 columnas dependiendo de la pantalla) */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {activeCategories.map(cat => (
                     <button
-                      onClick={() => handleCategorySelection('all')}
-                      className="text-slate-500 hover:text-slate-800 text-[11px] underline"
+                      key={cat.id}
+                      onClick={() => handleCategorySelection(cat.id)}
+                      className="group text-left p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50 transition-all flex items-center gap-3 cursor-pointer"
                     >
-                      Ver gadgets y smartwatches
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 group-hover:bg-white group-hover:border-sky-300 flex items-center justify-center shrink-0">
+                        <ShoppingBag className="w-4 h-4 text-slate-400 group-hover:text-sky-500" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="font-bold text-xs text-slate-800 group-hover:text-sky-700 truncate">
+                          {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {products.filter(p => p.categoryId === cat.id).length} productos
+                        </p>
+                      </div>
                     </button>
-                  </li>
-                </ul>
+                  ))}
+                  
+                  {activeCategories.length === 0 && (
+                    <p className="text-xs text-slate-400 col-span-full">No hay categorías configuradas.</p>
+                  )}
+                </div>
               </div>
 
-              {/* Columna 4: Banner Destacado / Todo el Catálogo */}
-              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md">
+              {/* Columna Lateral Derecha: Banner Destacado / Todo el Catálogo (Se mantiene) */}
+              <div className="md:w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md shrink-0">
                 <div className="space-y-2">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-black flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5" />
@@ -648,6 +575,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 </div>
               </div>
+
             </div>
           </div>
         )}
