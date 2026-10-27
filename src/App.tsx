@@ -380,12 +380,18 @@ export default function App() {
   const loadStoreData = async () => {
     try {
      const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
-          getCpanelProducts(true).catch(() => null),
-          fetch('https://api.zavelastore.com.co/api.php?action=categories').then(r => r.json()).catch(() => ({ success: false })),
-          fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
-          getFirestoreSettings().catch(() => null),
-          fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
-        ]);
+         getCpanelProducts(true).catch(() => null),
+         
+         // APUNTA DIRECTO A NODE.JS PARA TRAER LAS CATEGORÍAS REALES DESDE LA BASE DE DATOS MIENTRAS QUE EL RESTO USA PHP
+         fetch('/api/admin/categories')
+           .then(r => r.json())
+           .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
+           .catch(() => ({ success: false, data: [] })),
+
+         fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
+         getFirestoreSettings().catch(() => null),
+         fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
+       ]);
 
         if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
           setProducts(cpanelProds.map(normalizeCpanelProduct));
@@ -1304,7 +1310,6 @@ export default function App() {
         /* Store Front View */
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
           
-
 
           {/* Catalog & Category Section */}
           <div id="catalogo" className="scroll-mt-24"></div>
