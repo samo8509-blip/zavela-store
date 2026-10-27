@@ -5,7 +5,7 @@ import { Product, StoreSettings } from '../../src/types/index.ts';
 
 const router = Router();
 
-const STORE_URL = 'https://remix-novora-tienda-online-dropi-6871.ai.studio';
+const STORE_URL = 'https://zavelastore.com.co';
 
 // In-memory event log for webhook debugging and dashboard status
 interface WebhookLogEntry {
@@ -31,6 +31,9 @@ function addWebhookLog(entry: Omit<WebhookLogEntry, 'id' | 'timestamp'>) {
     webhookLogs.pop();
   }
 }
+
+// Historial de chat en memoria para que la IA recuerde la conversación
+const chatMemory = new Map<string, { role: string, parts: { text: string }[] }[]>();
 
 // Lazy initialization of Gemini client
 function getGeminiClient(): GoogleGenAI | null {
@@ -68,9 +71,22 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
 
 // Generate AI Reply for incoming WhatsApp message
 async function generateAIReply(userMessage: string, senderPhone: string): Promise<string> {
-  const settings = db.getSettings();
   const allProducts = db.getProducts({ onlyActive: true });
   const aiClient = getGeminiClient();
+
+  // Inicializar el historial de chat para este número si no existe
+  if (!chatMemory.has(senderPhone)) {
+    chatMemory.set(senderPhone, []);
+  }
+  const history = chatMemory.get(senderPhone)!;
+
+  // Agregar el mensaje del cliente al historial
+  history.push({ role: 'user', parts: [{ text: userMessage }] });
+
+  // Mantener solo los últimos 8 mensajes para no saturar la memoria ni la API
+  if (history.length > 8) {
+    history.splice(0, history.length - 8);
+  }
 
   if (aiClient) {
     try {
@@ -83,15 +99,15 @@ async function generateAIReply(userMessage: string, senderPhone: string): Promis
       }));
 
       const systemInstruction = `
-Eres "Novora Bot", el asesor oficial de ventas y atención al cliente vía WhatsApp de Novora Store (${STORE_URL}).
+Eres "Sofía", la asesora oficial de ventas y atención al cliente vía WhatsApp de Zavela Store (${STORE_URL}).
 Tu objetivo es responder de forma rápida, amable y resolutiva para cerrar ventas y generar confianza.
 
 REGLAS DE FORMATO WHATSAPP:
 - Mensajes concisos (máximo 2 a 4 líneas por párrafo).
 - Uso moderado de emojis (🛍️, 📦, ✨, 😊, 🚚).
-- Siempre termina con una pregunta abierta o llamado a la acción (CTA).
+- Siempre termina con una pregunta o instrucción clara para avanzar en la venta.
 - Destaca Pago Contra Entrega en toda Colombia (2 a 5 días hábiles).
-- Si el cliente desea comprar por chat, solicita: Nombre completo, Teléfono, Dirección y Barrio, Ciudad/Dpto, y Producto con cantidad.
+- CRÍTICO: Si el cliente confirma un producto, dice "sí", o muestra intención de compra, NO le repitas el catálogo. Pídele INMEDIATAMENTE estos datos para enviarle el producto: Nombre completo, Teléfono, Dirección y Barrio, Ciudad/Departamento.
 - Enlace al catálogo: ${STORE_URL}
 
 Catálogo disponible:
@@ -99,29 +115,48 @@ ${JSON.stringify(catalogSummary, null, 2)}
 `;
 
       const response = await aiClient.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+        model: 'gemini-1.5-flash', // Corrección del modelo
+        contents: history, // Le pasamos todo el historial para que tenga contexto
         config: {
           systemInstruction
         }
       });
 
       if (response.text && response.text.trim()) {
-        return response.text.trim();
+        const botReply = response.text.trim();
+        // Guardar la respuesta del bot en el historial
+        history.push({ role: 'model', parts: [{ text: botReply }] });
+        return botReply;
       }
     } catch (e: any) {
       console.warn('Gemini generateContent error for WhatsApp:', e?.message || e);
     }
   }
 
-  // Fast pre-designed fallback
+  // --------------------------------------------------------------------------
+  // RESPALDO RÁPIDO (Por si falla la IA o falta la API Key)
+  // --------------------------------------------------------------------------
+  const textLower = userMessage.toLowerCase();
+  
+  // Si el bot de respaldo detecta que el cliente está confirmando ("sí", "quiero", etc.)
+  if (textLower.includes('si') || textLower.includes('sí') || textLower.includes('quiero') || textLower.includes('comprar')) {
+    const confirmReply = `¡Excelente elección! 📦 Para generarte tu pedido con Pago Contra Entrega y despacharlo cuanto antes, por favor indícame:\n\n👤 Nombre completo:\n📱 Teléfono alterno:\n📍 Dirección y Barrio:\n🏙️ Ciudad/Departamento:\n\n¡Quedo atenta para tomar tu pedido! 😊`;
+    history.push({ role: 'model', parts: [{ text: confirmReply }] });
+    return confirmReply;
+  }
+
+  // Búsqueda de productos de respaldo
   const matched = searchCatalogProducts(userMessage, allProducts, 2);
   if (matched.length > 0) {
     const list = matched.map(p => `• 🛍️ *${p.title}* — $${p.price.toLocaleString('es-CO')} COP`).join('\n');
-    return `¡Hola! 👋 Con gusto te colaboro en Novora.\n\nTe recomiendo estas excelentes opciones de nuestro catálogo:\n${list}\n\n🚚 Tenemos **Pago Contra Entrega** en todo el país (pagas al recibir en tu casa) de 2 a 5 días hábiles.\n\n¿Te gustaría que te tome el pedido de alguno? 😊📦`;
+    const fallbackReply = `¡Hola! 👋 Con gusto te colaboro en Zavela Store.\n\nTe recomiendo estas excelentes opciones de nuestro catálogo:\n${list}\n\n🚚 Tenemos **Pago Contra Entrega** en todo el país (pagas al recibir en tu casa) de 2 a 5 días hábiles.\n\n¿Te gustaría que te tome el pedido de alguno? 😊📦`;
+    history.push({ role: 'model', parts: [{ text: fallbackReply }] });
+    return fallbackReply;
   }
 
-  return `¡Hola! 👋 Soy Novora Bot, tu asesor de compras en Novora.\n\nPuedes ver todo nuestro catálogo en vivo aquí: ${STORE_URL} 🛍️\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia. ¿Buscas algún producto en especial o te ayudo con un pedido? ✨`;
+  const defaultReply = `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store.\n\nPuedes ver todo nuestro catálogo en vivo aquí: ${STORE_URL} 🛍️\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia. ¿Buscas algún producto en especial o te ayudo con un pedido? ✨`;
+  history.push({ role: 'model', parts: [{ text: defaultReply }] });
+  return defaultReply;
 }
 
 // Send WhatsApp message back to user using Meta Cloud API
@@ -131,14 +166,7 @@ async function sendWhatsAppCloudMessage(to: string, text: string, config: any): 
   const apiVersion = config?.metaApiVersion || 'v20.0';
 
   if (!phoneNumberId || !accessToken) {
-    console.warn('WhatsApp Cloud API credentials not configured. Message simulated in webhook logs.');
-    addWebhookLog({
-      type: 'message_sent',
-      sender: to,
-      content: text,
-      status: 'simulated_no_credentials',
-      rawPayload: { note: 'Configura Phone Number ID y Access Token en el panel para enviar por la API oficial de Meta' }
-    });
+    console.warn('WhatsApp Cloud API credentials not configured.');
     return false;
   }
 
@@ -198,7 +226,6 @@ async function sendWhatsAppCloudMessage(to: string, text: string, config: any): 
 
 /**
  * 1. GET /webhook, GET /, & Handshake Verification Required by Meta for Developers
- * Endpoint: /api/whatsapp/webhook (and aliases: /api/webhook/whatsapp, /api/whatsapp)
  */
 router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
   const mode = (req.query['hub.mode'] as string) || '';
@@ -207,12 +234,10 @@ router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
 
   console.log(`[WhatsApp Webhook Handshake] Received hub.mode=${mode}, hub.verify_token=${token}, hub.challenge=${challenge}`);
 
-  // Meta Webhook Verification Handshake
   if (mode === 'subscribe' && challenge) {
     const settings = db.getSettings();
     const currentConfiguredToken = settings.whatsappCloudApi?.webhookVerifyToken || 'novora_meta_webhook_2026';
 
-    // Accept token if it matches configured token, default tokens, or any valid non-empty token sent by Meta
     const isValidToken = 
       !token || 
       token === currentConfiguredToken || 
@@ -221,7 +246,6 @@ router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
       token.length >= 3;
 
     if (isValidToken) {
-      // Auto-sync token to database if it was updated in Meta
       if (token && token !== currentConfiguredToken) {
         db.saveSettings({
           whatsappCloudApi: {
@@ -236,58 +260,30 @@ router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
             webhookVerifyToken: token
           }
         });
-        console.log(`🔄 [WhatsApp Webhook] Synced new Verify Token to Database: ${token}`);
       }
-
-      console.log('✅ [WhatsApp Webhook] Handshake verified successfully with Meta!');
-      addWebhookLog({
-        type: 'handshake',
-        content: `Handshake verificado exitosamente con Meta Developers. Token: ${token || '(vacio)'} | Challenge: ${challenge}`,
-        status: 'verified_200'
-      });
-
-      // Meta strictly requires plain text HTTP 200 with the exact challenge value
       res.setHeader('Content-Type', 'text/plain');
       return res.status(200).send(challenge);
     } else {
-      console.warn(`❌ [WhatsApp Webhook] Invalid verify token: ${token}`);
-      addWebhookLog({
-        type: 'handshake',
-        content: `Fallo de verificación: Token rechazado (${token})`,
-        status: 'forbidden_403'
-      });
       return res.sendStatus(403);
     }
   }
 
-  // If simple GET status request without Meta parameters
-  const currentSettings = db.getSettings();
   res.json({
     status: 'online',
-    service: 'Zavela / Novora WhatsApp Cloud API Webhook',
-    verifyToken: currentSettings.whatsappCloudApi?.webhookVerifyToken || 'novora_meta_webhook_2026',
-    metaCredentialsConfigured: Boolean(currentSettings.whatsappCloudApi?.phoneNumberId && currentSettings.whatsappCloudApi?.accessToken),
-    endpoints: {
-      callbackUrl: '/api/whatsapp/webhook',
-      status: '/api/whatsapp/webhook-info',
-      testHandshake: '/api/whatsapp/test-handshake'
-    },
+    service: 'Zavela Store WhatsApp Cloud API Webhook',
     timestamp: new Date().toISOString()
   });
 });
 
 /**
  * 2. POST /webhook & POST /
- * Handles Incoming WhatsApp Messages and Status Updates from Meta
+ * Handles Incoming WhatsApp Messages
  */
 router.post(['/webhook', '/'], async (req: Request, res: Response) => {
   const body = req.body;
-
-  // Immediate response to Meta to avoid webhook timeouts (required < 3s)
   res.status(200).json({ status: 'EVENT_RECEIVED' });
 
   try {
-    // Check if this is an event from a WhatsApp Business Account
     if (body.object === 'whatsapp_business_account' || body.entry) {
       const settings = db.getSettings();
       const cloudApi = settings.whatsappCloudApi || {
@@ -301,10 +297,9 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
           if (change.field === 'messages') {
             const value = change.value;
 
-            // Handle incoming message from customer
             if (value.messages && value.messages.length > 0) {
               const message = value.messages[0];
-              const from = message.from; // Phone number (e.g. 573151234567)
+              const from = message.from;
               const messageType = message.type;
               let userText = '';
 
@@ -316,8 +311,6 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
                 userText = message.button?.text || '';
               }
 
-              console.log(`[WhatsApp Webhook] Mensaje recibido de +${from}: "${userText}"`);
-
               addWebhookLog({
                 type: 'message_received',
                 sender: from,
@@ -326,20 +319,10 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
                 rawPayload: message
               });
 
-              // If auto-reply with AI is enabled and there is text
               if (cloudApi.autoReplyWithAI !== false && userText.trim()) {
-                // Generate reply
                 const botReply = await generateAIReply(userText, from);
-
-                // Send reply back to customer
                 await sendWhatsAppCloudMessage(from, botReply, cloudApi);
               }
-            }
-
-            // Handle delivery status update (sent, delivered, read)
-            if (value.statuses && value.statuses.length > 0) {
-              const statusObj = value.statuses[0];
-              console.log(`[WhatsApp Webhook Status] Message ${statusObj.id} to ${statusObj.recipient_id} status: ${statusObj.status}`);
             }
           }
         }
@@ -347,39 +330,23 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     console.error('Error processing incoming WhatsApp webhook payload:', err);
-    addWebhookLog({
-      type: 'error',
-      content: err?.message || 'Error processing webhook',
-      status: 'process_error',
-      rawPayload: body
-    });
   }
 });
 
 /**
  * 3. GET /webhook-info
- * Returns health status, configured credentials, and recent logs
  */
 router.get('/webhook-info', (req: Request, res: Response) => {
   const settings = db.getSettings();
-  const cloudApi = settings.whatsappCloudApi || {
-    enabled: true,
-    webhookVerifyToken: 'novora_meta_webhook_2026',
-    autoReplyWithAI: true
-  };
+  const cloudApi = settings.whatsappCloudApi || {};
 
   res.json({
     success: true,
-    service: 'Novora Bot WhatsApp Cloud Webhook',
+    service: 'Zavela Bot WhatsApp Cloud Webhook',
     configured: {
       enabled: cloudApi.enabled !== false,
-      hasVerifyToken: Boolean(cloudApi.webhookVerifyToken),
-      verifyToken: cloudApi.webhookVerifyToken || 'novora_meta_webhook_2026',
       hasPhoneNumberId: Boolean(cloudApi.phoneNumberId),
-      phoneNumberId: cloudApi.phoneNumberId ? `${cloudApi.phoneNumberId.slice(0, 4)}...${cloudApi.phoneNumberId.slice(-4)}` : null,
-      hasAccessToken: Boolean(cloudApi.accessToken),
-      autoReplyWithAI: cloudApi.autoReplyWithAI !== false,
-      metaApiVersion: cloudApi.metaApiVersion || 'v20.0'
+      hasAccessToken: Boolean(cloudApi.accessToken)
     },
     logs: webhookLogs.slice(0, 20),
     serverTime: new Date().toISOString()
@@ -388,57 +355,24 @@ router.get('/webhook-info', (req: Request, res: Response) => {
 
 /**
  * 4. POST /test-handshake
- * Simulates Meta's handshake query from the admin UI to test if the webhook is responding with 200 OK
  */
 router.post('/test-handshake', (req: Request, res: Response) => {
-  const { verifyToken } = req.body;
-  const settings = db.getSettings();
-  const tokenToUse = (verifyToken || settings.whatsappCloudApi?.webhookVerifyToken || 'novora_meta_webhook_2026').trim();
-
-  // Auto-sync token if provided
-  if (tokenToUse) {
-    db.saveSettings({
-      whatsappCloudApi: {
-        ...(settings.whatsappCloudApi || {
-          enabled: true,
-          phoneNumberId: '',
-          wabaId: '',
-          accessToken: '',
-          autoReplyWithAI: true,
-          metaApiVersion: 'v20.0'
-        }),
-        webhookVerifyToken: tokenToUse
-      }
-    });
-  }
-
   const mockChallenge = Math.floor(100000 + Math.random() * 900000).toString();
-
-  addWebhookLog({
-    type: 'handshake',
-    content: `Prueba de verificación interna exitosa. Token: ${tokenToUse} | Challenge devuelto: ${mockChallenge}`,
-    status: 'verified_200'
-  });
-
   return res.json({
     success: true,
     status: 200,
     challengeReturned: mockChallenge,
-    tokenTested: tokenToUse,
-    message: '¡Verificación exitosa! El endpoint está activo y listo para responder 200 OK a Meta for Developers.'
+    message: '¡Verificación exitosa! El endpoint está activo.'
   });
 });
 
 /**
  * 5. POST /simulate-message
- * Allows testing full AI message processing and reply directly from admin
  */
 router.post('/simulate-message', async (req: Request, res: Response) => {
   try {
     const { message, senderPhone } = req.body;
-    if (!message) {
-      return res.status(400).json({ success: false, message: 'El mensaje es requerido.' });
-    }
+    if (!message) return res.status(400).json({ success: false, message: 'El mensaje es requerido.' });
 
     const testPhone = senderPhone || '573157894512';
     const reply = await generateAIReply(message, testPhone);
@@ -447,11 +381,10 @@ router.post('/simulate-message', async (req: Request, res: Response) => {
       success: true,
       senderPhone: testPhone,
       incomingMessage: message,
-      botReply: reply,
-      timestamp: new Date().toISOString()
+      botReply: reply
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, message: err.message || 'Error simulando mensaje' });
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
