@@ -99,7 +99,7 @@ ${JSON.stringify(catalogSummary)}`;
         contents: history
       };
 
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent`, {
+   const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
