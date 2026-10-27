@@ -36,17 +36,11 @@ function addWebhookLog(entry: Omit<WebhookLogEntry, 'id' | 'timestamp'>) {
 const chatMemory = new Map<string, { role: string, parts: { text: string }[] }[]>();
 
 // Lazy initialization of Gemini client
+// Lazy initialization of Gemini client
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build'
-      }
-    }
-  });
+  return new GoogleGenAI({ apiKey });
 }
 
 // Helper to search products locally
