@@ -285,7 +285,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         (productData as any).flete ??
         (productData as any).estimatedShippingCost ?? 0
       );
-      const feeValue = Number((productData as any).dropiFee ?? (productData as any).dropi_fee ?? 0);
+     const feeValue = Number(
+        (productData as any).dropiFee ??
+        (productData as any).dropi_fee ??
+        (productData as any).comisionDropi ?? 0
+      );
       const rawDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || '').trim();
       const provider = productData.provider || (rawDropiCode ? 'dropi' : 'derocha');
 
@@ -322,18 +326,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const dropiFee = feeValue;
       const dropiProductId = rawDropiCode;
 
-      const payload = {
+  const payload = {
         ...productData,
-        shippingCost: Number(shippingCost || 0),
-        shipping_cost: Number(shippingCost || 0),
-        flete: Number(shippingCost || 0),
-        flete_envio: Number(shippingCost || 0),
-        fleteEnvio: Number(shippingCost || 0),
-        dropiFee: Number(dropiFee || 0),
-        dropi_fee: Number(dropiFee || 0),
-        comisionDropi: Number(dropiFee || 0),
+        shippingCost: shippingValue,
+        shipping_cost: shippingValue,
+        flete: shippingValue,
+        flete_envio: shippingValue,
+        fleteEnvio: shippingValue,
+        dropiFee: feeValue,
+        dropi_fee: feeValue,
+        comisionDropi: feeValue,
         costoProveedor: Number((productData as any).costoProveedor || (productData as any).costPrice || (productData as any).costo || 0),
-        dropiProductId: String(dropiProductId || ""),
+        dropiProductId: String(rawDropiCode || ""),
         provider: String(provider),
         ...(targetId ? { id: targetId } : {})
       };
