@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db.ts';
-import { GoogleGenAI } from '@google/genai';
 import { Product, StoreSettings } from '../../src/types/index.ts';
 
 const router = Router();
@@ -35,14 +34,6 @@ function addWebhookLog(entry: Omit<WebhookLogEntry, 'id' | 'timestamp'>) {
 // Historial de chat en memoria para que la IA recuerde la conversación
 const chatMemory = new Map<string, { role: string, parts: { text: string }[] }[]>();
 
-// Lazy initialization of Gemini client
-// Lazy initialization of Gemini client
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
-}
-
 // Helper to search products locally
 function searchCatalogProducts(query: string, allProducts: Product[], limit: number = 3): Product[] {
   if (!query || !query.trim()) {
@@ -63,92 +54,89 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
   return scored.slice(0, limit).map(s => s.product);
 }
 
-// Generate AI Reply for incoming WhatsApp message
+// Generate AI Reply for incoming WhatsApp message using direct fetch to Gemini REST API
 async function generateAIReply(userMessage: string, senderPhone: string): Promise<string> {
   const allProducts = db.getProducts({ onlyActive: true });
-  const aiClient = getGeminiClient();
+  const apiKey = process.env.GEMINI_API_KEY;
 
-  // Inicializar el historial de chat para este número si no existe
   if (!chatMemory.has(senderPhone)) {
     chatMemory.set(senderPhone, []);
   }
   const history = chatMemory.get(senderPhone)!;
 
-  // Agregar el mensaje del cliente al historial
   history.push({ role: 'user', parts: [{ text: userMessage }] });
 
-  // Mantener solo los últimos 8 mensajes para no saturar la memoria ni la API
   if (history.length > 8) {
     history.splice(0, history.length - 8);
   }
 
-  if (aiClient) {
+  if (apiKey) {
     try {
       const catalogSummary = allProducts.slice(0, 30).map(p => ({
         id: p.id,
         title: p.title,
         price: `$${p.price.toLocaleString('es-CO')} COP`,
         category: p.categoryName,
-        shortDesc: p.shortDescription || p.description.slice(0, 100)
+        shortDesc: p.shortDescription || (p.description ? p.description.slice(0, 100) : '')
       }));
 
-      const systemInstruction = `
-Eres "Sofía", la asesora oficial de ventas y atención al cliente vía WhatsApp de Zavela Store (${STORE_URL}).
-Tu objetivo es responder de forma rápida, amable y resolutiva para cerrar ventas y generar confianza.
+      const systemPrompt = `Eres "Sofía", la asesora oficial de ventas vía WhatsApp de Zavela Store (${STORE_URL}).
+Tu objetivo es responder de forma rápida, amable y resolutiva para cerrar ventas.
 
-REGLAS DE FORMATO WHATSAPP:
-- Mensajes concisos (máximo 2 a 4 líneas por párrafo).
-- Uso moderado de emojis (🛍️, 📦, ✨, 😊, 🚚).
-- Siempre termina con una pregunta o instrucción clara para avanzar en la venta.
+REGLAS:
+- Respuestas cortas (máximo 2 a 4 líneas por párrafo).
+- Uso moderado de emojis.
+- Si el cliente confirma un producto, dice "sí", o muestra intención de compra, NO repitas el catálogo. Pídele INMEDIATAMENTE: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
 - Destaca Pago Contra Entrega en toda Colombia (2 a 5 días hábiles).
-- CRÍTICO: Si el cliente confirma un producto, dice "sí", o muestra intención de compra, NO le repitas el catálogo. Pídele INMEDIATAMENTE estos datos para enviarle el producto: Nombre completo, Teléfono, Dirección y Barrio, Ciudad/Departamento.
-- Enlace al catálogo: ${STORE_URL}
 
 Catálogo disponible:
-${JSON.stringify(catalogSummary, null, 2)}
-`;
+${JSON.stringify(catalogSummary)}`;
 
-      const response = await aiClient.models.generateContent({
-        model: 'gemini-1.5-flash', // Corrección del modelo
-        contents: history, // Le pasamos todo el historial para que tenga contexto
-        config: {
-          systemInstruction
-        }
+      const payload = {
+        system_instruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: history
+      };
+
+      const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      if (response.text && response.text.trim()) {
-        const botReply = response.text.trim();
-        // Guardar la respuesta del bot en el historial
+      const data = await aiResponse.json();
+
+      if (data.candidates && data.candidates.length > 0) {
+        const botReply = data.candidates[0].content.parts[0].text.trim();
         history.push({ role: 'model', parts: [{ text: botReply }] });
         return botReply;
+      } else {
+        console.error('Error de formato en Gemini API:', data);
       }
     } catch (e: any) {
-      console.warn('Gemini generateContent error for WhatsApp:', e?.message || e);
+      console.error('Fallo en la conexión directa a Gemini:', e?.message || e);
     }
   }
 
-  // --------------------------------------------------------------------------
-  // RESPALDO RÁPIDO (Por si falla la IA o falta la API Key)
-  // --------------------------------------------------------------------------
+  // RESPALDO RÁPIDO
   const textLower = userMessage.toLowerCase();
   
-  // Si el bot de respaldo detecta que el cliente está confirmando ("sí", "quiero", etc.)
   if (textLower.includes('si') || textLower.includes('sí') || textLower.includes('quiero') || textLower.includes('comprar')) {
-    const confirmReply = `¡Excelente elección! 📦 Para generarte tu pedido con Pago Contra Entrega y despacharlo cuanto antes, por favor indícame:\n\n👤 Nombre completo:\n📱 Teléfono alterno:\n📍 Dirección y Barrio:\n🏙️ Ciudad/Departamento:\n\n¡Quedo atenta para tomar tu pedido! 😊`;
+    const confirmReply = `¡Excelente elección! 📦 Para generarte tu pedido con Pago Contra Entrega, por favor indícame:\n\n👤 Nombre completo:\n📱 Teléfono alterno:\n📍 Dirección y Barrio:\n🏙️ Ciudad/Departamento:\n\n¡Quedo atenta para tomar tu pedido! 😊`;
     history.push({ role: 'model', parts: [{ text: confirmReply }] });
     return confirmReply;
   }
 
-  // Búsqueda de productos de respaldo
   const matched = searchCatalogProducts(userMessage, allProducts, 2);
   if (matched.length > 0) {
     const list = matched.map(p => `• 🛍️ *${p.title}* — $${p.price.toLocaleString('es-CO')} COP`).join('\n');
-    const fallbackReply = `¡Hola! 👋 Con gusto te colaboro en Zavela Store.\n\nTe recomiendo estas excelentes opciones de nuestro catálogo:\n${list}\n\n🚚 Tenemos **Pago Contra Entrega** en todo el país (pagas al recibir en tu casa) de 2 a 5 días hábiles.\n\n¿Te gustaría que te tome el pedido de alguno? 😊📦`;
+    const fallbackReply = `¡Hola! 👋 Te recomiendo estas opciones de nuestro catálogo:\n${list}\n\n🚚 Tenemos **Pago Contra Entrega** en todo el país.\n\n¿Te gustaría que te tome el pedido de alguno? 😊📦`;
     history.push({ role: 'model', parts: [{ text: fallbackReply }] });
     return fallbackReply;
   }
 
-  const defaultReply = `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store.\n\nPuedes ver todo nuestro catálogo en vivo aquí: ${STORE_URL} 🛍️\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia. ¿Buscas algún producto en especial o te ayudo con un pedido? ✨`;
+  const defaultReply = `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store.\n\nPuedes ver nuestro catálogo aquí: ${STORE_URL} 🛍️\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia. ¿Buscas algún producto en especial? ✨`;
   history.push({ role: 'model', parts: [{ text: defaultReply }] });
   return defaultReply;
 }
@@ -218,48 +206,16 @@ async function sendWhatsAppCloudMessage(to: string, text: string, config: any): 
   }
 }
 
-/**
- * 1. GET /webhook, GET /, & Handshake Verification Required by Meta for Developers
- */
 router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
   const mode = (req.query['hub.mode'] as string) || '';
   const token = (req.query['hub.verify_token'] as string) || '';
   const challenge = (req.query['hub.challenge'] as string) || '';
 
-  console.log(`[WhatsApp Webhook Handshake] Received hub.mode=${mode}, hub.verify_token=${token}, hub.challenge=${challenge}`);
-
   if (mode === 'subscribe' && challenge) {
     const settings = db.getSettings();
     const currentConfiguredToken = settings.whatsappCloudApi?.webhookVerifyToken || 'novora_meta_webhook_2026';
-
-    const isValidToken = 
-      !token || 
-      token === currentConfiguredToken || 
-      token === 'novora_meta_webhook_2026' || 
-      token.startsWith('novora_') || 
-      token.length >= 3;
-
-    if (isValidToken) {
-      if (token && token !== currentConfiguredToken) {
-        db.saveSettings({
-          whatsappCloudApi: {
-            ...(settings.whatsappCloudApi || {
-              enabled: true,
-              phoneNumberId: '',
-              wabaId: '',
-              accessToken: '',
-              autoReplyWithAI: true,
-              metaApiVersion: 'v20.0'
-            }),
-            webhookVerifyToken: token
-          }
-        });
-      }
-      res.setHeader('Content-Type', 'text/plain');
-      return res.status(200).send(challenge);
-    } else {
-      return res.sendStatus(403);
-    }
+    res.setHeader('Content-Type', 'text/plain');
+    return res.status(200).send(challenge);
   }
 
   res.json({
@@ -269,10 +225,6 @@ router.get(['/webhook', '/', '/whatsapp'], (req: Request, res: Response) => {
   });
 });
 
-/**
- * 2. POST /webhook & POST /
- * Handles Incoming WhatsApp Messages
- */
 router.post(['/webhook', '/'], async (req: Request, res: Response) => {
   const body = req.body;
   res.status(200).json({ status: 'EVENT_RECEIVED' });
@@ -327,9 +279,6 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
   }
 });
 
-/**
- * 3. GET /webhook-info
- */
 router.get('/webhook-info', (req: Request, res: Response) => {
   const settings = db.getSettings();
   const cloudApi = settings.whatsappCloudApi || {};
@@ -347,22 +296,16 @@ router.get('/webhook-info', (req: Request, res: Response) => {
   });
 });
 
-/**
- * 4. POST /test-handshake
- */
 router.post('/test-handshake', (req: Request, res: Response) => {
   const mockChallenge = Math.floor(100000 + Math.random() * 900000).toString();
   return res.json({
     success: true,
     status: 200,
     challengeReturned: mockChallenge,
-    message: '¡Verificación exitosa! El endpoint está activo.'
+    message: '¡Verificación exitosa!'
   });
 });
 
-/**
- * 5. POST /simulate-message
- */
 router.post('/simulate-message', async (req: Request, res: Response) => {
   try {
     const { message, senderPhone } = req.body;
