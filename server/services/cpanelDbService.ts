@@ -1141,6 +1141,54 @@ export class CpanelDbService {
       created_at: item.created_at || item.createdAt || new Date().toISOString()
     };
   }
-}
+/**
+   * GET /api.php?action=categorias
+   * Carga las categorías reales desde MySQL en cPanel
+   */
+  async fetchCategories(): Promise<any[] | null> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=categorias`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(3500)
+      });
+      if (!response.ok) return null;
+      const text = await response.text();
+      let raw: any;
+      try { raw = JSON.parse(text); } catch { return null; }
+      
+      const list = Array.isArray(raw) ? raw : (raw?.data || raw?.categorias || null);
+      return list;
+    } catch (err) {
+      console.warn('[cPanel DB] Error al cargar categorías:', err);
+      return null;
+    }
+  }
+
+  /**
+   * POST /api.php?action=batch_delete_categorias
+   * Elimina múltiples categorías de MySQL cPanel
+   */
+  async batchDeleteCategories(ids: string[]): Promise<boolean> {
+    const baseUrl = this.getApiUrl();
+    const endpoint = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}action=batch_delete_categorias`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, action: 'delete' }),
+        signal: AbortSignal.timeout(4500)
+      });
+      return response.ok;
+    } catch (err) {
+      console.warn('[cPanel DB] Error al borrar categorías:', err);
+      return false;
+    }
+  }
+} // Cierre de la clase CpanelDbService
 
 export const cpanelDbService = new CpanelDbService();
