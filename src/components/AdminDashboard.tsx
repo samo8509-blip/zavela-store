@@ -177,17 +177,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchAdminData = async () => {
     try {
-      // 1. Cargar datos del backend y cPanel MySQL en paralelo
-   const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
-  fetch('https://api.zavelastore.com.co/api.php?action=metrics').then(r => r.json()).catch(() => ({ success: false })),
-  fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false })),
-  fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
-  fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
-  fetch('https://api.zavelastore.com.co/api.php?action=categories').then(r => r.json()).catch(() => ({ success: false })),
-  fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
-  getCpanelProducts(false).catch(() => null),
-  getFirestoreSettings().catch(() => null)
-]);
+   // 1. Cargar datos del backend y cPanel MySQL en paralelo
+    const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
+      fetch('https://api.zavelastore.com.co/api.php?action=metrics').then(r => r.json()).catch(() => ({ success: false })),
+      fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false })),
+      fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
+      fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
+      
+      // APUNTA DIRECTO A NODE.JS PARA TRAER LAS CATEGORÍAS REALES DE MYSQL
+      fetch('/api/admin/categories')
+        .then(r => r.json())
+        .then(data => ({ success: true, data }))
+        .catch(() => ({ success: false })),
+
+      fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
+      getCpanelProducts(false).catch(() => null),
+      getFirestoreSettings().catch(() => null)
+    ]);
 
       // Priorizar datos de la base de datos sincronizada aplicando el normalizador y blindaje con zavela_custom_costs_v1
       let loadedProducts: Product[] = [];
