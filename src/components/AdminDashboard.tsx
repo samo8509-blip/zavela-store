@@ -184,10 +184,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
       fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
       
-   // APUNTA DIRECTO A PHP PARA TRAER LAS CATEGORÍAS REALES DE MYSQL
-      fetch('https://api.zavelastore.com.co/api.php?action=categorias')
+   // APUNTA DIRECTO A NODE.JS PARA TRAER LAS CATEGORÍAS REALES DESDE LA BASE DE DATOS
+      fetch('/api/admin/categories')
         .then(r => r.json())
-        .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.categorias || data?.data || []) }))
+        .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
         .catch(() => ({ success: false })),
 
       fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
