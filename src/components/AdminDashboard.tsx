@@ -78,6 +78,15 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
+// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
+function parseNumCOP(val: any): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/[^\d-]/g, '');
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
 interface AdminDashboardProps {
   onBackToStore: () => void;
   onLogout?: () => void;
@@ -277,19 +286,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const endpoint = isEdit ? `/api/products/${encodeURIComponent(targetId!)}` : '/api/products';
       const method = isEdit ? 'PUT' : 'POST';
 
-      // Asegurar extracción del número digitado en el input sin valores forzados (0 por defecto)
-      const shippingValue = Number(
+      // 🛡️ REEMPLAZO DE NUMBER POR PARSENOUMCOP PARA BLINDAR LA EXTRACCIÓN DE NÚMEROS 🛡️
+      const shippingValue = parseNumCOP(
         (productData as any).shippingCost ??
         productData.shipping_cost ??
         (productData as any).flete_envio ??
         (productData as any).flete ??
-        (productData as any).estimatedShippingCost ?? 0
+        (productData as any).estimatedShippingCost
       );
-     const feeValue = Number(
+      
+      const feeValue = parseNumCOP(
         (productData as any).dropiFee ??
         (productData as any).dropi_fee ??
-        (productData as any).comisionDropi ?? 0
+        (productData as any).comisionDropi
       );
+
+      const costoProveedorRaw = parseNumCOP(
+        (productData as any).costoProveedor || 
+        (productData as any).costPrice || 
+        (productData as any).costo
+      );
+
       const rawDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || '').trim();
       const provider = productData.provider || (rawDropiCode ? 'dropi' : 'derocha');
 
@@ -298,8 +315,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const rawMap = localStorage.getItem('zavela_custom_costs_v1');
         const map = rawMap ? JSON.parse(rawMap) : {};
         const costRecord = {
-          shippingCost: Number(shippingValue),
-          dropiFee: Number(feeValue),
+          shippingCost: shippingValue,
+          dropiFee: feeValue,
           dropiProductId: String(rawDropiCode || ''),
           provider: String(provider),
           updatedAt: Date.now()
@@ -322,11 +339,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
       }
 
-      const shippingCost = shippingValue;
-      const dropiFee = feeValue;
-      const dropiProductId = rawDropiCode;
-
-  const payload = {
+      const payload = {
         ...productData,
         shippingCost: shippingValue,
         shipping_cost: shippingValue,
@@ -336,14 +349,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         dropiFee: feeValue,
         dropi_fee: feeValue,
         comisionDropi: feeValue,
-        costoProveedor: Number((productData as any).costoProveedor || (productData as any).costPrice || (productData as any).costo || 0),
+        costoProveedor: costoProveedorRaw,
         dropiProductId: String(rawDropiCode || ""),
         provider: String(provider),
         ...(targetId ? { id: targetId } : {})
       };
 
-      console.log('payload:', payload);
-      console.log('Payload al guardar:', payload);
+      console.log('Payload al guardar (Dashboard):', payload);
 
       const res = await fetch(endpoint, {
         method,
@@ -362,8 +374,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const finalDropiCode = String(rawDropiCode || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
       
       // BLINDAJE TOTAL: Los valores exactos digitados por el usuario NUNCA pueden ser pisados por el 0 del servidor
-      const finalFee = Number(feeValue);
-      const finalShipping = Number(shippingValue);
+      const finalFee = feeValue;
+      const finalShipping = shippingValue;
 
       // Respaldo local definitivo en zavela_custom_costs_v1 en localStorage tras confirmación del servidor
       try {
