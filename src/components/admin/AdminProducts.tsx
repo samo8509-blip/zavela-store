@@ -1,38 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Plus, 
-  Search, 
-  Edit3, 
-  Trash2, 
-  Check, 
-  X, 
-  DollarSign, 
-  Percent, 
-  ShieldCheck, 
-  AlertCircle, 
-  Tag, 
-  Sliders,
-  Sparkles,
-  Package,
-  Eye,
-  EyeOff,
-  Copy,
-  Layers,
-  Database,
-  Cloud,
-  CheckCircle2,
-  RefreshCw,
-  CheckSquare,
-  Square,
-  MinusSquare,
-  CheckCheck,
-  AlertTriangle,
-  Loader2,
-  ChevronDown,
-  BookOpen,
-  Download,
-  Share2,
-  Boxes
+  Plus, Search, Edit3, Trash2, Check, X, DollarSign, Percent, 
+  ShieldCheck, AlertCircle, Tag, Sliders, Sparkles, Package, 
+  Eye, EyeOff, Copy, Layers, Database, Cloud, CheckCircle2, 
+  RefreshCw, CheckSquare, Square, MinusSquare, CheckCheck, 
+  AlertTriangle, Loader2, ChevronDown, BookOpen, Download, 
+  Share2, Boxes
 } from 'lucide-react';
 import { Product, Category } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
@@ -41,18 +14,22 @@ import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
 import { CatalogBackupsModal } from './CatalogBackupsModal.tsx';
 import { ProductListHeader } from './ProductListHeader.tsx';
 import { 
-  updateCpanelProduct, 
-  deleteCpanelProduct, 
-  createCpanelProduct,
-  deleteMultipleCpanelProducts,
-  updateMultipleCpanelProducts,
-  duplicateCpanelProduct,
-  checkCpanelConnection,
-  normalizeCpanelProduct,
-  getLocalProductOverride,
-  saveCustomProductCost,
-  overrideProductWithCustomCosts
+  updateCpanelProduct, deleteCpanelProduct, createCpanelProduct,
+  deleteMultipleCpanelProducts, updateMultipleCpanelProducts,
+  duplicateCpanelProduct, checkCpanelConnection,
+  normalizeCpanelProduct, getLocalProductOverride,
+  saveCustomProductCost, overrideProductWithCustomCosts
 } from '../../services/cpanelProducts.ts';
+
+// 🛡️ FUNCIÓN BLINDADA PARA EL FRONTEND 🛡️
+// Limpia cualquier texto como "$ 114.997" y lo convierte en el número entero 114997
+export function parseNumCOP(val: any): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/[^\d-]/g, '');
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
 
 export function applyZavelaCustomCosts(p: Product): Product {
   if (!p) return p;
@@ -72,13 +49,18 @@ export function applyZavelaCustomCosts(p: Product): Product {
   }
 
   if (saved) {
-    p.shippingCost = Number(saved.shippingCost ?? 0);
-    (p as any).shipping_cost = Number(saved.shippingCost ?? 0);
-    (p as any).flete = Number(saved.shippingCost ?? 0);
-    (p as any).flete_envio = Number(saved.shippingCost ?? 0);
-    (p as any).estimatedShippingCost = Number(saved.shippingCost ?? 0);
-    p.dropiFee = Number(saved.dropiFee ?? 0);
-    (p as any).dropi_fee = Number(saved.dropiFee ?? 0);
+    const parsedShipping = parseNumCOP(saved.shippingCost);
+    const parsedDropiFee = parseNumCOP(saved.dropiFee);
+
+    p.shippingCost = parsedShipping;
+    (p as any).shipping_cost = parsedShipping;
+    (p as any).flete = parsedShipping;
+    (p as any).flete_envio = parsedShipping;
+    (p as any).estimatedShippingCost = parsedShipping;
+    
+    p.dropiFee = parsedDropiFee;
+    (p as any).dropi_fee = parsedDropiFee;
+    
     if (saved.dropiProductId) {
       p.dropiProductId = String(saved.dropiProductId).trim();
       (p as any).dropi_product_id = String(saved.dropiProductId).trim();
@@ -86,9 +68,11 @@ export function applyZavelaCustomCosts(p: Product): Product {
     if (saved.provider) {
       p.provider = saved.provider;
     }
-    const costPrice = Number(p.costPrice || (p as any).supplier_cost || (p as any).costo || 0);
-    const price = Number(p.price || (p as any).precio || 0);
-    const totalOperatingCost = costPrice + p.shippingCost + p.dropiFee;
+    
+    const costPrice = parseNumCOP(p.costPrice || (p as any).supplier_cost || (p as any).costo);
+    const price = parseNumCOP(p.price || (p as any).precio);
+    const totalOperatingCost = costPrice + parsedShipping + parsedDropiFee;
+    
     p.totalOperatingCost = totalOperatingCost;
     p.realNetProfit = price - totalOperatingCost;
     p.realNetMarginPercentage = price > 0 ? Math.round(((price - totalOperatingCost) / price) * 100) : 0;
@@ -125,39 +109,40 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
 
   // Handler para persistir en zavela_custom_costs_v1 si se guarda un producto desde este componente
   const handleSave = async (productData: Partial<Product>) => {
-    const shippingCost = Number(
+    // Usamos el parseador seguro en lugar de Number()
+    const shippingCost = parseNumCOP(
       productData.shippingCost ?? 
       (productData as any).shipping_cost ?? 
       (productData as any).flete ?? 
       (productData as any).flete_envio ?? 
-      (productData as any).estimatedShippingCost ?? 0
+      (productData as any).estimatedShippingCost
     );
-    const dropiFee = Number(productData.dropiFee ?? (productData as any).dropi_fee ?? 0);
+    const dropiFee = parseNumCOP(productData.dropiFee ?? (productData as any).dropi_fee);
+    
     const dropiProductId = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
     const provider = String(productData.provider || (dropiProductId ? 'dropi' : 'derocha'));
 
     const payload = {
       ...productData,
-      shippingCost: Number(shippingCost),
-      shipping_cost: Number(shippingCost),
-      flete: Number(shippingCost),
-      flete_envio: Number(shippingCost),
-      dropiFee: Number(dropiFee),
-      dropi_fee: Number(dropiFee),
+      shippingCost: shippingCost,
+      shipping_cost: shippingCost,
+      flete: shippingCost,
+      flete_envio: shippingCost,
+      dropiFee: dropiFee,
+      dropi_fee: dropiFee,
       dropiProductId: String(dropiProductId || ''),
       dropi_product_id: String(dropiProductId || ''),
       provider: String(provider)
     };
 
     console.log('Payload al guardar (AdminProducts):', payload);
-    console.log('payload:', payload);
 
     try {
       const raw = localStorage.getItem('zavela_custom_costs_v1');
       const map = raw ? JSON.parse(raw) : {};
       const costRecord = {
-        shippingCost: Number(shippingCost),
-        dropiFee: Number(dropiFee),
+        shippingCost: shippingCost,
+        dropiFee: dropiFee,
         dropiProductId: String(dropiProductId || ''),
         provider: String(provider),
         updatedAt: Date.now()
@@ -276,7 +261,6 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   };
 
   const handleBulkPublishToFacebook = async () => {
-    // Permitir publicar cualquier producto seleccionado o visible en la tabla, SIN filtrar por activo ni facebook_sync
     const targetProducts = selectedProductIds.length > 0 
       ? products.filter(p => selectedProductIds.includes(p.id))
       : filteredProducts.slice(0, 5);
@@ -1396,4 +1380,3 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     </div>
   );
 };
-
