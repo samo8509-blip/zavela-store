@@ -3,7 +3,6 @@
  * ==============================================================================
  * ZavelaStore - API REST de Productos para cPanel (MySQL con PDO)
  * Archivo: products.php
- * Ubicación recomendada en cPanel: /public_html/api/products.php o /public_html/products.php
  * ==============================================================================
  */
 
@@ -105,35 +104,21 @@ try {
     $tableName = 'productos';
 }
 
-// Función auxiliar para parsear y limpiar montos monetarios o fletes (DEFAULT 0, SIN 16500)
-function parseShippingCost($data) {
-    $raw = $data['shippingCost'] 
-        ?? $data['shipping_cost'] 
-        ?? $data['flete'] 
-        ?? $data['flete_envio'] 
-        ?? $data['costo_envio'] 
-        ?? $data['estimatedShippingCost'] 
-        ?? null;
+// ==============================================================================
+// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP (PESOS COLOMBIANOS) EN PHP 🛡️
+// Elimina símbolos $, puntos de miles, espacios y letras.
+// Ej: "$ 114.997" -> 114997.00
+// ==============================================================================
+function parseNumCOP($val) {
+    if ($val === null || $val === '') return 0.00;
+    
+    // Si ya es un tipo numérico de PHP, devolverlo directo
+    if (is_int($val) || is_float($val)) return (float)$val;
 
-    if ($raw === null || $raw === '') {
-        return 0.00;
-    }
-
-    if (is_numeric($raw)) {
-        return (float)$raw;
-    }
-
-    $clean = preg_replace('/[^0-9.]/', '', (string)$raw);
-    return is_numeric($clean) ? (float)$clean : 0.00;
-}
-
-// Función auxiliar para parsear tarifas de Dropi (DEFAULT 0, SIN VALORES FORZADOS)
-function parseDropiFee($data) {
-    $raw = $data['dropiFee'] ?? $data['dropi_fee'] ?? null;
-    if ($raw === null || $raw === '') {
-        return 0.00;
-    }
-    return is_numeric($raw) ? (float)$raw : 0.00;
+    // Extraer solo dígitos (0-9) y el signo menos. Elimina '$', ' ' y '.' de forma definitiva.
+    $cleaned = preg_replace('/[^\d-]/', '', (string)$val);
+    
+    return is_numeric($cleaned) ? (float)$cleaned : 0.00;
 }
 
 // Helper para normalizar producto de MySQL a JSON del frontend
@@ -318,8 +303,6 @@ try {
 
             // ==============================================================================
             // ACCIÓN: Descuento Seguro de Inventario (Checkout Seguro)
-            // REGLA DE SEGURIDAD EXTREMA: Modifica ÚNICAMENTE la columna stock.
-            // PROHIBIDO actualizar nombre, imagen, precio, descripción ni ninguna otra columna.
             // ==============================================================================
             if ($action === 'decrement_stock' || $action === 'deduct_stock' || $action === 'descontar_inventario') {
                 $id = $data['id'] ?? ($data['id_producto'] ?? ($data['productId'] ?? ($_GET['id'] ?? null)));
@@ -331,7 +314,6 @@ try {
                     exit();
                 }
 
-                // CONSULTA SEGURA: Resta la cantidad al stock asegurando no ser menor a 0
                 $sql = "UPDATE {$tableName} SET stock = GREATEST(0, stock - :cantidad), updated_at = NOW() WHERE id = :id_producto";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([
@@ -349,7 +331,6 @@ try {
             }
 
             $id = $_GET['id'] ?? ($data['id'] ?? null);
-
             if (!$id) {
                 $id = 'prod-' . round(microtime(true) * 1000);
             }
@@ -362,14 +343,14 @@ try {
             }
 
             $description = $data['descripcion'] ?? $data['description'] ?? '';
-            $price = (float)($data['precio'] ?? $data['price'] ?? 0);
             $stock = (int)($data['stock'] ?? $data['inventario'] ?? 0);
-            $supplierCost = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
-            $suggestedPrice = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
             
-            // Flete y Tarifa Dropi: 0 por defecto
-            $flete = parseShippingCost($data);
-            $dropiFee = parseDropiFee($data);
+            // EXTRACCIÓN BLINDADA DE PRECIOS, COSTOS Y FLETES
+            $price = parseNumCOP($data['precio'] ?? $data['price'] ?? 0);
+            $supplierCost = parseNumCOP($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo'] ?? 0);
+            $suggestedPrice = parseNumCOP($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price'] ?? 0);
+            $flete = parseNumCOP($data['shippingCost'] ?? $data['shipping_cost'] ?? $data['flete'] ?? $data['flete_envio'] ?? $data['estimatedShippingCost'] ?? 0);
+            $dropiFee = parseNumCOP($data['dropiFee'] ?? $data['dropi_fee'] ?? 0);
 
             $provider = $data['provider'] ?? 'derocha';
             $supplier = $data['supplier'] ?? ($provider === 'dropi' ? 'Dropi Colombia' : 'DeRocha');
@@ -456,7 +437,7 @@ try {
                 ':dropi_product_id' => $dropiId,
                 ':provider'         => $provider,
                 ':supplier'         => $supplier,
-                ':supplier_sku'     => $supplierSku,
+                ':supplier_sku'     => $supplierSku ?? '',
                 ':categoria'        => $categoria,
                 ':category'         => $category,
                 ':category_id'      => $categoryId,
@@ -495,9 +476,6 @@ try {
                 exit();
             }
 
-            // SEGURIDAD REFORZADA: Actualización parcial dinámica.
-            // Si el payload no incluye nombre, precio o imágenes (ej. solo actualiza stock o estado),
-            // PROHIBIDO sobrescribirlos con valores por defecto o vacíos.
             $updateFields = [];
             $params = [':id' => (string)$id];
 
@@ -509,7 +487,7 @@ try {
                 }
             }
             if (isset($data['precio']) || isset($data['price'])) {
-                $rawPrice = (float)($data['precio'] ?? $data['price']);
+                $rawPrice = parseNumCOP($data['precio'] ?? $data['price']);
                 if ($rawPrice > 0 || (isset($data['allow_zero_price']) && $data['allow_zero_price'])) {
                     $updateFields[] = "precio = :precio";
                     $params[':precio'] = $rawPrice;
@@ -525,14 +503,14 @@ try {
             }
             if (isset($data['supplier_cost']) || isset($data['costPrice']) || isset($data['costo'])) {
                 $updateFields[] = "supplier_cost = :supplier_cost";
-                $params[':supplier_cost'] = (float)($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo']);
+                $params[':supplier_cost'] = parseNumCOP($data['supplier_cost'] ?? $data['costPrice'] ?? $data['costo']);
             }
             if (isset($data['suggested_price']) || isset($data['compareAtPrice']) || isset($data['compare_price'])) {
                 $updateFields[] = "suggested_price = :suggested_price";
-                $params[':suggested_price'] = (float)($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price']);
+                $params[':suggested_price'] = parseNumCOP($data['suggested_price'] ?? $data['compareAtPrice'] ?? $data['compare_price']);
             }
             if (isset($data['shipping_cost']) || isset($data['shippingCost']) || isset($data['flete_envio']) || isset($data['flete'])) {
-                $flete = parseShippingCost($data);
+                $flete = parseNumCOP($data['shipping_cost'] ?? $data['shippingCost'] ?? $data['flete_envio'] ?? $data['flete']);
                 $updateFields[] = "shipping_cost = :shipping_cost";
                 $updateFields[] = "flete_envio = :flete_envio";
                 $updateFields[] = "flete = :flete";
@@ -541,7 +519,7 @@ try {
                 $params[':flete'] = $flete;
             }
             if (isset($data['dropi_fee']) || isset($data['dropiFee'])) {
-                $dropiFee = parseDropiFee($data);
+                $dropiFee = parseNumCOP($data['dropi_fee'] ?? $data['dropiFee']);
                 $updateFields[] = "dropi_fee = :dropi_fee";
                 $params[':dropi_fee'] = $dropiFee;
             }
@@ -643,7 +621,6 @@ try {
             $cantidad = isset($data['cantidad']) ? (int)$data['cantidad'] : (isset($data['quantity']) ? (int)$data['quantity'] : (isset($data['decrement']) ? (int)$data['decrement'] : null));
 
             if ($cantidad !== null && $cantidad > 0) {
-                // Descuento seguro de inventario (REGLA DE SEGURIDAD EXTREMA: Solo modifica la columna stock)
                 $sql = "UPDATE {$tableName} SET stock = GREATEST(0, stock - :cantidad), updated_at = NOW() WHERE id = :id_producto";
                 $stmt = $pdo->prepare($sql);
                 $stmt->execute([
