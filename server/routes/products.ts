@@ -6,6 +6,20 @@ import { cpanelDbService } from '../services/cpanelDbService.ts';
 
 const router = Router();
 
+// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP (PESOS COLOMBIANOS) 🛡️
+// Elimina símbolos $, puntos de miles, espacios y letras, dejando el número entero real.
+// Ej: "$ 114.997" -> 114997
+function parseNumCOP(val: any): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  
+  // Extrae SOLO los dígitos numéricos (0-9) y el signo negativo si lo hay.
+  // Esto elimina mágicamente el '$', los espacios y los '.' de los miles.
+  const cleaned = String(val).replace(/[^\d-]/g, '');
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
 function mapSqlRowToProduct(row: any): any {
   let images: string[] = [];
   if (typeof row.imagenes === 'string' && row.imagenes.trim()) {
@@ -21,27 +35,27 @@ function mapSqlRowToProduct(row: any): any {
 
   // EXTRACCIÓN BLINDADA DIRECTA DE LA BASE DE DATOS
   let rawShipping = row.shipping_cost ?? row.flete_envio ?? row.flete ?? row.estimatedShippingCost;
-  let parsedShipping = (rawShipping !== undefined && rawShipping !== null && rawShipping !== '') ? Number(rawShipping) : 0;
+  let parsedShipping = parseNumCOP(rawShipping);
   
   let rawFee = row.dropi_fee ?? row.dropiFee;
-  let parsedDropiFee = (rawFee !== undefined && rawFee !== null && rawFee !== '') ? Number(rawFee) : 0;
+  let parsedDropiFee = parseNumCOP(rawFee);
   const dropiCode = row.dropi_product_id || row.dropiProductId || '';
 
   return {
     id: String(row.id),
     title: row.nombre || row.title || 'Producto Zavela',
     slug: row.slug || String(row.id),
-    price: Number(row.precio || row.price) || 0,
-    costPrice: Number(row.supplier_cost) || 0,
-    compareAtPrice: Number(row.suggested_price) || 0,
-    shippingCost: isNaN(parsedShipping) ? 0 : parsedShipping,
-    shipping_cost: isNaN(parsedShipping) ? 0 : parsedShipping,
-    flete_envio: isNaN(parsedShipping) ? 0 : parsedShipping,
-    flete: isNaN(parsedShipping) ? 0 : parsedShipping,
-    estimatedShippingCost: isNaN(parsedShipping) ? 0 : parsedShipping,
-    dropiFee: isNaN(parsedDropiFee) ? 0 : parsedDropiFee,
-    dropi_fee: isNaN(parsedDropiFee) ? 0 : parsedDropiFee,
-    stock: Number(row.stock) || 0,
+    price: parseNumCOP(row.precio || row.price),
+    costPrice: parseNumCOP(row.supplier_cost),
+    compareAtPrice: parseNumCOP(row.suggested_price),
+    shippingCost: parsedShipping,
+    shipping_cost: parsedShipping,
+    flete_envio: parsedShipping,
+    flete: parsedShipping,
+    estimatedShippingCost: parsedShipping,
+    dropiFee: parsedDropiFee,
+    dropi_fee: parsedDropiFee,
+    stock: parseNumCOP(row.stock),
     description: row.descripcion || '',
     categoryId: row.category_id || 'cat-general',
     categoryName: row.categoria || 'General',
@@ -80,8 +94,10 @@ const handleProductUpsert = async (req: any, res: any) => {
     const targetId = req.params?.id || req.query?.id || b.id || `prod-${Date.now()}`;
     const activeInt = (b.active === false || b.activo === false) ? 0 : 1;
     
-    const shipping = Number(b.shipping_cost ?? b.flete_envio ?? b.fleteEnvio ?? b.flete ?? b.shippingCost ?? b.estimatedShippingCost ?? 0);
-    const dropiFee = Number(b.dropi_fee ?? b.dropiFee ?? b.comisionDropi ?? 0);
+    // EXTRACCIÓN BLINDADA DE FLETE Y COMISIÓN (Soporta múltiples variables y limpia formatos)
+    const shipping = parseNumCOP(b.shipping_cost ?? b.flete_envio ?? b.fleteEnvio ?? b.flete ?? b.shippingCost ?? b.estimatedShippingCost ?? b.shipping ?? 0);
+    const dropiFee = parseNumCOP(b.dropi_fee ?? b.dropiFee ?? b.comisionDropi ?? b.comision ?? b.fee ?? 0);
+    
     const dropiCode = String(b.dropi_product_id || b.dropiProductId || '').trim();
     const provider = String(b.provider || (dropiCode ? 'dropi' : 'derocha')).trim();
     const supplier = b.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Propia'));
@@ -95,10 +111,10 @@ const handleProductUpsert = async (req: any, res: any) => {
     else if (b.imagenes) imagesStr = typeof b.imagenes === 'string' ? b.imagenes : JSON.stringify(b.imagenes);
 
     const title = b.nombre || b.title || b.name || '';
-    const price = Number(b.precio ?? b.price ?? 0);
-    const cost = Number(b.costo ?? b.costoProveedor ?? b.costPrice ?? b.supplier_cost ?? 0);
-    const comparePrice = Number(b.compare_price ?? b.compareAtPrice ?? b.suggested_price ?? 0);
-    const stock = Number(b.stock ?? b.inventario ?? 0);
+    const price = parseNumCOP(b.precio ?? b.price ?? 0);
+    const cost = parseNumCOP(b.costo ?? b.costoProveedor ?? b.costPrice ?? b.supplier_cost ?? 0);
+    const comparePrice = parseNumCOP(b.compare_price ?? b.compareAtPrice ?? b.suggested_price ?? 0);
+    const stock = parseNumCOP(b.stock ?? b.inventario ?? 0);
     const description = b.descripcion || b.description || '';
     const categoryName = b.categoria || b.categoryName || 'General';
     const categoryId = b.category_id || b.categoryId || 'cat-general';
@@ -162,8 +178,8 @@ router.post('/bulk-import', async (req, res) => {
   try {
     for (const item of req.body.products) {
       const id = item.id || `prod-${Date.now()}`;
-      const shipping = item.shippingCost !== undefined && item.shippingCost !== null && item.shippingCost !== '' ? Number(item.shippingCost) : (item.flete !== undefined ? Number(item.flete) : 0);
-      const dropiFee = item.dropiFee !== undefined && item.dropiFee !== null && item.dropiFee !== '' ? Number(item.dropiFee) : 0;
+      const shipping = parseNumCOP(item.shippingCost ?? item.flete ?? item.shipping_cost ?? item.flete_envio ?? 0);
+      const dropiFee = parseNumCOP(item.dropiFee ?? item.dropi_fee ?? item.comisionDropi ?? 0);
       
       await pool.query(`
         INSERT INTO productos (
@@ -171,10 +187,10 @@ router.post('/bulk-import', async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'dropi', 'Dropi Colombia', ?, ?, ?, ?, ?, ?, 1, NOW())
         ON DUPLICATE KEY UPDATE
           nombre=VALUES(nombre), precio=VALUES(precio), supplier_cost=VALUES(supplier_cost), suggested_price=VALUES(suggested_price), stock=VALUES(stock), dropi_product_id=VALUES(dropi_product_id), shipping_cost=VALUES(shipping_cost), flete_envio=VALUES(flete_envio), flete=VALUES(flete), dropi_fee=VALUES(dropi_fee), imagen=VALUES(imagen), imagenes=VALUES(imagenes), updated_at=NOW()
-      `, [id, item.name||'', Number(item.price)||0, Number(item.cost_price)||0, Number(item.suggested_price)||0, Number(item.stock)||0, item.description||'', item.dropi_product_id||null, shipping, shipping, shipping, dropiFee, item.images?.[0]||'', JSON.stringify(item.images||[])]);
+      `, [id, item.name||'', parseNumCOP(item.price), parseNumCOP(item.cost_price), parseNumCOP(item.suggested_price), parseNumCOP(item.stock), item.description||'', item.dropi_product_id||null, shipping, shipping, shipping, dropiFee, item.images?.[0]||'', JSON.stringify(item.images||[])]);
     }
     res.status(201).json({ success: true, message: 'Importación exitosa' });
-  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 export default router;
