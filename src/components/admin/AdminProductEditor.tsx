@@ -8,6 +8,15 @@ import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
+// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
+function parseNumCOP(val: any): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/[^\d-]/g, '');
+  const num = Number(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
 export interface AdminProductEditorProps {
   product?: Product | null;
   categories: Category[];
@@ -81,8 +90,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       imagesList = [mainImage];
     }
 
-    const precio = Number(prod.precio || prod.price || 0);
-    const stock = Number(prod.stock ?? prod.inventario ?? 0);
+    const precio = parseNumCOP(prod.precio || prod.price);
+    const stock = parseNumCOP(prod.stock ?? prod.inventario);
     const rawProvider = String(savedCosts?.provider || prod.provider || prod.proveedor || '').toLowerCase().trim();
 
     let mappedProvider: WarehouseProvider | string = '';
@@ -97,11 +106,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const rawProdDropiId = String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
     const dropiId = rawProdDropiId || String(savedCosts?.dropiProductId || '').trim();
 
-    const rawProdDropiFee = Number(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi ?? 0);
-    const comisionDropi = rawProdDropiFee > 0 ? rawProdDropiFee : (savedCosts && Number(savedCosts.dropiFee) > 0 ? Number(savedCosts.dropiFee) : rawProdDropiFee);
+    const rawProdDropiFee = parseNumCOP(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi);
+    const comisionDropi = rawProdDropiFee > 0 ? rawProdDropiFee : (savedCosts && parseNumCOP(savedCosts.dropiFee) > 0 ? parseNumCOP(savedCosts.dropiFee) : rawProdDropiFee);
 
-    const rawProdFlete = Number(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost ?? 0);
-    const fleteEnvio = rawProdFlete > 0 ? rawProdFlete : (savedCosts && Number(savedCosts.shippingCost) > 0 ? Number(savedCosts.shippingCost) : rawProdFlete);
+    const rawProdFlete = parseNumCOP(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost);
+    const fleteEnvio = rawProdFlete > 0 ? rawProdFlete : (savedCosts && parseNumCOP(savedCosts.shippingCost) > 0 ? parseNumCOP(savedCosts.shippingCost) : rawProdFlete);
 
     // CORRECCIÓN PROFUNDA: Extracción robusta de variantes para evitar que desaparezcan en la UI
     let variantsList: ProductVariant[] = [];
@@ -118,8 +127,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       }
     }
 
-    const costoProveedor = Number(prod.costo ?? prod.costPrice ?? prod.supplier_cost ?? 0);
-    const compareAtPrice = Number(prod.compareAtPrice ?? prod.suggested_price ?? 0);
+    const costoProveedor = parseNumCOP(prod.costo ?? prod.costPrice ?? prod.supplier_cost);
+    const compareAtPrice = parseNumCOP(prod.compareAtPrice ?? prod.suggested_price);
     const categoryId = String(prod.categoryId || prod.category_id || cats[0]?.id || '');
     const categoryName = String(prod.categoryName || prod.categoria || cats.find(c => c.id === categoryId)?.name || 'General');
 
@@ -135,8 +144,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const initialData = useMemo(() => mapProductToFormData(product, categories), [product, categories]);
   const [formData, setFormData] = useState<ProductFormData>(initialData);
 
-  const [shippingCost, setShippingCost] = useState<number>(() => Number(initialData.fleteEnvio || 0));
-  const [dropiFee, setDropiFee] = useState<number>(() => Number(initialData.comisionDropi || 0));
+  const [shippingCost, setShippingCost] = useState<number>(() => parseNumCOP(initialData.fleteEnvio));
+  const [dropiFee, setDropiFee] = useState<number>(() => parseNumCOP(initialData.comisionDropi));
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -154,8 +163,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     if (product && (product.id || (product as any).nombre || product.title)) {
       const mapped = mapProductToFormData(product, categories);
       setFormData(mapped);
-      setShippingCost(Number(mapped.fleteEnvio || 0));
-      setDropiFee(Number(mapped.comisionDropi || 0));
+      setShippingCost(parseNumCOP(mapped.fleteEnvio));
+      setDropiFee(parseNumCOP(mapped.comisionDropi));
       return;
     }
 
@@ -171,8 +180,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           if (item) {
             const mapped = mapProductToFormData(item, categories);
             setFormData(mapped);
-            setShippingCost(Number(mapped.fleteEnvio || 0));
-            setDropiFee(Number(mapped.comisionDropi || 0));
+            setShippingCost(parseNumCOP(mapped.fleteEnvio));
+            setDropiFee(parseNumCOP(mapped.comisionDropi));
           }
         })
         .finally(() => setIsLoading(false));
@@ -193,10 +202,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     }));
   };
 
-  const costoProveedor = Number(formData.costoProveedor) || 0;
-  const fleteEnvio = Number(shippingCost) || 0;
-  const comisionDropi = formData.provider === 'dropi' ? (Number(dropiFee) || 0) : 0;
-  const precioVenta = Number(formData.precio) || 0;
+  const costoProveedor = parseNumCOP(formData.costoProveedor);
+  const fleteEnvio = parseNumCOP(shippingCost);
+  const comisionDropi = formData.provider === 'dropi' ? parseNumCOP(dropiFee) : 0;
+  const precioVenta = parseNumCOP(formData.precio);
   const costoTotalOperativo = costoProveedor + fleteEnvio + comisionDropi;
   const rentabilidadNetaReal = precioVenta - (costoProveedor + fleteEnvio + comisionDropi);
   const margenPorcentajeReal = precioVenta > 0 ? ((rentabilidadNetaReal / precioVenta) * 100) : 0;
@@ -222,7 +231,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
   const validateForm = (): string | null => {
     if (!String(formData.title || '').trim()) return 'Alto: El campo Título está vacío o en 0';
-    if (isNaN(Number(formData.precio)) || Number(formData.precio) <= 0) return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
+    if (isNaN(parseNumCOP(formData.precio)) || parseNumCOP(formData.precio) <= 0) return 'Alto: El campo Precio Venta Cliente está vacío o en 0';
     if (!formData.provider || String(formData.provider).trim() === '') return 'Alto: El campo Bodega de Origen está vacío o en 0';
     if (!formData.categoryId || String(formData.categoryId).trim() === '') return 'Alto: El campo Categoría está vacío o en 0';
     if (formData.provider === 'dropi' && (!formData.dropiId || String(formData.dropiId).trim() === '')) return 'Alto: El campo ID Dropi está vacío o en 0';
@@ -244,7 +253,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setIsSaving(true);
 
     try {
-      const isEditing = Boolean(formData.id || product?.id);
       const targetId = formData.id || product?.id || `prod-${Date.now()}`;
       const finalTitle = formData.title.trim();
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -252,9 +260,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       const dropiProductId = String(formData.dropiId || (product as any)?.dropi_product_id || (product as any)?.dropiProductId || '');
       const provider = String(formData.provider || 'derocha');
 
-      const fleteReal = Number(shippingCost || formData.fleteEnvio || 0);
-      const comisionReal = Number(dropiFee || formData.comisionDropi || 0);
-      const costoProvReal = Number(formData.costoProveedor || 0);
+      const fleteReal = parseNumCOP(shippingCost || formData.fleteEnvio);
+      const comisionReal = parseNumCOP(dropiFee || formData.comisionDropi);
+      const costoProvReal = parseNumCOP(formData.costoProveedor);
+      const precioFinal = parseNumCOP(formData.precio);
 
       const payload = {
         ...formData,
@@ -262,9 +271,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         nombre: finalTitle || formData.title || '',
         title: finalTitle,
         name: finalTitle,
-        precio: Number(formData.precio || 0),
-        price: Number(formData.precio || 0),
-        stock: Number(formData.stock || 0),
+        precio: precioFinal,
+        price: precioFinal,
+        stock: parseNumCOP(formData.stock),
         descripcion: formData.description || '',
         description: formData.description || '',
         shortDescription: formData.shortDescription || '',
@@ -296,9 +305,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         provider: String(provider),
         supplier: String(formData.supplier || provider),
         
-        compareAtPrice: Number(formData.compareAtPrice || 0),
-        compare_price: Number(formData.compareAtPrice || 0),
-        suggested_price: Number(formData.compareAtPrice || 0),
+        compareAtPrice: parseNumCOP(formData.compareAtPrice),
+        compare_price: parseNumCOP(formData.compareAtPrice),
+        suggested_price: parseNumCOP(formData.compareAtPrice),
         
         slug: finalSlug,
         categoryId: formData.categoryId || '',
@@ -308,34 +317,34 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      saveCustomProductCost(String(targetId), {
-        id: String(targetId), slug: finalSlug, shippingCost: fleteReal, dropiFee: comisionReal,
-        dropiProductId: String(dropiProductId || ''), provider: String(provider)
-      });
+      // Si se proveyó la función onSave (la que viene del AdminDashboard), la usamos 
+      // porque ella se encarga de guardar en MySQL Y de publicar en Facebook
+      if (onSave) {
+        await onSave(payload as any);
+        setSaveSuccess(true);
+        alert('Producto guardado correctamente');
+      } else {
+        // En caso de que se use de forma independiente, mantenemos el fetch a cPanel
+        const apiPhpEndpoint = formData.id ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
+        await fetch(apiPhpEndpoint, {
+          method: formData.id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        saveCustomProductCost(String(targetId), {
+          id: String(targetId), slug: finalSlug, shippingCost: fleteReal, dropiFee: comisionReal,
+          dropiProductId: String(dropiProductId || ''), provider: String(provider)
+        });
 
-      const apiPhpEndpoint = isEditing ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
-
-      // 1. PETICIÓN EXCLUSIVA A CPANEL
-      await fetch(apiPhpEndpoint, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      // BYPASS: EVITAMOS LLAMAR A onSave() PARA QUE ADMIN_DASHBOARD NO SOBREESCRIBA LA DB CON CEROS.
-      // En su lugar, cerramos la ventana de manera suave llamando a onCancel()
-      
-      setSaveSuccess(true);
-      alert('Producto guardado correctamente en la base de datos');
-      
-      setTimeout(() => {
-        onCancel(); 
-      }, 500);
+        setSaveSuccess(true);
+        alert('Producto guardado correctamente en la base de datos');
+        setTimeout(() => { onCancel(); }, 500);
+      }
 
     } catch (err: any) {
       console.error('Error durante el guardado:', err);
       alert('Error guardando producto');
-      onCancel();
     } finally {
       setIsSaving(false);
     }
@@ -359,8 +368,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     const newVariant: ProductVariant = {
       id: `var-${Date.now()}`, name, color, size, talla: size,
-      stock: Number(newVarStock) >= 0 ? Number(newVarStock) : 0,
-      price: Number(formData.precio) || 0,
+      stock: parseNumCOP(newVarStock) >= 0 ? parseNumCOP(newVarStock) : 0,
+      price: parseNumCOP(formData.precio),
       dropi_variation_id: newVarDropiId.trim() || undefined,
       sku: newVarSku.trim() || undefined
     };
@@ -492,10 +501,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                   <input type="text" required placeholder="Ej. 138402 o ID del producto en Dropi" value={formData.dropiId} onChange={(e) => setFormData(prev => ({ ...prev, dropiId: e.target.value }))} className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Comisión Dropi (U\$)</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Comisión Dropi (\$ COP)</label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">\$</span>
-                    <input type="number" min="0" step="any" placeholder="0" value={dropiFee === 0 ? '' : dropiFee} onChange={(e) => { const val = e.target.value === '' ? 0 : Number(e.target.value); setDropiFee(val); setFormData(prev => ({ ...prev, comisionDropi: val })); }} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
+                    <input type="text" placeholder="0" value={dropiFee === 0 ? '' : dropiFee} onChange={(e) => { const val = parseNumCOP(e.target.value); setDropiFee(val); setFormData(prev => ({ ...prev, comisionDropi: val })); }} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
                   </div>
                 </div>
               </div>
@@ -517,11 +526,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Costo Proveedor (\$ COP)</label>
-                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">\$</span><input type="number" min="0" placeholder="0" value={formData.costoProveedor === 0 ? '' : formData.costoProveedor} onChange={(e) => setFormData(prev => ({ ...prev, costoProveedor: e.target.value === '' ? 0 : Number(e.target.value) }))} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span><input type="text" placeholder="0" value={formData.costoProveedor === 0 ? '' : formData.costoProveedor} onChange={(e) => setFormData(prev => ({ ...prev, costoProveedor: parseNumCOP(e.target.value) }))} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Flete de Envío (\$ COP)</label>
-                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">\$</span><input type="number" min="0" placeholder="0" value={shippingCost === 0 ? '' : shippingCost} onChange={(e) => { const val = e.target.value === '' ? 0 : Number(e.target.value); setShippingCost(val); setFormData(prev => ({ ...prev, fleteEnvio: val })); }} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span><input type="text" placeholder="0" value={shippingCost === 0 ? '' : shippingCost} onChange={(e) => { const val = parseNumCOP(e.target.value); setShippingCost(val); setFormData(prev => ({ ...prev, fleteEnvio: val })); }} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
               </div>
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-center">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Costo Operativo Base</span>
@@ -532,11 +541,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div>
                 <label className="block text-xs font-bold text-slate-900 mb-1">Precio Venta Cliente (\$ COP) <span className="text-rose-500">*</span></label>
-                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-base">\$</span><input type="number" min="0" required placeholder="0" value={formData.precio === 0 ? '' : formData.precio} onChange={(e) => setFormData(prev => ({ ...prev, precio: e.target.value === '' ? 0 : Number(e.target.value) }))} className="w-full pl-9 pr-3.5 py-3 rounded-2xl border-2 border-indigo-500 bg-white font-mono text-base font-black text-indigo-950 focus:ring-2 focus:ring-indigo-400 focus:outline-none shadow-xs" /></div>
+                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-base">$</span><input type="text" required placeholder="0" value={formData.precio === 0 ? '' : formData.precio} onChange={(e) => setFormData(prev => ({ ...prev, precio: parseNumCOP(e.target.value) }))} className="w-full pl-9 pr-3.5 py-3 rounded-2xl border-2 border-indigo-500 bg-white font-mono text-base font-black text-indigo-950 focus:ring-2 focus:ring-indigo-400 focus:outline-none shadow-xs" /></div>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Precio Antes / Tachado (\$ COP)</label>
-                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">\$</span><input type="number" min="0" placeholder="0" value={formData.compareAtPrice === 0 ? '' : formData.compareAtPrice} onChange={(e) => setFormData(prev => ({ ...prev, compareAtPrice: e.target.value === '' ? 0 : Number(e.target.value) }))} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
+                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span><input type="text" placeholder="0" value={formData.compareAtPrice === 0 ? '' : formData.compareAtPrice} onChange={(e) => setFormData(prev => ({ ...prev, compareAtPrice: parseNumCOP(e.target.value) }))} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
               </div>
             </div>
 
@@ -597,7 +606,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Stock</label>
-              <input type="number" min="0" value={formData.stock === 0 ? '' : formData.stock} onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value === '' ? 0 : Number(e.target.value) }))} className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500" />
+              <input type="text" placeholder="0" value={formData.stock === 0 ? '' : formData.stock} onChange={(e) => setFormData(prev => ({ ...prev, stock: parseNumCOP(e.target.value) }))} className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div className="flex items-center gap-3 pt-4">
               <label className="relative inline-flex items-center cursor-pointer">
@@ -650,7 +659,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">Stock</label>
-                <input type="number" min="0" placeholder="0" value={newVarStock === 0 ? '' : newVarStock} onChange={(e) => setNewVarStock(Number(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
+                <input type="text" placeholder="0" value={newVarStock === 0 ? '' : newVarStock} onChange={(e) => setNewVarStock(parseNumCOP(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">ID Dropi Var.</label>
