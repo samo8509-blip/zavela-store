@@ -185,10 +185,19 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       ]);
 
       if (advRes.success) {
-        setAdvisors(advRes.data.advisors || []);
-        setPerformance(advRes.data.performance || []);
-        if (advRes.data.advisors?.length > 0 && !formAdvisorId) {
-          setFormAdvisorId(advRes.data.advisors[0].id);
+        // 🛡️ FILTRO DE SEGURIDAD: Limpia los asesores "fantasma" que el backend genera por error con IDs de productos
+        const realAdvisors = (advRes.data.advisors || []).filter(
+          (a: Advisor) => !a.id.toLowerCase().includes('prod-')
+        );
+        const realPerformance = (advRes.data.performance || []).filter(
+          (p: AdvisorPerformance) => !p.advisorId.toLowerCase().includes('prod-')
+        );
+
+        setAdvisors(realAdvisors);
+        setPerformance(realPerformance);
+
+        if (realAdvisors.length > 0 && !formAdvisorId) {
+          setFormAdvisorId(realAdvisors[0].id);
         }
       }
       if (salesRes.success) {
