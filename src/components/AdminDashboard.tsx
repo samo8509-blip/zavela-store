@@ -78,12 +78,19 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
-// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  const cleaned = String(val).replace(/[^\d-]/g, '');
-  const num = Number(cleaned);
+  if (typeof val === 'number') return isNaN(val) ? 0 : Math.floor(val);
+  
+  let str = String(val).trim();
+  str = str.replace(/[\$\s]/g, '');
+  if (str.match(/\.\d{1,2}$/)) {
+    str = str.substring(0, str.lastIndexOf('.'));
+  }
+  str = str.replace(/[^\d-]/g, '');
+  
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
@@ -186,10 +193,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchAdminData = async () => {
     try {
-   // 1. Cargar datos del backend y cPanel MySQL en paralelo
-    const [statsRes, productsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
+   // 1. Cargar datos del backend y cPanel MySQL en paralelo (Omitiendo api.php antiguo)
+    const [statsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
       fetch('https://api.zavelastore.com.co/api.php?action=metrics').then(r => r.json()).catch(() => ({ success: false })),
-      fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false })),
       fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
       fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
       
@@ -204,12 +210,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       getFirestoreSettings().catch(() => null)
     ]);
 
-      // Priorizar datos de la base de datos sincronizada aplicando el normalizador y blindaje con zavela_custom_costs_v1
+      // 🛡️ Priorizar SIEMPRE el puente blindado cpanelProds que trae todos los campos (flete, comision, etc.)
       let loadedProducts: Product[] = [];
-      if (productsRes.success && Array.isArray(productsRes.data)) {
-        loadedProducts = productsRes.data.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
-      } else if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+      if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
         loadedProducts = cpanelProds.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
+      } else {
+        // Solo como medida de emergencia extrema (fallback)
+        const fallbackRes = await fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false }));
+        if (fallbackRes.success && Array.isArray(fallbackRes.data)) {
+          loadedProducts = fallbackRes.data.map((p: any) => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
+        }
       }
 
       const loadedOrders: Order[] = (ordersRes.success && Array.isArray(ordersRes.data)) ? ordersRes.data : [];
