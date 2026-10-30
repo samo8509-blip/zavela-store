@@ -8,21 +8,24 @@ import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
-// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA PARA NÚMEROS EN COP 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : Math.floor(val);
+  if (typeof val === 'number') return val;
   
   let str = String(val).trim();
-  // 1. Quitar signo pesos y espacios
+  
+  // 1. Eliminar signo pesos y espacios
   str = str.replace(/[\$\s]/g, '');
   
-  // 2. Si viene de MySQL con decimales (ej. 25000.00), eliminamos exactamente el .00
-  if (str.match(/\.\d{1,2}$/)) {
-    str = str.substring(0, str.lastIndexOf('.'));
+  // 2. Si tiene decimales (.00 o ,00), eliminarlos por completo
+  if (str.includes('.') && str.split('.').pop()?.length === 2) {
+      str = str.substring(0, str.lastIndexOf('.'));
+  } else if (str.includes(',') && str.split(',').pop()?.length === 2) {
+      str = str.substring(0, str.lastIndexOf(','));
   }
   
-  // 3. Quitamos cualquier otro punto de miles o letras que queden
+  // 3. Eliminar CUALQUIER otro caracter que no sea dígito o signo negativo (esto borra los puntos de miles)
   str = str.replace(/[^\d-]/g, '');
   
   const num = Number(str);
