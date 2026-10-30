@@ -8,15 +8,28 @@ const API_PRODUCTS_URL = '/api/products.php';
 const API_BATCH_URL = '/api/products_batch.php';
 const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
 
-// 🛡️ FUNCIÓN DE PARSEO SIMPLE Y SEGURA 🛡️
+// 🛡️ FUNCIÓN DE PARSEO SIMPLE Y SEGURA (CORREGIDA PARA PESOS Y MYSQL) 🛡️
 function parseSafeNumber(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return val;
+  if (typeof val === 'number') return Math.floor(val);
   
-  // Si es string, limpiamos solo el símbolo $ y espacios, y lo parseamos como float para respetar decimales
-  let str = String(val).trim().replace(/[\$\s]/g, '');
-  const num = parseFloat(str);
+  let str = String(val).trim();
   
+  // 1. Limpiamos símbolo $ y espacios
+  str = str.replace(/[\$\s]/g, '');
+  
+  // 2. Si termina en .00 o ,00 (típico decimal vacío de MySQL), lo cortamos
+  if (str.endsWith('.00') || str.endsWith(',00')) {
+    str = str.slice(0, -3);
+  }
+  
+  // 3. Eliminamos TODOS los puntos y comas que queden (separadores de miles)
+  str = str.replace(/[.,]/g, '');
+  
+  // 4. Eliminamos cualquier otro caracter que no sea dígito
+  str = str.replace(/[^\d-]/g, '');
+  
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
