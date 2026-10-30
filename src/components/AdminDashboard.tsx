@@ -78,19 +78,13 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
-// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
+// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : Math.floor(val);
-  
-  let str = String(val).trim();
-  str = str.replace(/[\$\s]/g, '');
-  if (str.match(/\.\d{1,2}$/)) {
-    str = str.substring(0, str.lastIndexOf('.'));
-  }
-  str = str.replace(/[^\d-]/g, '');
-  
-  const num = Number(str);
+  if (typeof val === 'number') return val;
+  // Solo eliminamos $ y espacios. El parseFloat maneja el punto decimal correctamente.
+  let str = String(val).trim().replace(/[\$\s]/g, '');
+  const num = parseFloat(str);
   return isNaN(num) ? 0 : num;
 }
 
@@ -438,7 +432,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const idx = prev.findIndex(p => p.id === finalProductId);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = { ...copy[idx], ...completeSavedProduct } as Product;
+          copy[idx] = completeSavedProduct as Product; // Reemplazo total
           return copy;
         }
         return [completeSavedProduct as Product, ...prev];
