@@ -78,13 +78,30 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
-// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE MYSQL) 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return val;
-  // Solo eliminamos $ y espacios. El parseFloat maneja el punto decimal correctamente.
-  let str = String(val).trim().replace(/[\$\s]/g, '');
-  const num = parseFloat(str);
+  if (typeof val === 'number') return Math.floor(val);
+  
+  let str = String(val).trim();
+  
+  // 1. Quitar signo pesos y espacios
+  str = str.replace(/[\$\s]/g, '');
+  
+  // 2. Si el string termina exactamente en .00 (formato MySQL), lo eliminamos
+  if (str.endsWith('.00')) {
+    str = str.slice(0, -3);
+  } else if (str.endsWith(',00')) {
+    str = str.slice(0, -3);
+  }
+  
+  // 3. Eliminar todos los puntos y comas restantes (que son separadores de miles)
+  str = str.replace(/[.,]/g, '');
+  
+  // 4. Quitar cualquier otra letra o símbolo que no sea dígito
+  str = str.replace(/[^\d-]/g, '');
+  
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
@@ -432,7 +449,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const idx = prev.findIndex(p => p.id === finalProductId);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = completeSavedProduct as Product; // Reemplazo total
+          copy[idx] = completeSavedProduct as Product; // Reemplazo total para limpiar cache viejo
           return copy;
         }
         return [completeSavedProduct as Product, ...prev];
