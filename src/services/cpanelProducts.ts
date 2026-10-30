@@ -8,27 +8,26 @@ const API_PRODUCTS_URL = '/api/products.php';
 const API_BATCH_URL = '/api/products_batch.php';
 const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
 
-// 🛡️ FUNCIÓN DE PARSEO SIMPLE Y SEGURA (CORREGIDA PARA PESOS Y MYSQL) 🛡️
-function parseSafeNumber(val: any): number {
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE FORMA INTELIGENTE) 🛡️
+export function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return Math.floor(val);
   
   let str = String(val).trim();
-  
-  // 1. Limpiamos símbolo $ y espacios
   str = str.replace(/[\$\s]/g, '');
   
-  // 2. Si termina en .00 o ,00 (típico decimal vacío de MySQL), lo cortamos
-  if (str.endsWith('.00') || str.endsWith(',00')) {
-    str = str.slice(0, -3);
+  const lastDot = str.lastIndexOf('.');
+  const lastComma = str.lastIndexOf(',');
+  const lastPunc = Math.max(lastDot, lastComma);
+  
+  if (lastPunc !== -1) {
+    const decimalsLength = str.length - 1 - lastPunc;
+    if (decimalsLength === 1 || decimalsLength === 2) {
+       str = str.substring(0, lastPunc);
+    }
   }
   
-  // 3. Eliminamos TODOS los puntos y comas que queden (separadores de miles)
-  str = str.replace(/[.,]/g, '');
-  
-  // 4. Eliminamos cualquier otro caracter que no sea dígito
   str = str.replace(/[^\d-]/g, '');
-  
   const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
@@ -43,12 +42,13 @@ export function normalizeCpanelProduct(p: any): Product {
   let provider = String(p.provider || (dropiId ? 'dropi' : 'derocha')).trim();
 
   // LECTURA DIRECTA DE LA BASE DE DATOS USANDO PARSEO SEGURO
-  const shipping = parseSafeNumber(p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.shippingCost ?? p.estimatedShippingCost);
-  const fee = parseSafeNumber(p.dropi_fee ?? p.dropiFee ?? p.comisionDropi ?? p.comision);
+  const shipping = parseNumCOP(p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.shippingCost ?? p.estimatedShippingCost);
+  const fee = parseNumCOP(p.dropi_fee ?? p.dropiFee ?? p.comisionDropi ?? p.comision);
 
   const supplier = p.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Directa'));
-  const costPrice = parseSafeNumber(p.costPrice ?? p.supplier_cost ?? p.costo);
-  const price = parseSafeNumber(p.price ?? p.precio);
+  const costPrice = parseNumCOP(p.costPrice ?? p.supplier_cost ?? p.costo);
+  const price = parseNumCOP(p.price ?? p.precio);
+  const stock = parseNumCOP(p.stock ?? p.inventario);
   
   const totalOperatingCost = costPrice + shipping + fee;
   const realNetProfit = price - totalOperatingCost;
@@ -60,8 +60,11 @@ export function normalizeCpanelProduct(p: any): Product {
     title: p.title || p.nombre || p.name || '',
     nombre: p.nombre || p.title || p.name || '',
     slug: pSlug || p.slug || pId,
+    stock,
+    inventario: stock,
     costPrice,
     supplier_cost: costPrice,
+    costoProveedor: costPrice,
     price,
     precio: price,
     shippingCost: shipping,
@@ -71,6 +74,7 @@ export function normalizeCpanelProduct(p: any): Product {
     estimatedShippingCost: shipping,
     dropiFee: fee,
     dropi_fee: fee,
+    comisionDropi: fee,
     dropiProductId: dropiId,
     dropi_product_id: dropiId,
     totalOperatingCost,
@@ -139,8 +143,8 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
   const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
 
-  const shippingValue = parseSafeNumber(productData.shippingCost ?? (productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).flete);
-  const dropiFeeValue = parseSafeNumber(productData.dropiFee ?? (productData as any).dropi_fee);
+  const shippingValue = parseNumCOP(productData.shippingCost ?? (productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).flete);
+  const dropiFeeValue = parseNumCOP(productData.dropiFee ?? (productData as any).dropi_fee);
   const dropiCode = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
   const provider = productData.provider || (dropiCode ? 'dropi' : 'derocha');
 
