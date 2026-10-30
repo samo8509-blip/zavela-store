@@ -6,14 +6,25 @@ import {
 } from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
-import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
-// 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  const cleaned = String(val).replace(/[^\d-]/g, '');
-  const num = Number(cleaned);
+  if (typeof val === 'number') return isNaN(val) ? 0 : Math.floor(val);
+  
+  let str = String(val).trim();
+  // 1. Quitar signo pesos y espacios
+  str = str.replace(/[\$\s]/g, '');
+  
+  // 2. Si viene de MySQL con decimales (ej. 25000.00), eliminamos exactamente el .00
+  if (str.match(/\.\d{1,2}$/)) {
+    str = str.substring(0, str.lastIndexOf('.'));
+  }
+  
+  // 3. Quitamos cualquier otro punto de miles o letras que queden
+  str = str.replace(/[^\d-]/g, '');
+  
+  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
@@ -55,6 +66,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   onSave,
   onCancel
 }) => {
+
+  // DESTRUCTOR DE CACHÉ TÓXICA: Elimina el localStorage viejo para que siempre lea de la Base de Datos
+  useEffect(() => {
+    try {
+      localStorage.removeItem('zavela_custom_costs_v1');
+    } catch (e) {
+      // Silencioso
+    }
+  }, []);
+
   const getEmptyInitialState = (): ProductFormData => ({
     id: '', title: '', slug: '', description: '', shortDescription: '',
     categoryId: categories[0]?.id || '', categoryName: categories[0]?.name || 'General',
@@ -68,7 +89,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     const pId = String(prod.id || prod.productId || '').trim();
     const pSlug = String(prod.slug || '').trim();
-    const savedCosts = pId || pSlug ? getCustomProductCost(pId, pSlug) : null;
+    
     const title = String(prod.nombre || prod.title || '').trim();
     const description = String(prod.descripcion || prod.description || '').trim();
     const shortDescription = String(prod.shortDescription || prod.resumen || '').trim();
@@ -90,10 +111,11 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
       imagesList = [mainImage];
     }
 
+    // Extracción pura y blindada directamente desde la base de datos
     const precio = parseNumCOP(prod.precio || prod.price);
     const stock = parseNumCOP(prod.stock ?? prod.inventario);
-    const rawProvider = String(savedCosts?.provider || prod.provider || prod.proveedor || '').toLowerCase().trim();
-
+    
+    const rawProvider = String(prod.provider || prod.proveedor || '').toLowerCase().trim();
     let mappedProvider: WarehouseProvider | string = '';
     if (rawProvider.includes('dropi')) mappedProvider = 'dropi';
     else if (rawProvider.includes('derocha')) mappedProvider = 'derocha';
@@ -103,16 +125,12 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     else if (prod.dropi_product_id || prod.dropiProductId) mappedProvider = 'dropi';
     else if (prod.id) mappedProvider = 'derocha';
 
-    const rawProdDropiId = String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
-    const dropiId = rawProdDropiId || String(savedCosts?.dropiProductId || '').trim();
+    const dropiId = String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
+    
+    // Asignación directa de flete y comisión ignorando caches antiguos
+    const comisionDropi = parseNumCOP(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi);
+    const fleteEnvio = parseNumCOP(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost);
 
-    const rawProdDropiFee = parseNumCOP(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi);
-    const comisionDropi = rawProdDropiFee > 0 ? rawProdDropiFee : (savedCosts && parseNumCOP(savedCosts.dropiFee) > 0 ? parseNumCOP(savedCosts.dropiFee) : rawProdDropiFee);
-
-    const rawProdFlete = parseNumCOP(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost);
-    const fleteEnvio = rawProdFlete > 0 ? rawProdFlete : (savedCosts && parseNumCOP(savedCosts.shippingCost) > 0 ? parseNumCOP(savedCosts.shippingCost) : rawProdFlete);
-
-    // CORRECCIÓN PROFUNDA: Extracción robusta de variantes para evitar que desaparezcan en la UI
     let variantsList: ProductVariant[] = [];
     const rawVars = prod.variants || prod.variantes;
     if (Array.isArray(rawVars) && rawVars.length > 0) {
@@ -120,7 +138,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     } else if (typeof rawVars === 'string' && rawVars.trim()) {
       try {
         let parsed = JSON.parse(rawVars);
-        if (typeof parsed === 'string') parsed = JSON.parse(parsed); // Previene doble stringify
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed); 
         if (Array.isArray(parsed)) variantsList = parsed;
       } catch (err) {
         console.error("Error interpretando variantes:", err);
@@ -208,7 +226,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const precioVenta = parseNumCOP(formData.precio);
   const costoTotalOperativo = costoProveedor + fleteEnvio + comisionDropi;
   const rentabilidadNetaReal = precioVenta - (costoProveedor + fleteEnvio + comisionDropi);
-  const margenPorcentajeReal = precioVenta > 0 ? ((rentabilidadNetaReal / precioVenta) * 100) : 0;
 
   const calcularPrecioParaMargen = (porcentajeMargen: number): number => {
     if (costoTotalOperativo <= 0) return 0;
@@ -317,24 +334,16 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         featured: Boolean(formData.featured)
       };
 
-      // Si se proveyó la función onSave (la que viene del AdminDashboard), la usamos 
-      // porque ella se encarga de guardar en MySQL Y de publicar en Facebook
       if (onSave) {
         await onSave(payload as any);
         setSaveSuccess(true);
         alert('Producto guardado correctamente');
       } else {
-        // En caso de que se use de forma independiente, mantenemos el fetch a cPanel
         const apiPhpEndpoint = formData.id ? `/api.php?id=${encodeURIComponent(targetId)}` : '/api.php';
         await fetch(apiPhpEndpoint, {
           method: formData.id ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
-        });
-        
-        saveCustomProductCost(String(targetId), {
-          id: String(targetId), slug: finalSlug, shippingCost: fleteReal, dropiFee: comisionReal,
-          dropiProductId: String(dropiProductId || ''), provider: String(provider)
         });
 
         setSaveSuccess(true);
@@ -449,7 +458,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
       <form onSubmit={handleSave} className="space-y-8">
         
-        {/* FASE 2: BODEGAS */}
+        {/* FASE 1: BODEGAS */}
         <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
