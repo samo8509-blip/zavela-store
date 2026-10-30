@@ -78,27 +78,24 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
-// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE MYSQL) 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA PARA NÚMEROS EN COP 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return Math.floor(val);
+  if (typeof val === 'number') return val;
   
   let str = String(val).trim();
   
-  // 1. Quitar signo pesos y espacios
+  // 1. Eliminar signo pesos y espacios
   str = str.replace(/[\$\s]/g, '');
   
-  // 2. Si el string termina exactamente en .00 (formato MySQL), lo eliminamos
-  if (str.endsWith('.00')) {
-    str = str.slice(0, -3);
-  } else if (str.endsWith(',00')) {
-    str = str.slice(0, -3);
+  // 2. Si tiene decimales (.00 o ,00), eliminarlos por completo
+  if (str.includes('.') && str.split('.').pop()?.length === 2) {
+      str = str.substring(0, str.lastIndexOf('.'));
+  } else if (str.includes(',') && str.split(',').pop()?.length === 2) {
+      str = str.substring(0, str.lastIndexOf(','));
   }
   
-  // 3. Eliminar todos los puntos y comas restantes (que son separadores de miles)
-  str = str.replace(/[.,]/g, '');
-  
-  // 4. Quitar cualquier otra letra o símbolo que no sea dígito
+  // 3. Eliminar CUALQUIER otro caracter que no sea dígito o signo negativo (esto borra los puntos de miles)
   str = str.replace(/[^\d-]/g, '');
   
   const num = Number(str);
@@ -444,12 +441,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         publishToFacebook: productData.publishToFacebook !== false
       };
 
-      // Actualizar inmediatamente el estado de productos local para que el badge de Dropi se visualice al instante
+      // 🛡️ ACTUALIZACIÓN LOCAL INMEDIATA - Obligamos al estado a tomar los valores reales que acabamos de limpiar y validar 🛡️
       setProducts(prev => {
         const idx = prev.findIndex(p => p.id === finalProductId);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = completeSavedProduct as Product; // Reemplazo total para limpiar cache viejo
+          copy[idx] = completeSavedProduct as Product; // Reemplazo total para limpiar el estado viejo
           return copy;
         }
         return [completeSavedProduct as Product, ...prev];
