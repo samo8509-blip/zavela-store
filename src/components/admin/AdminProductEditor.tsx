@@ -8,26 +8,26 @@ import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
-// 🛡️ FUNCIÓN BLINDADA DEFINITIVA PARA NÚMEROS EN COP 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE FORMA INTELIGENTE) 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return val;
+  if (typeof val === 'number') return Math.floor(val);
   
   let str = String(val).trim();
-  
-  // 1. Eliminar signo pesos y espacios
   str = str.replace(/[\$\s]/g, '');
   
-  // 2. Si tiene decimales (.00 o ,00), eliminarlos por completo
-  if (str.includes('.') && str.split('.').pop()?.length === 2) {
-      str = str.substring(0, str.lastIndexOf('.'));
-  } else if (str.includes(',') && str.split(',').pop()?.length === 2) {
-      str = str.substring(0, str.lastIndexOf(','));
+  const lastDot = str.lastIndexOf('.');
+  const lastComma = str.lastIndexOf(',');
+  const lastPunc = Math.max(lastDot, lastComma);
+  
+  if (lastPunc !== -1) {
+    const decimalsLength = str.length - 1 - lastPunc;
+    if (decimalsLength === 1 || decimalsLength === 2) {
+       str = str.substring(0, lastPunc);
+    }
   }
   
-  // 3. Eliminar CUALQUIER otro caracter que no sea dígito o signo negativo (esto borra los puntos de miles)
   str = str.replace(/[^\d-]/g, '');
-  
   const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
@@ -312,7 +312,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         precio: precioFinal,
         price: precioFinal,
         stock: parseNumCOP(formData.stock),
-        descripcion: formData.description || '',
         description: formData.description || '',
         shortDescription: formData.shortDescription || '',
         imagen: mainImage || formData.images[0] || '',
