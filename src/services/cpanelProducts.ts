@@ -8,38 +8,34 @@ const API_PRODUCTS_URL = '/api/products.php';
 const API_BATCH_URL = '/api/products_batch.php';
 const API_ADMIN_PRODUCTS_URL = '/api/admin/products';
 
-// 🛡️ FUNCIÓN BLINDADA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
-function parseNumCOP(val: any): number {
+// 🛡️ FUNCIÓN DE PARSEO SIMPLE Y SEGURA 🛡️
+function parseSafeNumber(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : Math.floor(val);
+  if (typeof val === 'number') return val;
   
-  let str = String(val).trim();
-  str = str.replace(/[\$\s]/g, '');
+  // Si es string, limpiamos solo el símbolo $ y espacios, y lo parseamos como float para respetar decimales
+  let str = String(val).trim().replace(/[\$\s]/g, '');
+  const num = parseFloat(str);
   
-  if (str.match(/\.\d{1,2}$/)) {
-    str = str.substring(0, str.lastIndexOf('.'));
-  }
-  
-  str = str.replace(/[^\d-]/g, '');
-  const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
 
 export function normalizeCpanelProduct(p: any): Product {
+  if (!p) return {} as Product;
+
   const pId = String(p.id || p.productId || '').trim();
   const pSlug = String(p.slug || '').trim();
 
   let dropiId = String(p.dropiProductId || p.dropi_product_id || p.dropi_id || '').trim();
   let provider = String(p.provider || (dropiId ? 'dropi' : 'derocha')).trim();
 
-  // 🛡️ LECTURA EXTREMA Y DEFINITIVA DIRECTO DE LA BASE DE DATOS 🛡️
-  // Ignoramos completamente la caché tóxica (localStorage) en el normalizador
-  const shipping = parseNumCOP(p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.shippingCost ?? p.estimatedShippingCost ?? p.fleteEnvio);
-  const fee = parseNumCOP(p.dropi_fee ?? p.dropiFee ?? p.comisionDropi ?? p.comision);
+  // LECTURA DIRECTA DE LA BASE DE DATOS USANDO PARSEO SEGURO
+  const shipping = parseSafeNumber(p.shipping_cost ?? p.flete_envio ?? p.flete ?? p.shippingCost ?? p.estimatedShippingCost);
+  const fee = parseSafeNumber(p.dropi_fee ?? p.dropiFee ?? p.comisionDropi ?? p.comision);
 
   const supplier = p.supplier || (provider === 'dropi' ? 'Dropi Colombia' : (provider === 'derocha' ? 'DeRocha' : 'Bodega Directa'));
-  const costPrice = parseNumCOP(p.costPrice ?? p.supplier_cost ?? p.costo);
-  const price = parseNumCOP(p.price ?? p.precio);
+  const costPrice = parseSafeNumber(p.costPrice ?? p.supplier_cost ?? p.costo);
+  const price = parseSafeNumber(p.price ?? p.precio);
   
   const totalOperatingCost = costPrice + shipping + fee;
   const realNetProfit = price - totalOperatingCost;
@@ -72,6 +68,7 @@ export function normalizeCpanelProduct(p: any): Product {
   };
 }
 
+// Funciones vacías para evitar la caché tóxica
 export function getCustomCostsMap(): Record<string, any> { return {}; }
 export function saveCustomProductCost(): void { }
 export function getCustomProductCost(): any | null { return null; }
@@ -79,9 +76,6 @@ export function saveLocalProductOverride(): void { }
 export function getLocalProductOverride(): any | null { return null; }
 export function overrideProductWithCustomCosts<T extends Partial<Product>>(p: T): T { return p; }
 
-/**
- * 1. OBTENER / LISTAR PRODUCTOS DESDE CPANEL MYSQL
- */
 export async function getCpanelProducts(onlyActive: boolean = false): Promise<Product[]> {
   const url = onlyActive 
     ? `${API_PRODUCTS_URL}?only_active=1`
@@ -123,9 +117,6 @@ export async function getCpanelProducts(onlyActive: boolean = false): Promise<Pr
   }
 }
 
-/**
- * 2. GUARDAR / CREAR O ACTUALIZAR PRODUCTO EN CPANEL MYSQL
- */
 export async function saveCpanelProduct(productData: Partial<Product>): Promise<Product> {
   const targetId = productData.id || (productData as any).productId;
   const isEdit = Boolean(targetId);
@@ -135,8 +126,8 @@ export async function saveCpanelProduct(productData: Partial<Product>): Promise<
   const catValue = (productData as any).categoria || (productData as any).category || productData.categoryName || '';
   const catIdValue = productData.categoryId || (productData as any).category_id || (productData as any).categoria_id || '';
 
-  const shippingValue = parseNumCOP(productData.shippingCost ?? (productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).flete);
-  const dropiFeeValue = parseNumCOP(productData.dropiFee ?? (productData as any).dropi_fee);
+  const shippingValue = parseSafeNumber(productData.shippingCost ?? (productData as any).shipping_cost ?? (productData as any).flete_envio ?? (productData as any).flete);
+  const dropiFeeValue = parseSafeNumber(productData.dropiFee ?? (productData as any).dropi_fee);
   const dropiCode = String(productData.dropiProductId || (productData as any).dropi_product_id || '').trim();
   const provider = productData.provider || (dropiCode ? 'dropi' : 'derocha');
 
@@ -195,9 +186,6 @@ export const updateCpanelProduct = async (id: string, updates: Partial<Product>)
   return saveCpanelProduct({ ...updates, id });
 };
 
-/**
- * 3. ELIMINAR PRODUCTO (Físico o Soft Delete) EN CPANEL MYSQL
- */
 export async function deleteCpanelProduct(id: string, softDelete: boolean = false): Promise<boolean> {
   if (!id) return false;
   if (softDelete) {
@@ -224,9 +212,6 @@ export async function deleteCpanelProduct(id: string, softDelete: boolean = fals
   }
 }
 
-/**
- * 4. ELIMINACIÓN EN LOTE (BATCH DELETE) EN CPANEL MYSQL
- */
 export async function deleteMultipleCpanelProducts(ids: string[], softDelete: boolean = false): Promise<number> {
   if (!ids || ids.length === 0) return 0;
   try {
@@ -258,9 +243,6 @@ export async function deleteMultipleCpanelProducts(ids: string[], softDelete: bo
   }
 }
 
-/**
- * 5. ACTUALIZAR ESTADO EN LOTE
- */
 export async function updateMultipleCpanelProducts(ids: string[], updates: Partial<Product>): Promise<boolean> {
   if (!ids || ids.length === 0) return false;
   try {
