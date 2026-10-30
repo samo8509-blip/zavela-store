@@ -78,26 +78,26 @@ import { WhatsAppAlertFloatingBanner } from './admin/WhatsAppAlertFloatingBanner
 import { clearAdminAuthentication } from './AdminLoginModal.tsx';
 import { FacebookPageConnectModal } from './admin/FacebookPageConnectModal.tsx';
 
-// 🛡️ FUNCIÓN BLINDADA DEFINITIVA PARA NÚMEROS EN COP 🛡️
+// 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE FORMA INTELIGENTE) 🛡️
 function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
-  if (typeof val === 'number') return val;
+  if (typeof val === 'number') return Math.floor(val);
   
   let str = String(val).trim();
-  
-  // 1. Eliminar signo pesos y espacios
   str = str.replace(/[\$\s]/g, '');
   
-  // 2. Si tiene decimales (.00 o ,00), eliminarlos por completo
-  if (str.includes('.') && str.split('.').pop()?.length === 2) {
-      str = str.substring(0, str.lastIndexOf('.'));
-  } else if (str.includes(',') && str.split(',').pop()?.length === 2) {
-      str = str.substring(0, str.lastIndexOf(','));
+  const lastDot = str.lastIndexOf('.');
+  const lastComma = str.lastIndexOf(',');
+  const lastPunc = Math.max(lastDot, lastComma);
+  
+  if (lastPunc !== -1) {
+    const decimalsLength = str.length - 1 - lastPunc;
+    if (decimalsLength === 1 || decimalsLength === 2) {
+       str = str.substring(0, lastPunc);
+    }
   }
   
-  // 3. Eliminar CUALQUIER otro caracter que no sea dígito o signo negativo (esto borra los puntos de miles)
   str = str.replace(/[^\d-]/g, '');
-  
   const num = Number(str);
   return isNaN(num) ? 0 : num;
 }
@@ -116,7 +116,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null | undefined>(undefined);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
 
-  // Core Data Stores
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -126,7 +125,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // CommerceMind AI Daily Greeting & Voice Summary Modal
   const [isDailySummaryOpen, setIsDailySummaryOpen] = useState(false);
   const [dailySummaryInitialStep, setDailySummaryInitialStep] = useState<'greeting' | 'summary'>('greeting');
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
@@ -135,10 +133,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!settings) return;
     const nextMode = !Boolean(settings.maintenanceMode);
     try {
-      // 1. Guardar en Cloud Firestore para sincronización inmediata
       await saveFirestoreSettings({ maintenanceMode: nextMode }).catch(err => console.warn('Firestore toggle warning:', err));
       
-      // 2. Guardar en servidor local
       await fetch('/api/admin/maintenance/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +148,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Check first visit of the day to show warm greeting
   useEffect(() => {
     try {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -201,13 +196,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const fetchAdminData = async () => {
     try {
-   // 1. Cargar datos del backend y cPanel MySQL en paralelo (Omitiendo api.php antiguo)
     const [statsRes, ordersRes, customersRes, categoriesRes, settingsRes, cpanelProds, firestoreSet] = await Promise.all([
       fetch('https://api.zavelastore.com.co/api.php?action=metrics').then(r => r.json()).catch(() => ({ success: false })),
       fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false })),
       fetch('https://api.zavelastore.com.co/api.php?action=customers').then(r => r.json()).catch(() => ({ success: false })),
       
-   // APUNTA DIRECTO A NODE.JS PARA TRAER LAS CATEGORÍAS REALES DESDE LA BASE DE DATOS
       fetch('/api/admin/categories')
         .then(r => r.json())
         .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
@@ -218,12 +211,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       getFirestoreSettings().catch(() => null)
     ]);
 
-      // 🛡️ Priorizar SIEMPRE el puente blindado cpanelProds que trae todos los campos (flete, comision, etc.)
       let loadedProducts: Product[] = [];
       if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
         loadedProducts = cpanelProds.map(p => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
       } else {
-        // Solo como medida de emergencia extrema (fallback)
         const fallbackRes = await fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false }));
         if (fallbackRes.success && Array.isArray(fallbackRes.data)) {
           loadedProducts = fallbackRes.data.map((p: any) => overrideProductWithCustomCosts(normalizeCpanelProduct(p)));
@@ -237,7 +228,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (customersRes.success) setCustomers(customersRes.data);
       if (categoriesRes.success) setCategories(categoriesRes.data);
 
-      // Cálculo estricto y en vivo de métricas según las reglas de costos, logística, Dropi y hora de Colombia
       const calculatedStats = calculateDashboardMetrics(loadedOrders, loadedProducts);
       if (statsRes.success && statsRes.data) {
         setStats({ ...statsRes.data, ...calculatedStats });
@@ -265,7 +255,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     fetchAdminData();
   }, []);
 
-  // Recalcular métricas automáticamente cuando los pedidos o productos cambien
   useEffect(() => {
     if (orders.length > 0 || products.length > 0) {
       setStats(prev => {
@@ -277,7 +266,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveSettings = async (updatedSettings: Partial<StoreSettings>) => {
     try {
-      // 1. Guardar y persistir físicamente en cPanel MySQL (tabla configuraciones y banners)
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -285,7 +273,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       if (!res.ok) throw new Error('Error al actualizar ajustes en MySQL');
       
-      // Sincronizar estado local en memoria
       await saveFirestoreSettings(updatedSettings).catch(() => {});
       await fetchAdminData();
       showToast('Configuración guardada con éxito en cPanel MySQL');
@@ -300,11 +287,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const targetId = productData.id || (productData as any).productId;
       const isEdit = Boolean(targetId);
 
-      // 1. Si el producto ya tiene id, enviar por PUT /api/products/:id; si es nuevo sin id, enviar por POST /api/products
       const endpoint = isEdit ? `/api/products/${encodeURIComponent(targetId!)}` : '/api/products';
       const method = isEdit ? 'PUT' : 'POST';
 
-      // 🛡️ REEMPLAZO DE NUMBER POR PARSENOUMCOP PARA BLINDAR LA EXTRACCIÓN DE NÚMEROS 🛡️
       const shippingValue = parseNumCOP(
         (productData as any).shippingCost ??
         productData.shipping_cost ??
@@ -328,7 +313,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const rawDropiCode = String(productData.dropi_product_id || (productData as any).dropiProductId || '').trim();
       const provider = productData.provider || (rawDropiCode ? 'dropi' : 'derocha');
 
-      // Respaldo preventivo en zavela_custom_costs_v1 en localStorage antes del guardado en servidor
       try {
         const rawMap = localStorage.getItem('zavela_custom_costs_v1');
         const map = rawMap ? JSON.parse(rawMap) : {};
@@ -391,11 +375,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const finalProductId = savedProductResult?.id || targetId || `prod-${Date.now()}`;
       const finalDropiCode = String(rawDropiCode || savedProductResult?.dropi_product_id || (savedProductResult as any)?.dropiProductId || '').trim();
       
-      // BLINDAJE TOTAL: Los valores exactos digitados por el usuario NUNCA pueden ser pisados por el 0 del servidor
       const finalFee = feeValue;
       const finalShipping = shippingValue;
 
-      // Respaldo local definitivo en zavela_custom_costs_v1 en localStorage tras confirmación del servidor
       try {
         const rawMap = localStorage.getItem('zavela_custom_costs_v1');
         const map = rawMap ? JSON.parse(rawMap) : {};
@@ -441,18 +423,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         publishToFacebook: productData.publishToFacebook !== false
       };
 
-      // 🛡️ ACTUALIZACIÓN LOCAL INMEDIATA - Obligamos al estado a tomar los valores reales que acabamos de limpiar y validar 🛡️
       setProducts(prev => {
         const idx = prev.findIndex(p => p.id === finalProductId);
         if (idx >= 0) {
           const copy = [...prev];
-          copy[idx] = completeSavedProduct as Product; // Reemplazo total para limpiar el estado viejo
+          copy[idx] = completeSavedProduct as Product;
           return copy;
         }
         return [completeSavedProduct as Product, ...prev];
       });
 
-      // 2. Si el toggle 'Publicar en Facebook al Guardar' está activo, asegurar publicación inmediata tras confirmación de MySQL
       let fbSyncResult: any = null;
 
       if (productData.publishToFacebook !== false) {
