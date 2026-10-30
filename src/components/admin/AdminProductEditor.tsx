@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
 // 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SOPORTA DECIMALES DE MYSQL Y PUNTOS DE MILES) 🛡️
 function parseNumCOP(val: any): number {
@@ -112,7 +113,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     }
 
     // Extracción pura y blindada directamente desde la base de datos
-    const precio = parseNumCOP(prod.precio || prod.price);
+    const precio = parseNumCOP(prod.precio ?? prod.price);
     const stock = parseNumCOP(prod.stock ?? prod.inventario);
     
     const rawProvider = String(prod.provider || prod.proveedor || '').toLowerCase().trim();
@@ -127,9 +128,25 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
     const dropiId = String(prod.dropi_product_id || prod.dropiProductId || prod.dropiId || '').trim();
     
-    // Asignación directa de flete y comisión ignorando caches antiguos
-    const comisionDropi = parseNumCOP(prod.dropi_fee ?? prod.dropiFee ?? prod.comisionDropi);
-    const fleteEnvio = parseNumCOP(prod.shipping_cost ?? prod.flete_envio ?? prod.flete ?? prod.shippingCost ?? prod.estimatedShippingCost);
+    // ⚠️ LECTURA DIRECTA Y EXHAUSTIVA DE FLETE Y COMISIÓN ⚠️
+    // Usa '??' para respetar el 0 si ese es el valor real en la BD
+    const comisionDropi = parseNumCOP(
+      prod.dropi_fee ?? 
+      prod.dropiFee ?? 
+      prod.comisionDropi ?? 
+      prod.comision ?? 
+      0
+    );
+
+    const fleteEnvio = parseNumCOP(
+      prod.shipping_cost ?? 
+      prod.flete_envio ?? 
+      prod.flete ?? 
+      prod.shippingCost ?? 
+      prod.estimatedShippingCost ?? 
+      prod.fleteEnvio ?? 
+      0
+    );
 
     let variantsList: ProductVariant[] = [];
     const rawVars = prod.variants || prod.variantes;
@@ -270,6 +287,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setIsSaving(true);
 
     try {
+      const isEditing = Boolean(formData.id || product?.id);
       const targetId = formData.id || product?.id || `prod-${Date.now()}`;
       const finalTitle = formData.title.trim();
       const finalSlug = formData.slug.trim() || finalTitle.toLowerCase().replace(/[^a-z0-9]/g, '-');
