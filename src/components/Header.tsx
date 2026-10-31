@@ -16,18 +16,16 @@ import {
   Flame,
   Headphones,
   ArrowRight,
-  Gift,
   Home,
   Smartphone,
   Sparkle,
-  Moon // Icono para la Zona Adultos
+  Moon
 } from 'lucide-react';
 import { Category, CartItem, Product, CustomSubpage, StoreSettings } from '../types/index.ts';
 import { CustomerUser } from '../utils/customerAuthManager.ts';
 import { ZavelaLogo } from './ZavelaLogo.tsx';
 import { SeasonalLogoWrapper } from './SeasonalThemeOrnaments.tsx';
 import { resolveActiveSeasonalTheme } from '../utils/seasonalThemes.ts';
-import { useNavigate } from 'react-router-dom'; // Importante para la redirección a la subpágina
 
 interface HeaderProps {
   settings?: StoreSettings | null;
@@ -96,7 +94,6 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const seasonalInfo = resolveActiveSeasonalTheme(settings);
   const activeSeasonalThemeId = seasonalInfo.activeThemeId;
-  const navigate = useNavigate(); // Hook para la redirección de React Router
 
   // Dropdown & Modal states
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
@@ -148,7 +145,6 @@ export const Header: React.FC<HeaderProps> = ({
     setIsMegaMenuOpen(false);
     setIsMobileMenuOpen(false);
 
-    // Scroll to catalog grid smoothly
     setTimeout(() => {
       document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -165,7 +161,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleOfertasClick = () => {
     handleHomeClick();
-    // Prioritize discount or featured sorting
     setTimeout(() => {
       document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
@@ -192,30 +187,23 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // Función para ir a la Zona +18
+  // Función corregida para ir a la Zona +18 usando redirección nativa
   const handleAdultZoneClick = () => {
     setIsMegaMenuOpen(false);
     setIsMobileMenuOpen(false);
-    navigate('/zavelastoresex');
+    window.location.href = '/zavelastoresex';
   };
 
-  // Active categories list
-  const activeCategories = categories.filter(c => c.active !== false && c.name.toLowerCase() !== 'sexshop' && c.name.toLowerCase() !== 'adultos'); // Ocultamos la categoría SexShop del mega menú para que no se salten la validación
+  const activeCategories = categories.filter(c => c.active !== false && c.name.toLowerCase() !== 'sexshop' && c.name.toLowerCase() !== 'adultos');
 
-  // Active category selection identifier
   const activeCategoryId = selectedCategoryId !== 'all' 
     ? selectedCategoryId 
     : (selectedCategory === 'todos' ? 'all' : (categories.find(c => c.slug === selectedCategory)?.id || 'all'));
 
   return (
     <>
-      {/* ========================================================================= */}
-      {/* 1. TOP BAR (Barra de Utilidad Superior) */}
-      {/* ========================================================================= */}
       <div id="top-announcement-bar" className="w-full bg-slate-900 text-white text-xs py-1.5 px-4 sm:px-8 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-4 text-center sm:text-left">
-          
-          {/* Izquierda: Mensaje de envíos y pago contra entrega */}
           <div className="flex items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981]" />
             <span className="text-[11px] font-medium text-slate-200">
@@ -223,7 +211,6 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Derecha: Enlaces de confianza (Atención al Cliente, Rastrea tu pedido, Garantías) */}
           <div className="flex items-center gap-3 sm:gap-5 text-slate-300 text-[11px]">
             <button 
               id="top-bar-contact-btn"
@@ -255,9 +242,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. HEADER PRINCIPAL (Fondo blanco, sticky top-0 z-50 shadow-sm) */}
-      {/* ========================================================================= */}
       <header 
         id="main-store-header" 
         ref={megaMenuContainerRef}
@@ -265,8 +249,6 @@ export const Header: React.FC<HeaderProps> = ({
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
           <div className="flex items-center justify-between gap-4 lg:gap-8">
-            
-            {/* IZQUIERDA: Logotipo original animado con festividades */}
             <button 
               id="logo-brand-btn"
               onClick={handleHomeClick}
@@ -289,10 +271,7 @@ export const Header: React.FC<HeaderProps> = ({
               </SeasonalLogoWrapper>
             </button>
 
-            {/* CENTRO: Mega Menú Horizontal */}
             <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-800">
-              
-              {/* Inicio */}
               <button
                 id="nav-link-inicio"
                 onClick={handleHomeClick}
@@ -305,7 +284,6 @@ export const Header: React.FC<HeaderProps> = ({
                 Inicio
               </button>
 
-              {/* Catálogo con Mega Menú desplegable ancho */}
               <div 
                 className="relative py-2"
                 onMouseEnter={() => setIsMegaMenuOpen(true)}
@@ -325,7 +303,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
 
-              {/* Ofertas (Destacado en color rojo/naranja) */}
               <button
                 id="nav-link-ofertas"
                 onClick={handleOfertasClick}
@@ -338,7 +315,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </button>
 
-              {/* Quiénes Somos */}
               <button
                 id="nav-link-quienes-somos"
                 onClick={handleQuienesSomosClick}
@@ -347,7 +323,6 @@ export const Header: React.FC<HeaderProps> = ({
                 Quiénes Somos
               </button>
 
-              {/* ZONA +18 (Nuevo Botón) */}
               <button
                 id="nav-link-adults"
                 onClick={handleAdultZoneClick}
@@ -356,13 +331,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <Moon className="w-3.5 h-3.5" />
                 <span>Zona +18</span>
               </button>
-
             </nav>
 
-            {/* DERECHA: Iconos de Acción (Buscador, Usuario, Panel Admin, Carrito) */}
             <div className="flex items-center gap-2 sm:gap-3">
-              
-              {/* Buscador integrado compacto */}
               <div className="relative">
                 {isSearchInputOpen ? (
                   <div className="flex items-center bg-slate-100 rounded-full border border-slate-300 px-3 py-1 animate-in fade-in zoom-in-95 duration-150">
@@ -398,7 +369,6 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
 
-              {/* Botón de Iniciar Sesión (Ícono de Usuario / Menú de Cuenta) */}
               {currentCustomer ? (
                 <div className="relative" ref={customerMenuRef}>
                   <button
@@ -414,7 +384,6 @@ export const Header: React.FC<HeaderProps> = ({
                     <ChevronDown className="w-3 h-3 text-slate-400" />
                   </button>
 
-                  {/* Menú de Usuario Logueado */}
                   {isCustomerMenuOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in duration-150">
                       <div className="px-3.5 py-2 border-b border-slate-100">
@@ -475,7 +444,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* Botón ⚙️ Panel Admin con fondo oscuro */}
               <a 
                 href="/admin" 
                 onClick={(e) => {
@@ -489,7 +457,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>⚙️ Admin</span>
               </a>
 
-              {/* Botón del Carrito de Compras */}
               <button
                 id="header-open-cart-btn"
                 onClick={onOpenCart}
@@ -508,7 +475,6 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </button>
 
-              {/* Mobile Hamburger Toggle Button */}
               <button
                 id="mobile-menu-toggle-btn"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -521,9 +487,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* ========================================================================= */}
-        {/* MEGA MENÚ DESPLEGABLE (Absolute ancho completo debajo de la barra) */}
-        {/* ========================================================================= */}
         {isMegaMenuOpen && (
           <div 
             className="absolute left-0 w-full bg-white shadow-xl border-t border-b border-slate-200 p-6 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
@@ -532,7 +495,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
               
-              {/* Columna Principal: Cuadrícula dinámica de categorías de MySQL */}
               <div className="flex-1">
                 <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-100">
                   <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
@@ -543,7 +505,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </h4>
                 </div>
                 
-                {/* Grid dinámico (3 o 4 columnas dependiendo de la pantalla) */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {activeCategories.map(cat => (
                     <button
@@ -571,7 +532,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
 
-              {/* Columna Lateral Derecha: Banner Destacado / Todo el Catálogo (Se mantiene) */}
               <div className="md:w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md shrink-0">
                 <div className="space-y-2">
                   <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-black flex items-center gap-1">
@@ -601,12 +561,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* MENÚ MÓVIL (Drawer Lateral / Panel Acordeón) */}
-        {/* ========================================================================= */}
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-4 animate-in fade-in duration-200">
-            {/* Enlaces de Navegación */}
             <div className="flex flex-col space-y-1 text-xs font-bold uppercase tracking-wider text-slate-800">
               <button
                 onClick={handleHomeClick}
@@ -615,7 +571,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Inicio</span>
               </button>
 
-              {/* Acordeón Catálogo */}
               <div>
                 <button
                   onClick={() => setIsMobileCatalogOpen(!isMobileCatalogOpen)}
@@ -650,7 +605,6 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
 
-              {/* Ofertas */}
               <button
                 onClick={handleOfertasClick}
                 className="w-full text-left py-2 px-3 rounded-xl hover:bg-red-50 text-red-600 font-black flex items-center gap-1.5"
@@ -659,7 +613,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Ofertas Flash</span>
               </button>
 
-              {/* Quiénes Somos */}
               <button
                 onClick={handleQuienesSomosClick}
                 className="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-100"
@@ -667,7 +620,6 @@ export const Header: React.FC<HeaderProps> = ({
                 Quiénes Somos
               </button>
 
-              {/* ZONA +18 MÓVIL */}
               <button
                 onClick={handleAdultZoneClick}
                 className="w-full text-left py-2 px-3 rounded-xl hover:bg-purple-900 bg-slate-900 text-purple-300 flex items-center gap-1.5 shadow-sm mt-2"
@@ -678,7 +630,6 @@ export const Header: React.FC<HeaderProps> = ({
 
             </div>
 
-            {/* Accesos rápidos de la Top Bar en móvil */}
             <div className="pt-3 border-t border-slate-100 space-y-2 text-xs">
               <button
                 onClick={() => { setIsMobileMenuOpen(false); setIsContactModalOpen(true); }}
@@ -705,7 +656,6 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            {/* Panel Admin en móvil */}
             <div className="pt-2 border-t border-slate-100">
               <a
                 href="/admin"
@@ -723,11 +673,6 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </header>
 
-      {/* ========================================================================= */}
-      {/* MODALES INFORMATIVOS (Atención al Cliente, Garantías, Quiénes Somos) */}
-      {/* ========================================================================= */}
-
-      {/* Modal Atención al Cliente */}
       {isContactModalOpen && (
         <div 
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
@@ -773,7 +718,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      {/* Modal Garantías */}
       {isWarrantyModalOpen && (
         <div 
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
@@ -788,108 +732,4 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
-                <h3 className="font-black text-sm uppercase tracking-wider text-slate-900">
-                  Garantía y Confianza Zavela
-                </h3>
-              </div>
-              <button 
-                onClick={() => setIsWarrantyModalOpen(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-600 space-y-2.5 leading-relaxed">
-              <p>Todos nuestros productos cuentan con garantía oficial de 30 días contra defectos de fábrica.</p>
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 space-y-1 text-amber-950 text-[11px]">
-                <p className="font-bold">✓ Cobertura 100% en caso de daño en transporte</p>
-                <p className="font-bold">✓ Pago Contra Entrega: pagas al recibir</p>
-                <p className="font-bold">✓ Proceso ágil de cambio y reemplazo de piezas</p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsWarrantyModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
-            >
-              Entendido
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Quiénes Somos */}
-      {isQuienesSomosModalOpen && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
-          onClick={() => setIsQuienesSomosModalOpen(false)}
-        >
-          <div 
-            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 text-slate-900 space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-900">
-                    Quiénes Somos • Zavela Store
-                  </h3>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Tu tienda de confianza en Colombia
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsQuienesSomosModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
-                title="Cerrar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
-              <p>
-                En <strong>Zavela Store</strong> seleccionamos lo mejor en artículos de temporada, tecnología, cuidado personal y soluciones para el hogar, garantizando productos certificados y entregas rápidas en todo el territorio colombiano.
-              </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-emerald-950 text-xs">Pago Contra Entrega</h4>
-                    <p className="text-[11px] text-emerald-800">Pagas en efectivo únicamente al recibir tu producto en casa.</p>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 flex items-start gap-2">
-                  <Truck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-sky-950 text-xs">Cobertura 32 Deptos</h4>
-                    <p className="text-[11px] text-sky-800">Alianzas con Servientrega, Coordinadora e Interrapidísimo.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Esta sección está conectada al panel de administración para editar contenido institucional.</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setIsQuienesSomosModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-xs"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
+                <h3 className="font-black text-sm uppercase tracking-wider text-slate
