@@ -732,4 +732,107 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
-                <h3 className="font-black text-sm uppercase tracking-wider text-slate
+                <h3 className="font-black text-sm uppercase tracking-wider text-slate-900">
+                  Garantía y Confianza Zavela
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsWarrantyModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600 space-y-2.5 leading-relaxed">
+              <p>Todos nuestros productos cuentan con garantía oficial de 30 días contra defectos de fábrica.</p>
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 space-y-1 text-amber-950 text-[11px]">
+                <p className="font-bold">✓ Cobertura 100% en caso de daño en transporte</p>
+                <p className="font-bold">✓ Pago Contra Entrega: pagas al recibir</p>
+                <p className="font-bold">✓ Proceso ágil de cambio y reemplazo de piezas</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsWarrantyModalOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isQuienesSomosModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setIsQuienesSomosModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 text-slate-900 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm uppercase tracking-wider text-slate-900">
+                    Quiénes Somos • Zavela Store
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Tu tienda de confianza en Colombia
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsQuienesSomosModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
+              <p>
+                En <strong>Zavela Store</strong> seleccionamos lo mejor en artículos de temporada, tecnología, cuidado personal y soluciones para el hogar, garantizando productos certificados y entregas rápidas en todo el territorio colombiano.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-emerald-950 text-xs">Pago Contra Entrega</h4>
+                    <p className="text-[11px] text-emerald-800">Pagas en efectivo únicamente al recibir tu producto en casa.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 flex items-start gap-2">
+                  <Truck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-sky-950 text-xs">Cobertura 32 Deptos</h4>
+                    <p className="text-[11px] text-sky-800">Alianzas con Servientrega, Coordinadora e Interrapidísimo.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Esta sección está conectada al panel de administración para editar contenido institucional.</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsQuienesSomosModalOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-xs"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
