@@ -19,13 +19,15 @@ import {
   Gift,
   Home,
   Smartphone,
-  Sparkle
+  Sparkle,
+  Moon // Icono para la Zona Adultos
 } from 'lucide-react';
 import { Category, CartItem, Product, CustomSubpage, StoreSettings } from '../types/index.ts';
 import { CustomerUser } from '../utils/customerAuthManager.ts';
 import { ZavelaLogo } from './ZavelaLogo.tsx';
 import { SeasonalLogoWrapper } from './SeasonalThemeOrnaments.tsx';
 import { resolveActiveSeasonalTheme } from '../utils/seasonalThemes.ts';
+import { useNavigate } from 'react-router-dom'; // Importante para la redirección a la subpágina
 
 interface HeaderProps {
   settings?: StoreSettings | null;
@@ -94,6 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const seasonalInfo = resolveActiveSeasonalTheme(settings);
   const activeSeasonalThemeId = seasonalInfo.activeThemeId;
+  const navigate = useNavigate(); // Hook para la redirección de React Router
 
   // Dropdown & Modal states
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
@@ -189,8 +192,15 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  // Función para ir a la Zona +18
+  const handleAdultZoneClick = () => {
+    setIsMegaMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    navigate('/zavelastoresex');
+  };
+
   // Active categories list
-  const activeCategories = categories.filter(c => c.active !== false);
+  const activeCategories = categories.filter(c => c.active !== false && c.name.toLowerCase() !== 'sexshop' && c.name.toLowerCase() !== 'adultos'); // Ocultamos la categoría SexShop del mega menú para que no se salten la validación
 
   // Active category selection identifier
   const activeCategoryId = selectedCategoryId !== 'all' 
@@ -287,7 +297,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id="nav-link-inicio"
                 onClick={handleHomeClick}
                 className={`py-2 transition-colors cursor-pointer ${
-                  activeCategoryId === 'all' && !searchQuery
+                  activeCategoryId === 'all' && !searchQuery && window.location.pathname === '/'
                     ? 'text-sky-600 font-black'
                     : 'hover:text-sky-600'
                 }`}
@@ -336,6 +346,17 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 Quiénes Somos
               </button>
+
+              {/* ZONA +18 (Nuevo Botón) */}
+              <button
+                id="nav-link-adults"
+                onClick={handleAdultZoneClick}
+                className="py-2 px-3 rounded-full bg-slate-900 text-purple-300 hover:text-white hover:bg-purple-900 font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span>Zona +18</span>
+              </button>
+
             </nav>
 
             {/* DERECHA: Iconos de Acción (Buscador, Usuario, Panel Admin, Carrito) */}
@@ -645,6 +666,16 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 Quiénes Somos
               </button>
+
+              {/* ZONA +18 MÓVIL */}
+              <button
+                onClick={handleAdultZoneClick}
+                className="w-full text-left py-2 px-3 rounded-xl hover:bg-purple-900 bg-slate-900 text-purple-300 flex items-center gap-1.5 shadow-sm mt-2"
+              >
+                <Moon className="w-3.5 h-3.5" />
+                <span>Zona +18</span>
+              </button>
+
             </div>
 
             {/* Accesos rápidos de la Top Bar en móvil */}
