@@ -213,8 +213,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {consolidatedDiscount > 0 && (
                 <div className="flex justify-between items-center py-2 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 animate-fadeIn">
                   <span className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
-                    <Gift className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>¡Ahorraste {formatCOP(consolidatedDiscount)} por envíos consolidados!</span>
+                    <span>🎁 ¡Ahorro automático por compra múltiple!</span>
                   </span>
                   <span className="font-mono font-black text-emerald-700 text-xs shrink-0">
                     -{formatCOP(consolidatedDiscount)}

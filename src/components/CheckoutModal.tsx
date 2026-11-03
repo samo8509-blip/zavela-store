@@ -944,9 +944,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {consolidatedDiscount > 0 && (
                 <div className="flex justify-between items-center py-2 px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 animate-fadeIn">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <Gift className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="font-extrabold text-xs text-emerald-800 truncate">
-                      ¡Ahorraste {formatCOP(consolidatedDiscount)} por envíos consolidados!
+                      🎁 ¡Ahorro automático por compra múltiple!
                     </span>
                   </div>
                   <span className="font-mono font-black text-xs text-emerald-700 shrink-0">
