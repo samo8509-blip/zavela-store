@@ -87,17 +87,16 @@ import {
 } from './utils/productUrlResolver.ts';
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
-import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx'; // Importación corregida de la página +18
+import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
 
 export default function App() {
-  // Navigation State (Detects /zavelastoresex automatically)
   const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
       if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
       if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
-      if (path === '/zavelastoresex') return 'subpage'; // 🛡️ ENRUTAMIENTO ZONA +18
+      if (path === '/zavelastoresex') return 'subpage'; 
     }
     return 'store';
   });
@@ -116,17 +115,14 @@ export default function App() {
   const [authenticatedAdvisor, setAuthenticatedAdvisor] = useState<Advisor | null>(() => getStoredAdvisor());
   const [showSecretLogin, setShowSecretLogin] = useState(false);
 
-  // Customer Account & Authentication State
   const [currentCustomer, setCurrentCustomer] = useState<CustomerUser | null>(() => getCurrentCustomer());
   const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [customerAuthInitialTab, setCustomerAuthInitialTab] = useState<'login' | 'register'>('login');
   const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
 
-  // Trust Color Palette State
   const [activePaletteId] = useState<string>(() => getStoredPaletteId());
   const activePalette = TRUST_PALETTES.find(p => p.id === activePaletteId) || TRUST_PALETTES[0];
 
-  // Catalog State
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -136,12 +132,10 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'discount'>('featured');
 
-  // Settings State
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Interactive Modals State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -152,7 +146,6 @@ export default function App() {
     phone: string;
   } | null>(null);
 
-  // Dynamic Browser Tab Title Management
   useEffect(() => {
     if (selectedProduct) {
       const prodName = selectedProduct.title || selectedProduct.name || 'Producto';
@@ -162,7 +155,6 @@ export default function App() {
     }
   }, [selectedProduct]);
 
-  // Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('zavela_cart') || localStorage.getItem('novora_cart');
@@ -779,7 +771,6 @@ export default function App() {
     }));
   };
 
-  // Ocultamos "SexShop" del scroll horizontal de categorías
   const effectiveCategories = useMemo(() => {
     const baseList: Category[] = categories && categories.length > 0 ? [...categories] : [...DEFAULT_CATEGORIES];
     const categoryMap = new Map<string, Category>();
@@ -846,11 +837,9 @@ export default function App() {
     }).length;
   }, [products, effectiveCategories]);
 
-  // 🛡️ FILTRO DE SEGURIDAD: Aquí evitamos que la categoría SexShop aparezca en el inicio o buscador
   const filteredProducts = products.filter(p => {
     if (p.active === false) return false;
 
-    // ⛔ Bloqueo estricto para productos de adultos
     const pCatNameCheck = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
     if (pCatNameCheck === 'sexshop' || pCatNameCheck === 'adultos') {
       return false; 
@@ -949,6 +938,7 @@ export default function App() {
   });
 
   const featuredProducts = products.filter(p => p.featured && p.active);
+  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
 
   if (currentView === 'admin') {
     if (!checkIsAdminAuthenticated()) {
