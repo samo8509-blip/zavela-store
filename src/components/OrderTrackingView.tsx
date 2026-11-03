@@ -22,6 +22,7 @@ import { formatCOP } from '../utils/formatters.ts';
 import { getCustomerOrders } from '../utils/customerOrdersManager.ts';
 import { 
   CarrierShipment, 
+  ShipmentCheckpoint,
   COLOMBIAN_TEST_GUIDES, 
   COLOMBIAN_CARRIERS_META, 
   findShipmentByQuery,
@@ -53,6 +54,182 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
   }
   if (!cleanPhone) cleanPhone = '573157894512';
 
+  // Normalizador inteligente de transportadora nacional
+  const normalizeCarrierName = (rawCarrier?: string, rawTracking?: string): ColombianCarrierName => {
+    const c = String(rawCarrier || '').toLowerCase();
+    const t = String(rawTracking || '').toUpperCase();
+
+    if (c.includes('coord') || c.includes('coordinadora')) return 'Coordinadora';
+    if (c.includes('servi') || c.includes('servientrega')) return 'Servientrega';
+    if (c.includes('inter') || c.includes('rapidisimo') || c.includes('rapidísimo')) return 'Inter Rapidísimo';
+    if (c.includes('envi') || c.includes('envía') || c.includes('colvanes')) return 'Envía';
+    if (c.includes('tcc')) return 'Coordinadora';
+
+    if (t.startsWith('COO') || t.startsWith('COR')) return 'Coordinadora';
+    if (t.startsWith('SER')) return 'Servientrega';
+    if (t.startsWith('INT')) return 'Inter Rapidísimo';
+    if (t.startsWith('ENV')) return 'Envía';
+
+    return 'Coordinadora';
+  };
+
+  // Conversión universal de un Pedido Real a la Tarjeta de Rastreo Oficial
+  const resolveOrderToShipment = (o: any): CarrierShipment => {
+    const rawCarrier = o.carrier || o.transportadora || o.shipping_carrier || o.shippingCarrier || '';
+    const rawTracking = o.trackingNumber || o.tracking_number || o.dropi_guia || o.dropiGuia || o.guia || o.numero_guia || '';
+    const carrierName = normalizeCarrierName(rawCarrier, rawTracking);
+
+    const orderNum = String(o.orderNumber || o.order_number || o.id || 'ZAV-1001').replace(/^#/, '');
+    const orderId = String(o.id || o.orderId || orderNum);
+
+    // Número de guía oficial o asignado
+    let finalTracking = String(rawTracking).trim();
+    if (!finalTracking) {
+      const prefix = 
+        carrierName === 'Coordinadora' ? 'COO' :
+        carrierName === 'Servientrega' ? 'SER' :
+        carrierName === 'Inter Rapidísimo' ? 'INT' : 'ENV';
+      const cleanNumeric = orderId.replace(/\D/g, '').slice(-10) || Math.floor(1000000000 + Math.random() * 9000000000).toString();
+      finalTracking = `${prefix}-${cleanNumeric}`;
+    }
+
+    // Mapeo detallado de los 5 estados de despacho oficial
+    const rawStatus = String(o.status || o.estado || '').toLowerCase();
+    let step = 1;
+    let statusTxt = 'En Preparación y Control de Calidad';
+    let statusDesc = `Tus productos han superado el control de calidad en bodega central y se preparan para recolección con ${carrierName}.`;
+    let estDelivery = '2 a 4 días hábiles';
+
+    if (rawStatus.includes('entrega') || rawStatus.includes('delivered') || rawStatus === '4') {
+      step = 4;
+      statusTxt = 'Entregado a Satisfacción';
+      statusDesc = `El paquete fue entregado exitosamente en tu domicilio por ${carrierName} y el recaudo contra entrega fue confirmado.`;
+      estDelivery = 'Entregado a satisfacción';
+    } else if (rawStatus.includes('ruta') || rawStatus.includes('reparto') || rawStatus === '3') {
+      step = 3;
+      statusTxt = `En Ruta de Entrega Domiciliaria (${carrierName})`;
+      statusDesc = `El mensajero de ${carrierName} se desplaza a tu dirección con el paquete. Recuerda tener listo el efectivo.`;
+      estDelivery = 'Llega hoy o en las próximas 24 horas';
+    } else if (rawStatus.includes('enviado') || rawStatus.includes('despachado') || rawStatus.includes('dropi') || rawStatus.includes('transito') || rawStatus === '2') {
+      step = 2;
+      statusTxt = `Despachado con ${carrierName}`;
+      statusDesc = `Guía oficial ${finalTracking} asignada. El paquete viaja en la red de transporte terrestre nacional.`;
+      estDelivery = '2 a 3 días hábiles';
+    } else if (rawStatus.includes('prepar') || rawStatus.includes('procesando') || rawStatus === '1') {
+      step = 1;
+      statusTxt = 'En Preparación en Bodega Central';
+      statusDesc = `El pedido #${orderNum} está siendo precintado y rotulado para entrega al transportador oficial.`;
+      estDelivery = '2 a 4 días hábiles';
+    } else if (rawStatus.includes('pendiente') || rawStatus.includes('confirmado') || rawStatus === '0') {
+      step = 0;
+      statusTxt = 'Pedido Confirmado en Sistema';
+      statusDesc = `Tu pedido fue registrado exitosamente con pago contra entrega en Zavela Store. Iniciando empaque prioritario.`;
+      estDelivery = '3 a 5 días hábiles';
+    }
+
+    // Destino
+    const destCity = o.customerCity || o.city || o.ciudad || o.shippingAddress?.city || o.customerInfo?.city || 'Colombia';
+    const destAddress = o.customerAddress || o.address || o.direccion || o.shippingAddress?.addressLine1 || o.customerInfo?.address || 'Dirección registrada';
+
+    // Monto y pago
+    const orderTotal = Number(o.total || o.totalAmount || o.subtotal || 0);
+    const rawPayment = String(o.paymentMethod || o.payment_method || o.metodo_pago || '').toLowerCase();
+    const isCOD = !rawPayment.includes('online') && !rawPayment.includes('epayco') && !rawPayment.includes('transfer');
+    const paymentMode: 'contra_entrega' | 'ya_pagado' = isCOD ? 'contra_entrega' : 'ya_pagado';
+    const paymentModeLabel = isCOD ? 'Pago Contra Entrega en Efectivo' : 'Pago Online Confirmado';
+
+    // Artículos
+    const items = Array.isArray(o.items) ? o.items : [];
+    const firstItem = items[0] || {};
+    const productTitle = firstItem.title || firstItem.productTitle || firstItem.nombre || `Pedido Oficial #${orderNum} (${items.length || 1} producto${items.length > 1 ? 's' : ''})`;
+    const productImage = firstItem.image || firstItem.productImage || (Array.isArray(firstItem.images) && firstItem.images[0]) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
+
+    const orderDate = o.createdAt || o.date || new Date().toISOString();
+    let dateFormatted = 'Hoy';
+    try {
+      dateFormatted = new Date(orderDate).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {}
+
+    const checkpoints: ShipmentCheckpoint[] = [
+      {
+        id: `cp-${orderId}-0`,
+        date: dateFormatted,
+        time: 'Registrado',
+        location: 'Bodega Principal Zavela Store',
+        city: 'Bogotá D.C.',
+        status: 'Pedido Confirmado en Sistema',
+        description: `Pedido #${orderNum} registrado en plataforma Zavela Store bajo modalidad de Pago Contra Entrega.`,
+        isCompleted: true,
+        isCurrent: step === 0
+      },
+      ...(step >= 1 ? [{
+        id: `cp-${orderId}-1`,
+        date: dateFormatted,
+        time: 'En bodega',
+        location: 'Centro de Alistamiento & Embalaje',
+        city: 'Bogotá D.C.',
+        status: 'Preparación y Control de Calidad',
+        description: 'Inspección de producto completada. Generando manifiesto y rótulo de transporte.',
+        isCompleted: true,
+        isCurrent: step === 1
+      }] : []),
+      ...(step >= 2 ? [{
+        id: `cp-${orderId}-2`,
+        date: 'En tránsito',
+        time: 'Red Nacional',
+        location: `Hub de Distribución ${carrierName}`,
+        city: 'Centro Logístico Colombia',
+        status: `Despachado con ${carrierName}`,
+        description: `Envío cargado en ruta troncal con número de guía oficial ${finalTracking}.`,
+        isCompleted: true,
+        isCurrent: step === 2
+      }] : []),
+      ...(step >= 3 ? [{
+        id: `cp-${orderId}-3`,
+        date: 'Hoy',
+        time: 'En reparto',
+        location: `Agencia de Destino ${carrierName}`,
+        city: destCity,
+        status: 'En Ruta de Entrega Domiciliaria',
+        description: `El vehículo de distribución se desplaza a ${destAddress}. Ten listo el valor de ${formatCOP(orderTotal)} en efectivo.`,
+        isCompleted: true,
+        isCurrent: step === 3
+      }] : []),
+      ...(step >= 4 ? [{
+        id: `cp-${orderId}-4`,
+        date: 'Confirmado',
+        time: 'Entregado',
+        location: destCity,
+        city: destCity,
+        status: 'Entregado a Satisfacción',
+        description: 'El paquete fue recibido a entera satisfacción por el cliente en el domicilio.',
+        isCompleted: true,
+        isCurrent: true
+      }] : [])
+    ];
+
+    return {
+      orderNumber: orderNum,
+      trackingNumber: finalTracking,
+      carrier: carrierName,
+      originCity: 'Bogotá D.C. (Bodega Central Zavela)',
+      originHub: 'Centro Logístico Nacional Cundinamarca',
+      destinationCity: destCity,
+      destinationAddress: destAddress,
+      estimatedDelivery: estDelivery,
+      statusStep: step,
+      statusTitle: statusTxt,
+      statusDetails: statusDesc,
+      paymentMode,
+      paymentModeLabel,
+      totalCOP: orderTotal,
+      productTitle,
+      productImage,
+      carrierGuideFormat: COLOMBIAN_CARRIERS_META[carrierName].guideFormatDescription,
+      checkpoints
+    };
+  };
+
   const handleSearch = async (queryToSearch: string) => {
     const q = queryToSearch.trim();
     if (!q) return;
@@ -60,7 +237,126 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
 
-    // 1. Search in Colombian test guides (exact or numeric match)
+    const cleanQ = q.toUpperCase().replace(/\s+/g, '');
+    const lowerQ = q.toLowerCase();
+    const cleanDigits = q.replace(/\D/g, '');
+
+    // 1. Prioridad: Buscar en pedidos reales guardados en localStorage (Historial del Cliente)
+    const customerOrders = getCustomerOrders();
+    const matchedCustomerOrder = customerOrders.find((o: any) => {
+      const oId = String(o.id || '').toLowerCase();
+      const oNum = String(o.orderNumber || '').toUpperCase();
+      const oTrack = String(o.trackingNumber || '').toUpperCase();
+      return (
+        oId === lowerQ ||
+        (cleanDigits.length >= 6 && oId.replace(/\D/g, '').includes(cleanDigits)) ||
+        oNum === cleanQ ||
+        oTrack === cleanQ ||
+        oId.includes(lowerQ) ||
+        oNum.includes(cleanQ) ||
+        oTrack.includes(cleanQ)
+      );
+    });
+
+    if (matchedCustomerOrder) {
+      setActiveShipment(resolveOrderToShipment(matchedCustomerOrder));
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Buscar en todas las llaves posibles de localStorage para pedidos de Zavela
+    try {
+      const candidateKeys = ['zavela_my_orders', 'zavela_orders', 'novora_orders', 'last_order', 'zavela_last_order'];
+      for (const key of candidateKeys) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          const list = Array.isArray(parsed) ? parsed : [parsed];
+          const found = list.find((o: any) => {
+            if (!o || typeof o !== 'object') return false;
+            const oId = String(o.id || '').toLowerCase();
+            const oNum = String(o.orderNumber || o.order_number || '').toUpperCase();
+            const oTrack = String(o.trackingNumber || o.tracking_number || o.dropi_guia || '').toUpperCase();
+            return (
+              oId === lowerQ ||
+              (lowerQ.length > 5 && oId.includes(lowerQ)) ||
+              oNum === cleanQ ||
+              oTrack === cleanQ ||
+              (cleanDigits.length >= 6 && oId.replace(/\D/g, '').includes(cleanDigits))
+            );
+          });
+          if (found) {
+            setActiveShipment(resolveOrderToShipment(found));
+            setIsLoading(false);
+            return;
+          }
+        } catch {}
+      }
+    } catch {}
+
+    // 3. Consultar la API del backend (/api/orders/track, /api/orders/:id, /api/admin/orders)
+    try {
+      const endpointsToTry = [
+        `/api/orders/track/${encodeURIComponent(q)}`,
+        `/api/orders/${encodeURIComponent(q)}`,
+        `/api/admin/orders?search=${encodeURIComponent(q)}`
+      ];
+
+      let foundApiOrder: any = null;
+
+      for (const ep of endpointsToTry) {
+        try {
+          const resp = await fetch(ep);
+          if (resp.ok) {
+            const json = await resp.json();
+            if (json.success) {
+              if (Array.isArray(json.data) && json.data.length > 0) {
+                foundApiOrder = json.data[0];
+                break;
+              } else if (json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
+                foundApiOrder = json.data;
+                break;
+              } else if (Array.isArray(json.orders) && json.orders.length > 0) {
+                foundApiOrder = json.orders[0];
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (foundApiOrder) {
+        setActiveShipment(resolveOrderToShipment(foundApiOrder));
+        setIsLoading(false);
+        return;
+      }
+    } catch {}
+
+    // 4. Consultar script PHP de cPanel MySQL en caso de sincronización remota
+    try {
+      const cpanelRes = await fetch(`https://api.zavelastore.com.co/api.php?action=pedidos&search=${encodeURIComponent(q)}`, {
+        signal: AbortSignal.timeout(3000)
+      }).catch(() => null);
+
+      if (cpanelRes && cpanelRes.ok) {
+        const cpanelData = await cpanelRes.json().catch(() => null);
+        const list = Array.isArray(cpanelData?.data) ? cpanelData.data : (Array.isArray(cpanelData) ? cpanelData : []);
+        const matched = list.find((o: any) => {
+          const oId = String(o.id || '').toLowerCase();
+          const oNum = String(o.order_number || o.orderNumber || '').toUpperCase();
+          const oTrack = String(o.tracking_number || o.trackingNumber || o.dropi_guia || '').toUpperCase();
+          return oId === lowerQ || oNum === cleanQ || oTrack === cleanQ || oId.includes(lowerQ);
+        });
+        if (matched) {
+          setActiveShipment(resolveOrderToShipment(matched));
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch {}
+
+    // 5. Consulta en guías simuladas de prueba (Inter Rapidísimo, Servientrega, Coordinadora, Envía)
     const foundSample = findShipmentByQuery(q);
     if (foundSample) {
       setActiveShipment(foundSample);
@@ -68,124 +364,14 @@ export const OrderTrackingView: React.FC<OrderTrackingViewProps> = ({
       return;
     }
 
-    // 2. Check customer orders recorded in portal (from recent purchases)
-    const customerOrders = getCustomerOrders();
-    const cleanQ = q.toUpperCase().replace(/\s+/g, '');
-    const foundCustomerOrder = customerOrders.find(
-      o => o.orderNumber.toUpperCase() === cleanQ || 
-           (o.trackingNumber && o.trackingNumber.toUpperCase() === cleanQ)
-    );
-
-    if (foundCustomerOrder) {
-      let step = 1;
-      let statusTxt = 'En preparación en bodega';
-      if (foundCustomerOrder.status === 'enviado') {
-        step = 3;
-        statusTxt = 'En ruta de entrega con transportadora';
-      }
-      if (foundCustomerOrder.status === 'entregado') {
-        step = 4;
-        statusTxt = 'Entregado a satisfacción';
-      }
-
-      const carrierName: ColombianCarrierName = 
-        foundCustomerOrder.carrier?.toLowerCase().includes('servi') ? 'Servientrega' :
-        foundCustomerOrder.carrier?.toLowerCase().includes('coord') ? 'Coordinadora' :
-        foundCustomerOrder.carrier?.toLowerCase().includes('inter') ? 'Inter Rapidísimo' : 'Envía';
-
-      setActiveShipment({
-        orderNumber: foundCustomerOrder.orderNumber,
-        trackingNumber: foundCustomerOrder.trackingNumber || `ZV-${foundCustomerOrder.orderNumber}`,
-        carrier: carrierName,
-        originCity: 'Bogotá D.C. (Bodega Central Zavela)',
-        originHub: 'Centro Logístico Principal',
-        destinationCity: foundCustomerOrder.customerCity || 'Colombia',
-        destinationAddress: foundCustomerOrder.customerAddress || 'Dirección registrada',
-        estimatedDelivery: step === 4 ? 'Entregado a satisfacción' : '2 a 3 días hábiles',
-        statusStep: step,
-        statusTitle: statusTxt,
-        statusDetails: `Despacho asignado a ${carrierName} bajo la modalidad de Pago Contra Entrega.`,
-        paymentMode: 'contra_entrega',
-        paymentModeLabel: foundCustomerOrder.paymentMethod || 'Pago Contra Entrega en Efectivo',
-        totalCOP: foundCustomerOrder.total,
-        productTitle: foundCustomerOrder.items[0]?.title || 'Pedido Oficial Zavela Store',
-        productImage: foundCustomerOrder.items[0]?.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
-        carrierGuideFormat: COLOMBIAN_CARRIERS_META[carrierName].guideFormatDescription,
-        checkpoints: [
-          {
-            id: 'cp-user-1',
-            date: 'Hoy',
-            time: 'Reciente',
-            location: 'Centro de Distribución',
-            city: foundCustomerOrder.customerCity || 'Colombia',
-            status: statusTxt,
-            description: `Seguimiento activo en la red logística de ${carrierName}. Recuerda tener listo el efectivo al momento de la entrega.`,
-            isCompleted: true,
-            isCurrent: true
-          }
-        ]
-      });
-      setIsLoading(false);
-      return;
+    // 6. Mensaje de error guiado y empático
+    if (lowerQ.startsWith('ord-') || lowerQ.startsWith('zv-') || lowerQ.startsWith('nv-')) {
+      setErrorMessage(`No se encontró en la base de datos el pedido "${queryToSearch}". Si acabas de realizar la compra, el sistema puede tardar un par de minutos en sincronizar los servidores, o puedes contactar a nuestro equipo por WhatsApp.`);
+    } else {
+      setErrorMessage(`No pudimos localizar la guía o pedido "${queryToSearch}". Te sugerimos verificar el número o probar con uno de los 4 botones de ejemplo directo de Servientrega, Coordinadora, Inter Rapidísimo o Envía.`);
     }
 
-    // 3. Fallback: Query backend API
-    try {
-      const response = await fetch(`/api/orders/track/${encodeURIComponent(q)}`);
-      const data = await response.json();
-
-      if (response.ok && data.success && data.data.length > 0) {
-        const o = data.data[0];
-        let step = 0;
-        if (o.status === 'procesando') step = 1;
-        if (o.status === 'enviado') step = 2;
-        if (o.status === 'entregado') step = 4;
-
-        const carrierName: ColombianCarrierName = 
-          (o.carrier || '').toLowerCase().includes('coord') ? 'Coordinadora' :
-          (o.carrier || '').toLowerCase().includes('inter') ? 'Inter Rapidísimo' :
-          (o.carrier || '').toLowerCase().includes('env') ? 'Envía' : 'Servientrega';
-
-        setActiveShipment({
-          orderNumber: o.orderNumber,
-          trackingNumber: o.trackingNumber || `GUIA-${o.orderNumber}`,
-          carrier: carrierName,
-          originCity: 'Bodega Principal Zavela Store',
-          originHub: 'Centro Logístico Cundinamarca',
-          destinationCity: o.shippingAddress?.city || 'Colombia',
-          destinationAddress: o.shippingAddress?.addressLine1 || 'Dirección de envío',
-          estimatedDelivery: step === 4 ? 'Entregado a satisfacción' : 'En proceso de entrega',
-          statusStep: step,
-          statusTitle: 'Envío registrado en plataforma',
-          statusDetails: 'Despacho registrado en el sistema oficial de Zavela Store con transportadora nacional aliada.',
-          paymentMode: 'contra_entrega',
-          paymentModeLabel: 'Pago Contra Entrega en Efectivo',
-          totalCOP: o.total,
-          productTitle: o.items?.[0]?.productTitle || 'Pedido Zavela',
-          productImage: o.items?.[0]?.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500',
-          carrierGuideFormat: COLOMBIAN_CARRIERS_META[carrierName].guideFormatDescription,
-          checkpoints: [
-            {
-              id: 'cp-api-1',
-              date: 'Hoy',
-              time: 'En tránsito',
-              location: 'Plataforma Logística Nacional',
-              city: o.shippingAddress?.city || 'Colombia',
-              status: 'En Proceso de Despacho',
-              description: `Envío gestionado a través de ${carrierName}.`,
-              isCompleted: true,
-              isCurrent: true
-            }
-          ]
-        });
-      } else {
-        setErrorMessage(`No se encontró ningún paquete con la guía o pedido "${queryToSearch}". Te sugerimos probar con uno de los 4 botones de ejemplo directo de Servientrega, Coordinadora, Inter Rapidísimo o Envía.`);
-      }
-    } catch {
-      setErrorMessage(`No fue posible consultar el servidor en este momento. Puedes probar con las guías de demostración activas.`);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   };
 
   useEffect(() => {

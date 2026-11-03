@@ -265,10 +265,72 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/track/:query', (req, res) => {
+router.get('/track/:query', async (req, res) => {
   try {
-    const orders = db.getOrderByPhoneOrEmail(req.params.query);
-    if (orders.length === 0) return res.status(404).json({ success: false, message: 'No encontrado.' });
+    const rawQuery = String(req.params.query || '').trim();
+    if (!rawQuery) {
+      return res.status(400).json({ success: false, message: 'Parámetro de búsqueda requerido.' });
+    }
+
+    // 1. Búsqueda en memoria local
+    let orders = db.getOrderByPhoneOrEmail(rawQuery);
+    const byId = db.getOrderById(rawQuery);
+    if (byId && !orders.some(o => o.id === byId.id)) {
+      orders.unshift(byId);
+    }
+
+    // 2. Respaldo directo en MySQL
+    if (orders.length === 0 && (pool || nativePool)) {
+      try {
+        const dbPool = pool || nativePool;
+        const [rows]: any = await dbPool.query(
+          'SELECT * FROM orders WHERE id = ? OR order_number = ? OR tracking_number = ? OR customer_phone LIKE ? LIMIT 5',
+          [rawQuery, rawQuery, rawQuery, `%${rawQuery}%`]
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          const dbOrders = rows.map((dbOrder: any) => ({
+            id: dbOrder.id,
+            orderNumber: dbOrder.order_number,
+            customerName: dbOrder.customer_name,
+            customerPhone: dbOrder.customer_phone,
+            customerEmail: dbOrder.customer_email,
+            department: dbOrder.department,
+            city: dbOrder.city,
+            address: dbOrder.address,
+            dane_code: dbOrder.dane_code,
+            status: dbOrder.status,
+            paymentMethod: dbOrder.payment_method,
+            carrier: dbOrder.carrier || 'Coordinadora',
+            trackingNumber: dbOrder.tracking_number || dbOrder.dropi_guia,
+            dropi_guia: dbOrder.dropi_guia,
+            total: Number(dbOrder.total) || 0,
+            items: typeof dbOrder.items === 'string' ? JSON.parse(dbOrder.items) : (dbOrder.items || []),
+            createdAt: dbOrder.created_at || new Date().toISOString(),
+            updatedAt: dbOrder.updated_at || new Date().toISOString()
+          }));
+          dbOrders.forEach((o: any) => db.saveOrder(o));
+          orders = dbOrders;
+        }
+      } catch (err) {
+        console.warn('[Track MySQL Rescue]:', err);
+      }
+    }
+
+    // 3. Respaldo en cPanel API si aún está vacío
+    if (orders.length === 0) {
+      try {
+        const remoteOrders = await cpanelDbService.fetchOrders();
+        if (remoteOrders && remoteOrders.length > 0) {
+          db.mergeRemoteOrders(remoteOrders);
+          orders = db.getOrderByPhoneOrEmail(rawQuery);
+        }
+      } catch {}
+    }
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, message: 'No se encontraron pedidos con ese criterio de búsqueda.' });
+    }
+
     res.json({ success: true, data: orders });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

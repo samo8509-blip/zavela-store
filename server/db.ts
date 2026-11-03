@@ -679,12 +679,30 @@ class DatabaseStore {
 
   getOrderById(idOrNumber: string): Order | undefined {
     const q = idOrNumber.trim().toLowerCase();
-    return this.data.orders.find(o => o.id === idOrNumber || o.orderNumber.toLowerCase() === q || o.trackingNumber?.toLowerCase() === q);
+    return this.data.orders.find(o => 
+      o.id === idOrNumber || 
+      o.id?.toLowerCase() === q || 
+      o.orderNumber.toLowerCase() === q || 
+      o.trackingNumber?.toLowerCase() === q ||
+      (o.dropi_guia && o.dropi_guia.toLowerCase() === q)
+    );
   }
 
   getOrderByPhoneOrEmail(query: string): Order[] {
     const q = query.trim().toLowerCase();
-    return this.data.orders.filter(o => o.customerPhone.includes(q) || o.customerEmail.toLowerCase() === q || o.orderNumber.toLowerCase() === q || o.trackingNumber?.toLowerCase() === q).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const cleanDigits = q.replace(/\D/g, '');
+    return this.data.orders.filter(o => 
+      o.id?.toLowerCase() === q ||
+      o.id?.toLowerCase().includes(q) ||
+      (cleanDigits.length >= 6 && o.id?.replace(/\D/g, '').includes(cleanDigits)) ||
+      o.customerPhone.includes(q) || 
+      o.customerEmail.toLowerCase() === q || 
+      o.orderNumber.toLowerCase() === q || 
+      o.orderNumber.toLowerCase().includes(q) ||
+      o.trackingNumber?.toLowerCase() === q ||
+      o.trackingNumber?.toLowerCase().includes(q) ||
+      (o.dropi_guia && o.dropi_guia.toLowerCase() === q)
+    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   saveOrder(order: Order): Order {
