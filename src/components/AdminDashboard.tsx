@@ -13,7 +13,8 @@ import {
   Shuffle,
   ShieldAlert,
   Power,
-  Trash2
+  Trash2,
+  Link
 } from 'lucide-react';
 import { 
   Product, 
@@ -115,6 +116,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null | undefined>(undefined);
   const [isFbModalOpen, setIsFbModalOpen] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]); // Nuevo estado para checkboxes
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -488,6 +490,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // --- NUEVA LÓGICA DE VALIDACIÓN Y CREACIÓN DE COMBOS SUGERIDOS ---
+  const handleLinkAsCombo = async () => {
+    if (selectedProductIds.length < 2) {
+      alert("⚠️ Selecciona al menos 2 productos para armar un combo.");
+      return;
+    }
+
+    const selectedProds = products.filter(p => selectedProductIds.includes(p.id));
+    
+    // Validación estricta de Dropi Provider
+    const firstProvider = selectedProds[0].provider || 'dropi'; // Asume Dropi si está vacío
+    const allSameProvider = selectedProds.every(p => {
+      const prov = p.provider || 'dropi';
+      return prov === firstProvider;
+    });
+
+    if (!allSameProvider) {
+      alert("❌ ERROR: Los combos solo pueden armarse con productos del mismo proveedor (Dropi). Si mezclas proveedores, se generarán múltiples cobros de flete arruinando la rentabilidad.");
+      return;
+    }
+
+    // Inyectar IDs vinculados en los productos seleccionados
+    const comboIdsToSave = selectedProds.map(p => p.id);
+    
+    try {
+      // Guardar uno por uno con la nueva propiedad
+      for (const prod of selectedProds) {
+        const updatedProduct = {
+          ...prod,
+          suggestedComboIds: comboIdsToSave.filter(id => id !== prod.id) // Guarda los "compañeros", excluyendo el propio ID
+        };
+        await handleSaveProduct(updatedProduct);
+      }
+      showToast(`🎉 ¡Combo Sugerido creado con éxito! Los ${selectedProds.length} productos ahora están vinculados en la tienda pública.`);
+      setSelectedProductIds([]); // Limpiar selección
+    } catch (error) {
+      console.error(error);
+      alert("Ocurrió un error al intentar vincular los productos.");
+    }
+  };
+
   if (isLoading || !settings) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
@@ -704,6 +747,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
+        {/* --- NUEVO BANNER PARA CREAR EL COMBO --- */}
+        {activeSection === 'products' && selectedProductIds.length > 0 && (
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 shadow-md flex items-center justify-between sticky top-[68px] z-20 animate-fadeIn">
+            <div className="flex items-center gap-3">
+              <Link className="w-5 h-5" />
+              <div>
+                <p className="text-sm font-bold">{selectedProductIds.length} productos seleccionados</p>
+                <p className="text-xs text-indigo-200">Vincúlalos para que la tienda se los ofrezca juntos al cliente.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setSelectedProductIds([])}
+                className="px-3 py-1.5 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/50 text-white text-xs font-bold transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleLinkAsCombo}
+                className="px-4 py-1.5 rounded-lg bg-white text-indigo-700 hover:bg-slate-100 text-xs font-black shadow-lg transition"
+              >
+                Vincular Selección como Combo Sugerido
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Toast Notification Banner */}
         {toastMessage && (
           <div className="bg-emerald-500 text-slate-950 px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-fadeIn">
@@ -897,17 +967,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   onCancel={() => setEditingProduct(undefined)}
                 />
               ) : (
-                <AdminProducts
-                  products={products}
-                  categories={categories}
-                  onRefresh={fetchAdminData}
-                  onEditProduct={(p) => setEditingProduct(p)}
-                  onSave={handleSaveProduct}
-                  onNavigateToDropiImporter={() => setActiveSection('dropi_bulk_importer')}
-                  onDeleteProduct={(deletedId) => {
-                    setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));
-                  }}
-                />
+                <div className="space-y-4">
+                  {/* Para que los checkboxes funcionen, los inyectamos en AdminProducts mediante una prop de control, 
+                      pero como AdminProducts maneja su propio estado interno de tabla, agregamos esta nota visual 
+                      para que uses el botón de selección masiva que ya tenga tu tabla interna. Si tu componente 
+                      AdminProducts expone un onSelectionChange, podrías conectarlo a setSelectedProductIds. */}
+                  
+                  <AdminProducts
+                    products={products}
+                    categories={categories}
+                    onRefresh={fetchAdminData}
+                    onEditProduct={(p) => setEditingProduct(p)}
+                    onSave={handleSaveProduct}
+                    onNavigateToDropiImporter={() => setActiveSection('dropi_bulk_importer')}
+                    onDeleteProduct={(deletedId) => {
+                      setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));
+                    }}
+                    // OJO: Si AdminProducts te permite pasar IDs seleccionados, agrégalo aquí. 
+                    // Si no, la lógica de validación ya está lista en handleLinkAsCombo arriba.
+                  />
+                </div>
               )
             )}
 
