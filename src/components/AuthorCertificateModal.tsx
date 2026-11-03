@@ -26,8 +26,8 @@ export const AuthorCertificateModal: React.FC<AuthorCertificateModalProps> = ({
 
   if (!isOpen) return null;
 
-  const certificateId = "AUTH-SM-2026-BOG-99824";
-  const issueLocation = "Bogotá, Colombia";
+  const certificateId = "AUTH-SM-2026-CTG-99824";
+  const issueLocation = "Cartagena Bolivar, Colombia";
   const studioName = "SM STUDIO";
   const authorName = "Sergio Martínez (SM)";
   const slogan = "DISEÑO Y ARTE • CREANDO VISIONES.";
@@ -165,7 +165,7 @@ export const AuthorCertificateModal: React.FC<AuthorCertificateModalProps> = ({
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
                 <span className="text-[11px] text-slate-600 font-sans">
-                  Diseño original protegido • SM Studio Bogotá
+                  Diseño original protegido • SM Studio Cartagena Bolivar
                 </span>
               </div>
 
@@ -195,7 +195,7 @@ export const AuthorCertificateModal: React.FC<AuthorCertificateModalProps> = ({
         {/* Modal Bottom CTA */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <span className="text-[11px] font-mono text-slate-500">
-            SM Studio Bogotá • Diseño y Arte • Creando Visiones.
+            SM Studio Cartagena Bolivar • Diseño y Arte • Creando Visiones.
           </span>
           <button
             type="button"

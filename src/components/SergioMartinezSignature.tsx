@@ -138,14 +138,14 @@ export const SergioMartinezSignature: React.FC<SignatureProps> = ({
   onClickCertificate,
   dark = true
 }) => {
-  // 1. Badge Variant (White card shown in mockup: "CERTIFICADO DE AUTORÍA - DISEÑO ORIGINAL POR SM STUDIO - BOGOTÁ, COLOMBIA")
+  // 1. Badge Variant (White card shown in mockup: "CERTIFICADO DE AUTORÍA - DISEÑO ORIGINAL POR SM STUDIO - CARTAGENA BOLIVAR, COLOMBIA")
   if (variant === 'badge') {
     return (
       <div 
         id="sm-author-certificate-badge"
         onClick={onClickCertificate}
         className={`group bg-white text-slate-950 rounded-2xl p-3.5 sm:p-4 border-2 border-slate-300 shadow-xl hover:shadow-2xl hover:border-amber-500 transition-all duration-300 flex items-center gap-3.5 cursor-pointer relative overflow-hidden ${className}`}
-        title="Ver Certificado de Autoría Original - SM Studio (Bogotá, Colombia)"
+        title="Ver Certificado de Autoría Original - SM Studio (Cartagena Bolivar, Colombia)"
       >
         {/* Subtle decorative background glow */}
         <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-amber-200/50 to-transparent rounded-full -mr-8 -mt-8 pointer-events-none" />
@@ -167,7 +167,7 @@ export const SergioMartinezSignature: React.FC<SignatureProps> = ({
             POR SM STUDIO
           </span>
           <span className="text-[10px] text-amber-700 font-black uppercase tracking-wider mt-0.5 font-mono">
-            BOGOTÁ, COLOMBIA
+            CARTAGENA BOLIVAR, COLOMBIA
           </span>
         </div>
 
@@ -287,7 +287,7 @@ export const SergioMartinezSignature: React.FC<SignatureProps> = ({
 
           <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-extrabold text-cyan-300 bg-slate-950 border border-cyan-500/30 px-3.5 py-1 rounded-full">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>FIRMA CREATIVA DE AUTORÍA • SM STUDIO BOGOTÁ</span>
+            <span>FIRMA CREATIVA DE AUTORÍA • SM STUDIO CARTAGENA BOLIVAR</span>
           </div>
         </div>
       </div>
@@ -300,7 +300,7 @@ export const SergioMartinezSignature: React.FC<SignatureProps> = ({
       <div 
         onClick={onClickCertificate}
         className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#0E1838] border border-[#2A3A60] hover:border-amber-400 shadow-sm transition-all cursor-pointer group ${className}`}
-        title="Diseño original verificado por SM Studio (Bogotá, Colombia)"
+        title="Diseño original verificado por SM Studio (Cartagena Bolivar, Colombia)"
       >
         <SMShieldSealIcon size={26} />
         <div className="text-left">

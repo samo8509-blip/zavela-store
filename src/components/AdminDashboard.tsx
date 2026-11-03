@@ -490,44 +490,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // --- NUEVA LÓGICA DE VALIDACIÓN Y CREACIÓN DE COMBOS SUGERIDOS ---
+  // --- LÓGICA DE VALIDACIÓN Y CREACIÓN DE COMBOS SUGERIDOS ---
   const handleLinkAsCombo = async () => {
     if (selectedProductIds.length < 2) {
-      alert("⚠️ Selecciona al menos 2 productos para armar un combo.");
+      alert("⚠️ Selecciona al menos 2 productos para armar un combo sugerido.");
       return;
     }
 
     const selectedProds = products.filter(p => selectedProductIds.includes(p.id));
     
-    // Validación estricta de Dropi Provider
-    const firstProvider = selectedProds[0].provider || 'dropi'; // Asume Dropi si está vacío
+    // Validación de proveedor: deben pertenecer al mismo proveedor (ej. Dropi)
+    const firstProvider = (selectedProds[0]?.provider || (selectedProds[0] as any)?.vendor || 'dropi').trim().toLowerCase();
     const allSameProvider = selectedProds.every(p => {
-      const prov = p.provider || 'dropi';
+      const prov = (p.provider || (p as any)?.vendor || 'dropi').trim().toLowerCase();
       return prov === firstProvider;
     });
 
     if (!allSameProvider) {
-      alert("❌ ERROR: Los combos solo pueden armarse con productos del mismo proveedor (Dropi). Si mezclas proveedores, se generarán múltiples cobros de flete arruinando la rentabilidad.");
+      alert("Error: Los combos solo pueden armarse con productos del mismo proveedor para unificar el flete.");
       return;
     }
 
-    // Inyectar IDs vinculados en los productos seleccionados
     const comboIdsToSave = selectedProds.map(p => p.id);
     
     try {
-      // Guardar uno por uno con la nueva propiedad
+      // Guardar en la base de datos usando handleSaveProduct por cada producto
       for (const prod of selectedProds) {
         const updatedProduct = {
           ...prod,
-          suggestedComboIds: comboIdsToSave.filter(id => id !== prod.id) // Guarda los "compañeros", excluyendo el propio ID
+          suggestedComboIds: comboIdsToSave.filter(id => id !== prod.id) // Excluye su propio ID
         };
         await handleSaveProduct(updatedProduct);
       }
-      showToast(`🎉 ¡Combo Sugerido creado con éxito! Los ${selectedProds.length} productos ahora están vinculados en la tienda pública.`);
-      setSelectedProductIds([]); // Limpiar selección
+
+      // Limpiar selección y notificar
+      setSelectedProductIds([]);
+      showToast(`🎉 ¡Combo Sugerido creado con éxito! Los ${selectedProds.length} productos quedaron vinculados.`);
     } catch (error) {
-      console.error(error);
-      alert("Ocurrió un error al intentar vincular los productos.");
+      console.error("Error al guardar combos sugeridos:", error);
+      alert("Ocurrió un error al intentar vincular y guardar los productos.");
     }
   };
 

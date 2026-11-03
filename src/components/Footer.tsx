@@ -174,7 +174,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         </div>
 
-        {/* Author Signature & Creative Authorship Section (SM Studio Bogotá) */}
+        {/* Author Signature & Creative Authorship Section (SM Studio Cartagena Bolivar) */}
         <div id="footer-author-signature-section" className="mt-10 pt-8 border-t-2 border-slate-300">
           <div className="bg-gradient-to-r from-[#070D1F] via-[#0E1838] to-[#070D1F] text-white rounded-3xl p-6 sm:p-7 border-2 border-cyan-500/40 shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex flex-col lg:flex-row items-center justify-between gap-6 relative overflow-hidden">
             {/* Subtle atmospheric glow effects */}
@@ -197,7 +197,7 @@ export const Footer: React.FC<FooterProps> = ({
                 <span>Autoría & Arquitectura Visual</span>
               </div>
               <span className="text-xs text-slate-200 font-bold mt-1 tracking-wide">
-                Bogotá, Colombia • Colección Oficial Zavela Store
+                Cartagena Bolivar, Colombia • Colección Oficial Zavela Store
               </span>
             </div>
 
@@ -223,7 +223,7 @@ export const Footer: React.FC<FooterProps> = ({
               onClick={onOpenAuthorCertificate}
               className="text-amber-700 hover:text-amber-900 transition-colors cursor-pointer font-bold"
             >
-              Firma de Diseño: SM Studio (Bogotá)
+              Firma de Diseño: SM Studio (Cartagena Bolivar)
             </button>
           </div>
         </div>
