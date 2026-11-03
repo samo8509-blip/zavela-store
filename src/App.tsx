@@ -87,6 +87,7 @@ import {
 } from './utils/productUrlResolver.ts';
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
+import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx'; // Importación corregida de la página +18
 
 export default function App() {
   // Navigation State (Detects /zavelastoresex automatically)
@@ -1224,51 +1225,56 @@ export default function App() {
         </main>
       ) : currentView === 'subpage' ? (
         <main className="flex-1">
-          {(() => {
-            const subpagesList = settings?.customSubpages && settings.customSubpages.length > 0 
-              ? settings.customSubpages 
-              : DEFAULT_CUSTOM_SUBPAGES;
-            const resolvedSubpage = subpagesList.find(sp => sp.slug === activeSubpageSlug) || subpagesList[0];
-            
-            const subpageViewComponent = (
-              <CustomSubpageView
-                subpage={resolvedSubpage}
-                settings={settings || ({} as StoreSettings)}
-                products={products}
-                onAddToCart={handleAddCustomCartItem}
-                onDirectCheckout={handleDirectCustomCheckout}
-                onNavigateHome={() => setCurrentView('store')}
-                onNavigateCatalog={() => {
-                  setCurrentView('store');
-                  setTimeout(() => {
-                    document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 100);
-                }}
-                onNavigateTracking={() => {
-                  setTrackingInitialQuery('');
-                  setCurrentView('tracking');
-                }}
-                onNavigateExclusivity={() => setCurrentView('exclusividad')}
-                onNavigateSubpage={(slug) => {
-                  setActiveSubpageSlug(slug);
-                  setCurrentView('subpage');
-                }}
-                onOpenCart={() => setIsCartOpen(true)}
-                cartCount={totalCartCount}
-              />
-            );
-
-            // 🛡️ CANDADO DE EDAD: Si la página es la zona +18, pide verificación
-            if (resolvedSubpage.slug === 'zavelastoresex') {
+          {activeSubpageSlug === 'zavelastoresex' ? (
+            <AdultsOnlyPage
+              products={products}
+              onGoHome={() => {
+                setCurrentView('store');
+                try { window.history.pushState({}, '', '/'); } catch {}
+              }}
+              onSelectProduct={(p) => {
+                setSelectedProduct(p);
+                trackProductVisit(p);
+              }}
+              onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
+              onBuyNow={(p) => handleBuyNow(p, p.variants?.[0], 1)}
+            />
+          ) : (
+            (() => {
+              const subpagesList = settings?.customSubpages && settings.customSubpages.length > 0 
+                ? settings.customSubpages 
+                : DEFAULT_CUSTOM_SUBPAGES;
+              const resolvedSubpage = subpagesList.find(sp => sp.slug === activeSubpageSlug) || subpagesList[0];
+              
               return (
-                <AgeVerificationGate>
-                  {subpageViewComponent}
-                </AgeVerificationGate>
+                <CustomSubpageView
+                  subpage={resolvedSubpage}
+                  settings={settings || ({} as StoreSettings)}
+                  products={products}
+                  onAddToCart={handleAddCustomCartItem}
+                  onDirectCheckout={handleDirectCustomCheckout}
+                  onNavigateHome={() => setCurrentView('store')}
+                  onNavigateCatalog={() => {
+                    setCurrentView('store');
+                    setTimeout(() => {
+                      document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }}
+                  onNavigateTracking={() => {
+                    setTrackingInitialQuery('');
+                    setCurrentView('tracking');
+                  }}
+                  onNavigateExclusivity={() => setCurrentView('exclusividad')}
+                  onNavigateSubpage={(slug) => {
+                    setActiveSubpageSlug(slug);
+                    setCurrentView('subpage');
+                  }}
+                  onOpenCart={() => setIsCartOpen(true)}
+                  cartCount={totalCartCount}
+                />
               );
-            }
-
-            return subpageViewComponent;
-          })()}
+            })()
+          )}
         </main>
       ) : currentView === 'tracking' ? (
         <main className="flex-1">
