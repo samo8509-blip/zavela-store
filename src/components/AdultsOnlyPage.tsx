@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Sparkles, Moon, ShieldCheck, HeartHandshake, PackageCheck, Flame, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Moon, ShieldCheck, HeartHandshake, PackageCheck, Flame, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Product } from '../types/index.ts';
 import { ProductCard } from './ProductCard.tsx';
+import { formatCOP } from '../utils/formatters.ts'; // <-- IMPORTACIÓN CORREGIDA
 
 // --- Guardia de Seguridad Embebido ---
 const InternalAgeGate: React.FC<{ children: React.ReactNode; onReject?: () => void }> = ({ children, onReject }) => {
