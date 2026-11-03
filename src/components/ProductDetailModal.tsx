@@ -134,6 +134,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
+  const [comboAddedSuccess, setComboAddedSuccess] = useState(false);
 
   useEffect(() => {
     if (quantity >= 2) {
@@ -599,6 +600,62 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
 
+  // Cross-selling: Selección de producto sugerido para 'Comprados Juntos Habitualmente'
+  const suggestedProduct = useMemo(() => {
+    if (!allProducts || allProducts.length <= 1 || !product) return null;
+    const currentId = String(product.id || (product as any).productId || '');
+    
+    const candidates = allProducts.filter(p => {
+      const pid = String(p.id || (p as any).productId || '');
+      if (pid === currentId) return false;
+      if (p.active === false) return false;
+      const cat = String(p.categoryName || (p as any).category || (p as any).categoria || '').toLowerCase();
+      const currentCat = String(product.categoryName || (product as any).category || (product as any).categoria || '').toLowerCase();
+      const isAdultCurrent = currentCat.includes('sex') || currentCat.includes('adult');
+      const isAdultCandidate = cat.includes('sex') || cat.includes('adult');
+      if (!isAdultCurrent && isAdultCandidate) return false;
+      return true;
+    });
+
+    if (candidates.length === 0) return null;
+
+    // Preferir productos de la misma categoría o almacén
+    const currentCat = String(product.categoryName || (product as any).category || '').toLowerCase();
+    const sameCat = candidates.filter(p => {
+      const cat = String(p.categoryName || (p as any).category || '').toLowerCase();
+      return currentCat && cat && cat === currentCat;
+    });
+
+    const pool = sameCat.length > 0 ? sameCat : candidates;
+    const seed = currentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    return pool[seed % pool.length];
+  }, [allProducts, product]);
+
+  const suggestedProductImage = useMemo(() => {
+    if (!suggestedProduct) return '/placeholder.png';
+    const imgs = extractProductImages(suggestedProduct);
+    return imgs[0] || (suggestedProduct as any).image || (suggestedProduct as any).imagen || '/placeholder.png';
+  }, [suggestedProduct]);
+
+  const suggestedProductPrice = suggestedProduct ? (suggestedProduct.price || (suggestedProduct as any).salePrice || 0) : 0;
+  const currentProdEffectivePrice = currentPricing.unitEffectivePrice || product.price || 0;
+  const comboOriginalTotal = currentProdEffectivePrice + suggestedProductPrice;
+  // Con 2 productos en carrito aplica automáticamente el descuento por envío consolidado de $15,000 COP
+  const comboDiscountedTotal = Math.max(0, comboOriginalTotal - 15000);
+
+  const handleAddCrossSellCombo = () => {
+    if (!product || !suggestedProduct) return;
+    // 1. Agregar el producto actual
+    onAddToCart(product, selectedVariant, 1, currentProdEffectivePrice);
+    // 2. Agregar el producto sugerido
+    onAddToCart(suggestedProduct, undefined, 1, suggestedProductPrice);
+
+    setComboAddedSuccess(true);
+    setTimeout(() => {
+      setComboAddedSuccess(false);
+    }, 2500);
+  };
+
   return (
     <>
       <div 
@@ -862,6 +919,118 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </div>
                     </details>
                   </div>
+
+                  {/* Bloque UI: Comprados Juntos Habitualmente (Cross-Selling) */}
+                  {suggestedProduct && (
+                    <div 
+                      id="cross-selling-combo-box"
+                      className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 border border-emerald-300 shadow-xs space-y-3"
+                    >
+                      {/* Cabecera */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
+                            Comprados Juntos Habitualmente
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
+                          Combo Sugerido
+                        </span>
+                      </div>
+
+                      {/* Tarjetas de Producto Sumadas */}
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        {/* Producto Actual */}
+                        <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
+                          <img
+                            src={imagesList[0] || (product as any).image || (product as any).imagen || '/placeholder.png'}
+                            alt={product.title || product.name || 'Producto actual'}
+                            className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Este producto
+                            </span>
+                            <div className="text-xs font-bold text-slate-800 truncate" title={product.title || product.name}>
+                              {product.title || product.name}
+                            </div>
+                            <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
+                              {formatCOP(currentProdEffectivePrice)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Símbolo + */}
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 shadow-2xs border border-emerald-200">
+                          +
+                        </div>
+
+                        {/* Producto Sugerido */}
+                        <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
+                          <img
+                            src={suggestedProductImage}
+                            alt={suggestedProduct.title || suggestedProduct.name || 'Producto sugerido'}
+                            className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 block">
+                              Sugerido
+                            </span>
+                            <div className="text-xs font-bold text-slate-800 truncate" title={suggestedProduct.title || suggestedProduct.name}>
+                              {suggestedProduct.title || suggestedProduct.name}
+                            </div>
+                            <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
+                              {formatCOP(suggestedProductPrice)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Total Combo */}
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/80">
+                        <span className="font-bold text-slate-600">Total por ambos productos:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 line-through font-mono">
+                            {formatCOP(comboOriginalTotal)}
+                          </span>
+                          <span className="text-sm font-mono font-black text-emerald-700">
+                            {formatCOP(comboDiscountedTotal)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Texto disuasivo en verde */}
+                      <p className="text-[11px] sm:text-xs text-emerald-700 font-bold flex items-center gap-1.5 leading-snug">
+                        <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Aprovecha nuestro descuento de envíos consolidados al llevar ambos en tu carrito</span>
+                      </p>
+
+                      {/* Botón CTA */}
+                      <button
+                        type="button"
+                        id="btn-add-cross-sell-combo"
+                        onClick={handleAddCrossSellCombo}
+                        className={`w-full h-11 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-sm hover:shadow cursor-pointer ${
+                          comboAddedSuccess
+                            ? 'bg-emerald-700 text-white shadow-inner'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-98'
+                        }`}
+                      >
+                        {comboAddedSuccess ? (
+                          <>
+                            <Check className="w-4 h-4 text-white" />
+                            <span>¡Combo Agregado al Carrito!</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-4 h-4 text-white" />
+                            <span>Agregar Combo al Carrito</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="pt-2 pb-1 border-y border-slate-100">
                     <div className="flex items-baseline gap-3 flex-wrap">

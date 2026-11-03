@@ -36,14 +36,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const cartTotals = calculateCartTotals(cartItems);
-  const subtotal = cartTotals.regularSubtotal;
-  const shippingSavings = cartTotals.shippingSavings;
-  const totalItemCount = cartTotals.totalItemCount;
+  const SHIPPING_COST_SAVINGS = 15000;
+  const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const rawSubtotal = cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product.price) * (item.quantity || 1)), 0);
+  const consolidatedDiscount = totalItems > 1 ? (totalItems - 1) * SHIPPING_COST_SAVINGS : 0;
+  const finalTotal = Math.max(0, rawSubtotal - consolidatedDiscount);
 
-  // Modalidad A: Envío Gratis Nacional ($0 COP) en todos los pedidos
-  const shippingCost = 0;
-  const total = cartTotals.discountedSubtotal;
+  // Mantenemos totalItemCount para compatibilidad de interfaz
+  const totalItemCount = totalItems;
+  const subtotal = rawSubtotal;
+  const total = finalTotal;
 
   return (
     <div 
@@ -199,23 +201,28 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {cartItems.length > 0 && (
           <div className="p-5 sm:p-6 border-t border-slate-200 bg-white space-y-3.5 shadow-md">
             <div className="space-y-2 text-xs text-slate-600">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal ({totalItemCount} {totalItemCount === 1 ? 'unidad' : 'unidades'}):</span>
-                <span className="font-mono font-bold text-slate-900 text-sm">{formatCOP(subtotal)}</span>
+              {/* Subtotal Bruto (Tachado si hay descuento consolidado) */}
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Subtotal ({totalItems} {totalItems === 1 ? 'unidad' : 'unidades'}):</span>
+                <span className={`font-mono font-bold ${consolidatedDiscount > 0 ? 'line-through text-slate-400 text-xs' : 'text-slate-900 text-sm'}`}>
+                  {formatCOP(rawSubtotal)}
+                </span>
               </div>
               
-              {shippingSavings > 0 && (
-                <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
-                  <span className="flex items-center gap-1.5 font-bold text-xs">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Ahorro Envío Único (Combos):</span>
+              {/* Ahorro por Envíos Consolidados */}
+              {consolidatedDiscount > 0 && (
+                <div className="flex justify-between items-center py-2 px-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 animate-fadeIn">
+                  <span className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
+                    <Gift className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>¡Ahorraste {formatCOP(consolidatedDiscount)} por envíos consolidados!</span>
                   </span>
-                  <span className="font-mono font-black text-emerald-700 text-xs">
-                    -{formatCOP(shippingSavings)}
+                  <span className="font-mono font-black text-emerald-700 text-xs shrink-0">
+                    -{formatCOP(consolidatedDiscount)}
                   </span>
                 </div>
               )}
               
+              {/* Envío Gratis */}
               <div className="flex justify-between items-center text-slate-600">
                 <span className="flex items-center gap-1.5">
                   <Truck className="w-3.5 h-3.5 text-emerald-600" />
@@ -227,10 +234,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </span>
               </div>
 
-              <div className="flex justify-between text-base font-bold text-slate-900 pt-2.5 border-t border-slate-200">
-                <span className="uppercase tracking-wider text-xs text-slate-600">Total a Pagar:</span>
-                <span className="text-lg font-mono text-slate-900 font-black">
-                  {formatCOP(total)}
+              {/* Total Final a Pagar */}
+              <div className="flex justify-between items-center text-base font-bold text-slate-900 pt-2.5 border-t border-slate-200">
+                <span className="uppercase tracking-wider text-xs text-slate-600 font-extrabold">Total Final a Pagar:</span>
+                <span className="text-xl font-mono text-slate-950 font-black">
+                  {formatCOP(finalTotal)}
                 </span>
               </div>
             </div>

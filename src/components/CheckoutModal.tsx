@@ -16,7 +16,8 @@ import {
   Sparkles,
   Search,
   ChevronDown,
-  Info
+  Info,
+  Gift
 } from 'lucide-react';
 import { CartItem, CheckoutFormData, Order, ActiveDiscountCoupon } from '../types/index.ts';
 import { COLOMBIA_DEPARTMENTS, getDaneCode } from '../data/colombiaGeo.ts';
@@ -169,25 +170,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsCityDropdownOpen(false);
   };
 
-  const cartTotals = useMemo(() => {
-    return calculateCartTotals(cartItems);
-  }, [cartItems]);
-
-  const regularSubtotal = cartTotals.regularSubtotal;
-  const shippingSavings = cartTotals.shippingSavings;
-  const subtotalAfterShippingRule = cartTotals.discountedSubtotal;
-  const subtotal = subtotalAfterShippingRule;
-
-  const discountAmount = useMemo(() => {
-    if (!appliedCoupon || !appliedCoupon.percentage) return 0;
-    return Math.round((subtotalAfterShippingRule * appliedCoupon.percentage) / 100);
-  }, [subtotalAfterShippingRule, appliedCoupon]);
-
-  const discountedSubtotal = Math.max(0, subtotalAfterShippingRule - discountAmount);
-
+  const SHIPPING_COST_SAVINGS = 15000;
   const totalItemQuantity = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
   }, [cartItems]);
+  const totalItems = totalItemQuantity;
+
+  const rawSubtotal = useMemo(() => {
+    return cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product?.price || 0) * (item.quantity || 1)), 0);
+  }, [cartItems]);
+
+  const consolidatedDiscount = totalItems > 1 ? (totalItems - 1) * SHIPPING_COST_SAVINGS : 0;
+  const regularSubtotal = rawSubtotal;
+  const subtotalAfterConsolidated = Math.max(0, rawSubtotal - consolidatedDiscount);
+  const subtotal = subtotalAfterConsolidated;
+
+  const discountAmount = useMemo(() => {
+    if (!appliedCoupon || !appliedCoupon.percentage) return 0;
+    return Math.round((subtotalAfterConsolidated * appliedCoupon.percentage) / 100);
+  }, [subtotalAfterConsolidated, appliedCoupon]);
+
+  const discountedSubtotal = Math.max(0, subtotalAfterConsolidated - discountAmount);
 
   const shippingCalculation: ShippingCalculationResult = useMemo(() => {
     return calculateShippingCost({
@@ -929,21 +932,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               ))}
 
-              <div className="border-t border-slate-200 pt-2 flex justify-between">
+              {/* Subtotal Productos (Tachado si hay descuento por envíos consolidados) */}
+              <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
                 <span className="font-medium text-slate-700">Subtotal Productos:</span>
-                <span className="font-mono font-bold text-slate-900">{formatCOP(regularSubtotal)}</span>
+                <span className={`font-mono font-bold ${consolidatedDiscount > 0 ? 'line-through text-slate-400 text-xs' : 'text-slate-900 text-sm'}`}>
+                  {formatCOP(regularSubtotal)}
+                </span>
               </div>
 
-              {shippingSavings > 0 && (
-                <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900">
+              {/* Ahorro por Envíos Consolidados */}
+              {consolidatedDiscount > 0 && (
+                <div className="flex justify-between items-center py-2 px-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 animate-fadeIn">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs">🚚</span>
+                    <Gift className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="font-extrabold text-xs text-emerald-800 truncate">
-                      Ahorro Envío Único (Combos):
+                      ¡Ahorraste {formatCOP(consolidatedDiscount)} por envíos consolidados!
                     </span>
                   </div>
-                  <span className="font-mono font-black text-xs text-emerald-700">
-                    -{formatCOP(shippingSavings)}
+                  <span className="font-mono font-black text-xs text-emerald-700 shrink-0">
+                    -{formatCOP(consolidatedDiscount)}
                   </span>
                 </div>
               )}
