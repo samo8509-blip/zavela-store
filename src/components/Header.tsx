@@ -48,6 +48,7 @@ interface HeaderProps {
   onOpenCustomerProfile?: () => void;
   onCustomerLogout?: () => void;
   onGoHome?: () => void;
+  onNavigateQuienesSomos?: () => void;
   onNavigateExclusivity?: () => void;
   onNavigateSubpage?: (slug: string) => void;
   isExclusivityActive?: boolean;
@@ -85,6 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCustomerProfile,
   onCustomerLogout,
   onGoHome,
+  onNavigateQuienesSomos,
   onNavigateSubpage,
   customSubpages = [],
   isAdminView = false,
@@ -169,6 +171,11 @@ export const Header: React.FC<HeaderProps> = ({
   const handleQuienesSomosClick = () => {
     setIsMegaMenuOpen(false);
     setIsMobileMenuOpen(false);
+
+    if (onNavigateQuienesSomos) {
+      onNavigateQuienesSomos();
+      return;
+    }
 
     const matchingSubpage = (customSubpages || []).find(
       sp => sp.slug.includes('quienes') || 

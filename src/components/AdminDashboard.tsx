@@ -227,8 +227,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       setProducts(loadedProducts);
       setOrders(loadedOrders);
-      if (customersRes.success) setCustomers(customersRes.data);
-      if (categoriesRes.success) setCategories(categoriesRes.data);
+      if ('data' in customersRes && customersRes.success && (customersRes as any).data) setCustomers((customersRes as any).data);
+      if ('data' in categoriesRes && categoriesRes.success && (categoriesRes as any).data) setCategories((categoriesRes as any).data);
 
       const calculatedStats = calculateDashboardMetrics(loadedOrders, loadedProducts);
       if (statsRes.success && statsRes.data) {

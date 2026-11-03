@@ -13,6 +13,7 @@ import { SergioMartinezSignature } from './SergioMartinezSignature.tsx';
 interface FooterProps {
   onOpenTracking: () => void;
   onGoHome?: () => void;
+  onNavigateQuienesSomos?: () => void;
   onToggleAdmin?: () => void;
   showSecretLogin?: boolean;
   onOpenAuthorCertificate?: () => void;
@@ -21,6 +22,7 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({
   onOpenTracking,
   onGoHome,
+  onNavigateQuienesSomos,
   onToggleAdmin,
   showSecretLogin = false,
   onOpenAuthorCertificate
@@ -111,6 +113,13 @@ export const Footer: React.FC<FooterProps> = ({
               Atención al Cliente
             </h4>
             <ul className="space-y-2 text-xs">
+              {onNavigateQuienesSomos && (
+                <li>
+                  <button onClick={onNavigateQuienesSomos} className="text-slate-600 hover:text-sky-600 transition-colors cursor-pointer flex items-center gap-1.5 font-medium">
+                    <span className="text-sky-600 font-bold">›</span> ¿Quiénes Somos? (Nuestra Empresa)
+                  </button>
+                </li>
+              )}
               <li>
                 <button onClick={onOpenTracking} className="text-slate-600 hover:text-sky-600 transition-colors cursor-pointer flex items-center gap-1.5 font-medium">
                   <span className="text-sky-600 font-bold">›</span> Rastrear mi Pedido

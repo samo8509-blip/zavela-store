@@ -284,7 +284,7 @@ router.post(['/webhook', '/'], async (req: Request, res: Response) => {
 
 router.get('/webhook-info', (req: Request, res: Response) => {
   const settings = db.getSettings();
-  const cloudApi = settings.whatsappCloudApi || {};
+  const cloudApi: any = settings.whatsappCloudApi || {};
 
   res.json({
     success: true,

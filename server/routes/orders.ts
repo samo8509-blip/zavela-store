@@ -231,6 +231,8 @@ router.post('/', async (req, res) => {
     const shippingCost = parseFloat(String(req.body.shippingCost ?? shippingCalc.finalRate ?? 0)) || 0;
     const total = Math.max(0, subtotal - (Number(discountAmount) || 0) + shippingCost);
 
+    const isOnlineEpayco = paymentMethod === 'EPAYCO' || paymentMethod === 'ONLINE';
+
     const newOrder: Order = {
       id: orderId,
       orderNumber,

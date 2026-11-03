@@ -88,15 +88,17 @@ import {
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
 import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
+import { QuienesSomosView } from './components/QuienesSomosView.tsx';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>(() => {
+  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation' | 'quienes-somos'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
       if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
       if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
       if (path === '/zavelastoresex') return 'subpage'; 
+      if (path === '/quienes-somos' || path === '/nosotros' || path === '/quienessomos') return 'quienes-somos';
     }
     return 'store';
   });
@@ -1151,10 +1153,21 @@ export default function App() {
           onOpenCustomerProfile={() => setIsCustomerProfileOpen(true)}
           onCustomerLogout={handleCustomerLogout}
           onGoHome={() => setCurrentView('store')}
+          onNavigateQuienesSomos={() => {
+            setCurrentView('quienes-somos');
+            try { window.history.pushState({}, '', '/quienes-somos'); } catch {}
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
           onNavigateExclusivity={() => setCurrentView('exclusividad')}
           onNavigateSubpage={(slug) => {
-            setActiveSubpageSlug(slug);
-            setCurrentView('subpage');
+            if (slug === 'quienes-somos' || slug.includes('quienes') || slug.includes('nosotros')) {
+              setCurrentView('quienes-somos');
+              try { window.history.pushState({}, '', '/quienes-somos'); } catch {}
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+              setActiveSubpageSlug(slug);
+              setCurrentView('subpage');
+            }
           }}
           isExclusivityActive={false}
           exclusivityPageEnabled={settings?.exclusivityPage?.enabled !== false}
@@ -1213,6 +1226,31 @@ export default function App() {
             cartCount={totalCartCount}
           />
         </main>
+      ) : currentView === 'quienes-somos' ? (
+        <main className="flex-1">
+          <QuienesSomosView
+            onGoHome={() => {
+              setCurrentView('store');
+              try { window.history.pushState({}, '', '/'); } catch {}
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onExploreCatalog={() => {
+              setCurrentView('store');
+              try { window.history.pushState({}, '', '/'); } catch {}
+              setTimeout(() => {
+                const el = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            onOpenTracking={() => {
+              setTrackingInitialQuery('');
+              setCurrentView('tracking');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+          />
+        </main>
       ) : currentView === 'subpage' ? (
         <main className="flex-1">
           {activeSubpageSlug === 'zavelastoresex' ? (
@@ -1228,6 +1266,29 @@ export default function App() {
               }}
               onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
               onBuyNow={(p) => handleBuyNow(p, p.variants?.[0], 1)}
+            />
+          ) : activeSubpageSlug === 'quienes-somos' || activeSubpageSlug === 'nosotros' ? (
+            <QuienesSomosView
+              onGoHome={() => {
+                setCurrentView('store');
+                try { window.history.pushState({}, '', '/'); } catch {}
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onExploreCatalog={() => {
+                setCurrentView('store');
+                try { window.history.pushState({}, '', '/'); } catch {}
+                setTimeout(() => {
+                  const el = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+              }}
+              onOpenTracking={() => {
+                setTrackingInitialQuery('');
+                setCurrentView('tracking');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+              whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
             />
           ) : (
             (() => {
@@ -1685,6 +1746,17 @@ export default function App() {
         onOpenTracking={() => {
           setTrackingInitialQuery('');
           setCurrentView('tracking');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onGoHome={() => {
+          setCurrentView('store');
+          try { window.history.pushState({}, '', '/'); } catch {}
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onNavigateQuienesSomos={() => {
+          setCurrentView('quienes-somos');
+          try { window.history.pushState({}, '', '/quienes-somos'); } catch {}
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onToggleAdmin={handleRequestAdmin}
         showSecretLogin={showSecretLogin}

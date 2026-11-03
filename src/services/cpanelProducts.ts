@@ -87,10 +87,10 @@ export function normalizeCpanelProduct(p: any): Product {
 
 // Funciones vacías para evitar la caché tóxica
 export function getCustomCostsMap(): Record<string, any> { return {}; }
-export function saveCustomProductCost(): void { }
-export function getCustomProductCost(): any | null { return null; }
-export function saveLocalProductOverride(): void { }
-export function getLocalProductOverride(): any | null { return null; }
+export function saveCustomProductCost(..._args: any[]): void { }
+export function getCustomProductCost(..._args: any[]): any | null { return null; }
+export function saveLocalProductOverride(..._args: any[]): void { }
+export function getLocalProductOverride(..._args: any[]): any | null { return null; }
 export function overrideProductWithCustomCosts<T extends Partial<Product>>(p: T): T { return p; }
 
 export async function getCpanelProducts(onlyActive: boolean = false): Promise<Product[]> {
