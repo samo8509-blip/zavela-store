@@ -434,6 +434,117 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
     }
   };
 
+  // Helper para extraer proveedor o bodega de Dropi / vendor / tags
+  const getProductSupplierKey = (product: Product): string => {
+    // 1. Campo explícito vendor, supplier o proveedor
+    const rawVendor = (product as any).vendor || product.supplier || (product as any).proveedor;
+    if (rawVendor && String(rawVendor).trim()) {
+      return String(rawVendor).trim().toLowerCase();
+    }
+
+    // 2. Extraer de tags tipo 'vendor: xyz', 'proveedor: xyz', 'supplier: xyz'
+    if (Array.isArray(product.tags)) {
+      for (const tag of product.tags) {
+        const lower = tag.toLowerCase().trim();
+        if (lower.startsWith('vendor:') || lower.startsWith('proveedor:') || lower.startsWith('supplier:') || lower.startsWith('dropi_supplier:')) {
+          const val = lower.split(':')[1]?.trim();
+          if (val) return val;
+        }
+      }
+    }
+
+    // 3. Dropi payload o dropi_supplier
+    const dropiSupplier = (product as any).raw_dropi_payload?.supplier?.name || 
+                          (product as any).raw_dropi_payload?.supplier?.id || 
+                          (product as any).dropi_supplier;
+    if (dropiSupplier) {
+      return String(dropiSupplier).trim().toLowerCase();
+    }
+
+    // 4. Bodega o Warehouse City
+    if (product.warehouseCity && product.warehouseCity.trim()) {
+      return `bodega_${product.warehouseCity.trim().toLowerCase()}`;
+    }
+
+    // 5. Provider ('dropi', 'derocha', etc.)
+    if (product.provider && String(product.provider).trim()) {
+      return String(product.provider).trim().toLowerCase();
+    }
+
+    return 'default_vendor';
+  };
+
+  // TAREA 1: Vincular como Combo Sugerido en bloque con validación estricta de proveedor
+  const handleLinkAsSuggestedCombo = async () => {
+    if (selectedProductIds.length < 2) {
+      showToast('Selecciona al menos 2 productos para vincularlos como combo sugerido.', 'error');
+      return;
+    }
+
+    const selectedProds = localProducts.filter(p => selectedProductIds.includes(p.id));
+    if (selectedProds.length < 2) {
+      showToast('No se encontraron los productos seleccionados.', 'error');
+      return;
+    }
+
+    // REGLA CRÍTICA DE VALIDACIÓN:
+    // Verificar que TODOS los productos seleccionados pertenezcan al mismo proveedor.
+    const firstSupplier = getProductSupplierKey(selectedProds[0]);
+    const allSameSupplier = selectedProds.every(p => getProductSupplierKey(p) === firstSupplier);
+
+    if (!allSameSupplier) {
+      alert("Error: Los combos solo pueden armarse con productos del mismo proveedor para unificar el flete.");
+      showToast("Error: Los combos solo pueden armarse con productos del mismo proveedor para unificar el flete.", "error");
+      return;
+    }
+
+    setIsProcessingBulk(true);
+    setBulkActionType('combo');
+
+    try {
+      // Guardar relación de combo en memoria y almacenamiento local persistente
+      const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
+      const comboMap: Record<string, string[]> = rawMap ? JSON.parse(rawMap) : {};
+
+      selectedProds.forEach(p => {
+        const otherIds = selectedProds.filter(o => o.id !== p.id).map(o => String(o.id));
+        comboMap[String(p.id)] = otherIds;
+        if (p.slug) comboMap[String(p.slug)] = otherIds;
+      });
+
+      localStorage.setItem('zavela_suggested_combos_v1', JSON.stringify(comboMap));
+
+      // Actualizar estado local inmediatamente
+      setLocalProducts(prev => prev.map(p => {
+        if (selectedProductIds.includes(p.id)) {
+          const otherIds = selectedProds.filter(o => o.id !== p.id).map(o => String(o.id));
+          return {
+            ...p,
+            suggestedComboIds: otherIds
+          };
+        }
+        return p;
+      }));
+
+      // Intentar sincronizar cada producto hacia el backend / MySQL cPanel
+      for (const p of selectedProds) {
+        const otherIds = selectedProds.filter(o => o.id !== p.id).map(o => String(o.id));
+        await updateCpanelProduct(p.id, {
+          suggestedComboIds: otherIds
+        } as any).catch(() => {});
+      }
+
+      showToast(`¡Combo sugerido vinculado! ${selectedProds.length} productos del proveedor "${firstSupplier}" ahora están vinculados.`);
+      setSelectedProductIds([]);
+      onRefresh();
+    } catch (err: any) {
+      showToast(`Error al vincular combo: ${err.message}`, 'error');
+    } finally {
+      setIsProcessingBulk(false);
+      setBulkActionType(null);
+    }
+  };
+
   // Open Bulk Delete Confirmation Modal
   const handleOpenBulkDeleteModal = (mode: 'permanent' | 'soft' = 'permanent') => {
     if (selectedProductIds.length === 0) {
@@ -763,6 +874,21 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
                 <span className="font-black text-xs leading-none">f</span>
               )}
               <span>Facebook ({selectedProductIds.length})</span>
+            </button>
+
+            {/* Vincular como Combo Sugerido (Cross-Selling) */}
+            <button
+              onClick={handleLinkAsSuggestedCombo}
+              disabled={isProcessingBulk}
+              className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-purple-600/25"
+              title="Vincular productos seleccionados como combo del mismo proveedor"
+            >
+              {isProcessingBulk && bulkActionType === 'combo' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Boxes className="w-3.5 h-3.5" />
+              )}
+              <span>Vincular como Combo Sugerido</span>
             </button>
 
             {/* Bulk Delete Button -> Opens Modal */}

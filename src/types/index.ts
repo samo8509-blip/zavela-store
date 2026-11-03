@@ -500,6 +500,10 @@ export interface Product {
   // Dropi Colombia Integration
   dropi_product_id?: string | number;
   dropiProductId?: string | number;
+  vendor?: string;
+
+  // Cross-Selling / Kits Sugeridos (Productos vinculados del mismo proveedor)
+  suggestedComboIds?: string[];
 
   // Social & Facebook Meta Graph API v26.0
   publishToFacebook?: boolean;

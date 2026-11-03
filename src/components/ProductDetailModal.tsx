@@ -600,11 +600,37 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
 
-  // Cross-selling: Selección de producto sugerido para 'Comprados Juntos Habitualmente'
+  // TAREA 2: Cross-selling: Revisar si el producto actual tiene IDs en su propiedad de combo (suggestedComboIds)
   const suggestedProduct = useMemo(() => {
     if (!allProducts || allProducts.length <= 1 || !product) return null;
     const currentId = String(product.id || (product as any).productId || '');
     
+    // 1. Prioridad: IDs vinculados en 'suggestedComboIds' o en localStorage
+    let comboIds: string[] = [];
+    if (Array.isArray(product.suggestedComboIds) && product.suggestedComboIds.length > 0) {
+      comboIds = product.suggestedComboIds.map(String);
+    } else {
+      try {
+        const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
+        if (rawMap) {
+          const map = JSON.parse(rawMap);
+          const saved = map[currentId] || map[String(product.slug)];
+          if (Array.isArray(saved) && saved.length > 0) {
+            comboIds = saved.map(String);
+          }
+        }
+      } catch {}
+    }
+
+    if (comboIds.length > 0) {
+      const linked = allProducts.find(p => {
+        const pid = String(p.id || (p as any).productId || '');
+        return comboIds.includes(pid) && pid !== currentId && p.active !== false;
+      });
+      if (linked) return linked;
+    }
+
+    // 2. Fallback inteligente (mismo proveedor/categoría)
     const candidates = allProducts.filter(p => {
       const pid = String(p.id || (p as any).productId || '');
       if (pid === currentId) return false;
@@ -619,7 +645,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     if (candidates.length === 0) return null;
 
-    // Preferir productos de la misma categoría o almacén
     const currentCat = String(product.categoryName || (product as any).category || '').toLowerCase();
     const sameCat = candidates.filter(p => {
       const cat = String(p.categoryName || (p as any).category || '').toLowerCase();
@@ -645,9 +670,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleAddCrossSellCombo = () => {
     if (!product || !suggestedProduct) return;
-    // 1. Agregar el producto actual
+    // 1. Agregar el producto actual al carrito
     onAddToCart(product, selectedVariant, 1, currentProdEffectivePrice);
-    // 2. Agregar el producto sugerido
+    // 2. Agregar el producto vinculado/sugerido al carrito
     onAddToCart(suggestedProduct, undefined, 1, suggestedProductPrice);
 
     setComboAddedSuccess(true);
@@ -929,7 +954,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {/* Cabecera */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
-                          <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-sm">🔥</span>
                           <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
                             Comprados Juntos Habitualmente
                           </h4>
@@ -1000,13 +1025,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Texto disuasivo en verde */}
-                      <p className="text-[11px] sm:text-xs text-emerald-700 font-bold flex items-center gap-1.5 leading-snug">
-                        <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Aprovecha nuestro descuento de envíos consolidados al llevar ambos en tu carrito</span>
-                      </p>
-
-                      {/* Botón CTA */}
+                      {/* Botón CTA Principal */}
                       <button
                         type="button"
                         id="btn-add-cross-sell-combo"
@@ -1029,6 +1048,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           </>
                         )}
                       </button>
+
+                      {/* Texto disuasivo en verde debajo del botón */}
+                      <p className="text-[11px] text-emerald-700 font-bold text-center flex items-center justify-center gap-1.5 leading-snug">
+                        <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Se aplicará descuento automático por envío consolidado en el carrito</span>
+                      </p>
                     </div>
                   )}
 
