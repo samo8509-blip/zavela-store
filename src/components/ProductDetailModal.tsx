@@ -1,2253 +1,1717 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
-  X, 
-  ShoppingBag, 
-  Zap, 
-  ShieldCheck, 
   Truck, 
-  Check, 
-  Plus, 
-  Minus, 
+  ShieldCheck, 
   Sparkles, 
-  Share2, 
-  FileText, 
-  BadgeCheck, 
-  ChevronLeft, 
-  ChevronRight,
-  CreditCard,
-  Building2,
+  Search, 
+  SlidersHorizontal, 
+  ShoppingBag, 
+  ArrowRight, 
+  Check, 
+  PhoneCall, 
+  Flame, 
+  Clock, 
+  Building2, 
+  Tag, 
+  LayoutDashboard,
   CheckCircle2,
-  Sliders,
-  Flame,
-  Award,
-  Star,
-  ThumbsUp,
-  Camera
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Grid
 } from 'lucide-react';
-import { Product, ProductVariant, CartItem } from '../types/index.ts';
-import { formatCOP } from '../utils/formatters.ts';
-import { SergioMartinezSignature } from './SergioMartinezSignature.tsx';
-import { ProductShareModal } from './ProductShareModal.tsx';
-import { useProductTracker } from '../hooks/useProductTracker.ts';
-import { CommerceMindRecommendationsCarousel } from './CommerceMindRecommendationsCarousel.tsx';
-import { registerProductObservation } from '../services/commerceMindClient.ts';
-import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
-import { extractProductImages } from '../utils/imageUtils.ts';
-import { SameWarehouseRecommendations } from './SameWarehouseRecommendations.tsx';
-import { parseProductDescription } from '../utils/descriptionParser.ts';
-import { calculateQuantityPricing } from '../utils/comboPricing.ts';
+import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
+import { DEFAULT_CATEGORIES } from './data/categories.ts';
+import { Header } from './components/Header.tsx';
+import { ProductCard } from './components/ProductCard.tsx';
+import { ProductDetailModal } from './components/ProductDetailModal.tsx';
+import { CartDrawer } from './components/CartDrawer.tsx';
+import { CheckoutModal } from './components/CheckoutModal.tsx';
+import { OrderSuccessModal } from './components/OrderSuccessModal.tsx';
+import { OrderTrackingView } from './components/OrderTrackingView.tsx';
+import { OrderConfirmation } from './components/OrderConfirmation.tsx';
+import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { AdvisorPortal } from './components/advisor/AdvisorPortal.tsx';
+import { 
+  AdminLoginModal, 
+  checkIsAdminAuthenticated, 
+  clearAdminAuthentication, 
+  getStoredAdvisor, 
+  clearAdvisorAuthentication 
+} from './components/AdminLoginModal.tsx';
+import { Footer } from './components/Footer.tsx';
+import { SergioMartinezSignature } from './components/SergioMartinezSignature.tsx';
+import { AuthorCertificateModal } from './components/AuthorCertificateModal.tsx';
+import { formatCOP } from './utils/formatters.ts';
+import { 
+  TRUST_PALETTES, 
+  getStoredPaletteId, 
+  saveStoredPaletteId 
+} from './utils/themePalettes.ts';
+import { FlashSaleBanner } from './components/FlashSaleBanner.tsx';
+import { ColombiaTrustGuaranteesBar } from './components/ColombiaTrustGuaranteesBar.tsx';
+import { CustomerReviewsSection } from './components/CustomerReviewsSection.tsx';
+import { CommerceMindClientWidget } from './components/CommerceMindClientWidget.tsx';
+import { RealTimePurchaseToast } from './components/RealTimePurchaseToast.tsx';
+import { WhatsAppAdvisorFloating } from './components/WhatsAppAdvisorFloating.tsx';
+import { LuckyWheelModal } from './components/LuckyWheelModal.tsx';
+import { CatchDiscountGame } from './components/CatchDiscountGame.tsx';
+import { useProductTracker } from './hooks/useProductTracker.ts';
+import { useLuckyWheelTrigger } from './hooks/useLuckyWheelTrigger.ts';
+import { useGamificationConfig } from './hooks/useGamificationConfig.ts';
+import { getCpanelProducts, normalizeCpanelProduct } from './services/cpanelProducts.ts';
+import { subscribeToFirestoreSettings, getFirestoreSettings, saveFirestoreSettings } from './services/firestoreSettings.ts';
+import { ExclusividadZavela } from './components/ExclusividadZavela.tsx';
+import { CustomSubpageView } from './components/CustomSubpageView.tsx';
+import { DEFAULT_CUSTOM_SUBPAGES } from './utils/exclusivityPresets.ts';
+import { registerProductObservation } from './services/commerceMindClient.ts';
+import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.tsx';
+import { resolveActiveSeasonalTheme } from './utils/seasonalThemes.ts';
+import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
+import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
+import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
+import { NewsletterSubscriptionBox } from './components/NewsletterSubscriptionBox.tsx';
+import { recordCustomerPurchase } from './utils/customerOrdersManager.ts';
+import { 
+  CustomerUser, 
+  getCurrentCustomer, 
+  saveCurrentCustomer, 
+  subscribeCustomerAuth 
+} from './utils/customerAuthManager.ts';
+import { CustomerAuthModal } from './components/CustomerAuthModal.tsx';
+import { CustomerProfileModal } from './components/CustomerProfileModal.tsx';
+import { 
+  extractProductIdentifierFromUrl, 
+  resolveProductMatch, 
+  fetchProductDirectlyFromApi 
+} from './utils/productUrlResolver.ts';
+import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
+import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
+import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
 
-export interface ComboSelection {
-  talla: string;
-  color: string;
-  dropi_id?: string | number;
-  stock?: number;
-}
+export default function App() {
+  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
+      if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
+      if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
+      if (path === '/zavelastoresex') return 'subpage'; 
+    }
+    return 'store';
+  });
 
-interface ProductDetailModalProps {
-  product: Product | null;
-  allProducts?: Product[];
-  cartItems?: CartItem[];
-  onSelectProduct?: (product: Product) => void;
-  onClose: () => void;
-  onAddToCart: (product: Product, variant?: ProductVariant, quantity?: number, unitPrice?: number) => void;
-  onBuyNow: (product: Product, variant?: ProductVariant, quantity?: number, unitPrice?: number) => void;
-  onAddComboToCart?: (
+  const [activeSubpageSlug, setActiveSubpageSlug] = useState<string>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase() === '/zavelastoresex') {
+      return 'zavelastoresex';
+    }
+    return '';
+  });
+
+  const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
+  const [isAuthorCertModalOpen, setIsAuthorCertModalOpen] = useState(false);
+  const [authenticatedAdvisor, setAuthenticatedAdvisor] = useState<Advisor | null>(() => getStoredAdvisor());
+  const [showSecretLogin, setShowSecretLogin] = useState(false);
+
+  const [currentCustomer, setCurrentCustomer] = useState<CustomerUser | null>(() => getCurrentCustomer());
+  const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
+  const [customerAuthInitialTab, setCustomerAuthInitialTab] = useState<'login' | 'register'>('login');
+  const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
+
+  const [activePaletteId] = useState<string>(() => getStoredPaletteId());
+  const activePalette = TRUST_PALETTES.find(p => p.id === activePaletteId) || TRUST_PALETTES[0];
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'discount'>('featured');
+
+  const [settings, setSettings] = useState<StoreSettings | null>(null);
+  const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [orderDetails, setOrderDetails] = useState<{
+    firstName: string;
+    lastName: string;
+    phone: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (selectedProduct) {
+      const prodName = selectedProduct.title || selectedProduct.name || 'Producto';
+      document.title = `${prodName} | Zavela Store Colombia`;
+    } else {
+      document.title = 'Zavela Store Colombia | Tecnología, Hogar y Tendencias';
+    }
+  }, [selectedProduct]);
+
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('zavela_cart') || localStorage.getItem('novora_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const { 
+    trackedItems, 
+    totalVisitedCount, 
+    trackProductVisit, 
+    getFavoriteProduct 
+  } = useProductTracker();
+
+  const favoriteProduct = useMemo(() => {
+    return getFavoriteProduct(products);
+  }, [getFavoriteProduct, products]);
+
+  const [appliedDiscountCoupon, setAppliedDiscountCoupon] = useState<ActiveDiscountCoupon | null>(null);
+  const [isSocialClosingLink, setIsSocialClosingLink] = useState(false);
+
+  const [storedBypassToken, setStoredBypassToken] = useState<string | null>(() => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('preview_access') || params.get('bypass') || params.get('preview');
+      if (urlToken) {
+        sessionStorage.setItem('zavela_preview_bypass_token', urlToken);
+        localStorage.setItem('zavela_preview_bypass_token', urlToken);
+        return urlToken;
+      }
+      return sessionStorage.getItem('zavela_preview_bypass_token') || localStorage.getItem('zavela_preview_bypass_token') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('preview_access') || params.get('bypass') || params.get('preview');
+      if (urlToken) {
+        sessionStorage.setItem('zavela_preview_bypass_token', urlToken);
+        localStorage.setItem('zavela_preview_bypass_token', urlToken);
+        setStoredBypassToken(urlToken);
+      }
+    } catch {}
+  }, []);
+
+  const {
+    isOpen: isLuckyWheelOpen,
+    isUndecidedCustomer,
+    hasPurchased,
+    openLuckyWheel,
+    closeLuckyWheel,
+    isFloatingBadgeEnabled
+  } = useLuckyWheelTrigger({
+    totalVisitedCount,
+    hasItemsInCart: cartItems.length > 0,
+    isCheckoutOpen,
+    isOrderSuccessOpen: Boolean(completedOrder),
+    isAdminOrAdvisor: currentView === 'admin' || currentView === 'advisor',
+    luckyWheelSettings: settings?.luckyWheel
+  });
+
+  const {
+    isOpen: isGamificationOpen,
+    isUndecidedCustomer: isGamificationUndecided,
+    hasPurchased: hasPurchasedGamification,
+    openGame: openGamificationGame,
+    closeGame: closeGamificationGame,
+    isFloatingBadgeEnabled: isGamificationFloatingBadgeEnabled
+  } = useGamificationConfig({
+    catalogProducts: products,
+    isCheckoutOpen,
+    isOrderSuccessOpen: Boolean(completedOrder),
+    isAdminOrAdvisor: currentView === 'admin' || currentView === 'advisor',
+    gamificationSettings: settings?.gamificationGame
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const path = window.location.pathname || '';
+      const params = new URLSearchParams(window.location.search);
+      if (path.includes('order-confirmation') || params.has('ref_pay') || params.has('x_ref_pay')) {
+        setCurrentView('order-confirmation');
+      }
+    } catch (e) {
+      console.warn('Error checking order confirmation route:', e);
+    }
+  }, []);
+
+  const [isProductNotFoundOpen, setIsProductNotFoundOpen] = useState(false);
+  const [notFoundSearchTerm, setNotFoundSearchTerm] = useState('');
+  const [isLoadingDirectProduct, setIsLoadingDirectProduct] = useState(false);
+  const hasProcessedInitialProductRoute = useRef(false);
+
+  const processProductDeepLink = useCallback(async (catalog: Product[]) => {
+    const routeInfo = extractProductIdentifierFromUrl();
+    if (!routeInfo.isProductRoute || !routeInfo.identifier) return;
+
+    if (routeInfo.isRuletaClosing) {
+      setIsSocialClosingLink(true);
+    }
+
+    let matched = resolveProductMatch(routeInfo.identifier, catalog);
+
+    if (!matched) {
+      setIsLoadingDirectProduct(true);
+      matched = await fetchProductDirectlyFromApi(routeInfo.identifier);
+      setIsLoadingDirectProduct(false);
+
+      if (matched) {
+        setProducts(prev => {
+          if (!prev.some(p => p.id === matched!.id)) {
+            return [matched!, ...prev];
+          }
+          return prev;
+        });
+      }
+    }
+
+    if (matched) {
+      setIsProductNotFoundOpen(false);
+      setSelectedProduct(matched);
+      trackProductVisit(matched);
+
+      if (routeInfo.isRuletaClosing) {
+        setTimeout(() => {
+          openLuckyWheel('social_closing');
+        }, 1200);
+      }
+    } else {
+      setIsProductNotFoundOpen(true);
+      setNotFoundSearchTerm(routeInfo.identifier);
+    }
+  }, [trackProductVisit, openLuckyWheel]);
+
+  useEffect(() => {
+    if (products.length === 0) return;
+    if (!hasProcessedInitialProductRoute.current) {
+      hasProcessedInitialProductRoute.current = true;
+      processProductDeepLink(products);
+    }
+  }, [products, processProductDeepLink]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const routeInfo = extractProductIdentifierFromUrl();
+      if (routeInfo.isProductRoute && routeInfo.identifier) {
+        const found = resolveProductMatch(routeInfo.identifier, products);
+        if (found) {
+          setSelectedProduct(found);
+          setIsProductNotFoundOpen(false);
+        } else {
+          processProductDeepLink(products);
+        }
+      } else {
+        setSelectedProduct(null);
+        setIsProductNotFoundOpen(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [products, processProductDeepLink]);
+
+  const handleSelectProduct = useCallback((p: Product) => {
+    setSelectedProduct(p);
+    trackProductVisit(p);
+    setIsProductNotFoundOpen(false);
+    if (typeof window !== 'undefined') {
+      const slug = p.slug || p.id;
+      window.history.pushState(null, '', `/producto/${encodeURIComponent(slug)}`);
+    }
+  }, [trackProductVisit]);
+
+  const handleCloseProductDetail = useCallback(() => {
+    setSelectedProduct(null);
+    if (typeof window !== 'undefined') {
+      const routeInfo = extractProductIdentifierFromUrl();
+      if (routeInfo.isProductRoute) {
+        window.history.pushState(null, '', '/');
+      }
+    }
+  }, []);
+
+  const handleCloseProductNotFound = useCallback(() => {
+    setIsProductNotFoundOpen(false);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/');
+    }
+  }, []);
+
+  const handleApplyDiscountAndBuy = (product: Product, coupon: ActiveDiscountCoupon) => {
+    setAppliedDiscountCoupon(coupon);
+    handleAddToCart(product, product.variants?.[0], 1);
+    setIsCartOpen(false);
+    setSelectedProduct(null);
+    setIsCheckoutOpen(true);
+    showToast(`🎉 ¡Cupón ${coupon.code} aplicado (${coupon.percentage}% OFF)!`);
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('zavela_cart', JSON.stringify(cartItems));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [cartItems]);
+
+  const loadStoreData = async () => {
+    try {
+     const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
+         getCpanelProducts(true).catch(() => null),
+         fetch('/api/admin/categories')
+           .then(r => r.json())
+           .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
+           .catch(() => ({ success: false, data: [] })),
+         fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
+         getFirestoreSettings().catch(() => null),
+         fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
+       ]);
+
+        if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
+          setProducts(cpanelProds.map(normalizeCpanelProduct));
+        } else {
+          const prodRes = await fetch('https://api.zavelastore.com.co/api.php?action=products').then(r => r.json()).catch(() => ({ success: false }));
+          if (prodRes.success && Array.isArray(prodRes.data)) {
+            setProducts(prodRes.data.map(normalizeCpanelProduct));
+          }
+        }
+
+      if (catRes.success) setCategories(catRes.data);
+      if (ordersRes.success && Array.isArray(ordersRes.data)) setOrders(ordersRes.data);
+      
+      if (firestoreSet) {
+        setSettings(firestoreSet);
+      } else if (setRes.success) {
+        const loaded = setRes.data?.settings || setRes.data;
+        setSettings(loaded);
+      }
+    } catch (err) {
+      console.error('Error fetching initial data:', err);
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStoreData();
+
+    const unsubscribeSettings = subscribeToFirestoreSettings(
+      (firestoreUpdatedSettings) => {
+        if (firestoreUpdatedSettings) {
+          setSettings(firestoreUpdatedSettings);
+        }
+      },
+      (error) => {
+        console.warn('Firestore settings listener falló:', error);
+      }
+    );
+
+    return () => {
+      unsubscribeSettings();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCustomerAuth((user) => {
+      setCurrentCustomer(user);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleOpenCustomerAuth = (tab: 'login' | 'register' = 'login') => {
+    setCustomerAuthInitialTab(tab);
+    setIsCustomerAuthOpen(true);
+  };
+
+  const handleCustomerLogout = () => {
+    saveCurrentCustomer(null);
+    setCurrentCustomer(null);
+    showToast('Has cerrado tu sesión de cliente correctamente.');
+  };
+
+  useEffect(() => {
+    if (!settings) return;
+
+    const isTidioEnabled = settings.tidioChatEnabled !== false;
+    const rawInput = (settings.tidioScriptUrl || settings.tidioPublicKey || '').trim();
+
+    let tidioSrc: string | null = null;
+    if (rawInput) {
+      const scriptMatch = rawInput.match(/code\.tidio\.co\/([a-zA-Z0-9_-]+)\.js/);
+      if (scriptMatch && scriptMatch[1]) {
+        tidioSrc = `//code.tidio.co/${scriptMatch[1]}.js`;
+      } else if (rawInput.includes('code.tidio.co')) {
+        tidioSrc = rawInput.startsWith('http') || rawInput.startsWith('//') ? rawInput : `//${rawInput}`;
+      } else if (/^[a-zA-Z0-9_-]{6,}$/.test(rawInput)) {
+        tidioSrc = `//code.tidio.co/${rawInput}.js`;
+      }
+    }
+
+    const existingScript = document.getElementById('tidio-chat-script') as HTMLScriptElement | null;
+
+    if (isTidioEnabled && tidioSrc) {
+      if (existingScript) {
+        if (existingScript.src !== tidioSrc && !existingScript.src.endsWith(tidioSrc)) {
+          existingScript.src = tidioSrc;
+        }
+      } else {
+        const script = document.createElement('script');
+        script.id = 'tidio-chat-script';
+        script.src = tidioSrc;
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    } else if (!isTidioEnabled && existingScript) {
+      existingScript.remove();
+      const tidioFrame = document.getElementById('tidio-chat');
+      if (tidioFrame) tidioFrame.remove();
+    }
+  }, [settings?.tidioChatEnabled, settings?.tidioScriptUrl, settings?.tidioPublicKey]);
+
+  const catalogCatScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollCatLeft, setCanScrollCatLeft] = useState(false);
+  const [canScrollCatRight, setCanScrollCatRight] = useState(false);
+
+  const checkCatalogCatScroll = useCallback(() => {
+    const el = catalogCatScrollRef.current;
+    if (!el) return;
+    setCanScrollCatLeft(el.scrollLeft > 4);
+    setCanScrollCatRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = catalogCatScrollRef.current;
+    if (!el) return;
+
+    checkCatalogCatScroll();
+    const handleScroll = () => checkCatalogCatScroll();
+    el.addEventListener('scroll', handleScroll, { passive: true });
+
+    const resizeObserver = new ResizeObserver(() => checkCatalogCatScroll());
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+    };
+  }, [checkCatalogCatScroll, categories.length]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+  };
+
+  useEffect(() => {
+    let keyBuffer: string[] = [];
+    let sequenceTimer: NodeJS.Timeout | null = null;
+    const TARGET_SEQUENCE = ['UP', 'DOWN', 'UP', 'UP', '1', '9', '8', '5'];
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+      const isInputFocused = (activeTag === 'input' || activeTag === 'textarea') && !isAdminLoginOpen;
+
+      if (isInputFocused) return;
+
+      let token: string | null = null;
+
+      if (e.key === 'ArrowUp' || e.code === 'ArrowUp' || e.key === 'Up') {
+        token = 'UP';
+      } else if (e.key === 'ArrowDown' || e.code === 'ArrowDown' || e.key === 'Down') {
+        token = 'DOWN';
+      } else if (e.key === '1' || e.code === 'Digit1' || e.code === 'Numpad1') {
+        token = '1';
+      } else if (e.key === '9' || e.code === 'Digit9' || e.code === 'Numpad9') {
+        token = '9';
+      } else if (e.key === '8' || e.code === 'Digit8' || e.code === 'Numpad8') {
+        token = '8';
+      } else if (e.key === '5' || e.code === 'Digit5' || e.code === 'Numpad5') {
+        token = '5';
+      }
+
+      if (token) {
+        keyBuffer.push(token);
+        if (keyBuffer.length > TARGET_SEQUENCE.length) {
+          keyBuffer.shift();
+        }
+
+        if (sequenceTimer) clearTimeout(sequenceTimer);
+        sequenceTimer = setTimeout(() => {
+          keyBuffer = [];
+        }, 8000);
+
+        const isMatch = keyBuffer.length === TARGET_SEQUENCE.length && 
+          keyBuffer.every((val, idx) => val === TARGET_SEQUENCE[idx]);
+
+        if (isMatch) {
+          e.preventDefault();
+          keyBuffer = [];
+          if (sequenceTimer) clearTimeout(sequenceTimer);
+          setShowSecretLogin(true);
+
+          if (checkIsAdminAuthenticated()) {
+            setCurrentView('admin');
+            showToast('Acceso Administrativo verificado (Sergio Martínez)');
+          } else if (authenticatedAdvisor) {
+            setCurrentView('advisor');
+            showToast(`Acceso Asesor verificado (${authenticatedAdvisor.name})`);
+          } else {
+            setIsAdminLoginOpen(true);
+            showToast('⚡ Acceso secreto activado: ↑ ↓ ↑ ↑ 1985');
+          }
+        }
+      } else {
+        if (e.key.length === 1 && !['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+          keyBuffer = [];
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (sequenceTimer) clearTimeout(sequenceTimer);
+    };
+  }, [isAdminLoginOpen, authenticatedAdvisor]);
+
+  const handleRequestAdmin = () => {
+    if (checkIsAdminAuthenticated()) {
+      setCurrentView('admin');
+    } else if (authenticatedAdvisor) {
+      setCurrentView('advisor');
+    } else {
+      setIsAdminLoginOpen(true);
+    }
+  };
+
+  const handleAdvisorLogout = () => {
+    clearAdvisorAuthentication();
+    setAuthenticatedAdvisor(null);
+    setCurrentView('store');
+    showToast('Sesión de asesor cerrada correctamente.');
+  };
+
+  const handleDisableMaintenance = async () => {
+    try {
+      await saveFirestoreSettings({ maintenanceMode: false }).catch(err => console.warn('Firestore disable warning:', err));
+
+      await fetch('/api/admin/maintenance/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: false })
+      });
+
+      setSettings(prev => prev ? ({ ...prev, maintenanceMode: false }) : null);
+      showToast('🎉 Modo Mantenimiento DESACTIVADO. La tienda ahora está abierta al público.');
+    } catch (err: any) {
+      alert(err.message || 'Error al desactivar modo mantenimiento');
+    }
+  };
+
+  const handleAddToCart = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
+    registerProductObservation(product);
+    const originalPrice = (product as any).originalPrice || product.price;
+    const effectivePrice = unitPrice !== undefined && unitPrice > 0 ? unitPrice : product.price;
+    const effectiveProduct = { ...product, price: effectivePrice, originalPrice };
+    const effectiveVariant = variant ? { ...variant, price: effectivePrice, originalPrice: variant.price } : undefined;
+
+    setCartItems(prev => {
+      const existingIdx = prev.findIndex(
+        item => item.product.id === product.id && item.variant?.id === variant?.id
+      );
+
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx].quantity += quantity;
+        if (unitPrice !== undefined && unitPrice > 0) {
+          updated[existingIdx].product = effectiveProduct;
+          if (updated[existingIdx].variant) {
+            updated[existingIdx].variant = effectiveVariant;
+          }
+        }
+        return updated;
+      }
+
+      return [...prev, { product: effectiveProduct, variant: effectiveVariant, quantity }];
+    });
+
+    showToast(`¡"${product.title}" agregado al carrito!`);
+  };
+
+  const handleBuyNow = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
+    handleAddToCart(product, variant, quantity, unitPrice);
+    setIsCartOpen(false);
+    setSelectedProduct(null);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleAddComboToCart = (
     product: Product,
-    items: {
+    comboItems: {
       variant?: ProductVariant;
       quantity: number;
       unitPrice: number;
       garmentLabel: string;
       comboInfo: string;
     }[],
-    actionType: 'cart' | 'buy_now'
-  ) => void;
-  onOpenAuthorCertificate?: () => void;
-  isSocialClosing?: boolean;
-  onOpenLuckyWheel?: () => void;
-  isLuckyWheelEnabled?: boolean;
-}
+    actionType: 'cart' | 'buy_now' = 'cart'
+  ) => {
+    registerProductObservation(product);
 
-const extractVariantColor = (v: ProductVariant): string => {
-  if (v.color?.trim()) return v.color.trim();
-  if (v.name?.includes(' / ')) return v.name.split(' / ')[0].trim();
-  if (v.name?.includes(' - ')) return v.name.split(' - ')[0].trim();
-  return v.name?.trim() || 'Color Único';
-};
+    setCartItems(prev => {
+      let updated = [...prev];
+      for (const item of comboItems) {
+        const originalPrice = (product as any).originalPrice || product.price;
+        const effectivePrice = item.unitPrice > 0 ? item.unitPrice : product.price;
+        const effectiveProduct = { ...product, price: effectivePrice, originalPrice };
+        const effectiveVariant = item.variant ? { ...item.variant, price: effectivePrice, originalPrice: item.variant.price } : undefined;
 
-const extractVariantSize = (v: ProductVariant): string => {
-  if (v.size?.trim()) return v.size.trim();
-  if (v.talla?.trim()) return v.talla.trim();
-  if (v.name?.includes(' / ')) return v.name.split(' / ')[1].trim();
-  if (v.name?.includes(' - ')) return v.name.split(' - ')[1].trim();
-  return 'Única';
-};
+        const existingIdx = updated.findIndex(
+          i => i.product.id === product.id && i.variant?.id === item.variant?.id
+        );
 
-const getColorSwatchInfo = (colorName: string): { bg: string; border?: string } => {
-  const norm = colorName.toLowerCase().trim();
-  if (norm.includes('negro') || norm.includes('black')) return { bg: '#111827' };
-  if (norm.includes('blanco') || norm.includes('white')) return { bg: '#ffffff', border: '#cbd5e1' };
-  if (norm.includes('gris claro') || norm.includes('light gray')) return { bg: '#94a3b8' };
-  if (norm.includes('gris oscuro') || norm.includes('dark gray')) return { bg: '#334155' };
-  if (norm.includes('gris') || norm.includes('gray')) return { bg: '#64748b' };
-  if (norm.includes('rojo') || norm.includes('red')) return { bg: '#ef4444' };
-  if (norm.includes('azul oscuro') || norm.includes('navy')) return { bg: '#1e3a8a' };
-  if (norm.includes('azul claro') || norm.includes('sky')) return { bg: '#38bdf8' };
-  if (norm.includes('azul') || norm.includes('blue')) return { bg: '#2563eb' };
-  if (norm.includes('verde') || norm.includes('green')) return { bg: '#16a34a' };
-  if (norm.includes('amarillo') || norm.includes('yellow')) return { bg: '#eab308' };
-  if (norm.includes('naranja') || norm.includes('orange')) return { bg: '#f97316' };
-  if (norm.includes('rosado') || norm.includes('rosa') || norm.includes('pink')) return { bg: '#ec4899' };
-  if (norm.includes('morado') || norm.includes('purple')) return { bg: '#9333ea' };
-  if (norm.includes('cafe') || norm.includes('café') || norm.includes('marron') || norm.includes('marrón') || norm.includes('brown')) return { bg: '#78350f' };
-  if (norm.includes('beige')) return { bg: '#f5f5dc', border: '#d1d5db' };
-  if (norm.includes('dorado') || norm.includes('gold')) return { bg: '#eab308' };
-  if (norm.includes('plateado') || norm.includes('silver')) return { bg: '#cbd5e1' };
-  return { bg: '#475569' };
-};
-
-export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
-  product,
-  allProducts = [],
-  cartItems = [],
-  onSelectProduct,
-  onClose,
-  onAddToCart,
-  onBuyNow,
-  onAddComboToCart,
-  onOpenAuthorCertificate,
-  isSocialClosing = false,
-  onOpenLuckyWheel,
-  isLuckyWheelEnabled = true
-}) => {
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | undefined>(undefined);
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
-  const [sizeError, setSizeError] = useState<boolean>(false);
-  const [quantity, setQuantity] = useState(1);
-  const [showComboModal, setShowComboModal] = useState<boolean>(false);
-  const [comboSelections, setComboSelections] = useState<ComboSelection[]>([]);
-  const [comboActionType, setComboActionType] = useState<'cart' | 'buy_now'>('cart');
-
-  const [activeTab, setActiveTab] = useState<'desc' | 'especificaciones' | 'resenas' | 'garantia' | 'envios' | 'autoria'>('desc');
-  const [isShareOpen, setIsShareOpen] = useState(false);
-  const [shareInitialMode, setShareInitialMode] = useState<'recommend' | 'gift' | 'deal' | 'ruleta_closing'>('recommend');
-  const [comboAddedSuccess, setComboAddedSuccess] = useState(false);
-
-  useEffect(() => {
-    if (quantity >= 2) {
-      setComboSelections(prev => {
-        const updated: ComboSelection[] = [];
-        for (let i = 0; i < quantity; i++) {
-          if (prev[i]) {
-            updated.push(prev[i]);
-          } else {
-            updated.push({ talla: '', color: '', dropi_id: undefined, stock: undefined });
-          }
+        if (existingIdx >= 0) {
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: updated[existingIdx].quantity + item.quantity,
+            comboInfo: updated[existingIdx].comboInfo 
+              ? `${updated[existingIdx].comboInfo}, ${item.garmentLabel}` 
+              : item.comboInfo
+          };
+        } else {
+          updated.push({
+            product: effectiveProduct,
+            variant: effectiveVariant,
+            quantity: item.quantity,
+            comboInfo: item.comboInfo,
+            comboGarmentLabel: item.garmentLabel
+          });
         }
-        return updated;
-      });
+      }
+      return updated;
+    });
+
+    if (actionType === 'buy_now') {
+      setIsCartOpen(false);
+      setSelectedProduct(null);
+      setIsCheckoutOpen(true);
+      showToast(`¡Combo (${comboItems.length} prendas) listo! Abriendo pedido contra entrega...`);
     } else {
-      setComboSelections([]);
+      setSelectedProduct(null);
+      setIsCartOpen(true);
+      showToast(`¡Combo (${comboItems.length} prendas) personalizado y agregado al carrito!`);
     }
-  }, [quantity]);
-
-  useEffect(() => {
-    setActiveImageIndex(0);
-    setSelectedVariant(undefined);
-    setSelectedColor('');
-    setSelectedSize('');
-    setSizeError(false);
-    setQuantity(1);
-    setComboSelections([]);
-    setShowComboModal(false);
-    setActiveTab('desc');
-    setIsShareOpen(false);
-
-    if (modalScrollRef.current) {
-      modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
-    }
-  }, [product?.id]);
-  
-  const modalScrollRef = useRef<HTMLDivElement>(null);
-  const relatedSliderRef = useRef<HTMLDivElement>(null);
-  const { trackProductVisit, recordTimeSpent } = useProductTracker();
-
-  const imagesList = useMemo(() => {
-    return extractProductImages(product);
-  }, [product]);
-
-  const parsedDesc = useMemo(() => {
-    return parseProductDescription(
-      product?.description || product?.shortDescription,
-      product?.title,
-      product?.categoryName
-    );
-  }, [product?.id, product?.description, product?.shortDescription, product?.title, product?.categoryName]);
-
-  useEffect(() => {
-    if (product) {
-      const prodTitle = product.title || product.name || 'Producto';
-      document.title = `${prodTitle} | Zavela Store Colombia`;
-
-      try {
-        const rawRecent = localStorage.getItem('zavela_recent_views');
-        let list: string[] = rawRecent ? JSON.parse(rawRecent) : [];
-        if (!Array.isArray(list)) list = [];
-        const filtered = list.filter((id: any) => String(id) !== String(product.id));
-        const updated = [String(product.id), ...filtered].slice(0, 30);
-        localStorage.setItem('zavela_recent_views', JSON.stringify(updated));
-      } catch {}
-    }
-
-    return () => {
-      document.title = 'Zavela Store Colombia | Tecnología, Hogar y Tendencias';
-    };
-  }, [product?.id, product?.title, product?.name]);
-
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchEndX.current = null;
-    touchStartX.current = e.targetTouches[0].clientX;
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.targetTouches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return;
-    const distance = touchStartX.current - touchEndX.current;
-    const minSwipeDistance = 40;
-    if (distance > minSwipeDistance) {
-      setActiveImageIndex(prev => (prev < imagesList.length - 1 ? prev + 1 : 0));
-    } else if (distance < -minSwipeDistance) {
-      setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imagesList.length - 1));
-    }
-    touchStartX.current = null;
-    touchEndX.current = null;
-  };
-
-  const handlePrevImage = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imagesList.length - 1));
-  };
-
-  const handleNextImage = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setActiveImageIndex(prev => (prev < imagesList.length - 1 ? prev + 1 : 0));
-  };
-
-  const allVariants = useMemo<ProductVariant[]>(() => {
-    if (!product) return [];
-
-    let raw: any[] = [];
-    const source = product.variants || (product as any).variantes || (product as any).sizes || (product as any).tallas;
-    
-    if (Array.isArray(source) && source.length > 0) {
-      raw = source;
-    } else if (typeof source === 'string' && source.trim()) {
-      try {
-        const parsed = JSON.parse(source);
-        if (Array.isArray(parsed) && parsed.length > 0) raw = parsed;
-      } catch {
-        if (source.includes(',')) {
-          raw = source.split(',').map((s: string) => s.trim());
-        }
-      }
-    }
-
-    const titleLower = (product.title || '').toLowerCase();
-    const isFashion = titleLower.includes('enterizo') || titleLower.includes('short') || titleLower.includes('realce') || 
-                     titleLower.includes('faja') || titleLower.includes('zapato') || titleLower.includes('calzado') || 
-                     titleLower.includes('vestido') || titleLower.includes('pantalon') || titleLower.includes('body');
-
-    if (raw.length === 0 && isFashion) {
-      raw = ['S', 'M', 'L', 'XL'];
-    }
-
-    return raw.map((item: any, idx: number) => {
-      if (typeof item === 'string') {
-        const trimmed = item.trim();
-        return {
-          id: `var-${product.id}-${idx}`,
-          name: `${product.title} - Talla ${trimmed}`,
-          size: trimmed,
-          talla: trimmed,
-          color: 'Color Único',
-          stock: Number(product.stock) || 10,
-          price: product.price,
-          dropi_variation_id: (product as any).dropi_product_id
-        };
-      }
-      
-      const sName = item.size || item.talla || (item.name?.includes(' / ') ? item.name.split(' / ')[1]?.trim() : (item.name?.includes(' - ') ? item.name.split(' - ')[1]?.trim() : (['S','M','L','XL','XXL','28','30','32','34','36','38','39','40','41','42'].includes(item.name?.trim()) ? item.name.trim() : 'Única')));
-      const cName = item.color || (item.name?.includes(' / ') ? item.name.split(' / ')[0]?.trim() : (item.name?.includes(' - ') && !['S','M','L','XL','XXL'].includes(item.name.split(' - ')[0]?.trim()) ? item.name.split(' - ')[0]?.trim() : 'Color Único'));
-      
-      return {
-        ...item,
-        id: String(item.id || `var-${product.id}-${idx}`),
-        name: item.name || `${cName} / ${sName}`,
-        color: cName,
-        size: sName,
-        talla: sName,
-        stock: item.stock !== undefined ? Number(item.stock) : (Number(product.stock) || 10),
-        price: item.price !== undefined ? Number(item.price) : product.price,
-        dropi_variation_id: item.dropi_variation_id || item.dropiVariationId
-      };
-    });
-  }, [product]);
-
-  const distinctColors = useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
-    allVariants.forEach(v => {
-      const col = extractVariantColor(v);
-      if (col && col.toLowerCase() !== 'color único' && col.toLowerCase() !== 'único' && !seen.has(col.toLowerCase())) {
-        seen.add(col.toLowerCase());
-        list.push(col);
-      }
-    });
-    return list;
-  }, [allVariants]);
-
-  const distinctSizes = useMemo(() => {
-    const seen = new Set<string>();
-    const list: string[] = [];
-    allVariants.forEach(v => {
-      const sz = extractVariantSize(v);
-      if (sz && sz.toLowerCase() !== 'única' && sz.toLowerCase() !== 'general' && !seen.has(sz.toUpperCase())) {
-        seen.add(sz.toUpperCase());
-        list.push(sz);
-      }
-    });
-    return list;
-  }, [allVariants]);
-
-  const hasDistinctColors = distinctColors.length > 0;
-  const hasDistinctSizes = distinctSizes.length > 0;
-
-  useEffect(() => {
-    setSizeError(false);
-    if (allVariants.length > 0) {
-      if (hasDistinctColors) {
-        const initialColor = distinctColors[0] || extractVariantColor(allVariants[0]);
-        setSelectedColor(initialColor);
-      } else {
-        setSelectedColor('');
-      }
-
-      if (hasDistinctSizes) {
-        setSelectedSize('');
-        setSelectedVariant(undefined);
-      } else {
-        const initialVariant = allVariants[0];
-        setSelectedVariant(initialVariant);
-        setSelectedSize(extractVariantSize(initialVariant));
-      }
-
-      const initPhoto = allVariants[0]?.image || (allVariants[0] as any)?.imagen || (allVariants[0] as any)?.foto;
-      if (initPhoto) {
-        const foundIdx = imagesList.findIndex(img => img === initPhoto);
-        if (foundIdx !== -1) {
-          setActiveImageIndex(foundIdx);
-        }
-      }
-    } else {
-      setSelectedVariant(undefined);
-      setSelectedColor('');
-      setSelectedSize('');
-    }
-    setQuantity(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, allVariants.length, hasDistinctSizes]);
-
-  useEffect(() => {
-    if (product?.id) {
-      trackProductVisit(product);
-      registerProductObservation(product);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id]);
-
-  useEffect(() => {
-    if (imagesList.length > 0 && activeImageIndex >= imagesList.length) {
-      setActiveImageIndex(0);
-    }
-  }, [activeImageIndex, imagesList.length]);
-
-  useEffect(() => {
-    if (!product?.id) return;
-    const interval = setInterval(() => {
-      recordTimeSpent(product.id, 2);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [product?.id, recordTimeSpent]);
-
-  useEffect(() => {
-    if (!product) return;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-    };
-  }, [product]);
-
-  if (!product) return null;
-
-  const currentPrice = selectedVariant ? selectedVariant.price : product.price;
-
-  const handleIncrement = () => setQuantity(q => q + 1);
-  const handleDecrement = () => setQuantity(q => (q > 1 ? q - 1 : 1));
-
-  const availableSizes = useMemo(() => {
-    if (allVariants.length === 0) return [];
-    
-    let candidateVariants = allVariants;
-    if (hasDistinctColors && selectedColor) {
-      candidateVariants = allVariants.filter(v => extractVariantColor(v).toLowerCase() === selectedColor.toLowerCase());
-      if (candidateVariants.length === 0) candidateVariants = allVariants;
-    }
-
-    return candidateVariants.map(v => ({
-      variant: v,
-      size: extractVariantSize(v),
-      stock: v.stock !== undefined ? v.stock : 10,
-      dropiVariationId: v.dropi_variation_id || v.dropiVariationId
-    }));
-  }, [allVariants, hasDistinctColors, selectedColor]);
-
-  const handleSelectColor = (colorName: string) => {
-    setSelectedColor(colorName);
-    const variantsForColor = allVariants.filter(
-      v => extractVariantColor(v).toLowerCase() === colorName.toLowerCase()
-    );
-    if (variantsForColor.length === 0) return;
-
-    if (selectedSize) {
-      const match = variantsForColor.find(
-        v => extractVariantSize(v).toUpperCase() === selectedSize.toUpperCase()
+  const handleAddCustomCartItem = (item: CartItem) => {
+    registerProductObservation(item.product);
+    setCartItems(prev => {
+      const existingIdx = prev.findIndex(
+        i => i.product.id === item.product.id && 
+             i.variant?.id === item.variant?.id &&
+             i.customPlate?.shape === item.customPlate?.shape &&
+             i.customPlate?.finish === item.customPlate?.finish &&
+             i.customPlate?.brandText === item.customPlate?.brandText
       );
-      if (match) {
-        setSelectedVariant(match);
+
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx].quantity += item.quantity;
+        return updated;
+      }
+
+      return [...prev, item];
+    });
+
+    setIsCartOpen(true);
+    showToast(`✨ ¡"${item.product.title}" agregado al carrito!`);
+  };
+
+  const handleDirectCustomCheckout = (item: CartItem) => {
+    handleAddCustomCartItem(item);
+    setIsCartOpen(false);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleUpdateQuantity = (productId: string, variantId: string | undefined, delta: number) => {
+    const cleanTargetId = String(productId || '').replace(/^proc-/, '').trim();
+    setCartItems(prev => {
+      return prev.map(item => {
+        const itemCleanId = String(item.product.id || '').replace(/^proc-/, '').trim();
+        if ((item.product.id === productId || itemCleanId === cleanTargetId) && item.variant?.id === variantId) {
+          const newQty = item.quantity + delta;
+          return newQty > 0 ? { ...item, quantity: newQty } : null;
+        }
+        return item;
+      }).filter(Boolean) as CartItem[];
+    });
+  };
+
+  const handleRemoveItem = (productId: string, variantId: string | undefined) => {
+    const cleanTargetId = String(productId || '').replace(/^proc-/, '').trim();
+    setCartItems(prev => prev.filter(item => {
+      const itemCleanId = String(item.product.id || '').replace(/^proc-/, '').trim();
+      return !((item.product.id === productId || itemCleanId === cleanTargetId) && item.variant?.id === variantId);
+    }));
+  };
+
+  const effectiveCategories = useMemo(() => {
+    const baseList: Category[] = categories && categories.length > 0 ? [...categories] : [...DEFAULT_CATEGORIES];
+    const categoryMap = new Map<string, Category>();
+
+    baseList.forEach(c => {
+      if (c && c.id) {
+        categoryMap.set(c.id, c);
+      }
+    });
+
+    products.forEach(p => {
+      const pCatName = p.categoryName || (p as any).categoria;
+      const pCatId = p.categoryId || (p as any).category_id;
+      if (pCatName && pCatName.trim() && pCatId && pCatId !== 'all' && !categoryMap.has(pCatId)) {
+        categoryMap.set(pCatId, {
+          id: pCatId,
+          name: pCatName.trim(),
+          slug: pCatName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          active: true,
+          order: 90
+        });
+      }
+    });
+
+    return Array.from(categoryMap.values()).filter(c => 
+      c.active !== false && 
+      c.name.toLowerCase() !== 'sexshop' && 
+      c.name.toLowerCase() !== 'adultos'
+    );
+  }, [categories, products]);
+
+  const getCategoryProductCount = useCallback((catId: string) => {
+    if (catId === 'all') return products.filter(p => p.active !== false).length;
+    const catObj = effectiveCategories.find(c => c.id === catId || c.slug === catId);
+    if (!catObj) return 0;
+    const targetSlug = (catObj.slug || catId).toLowerCase();
+    const targetId = (catObj.id || catId).toLowerCase();
+    const targetName = (catObj.name || '').toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
+    return products.filter(p => {
+      if (p.active === false) return false;
+      const pCatId = (p.categoryId || (p as any).category_id || '').toLowerCase();
+      const pCatName = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+      const pCatSlug = ((p as any).categorySlug || '').toLowerCase();
+
+      if (pCatId === targetId || pCatId === targetSlug) return true;
+      if (targetName && (pCatName.includes(targetName) || targetName.includes(pCatName))) return true;
+      if (pCatSlug && (pCatSlug === targetSlug || pCatSlug === targetId)) return true;
+
+      if ((targetSlug.includes('navid') || targetId.includes('navid')) && 
+          (pCatId === 'cat-navidad' || p.title.toLowerCase().includes('navid') || p.tags?.some(t => t.toLowerCase().includes('navid')))) {
+        return true;
+      }
+      if ((targetSlug.includes('halloween') || targetId.includes('halloween')) && 
+          (pCatId === 'cat-halloween' || p.title.toLowerCase().includes('halloween') || p.tags?.some(t => t.toLowerCase().includes('halloween')))) {
+        return true;
+      }
+      if ((targetSlug.includes('amor') || targetId.includes('amor')) && 
+          (pCatId === 'cat-amor-amistad' || p.title.toLowerCase().includes('amor') || p.tags?.some(t => t.toLowerCase().includes('amor')))) {
+        return true;
+      }
+
+      return false;
+    }).length;
+  }, [products, effectiveCategories]);
+
+  const filteredProducts = products.filter(p => {
+    if (p.active === false) return false;
+
+    const pCatNameCheck = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+    if (pCatNameCheck === 'sexshop' || pCatNameCheck === 'adultos') {
+      return false; 
+    }
+
+    if (selectedCategoryId !== 'all') {
+      const catObj = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
+      const targetSlug = (catObj?.slug || selectedCategoryId).toLowerCase();
+      const targetId = (catObj?.id || selectedCategoryId).toLowerCase();
+      const targetName = (catObj?.name || '').toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+      
+      const pCatId = (p.categoryId || (p as any).category_id || '').toLowerCase();
+      const pCatName = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+      const pCatSlug = ((p as any).categorySlug || '').toLowerCase();
+
+      const isDirectMatch = pCatId === targetId || pCatId === targetSlug;
+      const isNameMatch = targetName && (pCatName.includes(targetName) || targetName.includes(pCatName));
+      const isCategorySlugMatch = Boolean(pCatSlug && (pCatSlug === targetSlug || pCatSlug === targetId));
+
+      const isHalloweenMatch = (targetSlug.includes('halloween') || targetSlug.includes('disfraz') || targetId.includes('halloween')) && (
+        pCatId === 'cat-halloween' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('halloween') || t.toLowerCase().includes('disfraz') || t.toLowerCase().includes('terror') || t.toLowerCase().includes('neón'))) ||
+        p.title.toLowerCase().includes('halloween') ||
+        p.title.toLowerCase().includes('disfraz') ||
+        p.title.toLowerCase().includes('máscara')
+      );
+
+      const isAmorMatch = (targetSlug.includes('amor') || targetSlug.includes('amistad') || targetId.includes('amor')) && (
+        pCatId === 'cat-amor-amistad' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('amor') || t.toLowerCase().includes('amistad') || t.toLowerCase().includes('pareja') || t.toLowerCase().includes('rosa'))) ||
+        p.title.toLowerCase().includes('amor') ||
+        p.title.toLowerCase().includes('amistad') ||
+        p.title.toLowerCase().includes('pareja') ||
+        p.title.toLowerCase().includes('rosa')
+      );
+
+      const isNavidadMatch = (targetSlug.includes('navid') || targetSlug.includes('diciem') || targetId.includes('navid')) && (
+        pCatId === 'cat-navidad' ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes('navid') || t.toLowerCase().includes('navidad') || t.toLowerCase().includes('regalo'))) ||
+        p.title.toLowerCase().includes('navid') ||
+        p.title.toLowerCase().includes('navidad')
+      );
+
+      if (!isDirectMatch && !isNameMatch && !isCategorySlugMatch && !isHalloweenMatch && !isAmorMatch && !isNavidadMatch) {
+        return false;
+      }
+    }
+    
+    if (selectedCategoryId !== 'all' && selectedSubcategoryId !== 'all') {
+      const targetSub = selectedSubcategoryId.toLowerCase();
+      
+      if (p.subcategoryId === selectedSubcategoryId) {
+        // Match
+      } else if (targetSub === 'sub-perfumes-mujer' || targetSub.includes('mujer')) {
+        const isWomen = p.subcategoryId === 'sub-perfumes-mujer' || 
+          p.tags?.some(t => t.toLowerCase().includes('mujer') || t.toLowerCase().includes('femme')) ||
+          p.title.toLowerCase().includes('mujer') || p.title.toLowerCase().includes('dama');
+        if (!isWomen) return false;
+      } else if (targetSub === 'sub-perfumes-hombre' || targetSub.includes('hombre')) {
+        const isMen = p.subcategoryId === 'sub-perfumes-hombre' || 
+          p.tags?.some(t => t.toLowerCase().includes('hombre') || t.toLowerCase().includes('homme')) ||
+          p.title.toLowerCase().includes('hombre') || p.title.toLowerCase().includes('caballero');
+        if (!isMen) return false;
+      } else if (targetSub === 'sub-perfumes-combos' || targetSub.includes('combo') || targetSub.includes('duo')) {
+        const isCombo = p.subcategoryId === 'sub-perfumes-combos' || 
+          p.tags?.some(t => t.toLowerCase().includes('combo') || t.toLowerCase().includes('duo') || t.toLowerCase().includes('trio')) ||
+          p.title.toLowerCase().includes('combo') || p.title.toLowerCase().includes('dúo') || p.title.toLowerCase().includes('set');
+        if (!isCombo) return false;
+      } else if (targetSub === 'sub-perfumeria' || targetSub.includes('perfum') || targetSub.includes('fragancia')) {
+        const isPerfume = p.tags?.some(t => t.toLowerCase().includes('perfum') || t.toLowerCase().includes('fragancia')) ||
+          p.title.toLowerCase().includes('perfume') || p.title.toLowerCase().includes('fragancia') || p.title.toLowerCase().includes('combo');
+        if (!isPerfume) return false;
+      } else {
+        const matchesTag = p.tags?.some(t => t.toLowerCase().includes(targetSub));
+        const matchesTitle = p.title.toLowerCase().includes(targetSub);
+        if (!matchesTag && !matchesTitle) return false;
       }
     }
 
-    const colorPhoto = variantsForColor.find(v => v.image || (v as any)?.imagen)?.image;
-    if (colorPhoto) {
-      const targetIdx = imagesList.findIndex(img => img === colorPhoto);
-      if (targetIdx !== -1) setActiveImageIndex(targetIdx);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        p.title.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        p.categoryName?.toLowerCase().includes(q) ||
+        p.subcategoryName?.toLowerCase().includes(q) ||
+        p.tags?.some(t => t.toLowerCase().includes(q))
+      );
     }
-  };
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === 'price_asc') return a.price - b.price;
+    if (sortBy === 'price_desc') return b.price - a.price;
+    if (sortBy === 'discount') return b.discountPercentage - a.discountPercentage;
+    return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+  });
 
-  const handleSelectSize = (sizeOpt: { variant: ProductVariant; size: string; stock: number }) => {
-    if (sizeOpt.stock <= 0) return;
-    setSizeError(false);
-    setSelectedSize(sizeOpt.size);
-    setSelectedVariant(sizeOpt.variant);
-  };
+  const featuredProducts = products.filter(p => p.featured && p.active);
+  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
 
-  const currentStock = selectedVariant ? (selectedVariant.stock ?? 10) : product.stock;
-  const isOutOfStock = currentStock <= 0;
+  if (currentView === 'admin') {
+    if (!checkIsAdminAuthenticated()) {
+      setIsAdminLoginOpen(true);
+      setCurrentView('store');
+      return null;
+    }
 
-  const baseUnitPrice = selectedVariant?.price || product.price;
+    return (
+      <AdminDashboard 
+        onBackToStore={() => {
+          loadStoreData();
+          setCurrentView('store');
+        }}
+        onLogout={() => {
+          clearAdminAuthentication();
+          loadStoreData();
+          setCurrentView('store');
+          showToast('Sesión de administrador cerrada correctamente.');
+        }}
+      />
+    );
+  }
 
-  // CONEXIÓN DIRECTA CON COMBO PRICING (FÓRMULA DE ENVÍO ÚNICO)
-  const currentPricing = useMemo(() => {
-    return calculateQuantityPricing(product, quantity, baseUnitPrice);
-  }, [product, quantity, baseUnitPrice]);
+  if (currentView === 'advisor') {
+    const activeAdv = authenticatedAdvisor || getStoredAdvisor();
+    if (!activeAdv) {
+      setIsAdminLoginOpen(true);
+      setCurrentView('store');
+      return null;
+    }
 
-  const pricingOpt1 = useMemo(() => calculateQuantityPricing(product, 1, baseUnitPrice), [product, baseUnitPrice]);
-  const pricingOpt2 = useMemo(() => calculateQuantityPricing(product, 2, baseUnitPrice), [product, baseUnitPrice]);
-  const pricingOpt3 = useMemo(() => calculateQuantityPricing(product, 3, baseUnitPrice), [product, baseUnitPrice]);
+    return (
+      <AdvisorPortal 
+        advisor={activeAdv}
+        products={products}
+        onBackToStore={() => setCurrentView('store')}
+        onLogout={handleAdvisorLogout}
+      />
+    );
+  }
 
-  const isAllComboSelected = Boolean(
-    quantity >= 2 && 
-    comboSelections.length === quantity && 
-    comboSelections.every(p => p.talla?.trim() && p.color?.trim())
+  if (currentView === 'order-confirmation') {
+    return (
+      <OrderConfirmation 
+        onBackToStore={() => {
+          loadStoreData();
+          setCurrentView('store');
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+        }}
+        onTrackOrder={(orderQuery) => {
+          loadStoreData();
+          setTrackingInitialQuery(orderQuery);
+          setCurrentView('tracking');
+          try {
+            window.history.pushState({}, '', '/');
+          } catch {}
+        }}
+      />
+    );
+  }
+
+  const isAdminAuthenticated = checkIsAdminAuthenticated();
+  const bypassTokenFromSettings = settings?.maintenanceBypassToken || 'zavela_test';
+  const isBypassValid = Boolean(
+    storedBypassToken && (storedBypassToken === bypassTokenFromSettings || storedBypassToken === 'zavela_test')
   );
 
-  const handleConfirmCombo = (action: 'cart' | 'buy_now' = comboActionType) => {
-    if (!isAllComboSelected) return;
-
-    const items = comboSelections.map((sel, idx) => {
-      const matched = allVariants.find(v => {
-        const vSize = (v.size || v.talla || '').trim().toUpperCase();
-        const vColor = extractVariantColor(v).trim().toLowerCase();
-        return vSize === sel.talla.trim().toUpperCase() && vColor === sel.color.trim().toLowerCase();
-      }) || allVariants.find(v => {
-        return (v.size || v.talla || '').trim().toUpperCase() === sel.talla.trim().toUpperCase();
-      }) || {
-        id: `var-${product.id}-${idx}`,
-        name: `${product.title} - ${sel.talla} / ${sel.color}`,
-        size: sel.talla,
-        talla: sel.talla,
-        color: sel.color,
-        stock: sel.stock || 10,
-        price: currentPricing.unitEffectivePrice,
-        dropi_variation_id: sel.dropi_id
-      };
-
-      return {
-        variant: matched,
-        quantity: 1,
-        unitPrice: currentPricing.unitEffectivePrice,
-        garmentLabel: `Prenda ${idx + 1} de ${quantity} (Talla ${sel.talla} - ${sel.color})`,
-        comboInfo: `Combo ${quantity}x (Talla: ${sel.talla}, Color: ${sel.color})`
-      };
-    });
-
-    if (onAddComboToCart) {
-      onAddComboToCart(product, items, action);
-    } else {
-      items.forEach((item, idx) => {
-        if (idx === items.length - 1 && action === 'buy_now') {
-          onBuyNow(product, item.variant, item.quantity, item.unitPrice);
-        } else {
-          onAddToCart(product, item.variant, item.quantity, item.unitPrice);
-        }
-      });
-    }
-
-    setShowComboModal(false);
-  };
-
-  const handleValidateAndAddToCart = () => {
-    if (isOutOfStock) return;
-    
-    if (quantity >= 2) {
-      if (!isAllComboSelected) {
-        setComboActionType('cart');
-        setShowComboModal(true);
-        return;
-      }
-      handleConfirmCombo('cart');
-      return;
-    }
-
-    if (hasDistinctSizes && !selectedSize) {
-      setSizeError(true);
-      return;
-    }
-    setSizeError(false);
-    onAddToCart(product, selectedVariant, quantity, currentPricing.unitEffectivePrice);
-    onClose();
-  };
-
-  const handleValidateAndBuyNow = () => {
-    if (isOutOfStock) return;
-
-    if (quantity >= 2) {
-      if (!isAllComboSelected) {
-        setComboActionType('buy_now');
-        setShowComboModal(true);
-        return;
-      }
-      handleConfirmCombo('buy_now');
-      return;
-    }
-
-    if (hasDistinctSizes && !selectedSize) {
-      setSizeError(true);
-      return;
-    }
-    setSizeError(false);
-    onBuyNow(product, selectedVariant, quantity, currentPricing.unitEffectivePrice);
-    onClose();
-  };
-
-  const relatedProducts = allProducts.filter(p => p.id !== product.id && p.active !== false);
-  const sameCategoryProducts = relatedProducts.filter(p => p.categoryId === product.categoryId || p.categoryName === product.categoryName);
-  const recommendedItems = (sameCategoryProducts.length >= 3 ? sameCategoryProducts : relatedProducts).slice(0, 10);
-
-  const handleSelectRelated = (relatedProd: Product) => {
-    setActiveImageIndex(0);
-    setSelectedVariant(undefined);
-    setSelectedColor('');
-    setSelectedSize('');
-    setSizeError(false);
-    setQuantity(1);
-    setComboSelections([]);
-    setShowComboModal(false);
-    setActiveTab('desc');
-    setIsShareOpen(false);
-
-    if (modalScrollRef.current) {
-      modalScrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
-    }
-
-    if (onSelectProduct) {
-      onSelectProduct(relatedProd);
-    }
-  };
-
-  const skuNumber = (product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
-    ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
-    : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
-
-  // TAREA 2: Cross-selling: Revisar si el producto actual tiene IDs en su propiedad de combo (suggestedComboIds)
-  const suggestedProduct = useMemo(() => {
-    if (!allProducts || allProducts.length <= 1 || !product) return null;
-    const currentId = String(product.id || (product as any).productId || '');
-    
-    // 1. Prioridad: IDs vinculados en 'suggestedComboIds' o en localStorage
-    let comboIds: string[] = [];
-    if (Array.isArray(product.suggestedComboIds) && product.suggestedComboIds.length > 0) {
-      comboIds = product.suggestedComboIds.map(String);
-    } else {
-      try {
-        const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
-        if (rawMap) {
-          const map = JSON.parse(rawMap);
-          const saved = map[currentId] || map[String(product.slug)];
-          if (Array.isArray(saved) && saved.length > 0) {
-            comboIds = saved.map(String);
-          }
-        }
-      } catch {}
-    }
-
-    if (comboIds.length > 0) {
-      const linked = allProducts.find(p => {
-        const pid = String(p.id || (p as any).productId || '');
-        return comboIds.includes(pid) && pid !== currentId && p.active !== false;
-      });
-      if (linked) return linked;
-    }
-
-    // 2. Fallback inteligente (mismo proveedor/categoría)
-    const candidates = allProducts.filter(p => {
-      const pid = String(p.id || (p as any).productId || '');
-      if (pid === currentId) return false;
-      if (p.active === false) return false;
-      const cat = String(p.categoryName || (p as any).category || (p as any).categoria || '').toLowerCase();
-      const currentCat = String(product.categoryName || (product as any).category || (product as any).categoria || '').toLowerCase();
-      const isAdultCurrent = currentCat.includes('sex') || currentCat.includes('adult');
-      const isAdultCandidate = cat.includes('sex') || cat.includes('adult');
-      if (!isAdultCurrent && isAdultCandidate) return false;
-      return true;
-    });
-
-    if (candidates.length === 0) return null;
-
-    const currentCat = String(product.categoryName || (product as any).category || '').toLowerCase();
-    const sameCat = candidates.filter(p => {
-      const cat = String(p.categoryName || (p as any).category || '').toLowerCase();
-      return currentCat && cat && cat === currentCat;
-    });
-
-    const pool = sameCat.length > 0 ? sameCat : candidates;
-    const seed = currentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    return pool[seed % pool.length];
-  }, [allProducts, product]);
-
-  const suggestedProductImage = useMemo(() => {
-    if (!suggestedProduct) return '/placeholder.png';
-    const imgs = extractProductImages(suggestedProduct);
-    return imgs[0] || (suggestedProduct as any).image || (suggestedProduct as any).imagen || '/placeholder.png';
-  }, [suggestedProduct]);
-
-  const suggestedProductPrice = suggestedProduct ? (suggestedProduct.price || (suggestedProduct as any).salePrice || 0) : 0;
-  const currentProdEffectivePrice = currentPricing.unitEffectivePrice || product.price || 0;
-  const comboOriginalTotal = currentProdEffectivePrice + suggestedProductPrice;
-  // Con 2 productos en carrito aplica automáticamente el descuento por envío consolidado de $15,000 COP
-  const comboDiscountedTotal = Math.max(0, comboOriginalTotal - 15000);
-
-  const handleAddCrossSellCombo = () => {
-    if (!product || !suggestedProduct) return;
-    // 1. Agregar el producto actual al carrito
-    onAddToCart(product, selectedVariant, 1, currentProdEffectivePrice);
-    // 2. Agregar el producto vinculado/sugerido al carrito
-    onAddToCart(suggestedProduct, undefined, 1, suggestedProductPrice);
-
-    setComboAddedSuccess(true);
-    setTimeout(() => {
-      setComboAddedSuccess(false);
-    }, 2500);
-  };
+  if (settings?.maintenanceMode && !isAdminAuthenticated && !isBypassValid) {
+    return (
+      <div id="zavela-maintenance-root">
+        <MaintenanceModeScreen
+          settings={settings}
+          onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
+          onNotifyLeadRegistered={(contact) => showToast(`¡Registrado con éxito (${contact})! Te avisaremos de primero.`)}
+        />
+        <AdminLoginModal
+          isOpen={isAdminLoginOpen}
+          onClose={() => setIsAdminLoginOpen(false)}
+          onSuccess={() => {
+            setIsAdminLoginOpen(false);
+            showToast('¡Bienvenido! Has accedido a la tienda en Modo de Pruebas Privado.');
+          }}
+          onAdvisorSuccess={(adv) => {
+            setAuthenticatedAdvisor(adv);
+            setIsAdminLoginOpen(false);
+            setCurrentView('advisor');
+            showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+          }}
+        />
+        {toastMessage && (
+          <div translate="no" className="fixed bottom-6 right-6 z-50 bg-white text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-sky-300 animate-in slide-in-from-bottom-4 duration-200 notranslate">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold notranslate">{toastMessage}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div 
-        id="product-detail-modal-backdrop" 
-        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto overscroll-contain"
-        onClick={onClose}
-      >
-        <div 
-          id="product-detail-modal-dialog" 
-          className="bg-white text-slate-900 rounded-3xl max-w-6xl xl:max-w-7xl w-full max-h-[96vh] overflow-hidden shadow-2xl flex flex-col relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overscroll-contain my-auto"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-4 sm:px-6 py-3 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 shadow-2xs">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 overflow-hidden truncate">
-              <span className="font-semibold text-slate-800 uppercase tracking-wider shrink-0">
-                {product.brand || 'Zavela Store'}
-              </span>
-              <span className="text-slate-300">/</span>
-              <span className="text-slate-600 uppercase tracking-wider shrink-0 truncate">
-                {product.categoryName || (product as any).category || (product as any).categoria || 'Catálogo General'}
-              </span>
-              <span className="text-slate-300 hidden sm:inline">/</span>
-              <span className="text-sky-700 font-bold uppercase tracking-wider hidden sm:inline truncate max-w-xs md:max-w-md">
-                {product.title}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <button
-                id="btn-top-share-product"
-                type="button"
-                onClick={() => setIsShareOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                title="Compartir por WhatsApp, Facebook, Instagram..."
-              >
-                <Share2 className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden sm:inline">Compartir</span>
-              </button>
-
-              <button
-                id="btn-close-product-modal"
-                onClick={onClose}
-                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 flex items-center justify-center transition-colors cursor-pointer border border-slate-200 shadow-2xs"
-                title="Cerrar ventana"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+    <div id="zavela-app-root" translate="no" className={`min-h-screen ${activePalette.classes.pageBg} text-slate-900 flex flex-col font-sans selection:bg-sky-200 selection:text-sky-900 notranslate transition-colors duration-300 relative`}>
+      
+      <SeasonalThemeAtmosphere 
+        themeId={seasonalThemeInfo.activeThemeId}
+        enabled={seasonalThemeInfo.particlesEnabled}
+      />
+      
+      {settings?.maintenanceMode && (isAdminAuthenticated || isBypassValid) && (
+        <AdminMaintenanceBanner
+          settings={settings}
+          isAdmin={isAdminAuthenticated}
+          isBypass={isBypassValid}
+          onDisableMaintenance={handleDisableMaintenance}
+          onGoToAdmin={() => setCurrentView('admin')}
+          onExitBypass={() => {
+            try {
+              sessionStorage.removeItem('zavela_preview_bypass_token');
+              localStorage.removeItem('zavela_preview_bypass_token');
+              setStoredBypassToken(null);
+              showToast('Has salido de la previsualización privada.');
+            } catch {}
+          }}
+        />
+      )}
+      
+      {authenticatedAdvisor && (
+        <div className="bg-[#0B1528] border-b border-sky-500/40 px-4 py-2 flex items-center justify-between text-xs text-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10B981]" />
+            <span className="font-mono text-[11px] text-sky-400 font-bold uppercase">Sesión de Asesor Activa:</span>
+            <span className="font-bold text-white">{authenticatedAdvisor.name}</span>
+            <span className="hidden sm:inline text-slate-400 font-mono text-[10px]">({authenticatedAdvisor.id} • {authenticatedAdvisor.channel})</span>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentView('advisor')}
+              className="px-2.5 py-1 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
+            >
+              💼 Mi Portal de Ventas
+            </button>
+            <button
+              onClick={handleAdvisorLogout}
+              className="text-[11px] text-slate-400 hover:text-rose-300 transition-colors cursor-pointer px-1.5 py-0.5"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      )}
 
-          <div 
-            ref={modalScrollRef} 
-            className="overflow-y-auto overscroll-contain flex-1 p-4 sm:p-6 md:p-8 bg-slate-50/50 space-y-8"
-          >
-            
-            <div className="bg-white p-5 sm:p-8 rounded-3xl border border-slate-200 shadow-xs grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+      {toastMessage && (
+        <div translate="no" className="fixed bottom-6 right-6 z-50 bg-white text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-sky-300 animate-in slide-in-from-bottom-4 duration-200 notranslate">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span className="text-xs font-bold notranslate">{toastMessage}</span>
+        </div>
+      )}
+
+      {currentView === 'store' && (
+        <FlashSaleBanner 
+          onExploreOffers={() => {
+            const catalogEl = document.getElementById('catalog-products-section');
+            if (catalogEl) {
+              catalogEl.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+        />
+      )}
+
+      {currentView !== 'exclusividad' && (
+        <Header
+          settings={settings}
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategoryId={(catId) => {
+            setSelectedCategoryId(catId);
+            setSelectedSubcategoryId('all');
+            if (currentView !== 'store') {
+              setCurrentView('store');
+            }
+            const catalogEl = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
+            if (catalogEl) {
+              catalogEl.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+          selectedSubcategoryId={selectedSubcategoryId}
+          onSelectSubcategoryId={(subId) => {
+            setSelectedSubcategoryId(subId);
+            if (currentView !== 'store') {
+              setCurrentView('store');
+            }
+            const catalogEl = document.getElementById('catalog-products-section');
+            if (catalogEl) {
+              catalogEl.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+          products={products}
+          totalProductsCount={products.length}
+          cartCount={totalCartCount}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenTracking={() => {
+            setTrackingInitialQuery('');
+            setCurrentView('tracking');
+          }}
+          onOpenCustomerOrders={() => setIsCustomerOrdersOpen(true)}
+          currentCustomer={currentCustomer}
+          onOpenCustomerAuth={handleOpenCustomerAuth}
+          onOpenCustomerProfile={() => setIsCustomerProfileOpen(true)}
+          onCustomerLogout={handleCustomerLogout}
+          onGoHome={() => setCurrentView('store')}
+          onNavigateExclusivity={() => setCurrentView('exclusividad')}
+          onNavigateSubpage={(slug) => {
+            setActiveSubpageSlug(slug);
+            setCurrentView('subpage');
+          }}
+          isExclusivityActive={false}
+          exclusivityPageEnabled={settings?.exclusivityPage?.enabled !== false}
+          exclusivityNavTitle={settings?.exclusivityPage?.navTitle || 'EXCLUSIVIDAD (Bolsos & Placas)'}
+          customSubpages={settings?.customSubpages && settings.customSubpages.length > 0 ? settings.customSubpages : DEFAULT_CUSTOM_SUBPAGES}
+          onToggleAdmin={handleRequestAdmin}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          showSecretLogin={showSecretLogin}
+          activePaletteId={activePaletteId}
+        />
+      )}
+
+      {currentView === 'exclusividad' ? (
+        <main className="flex-1">
+          <ExclusividadZavela
+            settings={settings || ({} as StoreSettings)}
+            products={products}
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={(catId) => {
+              setSelectedCategoryId(catId);
+              setSelectedSubcategoryId('all');
+              setCurrentView('store');
+              setTimeout(() => {
+                document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            selectedSubcategoryId={selectedSubcategoryId}
+            onSelectSubcategory={(subId) => {
+              setSelectedSubcategoryId(subId);
+              setCurrentView('store');
+              setTimeout(() => {
+                document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            onAddToCart={handleAddCustomCartItem}
+            onDirectCheckout={handleDirectCustomCheckout}
+            onNavigateHome={() => setCurrentView('store')}
+            onNavigateCatalog={() => {
+              setCurrentView('store');
+              setTimeout(() => {
+                document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            onNavigateTracking={() => {
+              setTrackingInitialQuery('');
+              setCurrentView('tracking');
+            }}
+            onNavigateExclusivity={() => setCurrentView('exclusividad')}
+            onNavigateSubpage={(slug) => {
+              setActiveSubpageSlug(slug);
+              setCurrentView('subpage');
+            }}
+            onOpenCart={() => setIsCartOpen(true)}
+            cartCount={totalCartCount}
+          />
+        </main>
+      ) : currentView === 'subpage' ? (
+        <main className="flex-1">
+          {activeSubpageSlug === 'zavelastoresex' ? (
+            <AdultsOnlyPage
+              products={products}
+              onGoHome={() => {
+                setCurrentView('store');
+                try { window.history.pushState({}, '', '/'); } catch {}
+              }}
+              onSelectProduct={(p) => {
+                setSelectedProduct(p);
+                trackProductVisit(p);
+              }}
+              onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
+              onBuyNow={(p) => handleBuyNow(p, p.variants?.[0], 1)}
+            />
+          ) : (
+            (() => {
+              const subpagesList = settings?.customSubpages && settings.customSubpages.length > 0 
+                ? settings.customSubpages 
+                : DEFAULT_CUSTOM_SUBPAGES;
+              const resolvedSubpage = subpagesList.find(sp => sp.slug === activeSubpageSlug) || subpagesList[0];
               
-              <div className="lg:col-span-6 flex flex-col sm:flex-row gap-4">
-                
-                {imagesList.length > 1 && (
-                  <div 
-                    id="product-gallery-thumbnails"
-                    className="order-2 sm:order-1 flex sm:flex-col gap-2.5 overflow-x-auto sm:overflow-y-auto sm:max-h-[500px] shrink-0 p-1 sm:pr-2 scrollbar-thin select-none z-10"
-                    aria-label="Miniaturas de fotos del producto"
-                  >
-                    {imagesList.map((img, index) => (
-                      <button
-                        key={`${product.id}-thumb-${index}`}
-                        type="button"
-                        id={`btn-thumbnail-${index}`}
-                        onClick={() => setActiveImageIndex(index)}
-                        className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all shrink-0 cursor-pointer bg-white p-1 relative group/thumb ${
-                          activeImageIndex === index 
-                            ? 'border-red-600 ring-4 ring-red-500/25 shadow-md scale-105 z-10' 
-                            : 'border-slate-200 hover:border-slate-400 opacity-70 hover:opacity-100 hover:scale-102'
-                        }`}
-                        title={`Ver foto ${index + 1}`}
-                        aria-label={`Ver foto ${index + 1}`}
-                      >
-                        <img 
-                          src={img} 
-                          alt={`Miniatura ${index + 1}`} 
-                          className="w-full h-full object-cover rounded-xl pointer-events-none select-none" 
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                        />
-                        {activeImageIndex === index && (
-                          <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-600 ring-2 ring-white" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              return (
+                <CustomSubpageView
+                  subpage={resolvedSubpage}
+                  settings={settings || ({} as StoreSettings)}
+                  products={products}
+                  onAddToCart={handleAddCustomCartItem}
+                  onDirectCheckout={handleDirectCustomCheckout}
+                  onNavigateHome={() => setCurrentView('store')}
+                  onNavigateCatalog={() => {
+                    setCurrentView('store');
+                    setTimeout(() => {
+                      document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                  }}
+                  onNavigateTracking={() => {
+                    setTrackingInitialQuery('');
+                    setCurrentView('tracking');
+                  }}
+                  onNavigateExclusivity={() => setCurrentView('exclusividad')}
+                  onNavigateSubpage={(slug) => {
+                    setActiveSubpageSlug(slug);
+                    setCurrentView('subpage');
+                  }}
+                  onOpenCart={() => setIsCartOpen(true)}
+                  cartCount={totalCartCount}
+                />
+              );
+            })()
+          )}
+        </main>
+      ) : currentView === 'tracking' ? (
+        <main className="flex-1">
+          <OrderTrackingView
+            initialQuery={trackingInitialQuery}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+            onBackToStore={() => setCurrentView('store')}
+          />
+        </main>
+      ) : (
+        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
+          
+          <div id="catalogo" className="scroll-mt-24"></div>
+          <div id="catalog-products-section" className="space-y-4 pt-1 scroll-mt-24">
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white/70 backdrop-blur-xs px-3 sm:px-4 py-2 rounded-2xl border border-slate-200/70 shadow-2xs">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+                <button
+                  id="cat-pill-all"
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategoryId('all');
+                    setSelectedSubcategoryId('all');
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    selectedCategoryId === 'all'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  Todas ({products.filter(p => p.active !== false && p.categoryName?.toLowerCase() !== 'sexshop' && p.categoryName?.toLowerCase() !== 'adultos').length})
+                </button>
 
-                <div className="order-1 sm:order-2 flex-1 flex flex-col items-center w-full">
-                  <div 
-                    id="product-gallery-main-view"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                    className="aspect-square w-full rounded-2xl bg-white overflow-hidden relative border border-slate-200 p-3 sm:p-5 flex items-center justify-center shadow-xs group select-none touch-pan-y"
-                  >
-                    <img
-                      src={imagesList[activeImageIndex] || product.imagen || (product as any).image}
-                      alt={product.title}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
-                    />
+                {effectiveCategories.map((cat) => {
+                  const isSelected = selectedCategoryId === cat.id || selectedCategoryId === cat.slug;
+                  const catCount = getCategoryProductCount(cat.id);
 
-                    <div className="absolute top-3 left-3 bg-slate-900/75 backdrop-blur-xs text-white text-[11px] font-mono font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md z-10 pointer-events-none">
-                      <Camera className="w-3.5 h-3.5 text-slate-200" />
-                      <span>📷 {activeImageIndex + 1} / {imagesList.length}</span>
-                    </div>
-
-                    {product.discountPercentage > 0 && (
-                      <span className="absolute top-3 right-3 bg-gradient-to-r from-red-600 to-rose-600 text-white font-black text-[11px] sm:text-xs px-3 py-1 rounded-lg uppercase tracking-wider shadow-md z-10 pointer-events-none">
-                        -{product.discountPercentage}% OFF
-                      </span>
-                    )}
-
-                    <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-800 text-[10px] font-mono px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs z-10 pointer-events-none">
-                      <Truck className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Despacho: {product.warehouseCity || 'Bogotá D.C.'}</span>
-                    </div>
-
-                    {imagesList.length > 1 && (
-                      <>
-                        <button
-                          id="btn-gallery-prev"
-                          type="button"
-                          onClick={handlePrevImage}
-                          aria-label="Foto anterior"
-                          title="Foto anterior"
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-20 hover:scale-110 active:scale-95"
-                        >
-                          <ChevronLeft className="w-5 h-5 text-slate-800" />
-                        </button>
-                        <button
-                          id="btn-gallery-next"
-                          type="button"
-                          onClick={handleNextImage}
-                          aria-label="Foto siguiente"
-                          title="Foto siguiente"
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-20 hover:scale-110 active:scale-95"
-                        >
-                          <ChevronRight className="w-5 h-5 text-slate-800" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {imagesList.length > 1 && (
-                    <div 
-                      id="product-gallery-dots"
-                      className="flex items-center justify-center gap-2 mt-3"
-                      aria-label="Indicadores de fotos"
+                  return (
+                    <button
+                      key={cat.id || cat.slug}
+                      id={`cat-pill-${cat.id}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategoryId(cat.id);
+                        setSelectedSubcategoryId('all');
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
                     >
-                      {imagesList.map((_, index) => (
-                        <button
-                          key={`${product.id}-dot-${index}`}
-                          type="button"
-                          id={`btn-gallery-dot-${index}`}
-                          onClick={() => setActiveImageIndex(index)}
-                          className={`h-2.5 rounded-full transition-all cursor-pointer ${
-                            activeImageIndex === index 
-                              ? 'w-7 bg-red-600 ring-2 ring-red-400/30' 
-                              : 'w-2.5 bg-slate-300 hover:bg-slate-400'
-                          }`}
-                          aria-label={`Ver foto ${index + 1}`}
-                          title={`Foto ${index + 1} de ${imagesList.length}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="w-full mt-4 flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 text-xs">Garantía Oficial Zavela</div>
-                        <div className="text-[11px] text-emerald-700 font-medium">Revisión física previa a despacho</div>
-                      </div>
-                    </div>
-                    <span className="font-mono text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold shrink-0">
-                      100% ORIGINAL
-                    </span>
-                  </div>
-                </div>
+                      <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
+                      {catCount > 0 && (
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {catCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="lg:col-span-6 flex flex-col justify-between space-y-5">
-                <div className="space-y-4">
-                  
-                  <div>
-                    <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-950 uppercase tracking-tight leading-tight">
-                      {product.title}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                      <div className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">
-                        SKU: {skuNumber}
-                      </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 text-xs">
+                {selectedCategoryId !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategoryId('all');
+                      setSelectedSubcategoryId('all');
+                    }}
+                    className="text-[11px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                  >
+                    ✕ Quitar Filtro
+                  </button>
+                )}
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full border border-slate-200 text-slate-700">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[10px] uppercase font-bold text-slate-400 hidden xs:inline">Ordenar:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    aria-label="Ordenar productos"
+                    className="bg-transparent text-slate-900 font-bold outline-hidden text-xs cursor-pointer"
+                  >
+                    <option value="featured">Destacados Zavela</option>
+                    <option value="price_asc">Menor Precio</option>
+                    <option value="price_desc">Mayor Precio</option>
+                    <option value="discount">Mayor Descuento</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {selectedCategoryId !== 'all' && (() => {
+                const currentCat = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
+                if (!currentCat || !currentCat.subcategories || currentCat.subcategories.length === 0) return null;
+
+                const subList = currentCat.subcategories.map(s => typeof s === 'string' ? { id: s, name: s } : s);
+
+                return (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                    <div className="flex items-center gap-2 overflow-x-auto w-full scrollbar-none py-0.5">
+                      <span className="text-[11px] font-mono text-sky-700 font-black uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                        <span>Subcategorías:</span>
+                      </span>
+
                       <button
                         type="button"
-                        onClick={() => setActiveTab('resenas')}
-                        className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-bold hover:underline cursor-pointer transition-colors"
-                        title="Ver reseñas positivas y testimonios verificados"
+                        onClick={() => setSelectedSubcategoryId('all')}
+                        className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          selectedSubcategoryId === 'all'
+                            ? 'bg-sky-600 text-white border-sky-600 font-black shadow-xs'
+                            : 'bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 hover:border-sky-300'
+                        }`}
                       >
-                        <div className="flex items-center text-amber-500">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          ))}
-                        </div>
-                        <span className="font-mono text-slate-900 font-black">4.9</span>
-                        <span className="text-slate-500 font-medium underline">(Opiniones Verificadas)</span>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                          ✓ Pago al Recibir
-                        </span>
+                        Ver Todas
                       </button>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2.5">
-                    <p className="text-slate-700 text-xs sm:text-sm leading-relaxed font-medium">
-                      {parsedDesc.leadSentence}
-                    </p>
+                      {subList.map((sub) => {
+                        const subId = sub.id || sub.name;
+                        const isSelectedSub = selectedSubcategoryId === subId;
 
-                    <div className="grid grid-cols-1 gap-1.5 pt-0.5">
-                      {parsedDesc.keyBullets.map((bullet, bIdx) => {
-                        const icons = [
-                          <CheckCircle2 key="1" className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />,
-                          <Sparkles key="2" className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />,
-                          <ShieldCheck key="3" className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />,
-                          <Zap key="4" className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
-                        ];
                         return (
-                          <div
-                            key={`${product.id}-bullet-${bIdx}`}
-                            className="flex items-start gap-2 text-xs text-slate-700 font-normal bg-slate-50/90 px-2.5 py-1.5 rounded-xl border border-slate-200/80"
+                          <button
+                            key={subId}
+                            type="button"
+                            onClick={() => setSelectedSubcategoryId(subId)}
+                            className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all cursor-pointer border ${
+                              isSelectedSub
+                                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-600 font-black shadow-xs scale-102'
+                                : 'bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 hover:border-sky-300 hover:bg-sky-50/50'
+                            }`}
                           >
-                            {icons[bIdx % icons.length]}
-                            <span className="leading-snug">{bullet}</span>
-                          </div>
+                            <span>{sub.name}</span>
+                          </button>
                         );
                       })}
                     </div>
-
-                    <details className="group border border-slate-200 rounded-xl bg-white overflow-hidden transition-all duration-200 mt-2">
-                      <summary className="flex items-center justify-between p-2.5 sm:p-3 cursor-pointer font-bold text-xs text-slate-800 hover:text-red-600 hover:bg-slate-50 select-none list-none transition-colors">
-                        <span className="flex items-center gap-1.5">
-                          <Sliders className="w-3.5 h-3.5 text-red-600" />
-                          <span>Ver detalles completos y especificaciones</span>
-                        </span>
-                        <span className="text-slate-400 group-open:rotate-180 transition-transform duration-200 text-[10px]">
-                          ▼
-                        </span>
-                      </summary>
-                      <div className="p-3 pt-1 border-t border-slate-100 text-slate-600 text-xs leading-relaxed whitespace-pre-line font-normal max-h-52 overflow-y-auto">
-                        {parsedDesc.fullCleanDescription}
-                      </div>
-                    </details>
                   </div>
+                );
+              })()}
 
-                  {/* Bloque UI: Comprados Juntos Habitualmente (Cross-Selling) */}
-                  {suggestedProduct && (
-                    <div 
-                      id="cross-selling-combo-box"
-                      className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 border border-emerald-300 shadow-xs space-y-3"
-                    >
-                      {/* Cabecera */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm">🔥</span>
-                          <h4 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wide">
-                            Comprados Juntos Habitualmente
-                          </h4>
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
-                          Combo Sugerido
-                        </span>
-                      </div>
+              <div className="flex items-center justify-between px-1 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-xs animate-pulse" />
+                  <h2 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider">
+                    CATÁLOGO DISPONIBLE CON PAGO CONTRA ENTREGA
+                  </h2>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'PRODUCTO' : 'PRODUCTOS'}
+                </span>
+              </div>
 
-                      {/* Tarjetas de Producto Sumadas */}
-                      <div className="flex items-center justify-between gap-2 pt-1">
-                        {/* Producto Actual */}
-                        <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
-                          <img
-                            src={imagesList[0] || (product as any).image || (product as any).imagen || '/placeholder.png'}
-                            alt={product.title || product.name || 'Producto actual'}
-                            className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block">
-                              Este producto
-                            </span>
-                            <div className="text-xs font-bold text-slate-800 truncate" title={product.title || product.name}>
-                              {product.title || product.name}
-                            </div>
-                            <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
-                              {formatCOP(currentProdEffectivePrice)}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Símbolo + */}
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 shadow-2xs border border-emerald-200">
-                          +
-                        </div>
-
-                        {/* Producto Sugerido */}
-                        <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
-                          <img
-                            src={suggestedProductImage}
-                            alt={suggestedProduct.title || suggestedProduct.name || 'Producto sugerido'}
-                            className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 block">
-                              Sugerido
-                            </span>
-                            <div className="text-xs font-bold text-slate-800 truncate" title={suggestedProduct.title || suggestedProduct.name}>
-                              {suggestedProduct.title || suggestedProduct.name}
-                            </div>
-                            <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
-                              {formatCOP(suggestedProductPrice)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Total Combo */}
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/80">
-                        <span className="font-bold text-slate-600">Total por ambos productos:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400 line-through font-mono">
-                            {formatCOP(comboOriginalTotal)}
-                          </span>
-                          <span className="text-sm font-mono font-black text-emerald-700">
-                            {formatCOP(comboDiscountedTotal)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Botón CTA Principal */}
-                      <button
-                        type="button"
-                        id="btn-add-cross-sell-combo"
-                        onClick={handleAddCrossSellCombo}
-                        className={`w-full h-11 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-sm hover:shadow cursor-pointer ${
-                          comboAddedSuccess
-                            ? 'bg-emerald-700 text-white shadow-inner'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-98'
-                        }`}
-                      >
-                        {comboAddedSuccess ? (
-                          <>
-                            <Check className="w-4 h-4 text-white" />
-                            <span>¡Combo Agregado al Carrito!</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingBag className="w-4 h-4 text-white" />
-                            <span>Agregar Combo al Carrito</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Texto disuasivo en verde debajo del botón */}
-                      <p className="text-[11px] text-emerald-700 font-bold text-center flex items-center justify-center gap-1.5 leading-snug">
-                        <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Se aplicará descuento automático por envío consolidado en el carrito</span>
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="pt-2 pb-1 border-y border-slate-100">
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <span className="text-2xl sm:text-3xl lg:text-4xl font-mono font-black text-red-600 tracking-tight">
-                        {formatCOP(currentPricing.discountedTotal)}
-                      </span>
-                      {((product.compareAtPrice && product.compareAtPrice > currentPrice) || (quantity >= 2 && currentPricing.savings > 0)) && (
-                        <span className="text-base sm:text-lg text-slate-400 line-through font-mono font-semibold">
-                          {formatCOP(currentPricing.regularTotal)}
-                        </span>
-                      )}
-                      {quantity >= 2 && currentPricing.savings > 0 && (
-                        <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">
-                          {formatCOP(currentPricing.unitEffectivePrice)} c/u (¡Envío Único!)
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-emerald-700 font-bold mt-1 flex items-center gap-1.5">
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>
-                        {quantity >= 2 && currentPricing.savings > 0
-                          ? `¡Pagas 1 solo flete para tus ${quantity} unidades! Pago Contra Entrega en efectivo`
-                          : '¡Pagas en efectivo al recibir en tus manos! (Pago Contra Entrega)'}
-                      </span>
-                    </p>
+              {filteredProducts.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 space-y-3 shadow-sm">
+                  <div className="w-14 h-14 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto border border-slate-200">
+                    <Search className="w-6 h-6 text-sky-600" />
                   </div>
-
-                  {currentStock <= 5 && currentStock > 0 && (
-                    <div className="p-3 rounded-2xl bg-amber-50 border border-amber-300 text-slate-900 flex items-center gap-2.5">
-                      <Zap className="w-4 h-4 fill-amber-500 text-amber-500 shrink-0" />
-                      <div className="text-xs font-bold text-amber-950">
-                        ¡Solo quedan {currentStock} unidades en bodega para esta opción! Despachamos hoy mismo.
-                      </div>
-                    </div>
-                  )}
-
-                  {(hasDistinctColors || hasDistinctSizes) && (
-                    <div className="space-y-3 pt-1 pb-1">
-                      {hasDistinctColors && (
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                              <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center font-bold">1</span>
-                              <span>Paso 1: Seleccionar Color</span>
-                            </label>
-                            {selectedColor && (
-                              <span className="text-xs font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                                {selectedColor}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            {distinctColors.map((colorName) => {
-                              const isSelected = selectedColor.toLowerCase() === colorName.toLowerCase();
-                              const swatch = getColorSwatchInfo(colorName);
-                              const colorVariants = allVariants.filter(
-                                v => extractVariantColor(v).toLowerCase() === colorName.toLowerCase()
-                              );
-                              const hasAnyStock = colorVariants.some(v => (v.stock ?? 1) > 0);
-
-                              return (
-                                <button
-                                  key={colorName}
-                                  type="button"
-                                  id={`color-btn-${colorName.replace(/\s+/g, '-').toLowerCase()}`}
-                                  onClick={() => handleSelectColor(colorName)}
-                                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-2 ${
-                                    isSelected
-                                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/20'
-                                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  <span 
-                                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
-                                    style={{
-                                      backgroundColor: swatch.bg,
-                                      border: swatch.border ? `1px solid ${swatch.border}` : '1px solid rgba(0,0,0,0.15)'
-                                    }}
-                                  />
-                                  <span>{colorName}</span>
-                                  {!hasAnyStock && (
-                                    <span className={`text-[9px] px-1 rounded ${isSelected ? 'bg-slate-800 text-rose-300' : 'bg-rose-50 text-rose-600'}`}>
-                                      Agotado
-                                    </span>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {hasDistinctSizes && availableSizes.length > 0 && (
-                        <div className={`p-3 rounded-2xl transition-all ${
-                          sizeError 
-                            ? 'border-2 border-rose-500 bg-rose-50/60 ring-2 ring-rose-400/40' 
-                            : 'border border-slate-200 bg-slate-50/50'
-                        }`}>
-                          <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-                            <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                              <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center font-bold">
-                                {hasDistinctColors ? '2' : '1'}
-                              </span>
-                              <span>Selecciona tu Talla:</span>
-                              <span className="text-rose-500 text-[11px] font-bold">* Obligatorio</span>
-                            </label>
-                            {selectedSize ? (
-                              <span className="text-xs font-extrabold text-indigo-800 bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                                Talla elegida: {selectedSize}
-                              </span>
-                            ) : (
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                sizeError ? 'bg-rose-600 text-white font-black animate-pulse' : 'text-slate-500'
-                              }`}>
-                                {sizeError ? '⚠️ Selecciona una talla para continuar' : 'Elige tu talla'}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {availableSizes.map((opt) => {
-                              const isSelected = selectedSize.toUpperCase() === opt.size.toUpperCase();
-                              const isOut = opt.stock <= 0;
-
-                              return (
-                                <button
-                                  key={opt.variant.id || opt.size}
-                                  type="button"
-                                  id={`talla-btn-${opt.size.replace(/\s+/g, '-').toLowerCase()}`}
-                                  disabled={isOut}
-                                  onClick={() => handleSelectSize(opt)}
-                                  className={`px-4 py-2.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
-                                    isOut
-                                      ? 'border-slate-200 bg-slate-100 text-slate-400 line-through cursor-not-allowed opacity-60'
-                                      : isSelected
-                                        ? 'border-red-600 bg-red-600 text-white font-black shadow-md ring-2 ring-red-500/25 scale-102'
-                                        : 'border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50'
-                                  }`}
-                                  title={isOut ? 'Variante agotada en bodega' : `Talla ${opt.size}`}
-                                >
-                                  <span>{opt.size}</span>
-                                  {isOut ? (
-                                    <span className="ml-1.5 text-[9px] uppercase font-bold text-rose-500 no-underline inline-block">
-                                      (Agotada)
-                                    </span>
-                                  ) : opt.stock <= 5 ? (
-                                    <span className={`ml-1 text-[10px] font-mono ${isSelected ? 'text-red-100' : 'text-amber-700 font-bold'}`}>
-                                      ({opt.stock} un.)
-                                    </span>
-                                  ) : null}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {sizeError && (
-                            <p className="text-rose-600 text-xs font-bold mt-2 flex items-center gap-1">
-                              <span>⚠️ Debes seleccionar una talla antes de agregar al carrito o comprar contra entrega.</span>
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {selectedVariant && (
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-extrabold text-slate-900">
-                              ✓ Opción activa: {selectedColor ? `${selectedColor} / ` : ''}{selectedSize || 'Estándar'}
-                            </span>
-                            {(selectedVariant.dropi_variation_id || selectedVariant.dropiVariationId) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 text-[10px]">
-                                📦 Dropi ID: #{selectedVariant.dropi_variation_id || selectedVariant.dropiVariationId}
-                              </span>
-                            )}
-                          </div>
-                          <span className={`font-bold text-[11px] ${
-                            currentStock > 0 ? 'text-emerald-700' : 'text-rose-600 font-black'
-                          }`}>
-                            {currentStock > 0 ? `Stock disponible: ${currentStock} un.` : 'Agotado'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 🛒 CRO Tarjetas de Combos con Envío Único Integrado */}
-                  <div className="space-y-2 pt-1 pb-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                        <span>🔥 Ofertas Especiales por Cantidad (Envío Único):</span>
-                      </span>
-                      {quantity >= 2 && currentPricing.savings > 0 && (
-                        <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 animate-pulse">
-                          ¡Ahorras {formatCOP(currentPricing.savings)} (Pagas 1 solo flete)!
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(1)}
-                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
-                          quantity === 1
-                            ? 'border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/20'
-                            : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="text-[10px] font-bold opacity-80 uppercase">Opción 1</div>
-                        <div className="text-xs font-black">1 Unidad</div>
-                        <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(pricingOpt1.discountedTotal)}
-                        </div>
-                        <div className="text-[10px] opacity-70 mt-0.5">Precio estándar</div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(2)}
-                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
-                          quantity === 2
-                            ? 'border-emerald-600 bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500/30'
-                            : 'border-emerald-300 bg-emerald-50/50 text-slate-900 hover:border-emerald-400'
-                        }`}
-                      >
-                        <span className={`absolute -top-2.5 right-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
-                          quantity === 2 ? 'bg-amber-400 text-slate-950 font-black' : 'bg-emerald-600 text-white'
-                        }`}>
-                          {pricingOpt2.savings > 0 ? 'FLETE ÚNICO' : 'MÁS POPULAR'}
-                        </span>
-                        <div className="text-[10px] font-bold opacity-85 uppercase">Opción 2</div>
-                        <div className="text-xs font-black">2 Unidades</div>
-                        <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(pricingOpt2.discountedTotal)}
-                        </div>
-                        <div className={`text-[10px] font-bold mt-0.5 ${quantity === 2 ? 'text-amber-200' : 'text-emerald-700'}`}>
-                          {pricingOpt2.savings > 0 ? `Ahorras ${formatCOP(pricingOpt2.savings)}` : 'Precio regular'}
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(3)}
-                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer relative ${
-                          quantity === 3
-                            ? 'border-red-600 bg-red-600 text-white shadow-md ring-2 ring-red-500/30'
-                            : 'border-red-300 bg-red-50/50 text-slate-900 hover:border-red-400'
-                        }`}
-                      >
-                        <span className={`absolute -top-2.5 right-2 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
-                          quantity === 3 ? 'bg-yellow-300 text-slate-950 font-black' : 'bg-red-600 text-white'
-                        }`}>
-                          {pricingOpt3.savings > 0 ? 'MEJOR VALOR' : 'OPCIÓN 3'}
-                        </span>
-                        <div className="text-[10px] font-bold opacity-85 uppercase">Opción 3</div>
-                        <div className="text-xs font-black">3 Unidades</div>
-                        <div className="text-sm font-black mt-1 font-mono">
-                          {formatCOP(pricingOpt3.discountedTotal)}
-                        </div>
-                        <div className={`text-[10px] font-bold mt-0.5 ${quantity === 3 ? 'text-yellow-200' : 'text-red-700'}`}>
-                          {pricingOpt3.savings > 0 ? `Ahorras ${formatCOP(pricingOpt3.savings)}` : 'Precio regular'}
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {isSocialClosing && isLuckyWheelEnabled && (
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border-2 border-amber-400 text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-xs">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-2xl shrink-0">🎁</span>
-                        <div>
-                          <div className="text-xs font-black text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
-                            <span>¡Enlace con Ruleta de Cierre Activado!</span>
-                            <span className="bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-md">
-                              5%-15% OFF
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-700 font-medium">
-                            Tienes 1 giro de regalo para asegurar tu descuento en este producto contra entrega.
-                          </div>
-                        </div>
-                      </div>
-                      {onOpenLuckyWheel && (
-                        <button
-                          type="button"
-                          onClick={onOpenLuckyWheel}
-                          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs shrink-0 cursor-pointer shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                        >
-                          <span>🎰 Girar Ruleta Ahora</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                    <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-slate-50 h-12 w-full sm:w-36 justify-between px-2 shrink-0">
-                      <button
-                        id="btn-qty-minus"
-                        onClick={handleDecrement}
-                        className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span id="qty-counter-display" className="font-mono font-black text-base text-slate-900">
-                        {quantity}
-                      </span>
-                      <button
-                        id="btn-qty-plus"
-                        onClick={handleIncrement}
-                        className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <button
-                      id="btn-modal-add-cart"
-                      disabled={isOutOfStock}
-                      onClick={handleValidateAndAddToCart}
-                      className={`flex-1 h-12 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg ${
-                        isOutOfStock 
-                          ? 'bg-slate-300 cursor-not-allowed opacity-60' 
-                          : 'bg-red-600 hover:bg-red-700 active:scale-98 cursor-pointer'
-                      }`}
-                    >
-                      <ShoppingBag className="w-4 h-4 text-white" />
-                      <span>
-                        {isOutOfStock 
-                          ? 'AGOTADO' 
-                          : quantity >= 2 
-                            ? `🛍️ AGREGAR COMBO (${quantity} UNIDADES)` 
-                            : 'AGREGAR AL CARRITO'}
-                      </span>
-                    </button>
-                  </div>
-
-                  {quantity >= 2 && isAllComboSelected && (
-                    <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-semibold flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-medium text-emerald-900">
-                          {comboSelections.map((item, idx) => `✓ Prenda ${idx + 1}: Talla ${item.talla} - ${item.color}`).join(' | ')}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setComboActionType('cart');
-                          setShowComboModal(true);
-                        }}
-                        className="text-[11px] text-emerald-700 hover:text-emerald-900 underline font-black cursor-pointer shrink-0"
-                      >
-                        Modificar
-                      </button>
-                    </div>
-                  )}
-
-                  {quantity >= 2 && (
-                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-2xl">🎉</span>
-                          <div>
-                            <div className="text-[11px] font-black uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
-                              <span>¡Oferta de Envío Único Aplicada ({quantity} Unidades)!</span>
-                            </div>
-                            <div className="text-sm sm:text-base font-black font-mono mt-0.5">
-                              Total a pagar: {formatCOP(currentPricing.discountedTotal)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="inline-block bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-1 rounded-xl shadow-xs">
-                            ¡Ahorras {formatCOP(currentPricing.savings)} en flete!
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2.5 pt-2 border-t border-emerald-500/40 flex items-center justify-between gap-2 flex-wrap">
-                        <div className="text-[11px] text-emerald-100">
-                          Se cobra un solo envío de {formatCOP(currentPricing.flete)} para todo el paquete.
-                        </div>
-                        <button
-                          type="button"
-                          id="btn-customize-combo-shortcut"
-                          onClick={() => {
-                            setComboActionType('cart');
-                            setShowComboModal(true);
-                          }}
-                          className="px-3 py-1.5 rounded-xl bg-white text-emerald-950 hover:bg-emerald-50 font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>🛍️ Personalizar Combo ({quantity} Prendas)</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {quantity >= 2 && (
-                    <button
-                      type="button"
-                      id="btn-personalizar-combo-verde"
-                      onClick={() => {
-                        setComboActionType('cart');
-                        setShowComboModal(true);
-                      }}
-                      className="w-full h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg active:scale-98 cursor-pointer border border-emerald-400/50"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>🛍️ PERSONALIZAR COMBO ({quantity} PRENDAS)</span>
-                      {isAllComboSelected ? (
-                        <span className="bg-emerald-800/90 text-emerald-100 text-[10px] px-2 py-0.5 rounded-full font-bold ml-1">
-                          ✓ Listo
-                        </span>
-                      ) : (
-                        <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
-                          Elegir Tallas / Colores
-                        </span>
-                      )}
-                    </button>
-                  )}
-
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    {selectedCategoryId !== 'all'
+                      ? 'No hay productos disponibles en esta categoría actualmente'
+                      : 'No se encontraron productos'}
+                  </h3>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto">
+                    {selectedCategoryId !== 'all'
+                      ? 'Pronto agregaremos nuevas existencias y novedades para esta sección.'
+                      : 'No encontramos ningún producto que coincida con tu búsqueda. Intenta con otro término o categoría.'}
+                  </p>
                   <button
-                    id="btn-modal-buy-now"
-                    disabled={isOutOfStock}
-                    onClick={handleValidateAndBuyNow}
-                    className={`w-full h-12 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition-all uppercase tracking-wider shadow-md hover:shadow-lg ${
-                      isOutOfStock
-                        ? 'bg-slate-300 cursor-not-allowed opacity-60'
-                        : 'bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-98 cursor-pointer'
-                    }`}
-                  >
-                    <Zap className="w-4 h-4 fill-white text-white" />
-                    <span>
-                      {isOutOfStock 
-                        ? 'PRODUCTO AGOTADO' 
-                        : quantity >= 2 
-                          ? `⚡ COMPRAR COMBO (${quantity} UNIDADES) - PAGO EN CASA` 
-                          : 'COMPRAR AHORA (PAGO CONTRA ENTREGA)'}
-                    </span>
-                  </button>
-
-                  <div className={`grid ${isLuckyWheelEnabled ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-2 pt-1`}>
-                    {isLuckyWheelEnabled && (
-                      <button
-                        id="btn-modal-share-ruleta"
-                        type="button"
-                        onClick={() => {
-                          setShareInitialMode('ruleta_closing');
-                          setIsShareOpen(true);
-                        }}
-                        className="h-10 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 hover:from-amber-500/25 hover:to-amber-500/20 text-amber-950 border border-amber-400/60 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider cursor-pointer shadow-2xs"
-                      >
-                        <span className="text-sm">🎯</span>
-                        <span>Cierre con Ruleta (5%-15%)</span>
-                      </button>
-                    )}
-
-                    <button
-                      id="btn-modal-share-product"
-                      type="button"
-                      onClick={() => {
-                        setShareInitialMode('recommend');
-                        setIsShareOpen(true);
-                      }}
-                      className="h-10 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all uppercase tracking-wider cursor-pointer shadow-2xs"
-                    >
-                      <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Compartir Producto</span>
-                    </button>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-100 space-y-3">
-                    <div className="p-3 rounded-2xl bg-sky-50/60 border border-sky-100 flex items-center gap-2.5 text-xs text-sky-950">
-                      <div className="w-6 h-6 rounded-lg bg-sky-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                        ✓
-                      </div>
-                      <div>
-                        <strong>Paga Seguro Contra Entrega</strong> en efectivo al recibir tu paquete en casa u oficina.
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-slate-600">
-                      <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-                        <Truck className="w-4 h-4 text-emerald-600" />
-                        <span className="font-semibold text-emerald-700">Envío Gratis Nacional</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-                        <ShieldCheck className="w-4 h-4 text-slate-500" />
-                        <span className="font-semibold">Garantía Oficial 30 Días</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
-                        <CreditCard className="w-4 h-4 text-slate-500" />
-                        <span className="font-semibold">Pago Seguro al Recibir</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <SameWarehouseRecommendations
-                    currentProduct={product}
-                    allProducts={allProducts}
-                    onAddToCart={(item, qty, variant) => {
-                      onAddToCart(item, variant, qty);
+                    onClick={() => {
+                      setSelectedCategoryId('all');
+                      setSelectedSubcategoryId('all');
+                      setSearchQuery('');
                     }}
-                    onSelectProduct={handleSelectRelated}
-                    cartItems={cartItems}
-                  />
-
+                    className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black px-5 py-2.5 rounded-xl text-xs cursor-pointer uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
+                  >
+                    Ver todos los productos
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id || product.slug}
+                      product={product}
+                      onSelectProduct={(p) => {
+                        setSelectedProduct(p);
+                        trackProductVisit(p);
+                      }}
+                      onAddToCart={(p, e) => handleAddToCart(p, p.variants?.[0], 1)}
+                      onBuyNow={(p, e) => handleBuyNow(p, p.variants?.[0], 1)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden w-full">
-              <div className="flex flex-wrap items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 pt-3 gap-2">
-                <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto w-full sm:w-auto scrollbar-none">
-                  <button
-                    onClick={() => setActiveTab('desc')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'desc'
-                        ? 'border-red-600 text-red-600 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <FileText className="w-4 h-4 text-red-600" />
-                    <span>Descripción Completa</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('especificaciones')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'especificaciones'
-                        ? 'border-red-600 text-red-600 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Sliders className="w-4 h-4 text-slate-600" />
-                    <span>Ficha Técnica</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('resenas')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'resenas'
-                        ? 'border-amber-500 text-amber-800 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                    <span>Reseñas Verificadas (4.9 ★)</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('garantia')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'garantia'
-                        ? 'border-red-600 text-red-600 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Garantía Oficial Zavela</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('envios')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'envios'
-                        ? 'border-red-600 text-red-600 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Truck className="w-4 h-4 text-amber-600" />
-                    <span>Envíos Nacionales</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('autoria')}
-                    className={`pb-3 px-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0 ${
-                      activeTab === 'autoria'
-                        ? 'border-amber-500 text-amber-800 font-black'
-                        : 'border-transparent text-slate-500 hover:text-slate-900'
-                    }`}
-                  >
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Certificado de Autoría</span>
-                  </button>
-                </div>
-
-                <div className="hidden lg:flex items-center pb-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={onOpenAuthorCertificate}
-                    className="flex items-center gap-1.5 text-xs font-mono text-amber-800 hover:text-amber-950 font-bold bg-amber-50 hover:bg-amber-100 border border-amber-300/80 px-3 py-1.5 rounded-xl transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Ver Certificado SM Studio</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-5 sm:p-8 w-full">
-                {activeTab === 'desc' && (
-                  <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="w-full space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                          Detalles & Resumen Ejecutivo del Producto
-                        </h3>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          SKU: #{skuNumber}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {parsedDesc.keyBullets.map((bullet, idx) => {
-                          const icons = [
-                            <CheckCircle2 key="1" className="w-5 h-5 text-emerald-600 shrink-0" />,
-                            <Sparkles key="2" className="w-5 h-5 text-amber-500 shrink-0" />,
-                            <ShieldCheck key="3" className="w-5 h-5 text-sky-600 shrink-0" />,
-                            <Zap key="4" className="w-5 h-5 text-red-600 shrink-0" />
-                          ];
-                          return (
-                            <div
-                              key={`${product.id}-tabbullet-${idx}`}
-                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-start gap-3 hover:border-red-200 transition-colors"
-                            >
-                              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 shrink-0">
-                                {icons[idx % icons.length]}
-                              </div>
-                              <div className="text-xs sm:text-sm text-slate-700 leading-snug font-medium pt-0.5">
-                                {bullet}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <details className="group border border-slate-200 rounded-2xl bg-slate-50/70 overflow-hidden transition-all duration-200">
-                        <summary className="flex items-center justify-between p-4 sm:p-5 cursor-pointer font-bold text-xs sm:text-sm text-slate-900 hover:text-red-600 hover:bg-slate-100 select-none list-none transition-colors">
-                          <span className="flex items-center gap-2">
-                            <Sliders className="w-4 h-4 text-red-600 shrink-0" />
-                            <span>Ver detalles completos y especificaciones técnicas</span>
-                          </span>
-                          <span className="text-slate-400 group-open:rotate-180 transition-transform duration-200 text-xs">
-                            ▼
-                          </span>
-                        </summary>
-                        <div className="p-5 sm:p-6 pt-2 border-t border-slate-200 text-slate-800 text-sm leading-relaxed whitespace-pre-line font-normal bg-white">
-                          {parsedDesc.fullCleanDescription}
-                        </div>
-                      </details>
-                    </div>
-
-                    <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs shrink-0 text-emerald-600">
-                          <BadgeCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="text-xs sm:text-sm font-bold text-slate-900">
-                            Garantía Oficial Zavela Store & Autoría Verificada
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Producto 100% inspeccionado antes de despacho. Pago seguro contra entrega al recibir.
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
-                        <SergioMartinezSignature 
-                          variant="stamp" 
-                          onClickCertificate={onOpenAuthorCertificate} 
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'especificaciones' && (
-                  <div className="space-y-4 w-full animate-in fade-in duration-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Marca / Fabricante</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">{product.brand || 'Zavela Store'}</div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Categoría</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">{product.categoryName || (product as any).category || (product as any).categoria || 'Catálogo Oficial'}</div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Código SKU</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1 font-mono">{skuNumber}</div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Disponibilidad / Stock</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">
-                          {product.stock > 0 ? `${product.stock} unidades en bodega` : 'Bajo pedido'}
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Tipo de Despacho</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">Nacional Contra Entrega</div>
-                      </div>
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                        <div className="text-xs font-mono font-bold text-slate-500 uppercase">Garantía de Fábrica</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">{product.warrantyInfo || '30 Días Oficial'}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'resenas' && (
-                  <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl font-black text-slate-900 font-mono">4.9</span>
-                          <div className="flex items-center gap-0.5 text-amber-500">
-                            {[1, 2, 3, 4, 5].map(s => (
-                              <Star key={s} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                            ))}
-                          </div>
-                          <span className="text-xs text-slate-500 font-mono font-bold">• 100% Clientes Satisfechos</span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Testimonios reales con fotos de clientes que recibieron este producto en su domicilio en Colombia.
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs font-mono text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shrink-0">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        <span>Pago Contra Entrega Comprobado</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {getVerifiedPositiveReviews(product.title).map(rev => (
-                        <div key={rev.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-slate-900">{rev.customerName} ({rev.customerCity})</span>
-                            <div className="flex items-center gap-0.5 text-amber-500">
-                              {[...Array(rev.rating)].map((_, i) => (
-                                <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              ))}
-                            </div>
-                          </div>
-
-                          {rev.customerPhotoUrl && (
-                            <div className="rounded-xl overflow-hidden h-28 bg-slate-200 border border-slate-200">
-                              <img src={rev.customerPhotoUrl} alt="Foto cliente" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            </div>
-                          )}
-
-                          <p className="text-xs text-slate-700 leading-relaxed italic">
-                            "{rev.comment}"
-                          </p>
-
-                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-200">
-                            <span>Transportadora: {rev.carrier || 'Coordinadora'}</span>
-                            <span className="text-emerald-600 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Verificado
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'garantia' && (
-                  <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="w-full bg-slate-50/70 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
-                      <div className="flex items-center gap-3 text-sky-800">
-                        <ShieldCheck className="w-6 h-6 text-sky-600" />
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                          {product.warrantyInfo || 'Garantía Oficial Zavela: 30 Días por Defectos de Fábrica'}
-                        </h3>
-                      </div>
-                      
-                      <p className="text-sm text-slate-700 leading-relaxed">
-                        En Zavela Store cuidamos cada detalle. Todos nuestros productos pasan por un riguroso control de calidad antes de salir de bodega y cuentan con respaldo total.
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="font-bold text-xs text-slate-900 mb-1 flex items-center gap-1.5">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            100% Inspeccionado
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            Revisión manual de piezas, costuras, mecanismos y accesorios antes de empacar.
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="font-bold text-xs text-slate-900 mb-1 flex items-center gap-1.5">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            Cambio Inmediato
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            Si el producto llega con avería o fallo de fábrica, tramitamos tu cambio sin complicaciones.
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="font-bold text-xs text-slate-900 mb-1 flex items-center gap-1.5">
-                            <Check className="w-4 h-4 text-emerald-600" />
-                            Soporte Directo
-                          </div>
-                          <p className="text-xs text-slate-500">
-                            Atención personalizada a través de nuestra línea oficial de WhatsApp.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'envios' && (
-                  <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="w-full bg-slate-50/70 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
-                      <div className="flex items-center gap-3 text-sky-800">
-                        <Truck className="w-6 h-6 text-sky-600" />
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                          Despachos a los 32 Departamentos de Colombia con Pago Contra Entrega
-                        </h3>
-                      </div>
-
-                      <p className="text-sm text-slate-700 leading-relaxed">
-                        Despachamos desde nuestras bodegas principales con las transportadoras más confiables del país: <strong>Servientrega, Interrapidísimo, Coordinadora y Envía</strong>.
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="text-xs font-mono font-bold text-sky-700 uppercase mb-1">
-                            Tiempo de Entrega
-                          </div>
-                          <div className="text-sm font-bold text-slate-900">2 a 4 días hábiles</div>
-                          <div className="text-xs text-slate-500 mt-1">Ciudades principales y municipios intermedios.</div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="text-xs font-mono font-bold text-emerald-700 uppercase mb-1">
-                            Método de Pago
-                          </div>
-                          <div className="text-sm font-bold text-slate-900">Efectivo al Recibir</div>
-                          <div className="text-xs text-slate-500 mt-1">No necesitas tarjetas, pagas en tu puerta.</div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                          <div className="text-xs font-mono font-bold text-amber-700 uppercase mb-1">
-                            Rastreo en Vivo
-                          </div>
-                          <div className="text-sm font-bold text-slate-900">Guía y Notificaciones</div>
-                          <div className="text-xs text-slate-500 mt-1">Seguimiento en línea desde la sección de rastreo.</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'autoria' && (
-                  <div className="space-y-6 w-full animate-in fade-in duration-200">
-                    <div className="w-full bg-slate-900 text-white p-6 sm:p-8 rounded-2xl border border-slate-800 relative overflow-hidden shadow-xl">
-                      <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                        <div className="space-y-2 max-w-xl">
-                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold">
-                            <Sparkles className="w-3.5 h-3.5" />
-                            CERTIFICADO DE AUTORÍA Y DIRECCIÓN DE ARTE
-                          </div>
-                          <h3 className="text-lg sm:text-xl font-bold text-white">
-                            Sergio Martínez • SM Diseño y Arte
-                          </h3>
-                          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                            Plataforma de comercio electrónico diseñada y desarrollada bajo estándares de alta fidelidad estética, arquitectura moderna y dirección de diseño exclusivo en Bogotá, Colombia.
-                          </p>
-                        </div>
-
-                        <div className="shrink-0 flex flex-col items-center sm:items-end gap-3 w-full sm:w-auto">
-                          <SergioMartinezSignature 
-                            variant="badge" 
-                            onClickCertificate={onOpenAuthorCertificate} 
-                          />
-                          <button
-                            type="button"
-                            onClick={onOpenAuthorCertificate}
-                            className="px-4 py-2 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
-                          >
-                            Abrir Certificado Oficial
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </div>
-
-            <div className="w-full">
-              <CommerceMindRecommendationsCarousel
-                currentProduct={product}
-                allProducts={allProducts}
+            <div className="pt-2">
+              <CommerceMindClientWidget
+                products={products}
+                currentProduct={selectedProduct}
                 cartItems={cartItems}
-                variant="modal"
-                title="RECOMENDACIONES INTELIGENTES DE COMMERCEMIND AI"
-                onSelectProduct={(p) => {
-                  handleSelectRelated(p);
-                }}
-                onAddToCart={(p) => {
-                  onAddToCart(p, p.variants?.[0], 1);
-                }}
+                onSelectProduct={setSelectedProduct}
+                onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
+              />
+            </div>
+
+            <div className="pt-4">
+              <ColombiaTrustGuaranteesBar />
+            </div>
+
+            <div className="pt-2">
+              <CustomerReviewsSection />
+            </div>
+
+            <div className="pt-2">
+              <NewsletterSubscriptionBox 
+                currentCategoryInterest={selectedCategoryId} 
+                showToast={showToast} 
+              />
+            </div>
+
+            <div className="pt-4">
+              <SergioMartinezSignature 
+                variant="banner" 
+                onClickCertificate={() => setIsAuthorCertModalOpen(true)} 
               />
             </div>
 
           </div>
-        </div>
-      </div>
+        </main>
+      )}
 
-      <ProductShareModal
-        product={product}
-        isOpen={isShareOpen}
-        initialMode={shareInitialMode}
-        onClose={() => setIsShareOpen(false)}
-        isLuckyWheelEnabled={isLuckyWheelEnabled}
+      {currentView === 'store' && settings?.luckyWheel?.enabled === true && isUndecidedCustomer && !hasPurchased && isFloatingBadgeEnabled && (
+        <button
+          onClick={() => openLuckyWheel('manual')}
+          id="btn-floating-lucky-wheel"
+          className="fixed bottom-20 left-4 sm:bottom-6 sm:left-6 z-40 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-amber-500/25 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
+          title="Gira la Ruleta y Gana tu Descuento Exclusivo"
+          style={{
+            borderColor: settings?.luckyWheel?.seasonAccentColor || '#ffffff'
+          }}
+        >
+          <span className="text-base">{settings?.luckyWheel?.seasonBadgeEmoji || '🎁'}</span>
+          <span className="hidden sm:inline">Ruleta de Descuentos</span>
+          <span className="sm:hidden">Ruleta</span>
+          <span className="bg-slate-950 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded-md">
+            5%-15%
+          </span>
+        </button>
+      )}
+
+      {currentView === 'store' && settings?.gamificationGame?.enabled === true && isGamificationUndecided && !hasPurchasedGamification && isGamificationFloatingBadgeEnabled && (
+        <button
+          onClick={() => openGamificationGame('manual')}
+          id="btn-floating-gamification-challenge"
+          className="fixed bottom-32 left-4 sm:bottom-20 sm:left-6 z-40 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-indigo-600/30 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
+          title="Juega el Desafío Flash y Atrapa tu Descuento"
+          style={{
+            borderColor: settings?.gamificationGame?.accentColor || '#ffffff'
+          }}
+        >
+          <span className="text-base">{settings?.gamificationGame?.badgeEmoji || '🌪️'}</span>
+          <span className="hidden sm:inline">Desafío Flash</span>
+          <span className="sm:hidden">Desafío</span>
+          <span className="bg-slate-950/80 text-amber-300 text-[10px] font-black px-1.5 py-0.5 rounded-md border border-amber-400/30">
+            {settings?.gamificationGame?.minDiscountPercentage || 5}%-{settings?.gamificationGame?.maxDiscountPercentage || 15}%
+          </span>
+        </button>
+      )}
+
+      <RealTimePurchaseToast />
+
+      {settings?.chatWidgetMode !== 'tidio' && (
+        <WhatsAppAdvisorFloating 
+          settings={settings}
+          whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'} 
+          onSelectProduct={(p) => {
+            setSelectedProduct(p);
+            trackProductVisit(p);
+          }}
+        />
+      )}
+
+      {selectedProduct && (
+        <ProductDetailModal
+          key={selectedProduct.id || selectedProduct.slug || 'product-detail-modal'}
+          product={selectedProduct}
+          allProducts={products}
+          cartItems={cartItems}
+          onSelectProduct={(p) => {
+            setSelectedProduct(p);
+            trackProductVisit(p);
+          }}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleAddToCart}
+          onBuyNow={handleBuyNow}
+          onAddComboToCart={handleAddComboToCart}
+          onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+          isSocialClosing={isSocialClosingLink}
+          onOpenLuckyWheel={() => openLuckyWheel('social_closing')}
+          isLuckyWheelEnabled={Boolean(settings?.luckyWheel?.enabled === true)}
+        />
+      )}
+
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onProceedToCheckout={() => {
+          setIsCartOpen(false);
+          setIsCheckoutOpen(true);
+        }}
+        freeShippingThreshold={settings?.freeShippingThreshold || 120000}
       />
 
-      {showComboModal && (
-        <div 
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-xs animate-in fade-in duration-200"
-          onClick={() => setShowComboModal(false)}
-        >
-          <div 
-            className="bg-[#0f172a] text-white rounded-3xl max-w-2xl w-full border border-slate-700 shadow-2xl flex flex-col relative overflow-hidden animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/95">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shrink-0">
-                  <ShoppingBag className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
-                    <span>🛍️ Personaliza tu Combo ({quantity} Unidades)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Selecciona individualmente la talla y el color según el inventario real disponible de cada prenda.
-                  </p>
-                </div>
-              </div>
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        cartItems={cartItems}
+        products={products}
+        appliedCoupon={appliedDiscountCoupon}
+        onRemoveCoupon={() => setAppliedDiscountCoupon(null)}
+        onOrderCreated={(order, clientDetails) => {
+          const savedDetails = {
+            firstName: clientDetails?.firstName || order.firstName || (order.customerName ? order.customerName.split(' ')[0] : ''),
+            lastName: clientDetails?.lastName || order.lastName || (order.customerName ? order.customerName.split(' ').slice(1).join(' ') : ''),
+            phone: clientDetails?.phone || order.phone || order.customerPhone || ''
+          };
+          setOrderDetails(savedDetails);
 
-              <button
-                type="button"
-                onClick={() => setShowComboModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                aria-label="Cerrar modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+          setCartItems([]);
+          setAppliedDiscountCoupon(null);
+          setCompletedOrder({
+            ...order,
+            firstName: savedDetails.firstName,
+            lastName: savedDetails.lastName,
+            phone: savedDetails.phone,
+            customerName: order.customerName || `${savedDetails.firstName} ${savedDetails.lastName}`.trim(),
+            customerPhone: order.customerPhone || savedDetails.phone
+          });
+          recordCustomerPurchase(order);
+        }}
+        freeShippingThreshold={settings?.freeShippingThreshold || 120000}
+      />
 
-            <div className="max-h-[80vh] overflow-y-auto p-4 sm:p-6 space-y-5 scrollbar-thin">
-              {quantity > 1 && comboSelections[0]?.talla && comboSelections[0]?.color && (
-                <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs">
-                  <span className="text-slate-300 font-medium">
-                    ¿Quieres que todas las prendas tengan la misma talla y color de la Prenda 1?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const first = comboSelections[0];
-                      if (!first?.talla || !first?.color) return;
-                      setComboSelections(prev => prev.map(() => ({
-                        talla: first.talla,
-                        color: first.color,
-                        dropi_id: first.dropi_id,
-                        stock: first.stock
-                      })));
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>⚡ Replicar Prenda 1 a todas</span>
-                  </button>
-                </div>
-              )}
+      <OrderSuccessModal
+        order={completedOrder}
+        orderDetails={orderDetails}
+        whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+        onClose={() => {
+          setCompletedOrder(null);
+          setOrderDetails(null);
+        }}
+        onTrackOrder={(orderNumber) => {
+          setTrackingInitialQuery(orderNumber);
+          setCurrentView('tracking');
+        }}
+      />
 
-              {comboSelections.map((item, index) => {
-                const availableSizes = distinctSizes.length > 0 
-                  ? distinctSizes 
-                  : (allVariants.some(v => extractVariantSize(v) && extractVariantSize(v) !== 'Única')
-                      ? Array.from(new Set(allVariants.map(v => extractVariantSize(v)).filter(Boolean)))
-                      : ['S', 'M', 'L', 'XL']);
+      <CustomerOrdersModal
+        isOpen={isCustomerOrdersOpen}
+        onClose={() => setIsCustomerOrdersOpen(false)}
+        onTrackOrder={(query) => {
+          setTrackingInitialQuery(query);
+          setCurrentView('tracking');
+        }}
+        onReorder={(items) => {
+          items.forEach(item => {
+            const cleanItemId = String(item.productId || '').replace(/^proc-/, '').trim();
+            const p = products.find(prod => String(prod.id).replace(/^proc-/, '').trim() === cleanItemId || prod.id === item.productId) || {
+              id: cleanItemId || item.productId,
+              title: item.title,
+              price: item.price,
+              images: [item.image],
+              stock: 10,
+              active: true
+            } as any;
+            handleAddToCart(p, undefined, item.quantity);
+          });
+          setIsCheckoutOpen(true);
+        }}
+        showToast={showToast}
+      />
 
-                const sizeVariants = item.talla
-                  ? allVariants.filter(v => {
-                      const vSize = extractVariantSize(v).toUpperCase();
-                      return vSize === item.talla.trim().toUpperCase();
-                    })
-                  : [];
+      <CustomerAuthModal
+        isOpen={isCustomerAuthOpen}
+        initialTab={customerAuthInitialTab}
+        onClose={() => setIsCustomerAuthOpen(false)}
+        onSuccess={(user, msg) => {
+          setCurrentCustomer(user);
+          setIsCustomerAuthOpen(false);
+          showToast(msg || `¡Bienvenido(a), ${user.firstName || user.name}!`);
+        }}
+      />
 
-                const realColorList = distinctColors.length > 0
-                  ? distinctColors
-                  : (sizeVariants.length > 0
-                      ? Array.from(new Set(sizeVariants.map(v => extractVariantColor(v)).filter(Boolean)))
-                      : (allVariants.length > 0 
-                          ? Array.from(new Set(allVariants.map(v => extractVariantColor(v)).filter(Boolean)))
-                          : []));
+      <CustomerProfileModal
+        isOpen={isCustomerProfileOpen}
+        currentUser={currentCustomer}
+        onClose={() => setIsCustomerProfileOpen(false)}
+        onLogout={handleCustomerLogout}
+        onOpenOrders={() => {
+          setIsCustomerProfileOpen(false);
+          setIsCustomerOrdersOpen(true);
+        }}
+        showToast={showToast}
+      />
 
-                const colorsForSize = realColorList.length > 0 
-                  ? realColorList 
-                  : ['Color Único'];
+      <Footer
+        onOpenTracking={() => {
+          setTrackingInitialQuery('');
+          setCurrentView('tracking');
+        }}
+        onToggleAdmin={handleRequestAdmin}
+        showSecretLogin={showSecretLogin}
+        onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+      />
 
-                return (
-                  <div 
-                    key={index} 
-                    className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-sm"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <span className="w-7 h-7 rounded-xl bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
-                          {index + 1}
-                        </span>
-                        <span className="font-black text-sm text-white tracking-wide">
-                          Prenda {index + 1} de {quantity}
-                        </span>
-                      </div>
+      <AuthorCertificateModal
+        isOpen={isAuthorCertModalOpen}
+        onClose={() => setIsAuthorCertModalOpen(false)}
+      />
 
-                      {item.talla && item.color ? (
-                        <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 stroke-[3]" /> Talla {item.talla} • {item.color}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-amber-400 bg-amber-950/80 border border-amber-500/40 px-2.5 py-0.5 rounded-full">
-                          Pendiente de selección
-                        </span>
-                      )}
-                    </div>
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onSuccess={() => {
+          setIsAdminLoginOpen(false);
+          setCurrentView('admin');
+          showToast('¡Bienvenido! Panel Master de Despachos activado.');
+        }}
+        onAdvisorSuccess={(adv) => {
+          setAuthenticatedAdvisor(adv);
+          setIsAdminLoginOpen(false);
+          setCurrentView('advisor');
+          showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+        }}
+      />
 
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-slate-300">
-                        1. Selecciona la Talla:
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {availableSizes.map(sz => {
-                          const isSelected = item.talla.toUpperCase() === sz.toUpperCase();
-                          return (
-                            <button
-                              key={sz}
-                              type="button"
-                              onClick={() => {
-                                setComboSelections(prev => {
-                                  const next = [...prev];
-                                  next[index] = {
-                                    ...next[index],
-                                    talla: sz,
-                                    color: '',
-                                    dropi_id: undefined,
-                                    stock: undefined
-                                  };
-                                  return next;
-                                });
-                              }}
-                              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border ${
-                                isSelected
-                                  ? 'bg-red-600 text-white border-red-500 shadow-md shadow-red-600/30 ring-2 ring-red-400/40 scale-102'
-                                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                              }`}
-                            >
-                              {sz}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                        <span>2. Selecciona el Color:</span>
-                        {item.talla && (
-                          <span className="text-[10px] text-slate-400 font-normal">
-                            (Inventario disponible para Talla {item.talla})
-                          </span>
-                        )}
-                      </div>
-
-                      {!item.talla ? (
-                        <p className="text-xs text-slate-500 italic py-1">
-                          👆 Selecciona primero la talla arriba para consultar los colores con inventario real.
-                        </p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {colorsForSize.map(col => {
-                            const matchVariant = sizeVariants.find(v => 
-                              extractVariantColor(v).toLowerCase() === col.toLowerCase()
-                            ) || (allVariants.length === 1 ? allVariants[0] : undefined);
-                            
-                            const stockCount = matchVariant?.stock !== undefined 
-                              ? Number(matchVariant.stock) 
-                              : (matchVariant ? 10 : 0);
-
-                            const hasStock = Boolean(matchVariant && stockCount > 0);
-                            const isSelected = item.color.toLowerCase() === col.toLowerCase();
-                            const swatch = getColorSwatchInfo(col);
-
-                            return (
-                              <button
-                                key={col}
-                                type="button"
-                                disabled={!hasStock}
-                                onClick={() => {
-                                  if (!hasStock) return;
-                                  setComboSelections(prev => {
-                                    const next = [...prev];
-                                    next[index] = {
-                                      ...next[index],
-                                      color: col,
-                                      dropi_id: matchVariant?.dropi_variation_id || matchVariant?.id,
-                                      stock: stockCount
-                                    };
-                                    return next;
-                                  });
-                                }}
-                                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-                                  !hasStock
-                                    ? 'opacity-40 line-through bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed'
-                                    : isSelected
-                                      ? 'bg-slate-800 text-white border-red-500 ring-2 ring-red-500/40 shadow-sm scale-102'
-                                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700 cursor-pointer'
-                                }`}
-                              >
-                                <span 
-                                  className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" 
-                                  style={{ backgroundColor: swatch.bg }}
-                                />
-                                <span>{col}</span>
-                                {hasStock ? (
-                                  <span className="text-[10px] text-emerald-400 font-mono font-normal">
-                                    ({stockCount} disp.)
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] bg-red-950/80 text-red-400 border border-red-800/60 px-1.5 py-0.5 rounded font-normal uppercase">
-                                    Agotado
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-900/95 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-left w-full sm:w-auto">
-                <span className="text-xs text-slate-400 block font-medium">Total de tu Combo ({quantity} Unidades - Envío Único):</span>
-                <span className="text-base sm:text-lg font-black text-white font-mono">
-                  {formatCOP(currentPricing.discountedTotal)}
-                </span>
-                {currentPricing.savings > 0 && (
-                  <span className="ml-2 text-xs text-emerald-400 font-bold">
-                    (Ahorras {formatCOP(currentPricing.savings)})
-                  </span>
-                )}
-              </div>
-
-              <button
-                type="button"
-                id="btn-confirm-combo-modal"
-                disabled={!isAllComboSelected}
-                onClick={() => handleConfirmCombo(comboActionType)}
-                className={`w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
-                  !isAllComboSelected
-                    ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed opacity-75'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 cursor-pointer active:scale-98'
-                }`}
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>
-                  {!isAllComboSelected
-                    ? `CONFIRMAR COMBO (FALTAN ${quantity - comboSelections.filter(p => p.talla && p.color).length} POR ELEGIR)`
-                    : `CONFIRMAR COMBO (${formatCOP(currentPricing.discountedTotal)})`}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
-};
+}
