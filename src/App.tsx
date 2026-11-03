@@ -86,19 +86,28 @@ import {
   fetchProductDirectlyFromApi 
 } from './utils/productUrlResolver.ts';
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
+import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
 
 export default function App() {
-  // Navigation State
+  // Navigation State (Detects /zavelastoresex automatically)
   const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
       if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
       if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
+      if (path === '/zavelastoresex') return 'subpage'; // 🛡️ ENRUTAMIENTO ZONA +18
     }
     return 'store';
   });
-  const [activeSubpageSlug, setActiveSubpageSlug] = useState<string>('');
+
+  const [activeSubpageSlug, setActiveSubpageSlug] = useState<string>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase() === '/zavelastoresex') {
+      return 'zavelastoresex';
+    }
+    return '';
+  });
+
   const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
@@ -142,7 +151,7 @@ export default function App() {
     phone: string;
   } | null>(null);
 
-  // Dynamic Browser Tab Title Management (Home vs Product)
+  // Dynamic Browser Tab Title Management
   useEffect(() => {
     if (selectedProduct) {
       const prodName = selectedProduct.title || selectedProduct.name || 'Producto';
@@ -152,7 +161,7 @@ export default function App() {
     }
   }, [selectedProduct]);
 
-  // Cart State with LocalStorage Persistence
+  // Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('zavela_cart') || localStorage.getItem('novora_cart');
@@ -162,7 +171,6 @@ export default function App() {
     }
   });
 
-  // User Interest Tracking & CRO Gamification (Lucky Wheel Modal)
   const { 
     trackedItems, 
     totalVisitedCount, 
@@ -177,7 +185,6 @@ export default function App() {
   const [appliedDiscountCoupon, setAppliedDiscountCoupon] = useState<ActiveDiscountCoupon | null>(null);
   const [isSocialClosingLink, setIsSocialClosingLink] = useState(false);
 
-  // Maintenance Mode Private Access Bypass Token
   const [storedBypassToken, setStoredBypassToken] = useState<string | null>(() => {
     try {
       if (typeof window === 'undefined') return null;
@@ -222,7 +229,6 @@ export default function App() {
     luckyWheelSettings: settings?.luckyWheel
   });
 
-  // Gamification Minigame Trigger ("Desafío Flash: Atrapa tu Descuento")
   const {
     isOpen: isGamificationOpen,
     isUndecidedCustomer: isGamificationUndecided,
@@ -238,7 +244,6 @@ export default function App() {
     gamificationSettings: settings?.gamificationGame
   });
 
-  // Check for ePayco order confirmation redirection (/order-confirmation or ?ref_pay=...)
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
@@ -252,7 +257,6 @@ export default function App() {
     }
   }, []);
 
-  // Product Deep Linking State & Social Media Route Handling
   const [isProductNotFoundOpen, setIsProductNotFoundOpen] = useState(false);
   const [notFoundSearchTerm, setNotFoundSearchTerm] = useState('');
   const [isLoadingDirectProduct, setIsLoadingDirectProduct] = useState(false);
@@ -266,10 +270,8 @@ export default function App() {
       setIsSocialClosingLink(true);
     }
 
-    // 1. Intentar resolver de inmediato con el catálogo en memoria (coincidencia slug, id o palabras clave)
     let matched = resolveProductMatch(routeInfo.identifier, catalog);
 
-    // 2. Si no se encuentra en memoria, consultar directamente la API backend
     if (!matched) {
       setIsLoadingDirectProduct(true);
       matched = await fetchProductDirectlyFromApi(routeInfo.identifier);
@@ -296,7 +298,6 @@ export default function App() {
         }, 1200);
       }
     } else {
-      // Solo si el producto definitivamente no existe en la base de datos o catálogo local
       setIsProductNotFoundOpen(true);
       setNotFoundSearchTerm(routeInfo.identifier);
     }
@@ -310,7 +311,6 @@ export default function App() {
     }
   }, [products, processProductDeepLink]);
 
-  // Manejador del botón Atrás/Adelante del navegador (popstate)
   useEffect(() => {
     const handlePopState = () => {
       const routeInfo = extractProductIdentifierFromUrl();
@@ -376,18 +376,14 @@ export default function App() {
     }
   }, [cartItems]);
 
-  // Fetch Initial Store Data and Setup Firestore Real-time Listener
   const loadStoreData = async () => {
     try {
      const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
          getCpanelProducts(true).catch(() => null),
-         
-         // APUNTA DIRECTO A NODE.JS PARA TRAER LAS CATEGORÍAS REALES DESDE LA BASE DE DATOS MIENTRAS QUE EL RESTO USA PHP
          fetch('/api/admin/categories')
            .then(r => r.json())
            .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
            .catch(() => ({ success: false, data: [] })),
-
          fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
          getFirestoreSettings().catch(() => null),
          fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
@@ -421,7 +417,6 @@ export default function App() {
   useEffect(() => {
     loadStoreData();
 
-    // Suscripción en tiempo real a configuraciones de la tienda (WhatsApp y AI Agent)
     const unsubscribeSettings = subscribeToFirestoreSettings(
       (firestoreUpdatedSettings) => {
         if (firestoreUpdatedSettings) {
@@ -438,7 +433,6 @@ export default function App() {
     };
   }, []);
 
-  // Listen to Customer Auth Session Changes
   useEffect(() => {
     const unsubscribe = subscribeCustomerAuth((user) => {
       setCurrentCustomer(user);
@@ -457,14 +451,12 @@ export default function App() {
     showToast('Has cerrado tu sesión de cliente correctamente.');
   };
 
-  // Tidio Live Chat Dynamic Injection
   useEffect(() => {
     if (!settings) return;
 
     const isTidioEnabled = settings.tidioChatEnabled !== false;
     const rawInput = (settings.tidioScriptUrl || settings.tidioPublicKey || '').trim();
 
-    // Check if valid URL or script
     let tidioSrc: string | null = null;
     if (rawInput) {
       const scriptMatch = rawInput.match(/code\.tidio\.co\/([a-zA-Z0-9_-]+)\.js/);
@@ -493,13 +485,11 @@ export default function App() {
       }
     } else if (!isTidioEnabled && existingScript) {
       existingScript.remove();
-      // Remove any tidio iframe if present
       const tidioFrame = document.getElementById('tidio-chat');
       if (tidioFrame) tidioFrame.remove();
     }
   }, [settings?.tidioChatEnabled, settings?.tidioScriptUrl, settings?.tidioPublicKey]);
 
-  // Catalog category horizontal scroller state & handlers
   const catalogCatScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollCatLeft, setCanScrollCatLeft] = useState(false);
   const [canScrollCatRight, setCanScrollCatRight] = useState(false);
@@ -528,16 +518,6 @@ export default function App() {
     };
   }, [checkCatalogCatScroll, categories.length]);
 
-  const handleScrollCatalogCat = (direction: 'left' | 'right') => {
-    const el = catalogCatScrollRef.current;
-    if (!el) return;
-    const scrollAmount = Math.max(160, el.clientWidth * 0.6);
-    el.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth'
-    });
-  };
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -545,7 +525,6 @@ export default function App() {
     }, 2800);
   };
 
-  // Secret Shortcut Listener: ↑ ↓ ↑ ↑ + 1985 (Arriba, Abajo, Arriba, Arriba, 1, 9, 8, 5) to open Admin Authentication
   useEffect(() => {
     let keyBuffer: string[] = [];
     let sequenceTimer: NodeJS.Timeout | null = null;
@@ -559,7 +538,6 @@ export default function App() {
 
       let token: string | null = null;
 
-      // Detect Arrow keys (Up / Down)
       if (e.key === 'ArrowUp' || e.code === 'ArrowUp' || e.key === 'Up') {
         token = 'UP';
       } else if (e.key === 'ArrowDown' || e.code === 'ArrowDown' || e.key === 'Down') {
@@ -585,7 +563,6 @@ export default function App() {
           keyBuffer = [];
         }, 8000);
 
-        // Check if current buffer matches the target secret sequence: Up, Down, Up, Up, 1, 9, 8, 5
         const isMatch = keyBuffer.length === TARGET_SEQUENCE.length && 
           keyBuffer.every((val, idx) => val === TARGET_SEQUENCE[idx]);
 
@@ -607,7 +584,6 @@ export default function App() {
           }
         }
       } else {
-        // Clear buffer if unrelated key is typed
         if (e.key.length === 1 && !['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
           keyBuffer = [];
         }
@@ -640,10 +616,8 @@ export default function App() {
 
   const handleDisableMaintenance = async () => {
     try {
-      // 1. Guardar en Cloud Firestore para sincronización inmediata
       await saveFirestoreSettings({ maintenanceMode: false }).catch(err => console.warn('Firestore disable warning:', err));
 
-      // 2. Guardar en servidor local
       await fetch('/api/admin/maintenance/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -657,7 +631,6 @@ export default function App() {
     }
   };
 
-  // Cart Handlers
   const handleAddToCart = (product: Product, variant?: ProductVariant, quantity: number = 1, unitPrice?: number) => {
     registerProductObservation(product);
     const originalPrice = (product as any).originalPrice || product.price;
@@ -695,7 +668,6 @@ export default function App() {
     setIsCheckoutOpen(true);
   };
 
-  // Combo Cart Handler ("Personaliza tu Combo" - Opción B)
   const handleAddComboToCart = (
     product: Product,
     comboItems: {
@@ -754,7 +726,6 @@ export default function App() {
     }
   };
 
-  // Custom & Exclusivity Cart Handlers
   const handleAddCustomCartItem = (item: CartItem) => {
     registerProductObservation(item.product);
     setCartItems(prev => {
@@ -807,7 +778,7 @@ export default function App() {
     }));
   };
 
-  // Categorías dinámicas enriquecidas: combina DEFAULT_CATEGORIES, las del backend y las presentes en productos
+  // Ocultamos "SexShop" del scroll horizontal de categorías
   const effectiveCategories = useMemo(() => {
     const baseList: Category[] = categories && categories.length > 0 ? [...categories] : [...DEFAULT_CATEGORIES];
     const categoryMap = new Map<string, Category>();
@@ -818,7 +789,6 @@ export default function App() {
       }
     });
 
-    // Auto-descubrir categorías registradas en los productos del catálogo
     products.forEach(p => {
       const pCatName = p.categoryName || (p as any).categoria;
       const pCatId = p.categoryId || (p as any).category_id;
@@ -833,7 +803,11 @@ export default function App() {
       }
     });
 
-    return Array.from(categoryMap.values()).filter(c => c.active !== false);
+    return Array.from(categoryMap.values()).filter(c => 
+      c.active !== false && 
+      c.name.toLowerCase() !== 'sexshop' && 
+      c.name.toLowerCase() !== 'adultos'
+    );
   }, [categories, products]);
 
   const getCategoryProductCount = useCallback((catId: string) => {
@@ -871,9 +845,16 @@ export default function App() {
     }).length;
   }, [products, effectiveCategories]);
 
-  // Filter & Sort Products en Tiempo Real
+  // 🛡️ FILTRO DE SEGURIDAD: Aquí evitamos que la categoría SexShop aparezca en el inicio o buscador
   const filteredProducts = products.filter(p => {
     if (p.active === false) return false;
+
+    // ⛔ Bloqueo estricto para productos de adultos
+    const pCatNameCheck = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+    if (pCatNameCheck === 'sexshop' || pCatNameCheck === 'adultos') {
+      return false; 
+    }
+
     if (selectedCategoryId !== 'all') {
       const catObj = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
       const targetSlug = (catObj?.slug || selectedCategoryId).toLowerCase();
@@ -888,7 +869,6 @@ export default function App() {
       const isNameMatch = targetName && (pCatName.includes(targetName) || targetName.includes(pCatName));
       const isCategorySlugMatch = Boolean(pCatSlug && (pCatSlug === targetSlug || pCatSlug === targetId));
 
-      // Event & Campaign matching (Halloween, Amor y Amistad, Navidad)
       const isHalloweenMatch = (targetSlug.includes('halloween') || targetSlug.includes('disfraz') || targetId.includes('halloween')) && (
         pCatId === 'cat-halloween' ||
         (p.tags && p.tags.some(t => t.toLowerCase().includes('halloween') || t.toLowerCase().includes('disfraz') || t.toLowerCase().includes('terror') || t.toLowerCase().includes('neón'))) ||
@@ -918,12 +898,11 @@ export default function App() {
       }
     }
     
-    // Subcategory filtering (supports subcategoryId, subcategory slug, or tag match for perfumery/fragrances)
     if (selectedCategoryId !== 'all' && selectedSubcategoryId !== 'all') {
       const targetSub = selectedSubcategoryId.toLowerCase();
       
       if (p.subcategoryId === selectedSubcategoryId) {
-        // Direct subcategoryId match
+        // Match
       } else if (targetSub === 'sub-perfumes-mujer' || targetSub.includes('mujer')) {
         const isWomen = p.subcategoryId === 'sub-perfumes-mujer' || 
           p.tags?.some(t => t.toLowerCase().includes('mujer') || t.toLowerCase().includes('femme')) ||
@@ -944,7 +923,6 @@ export default function App() {
           p.title.toLowerCase().includes('perfume') || p.title.toLowerCase().includes('fragancia') || p.title.toLowerCase().includes('combo');
         if (!isPerfume) return false;
       } else {
-        // Generic subcategory tag or title fallback
         const matchesTag = p.tags?.some(t => t.toLowerCase().includes(targetSub));
         const matchesTitle = p.title.toLowerCase().includes(targetSub);
         if (!matchesTag && !matchesTitle) return false;
@@ -970,9 +948,7 @@ export default function App() {
   });
 
   const featuredProducts = products.filter(p => p.featured && p.active);
-  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  // If Admin View is active, verify authentication
   if (currentView === 'admin') {
     if (!checkIsAdminAuthenticated()) {
       setIsAdminLoginOpen(true);
@@ -996,7 +972,6 @@ export default function App() {
     );
   }
 
-  // If Advisor Portal View is active, verify advisor authentication
   if (currentView === 'advisor') {
     const activeAdv = authenticatedAdvisor || getStoredAdvisor();
     if (!activeAdv) {
@@ -1015,7 +990,6 @@ export default function App() {
     );
   }
 
-  // If Order Confirmation View is active (ePayco Redirection)
   if (currentView === 'order-confirmation') {
     return (
       <OrderConfirmation 
@@ -1044,7 +1018,6 @@ export default function App() {
     storedBypassToken && (storedBypassToken === bypassTokenFromSettings || storedBypassToken === 'zavela_test')
   );
 
-  // MODO MANTENIMIENTO: Si está activo y el visitante NO es administrador ni tiene bypass válido
   if (settings?.maintenanceMode && !isAdminAuthenticated && !isBypassValid) {
     return (
       <div id="zavela-maintenance-root">
@@ -1053,8 +1026,6 @@ export default function App() {
           onOpenAdminLogin={() => setIsAdminLoginOpen(true)}
           onNotifyLeadRegistered={(contact) => showToast(`¡Registrado con éxito (${contact})! Te avisaremos de primero.`)}
         />
-
-        {/* Modal de Acceso Administrativo para el Administrador */}
         <AdminLoginModal
           isOpen={isAdminLoginOpen}
           onClose={() => setIsAdminLoginOpen(false)}
@@ -1069,8 +1040,6 @@ export default function App() {
             showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
           }}
         />
-
-        {/* Toast Notification */}
         {toastMessage && (
           <div translate="no" className="fixed bottom-6 right-6 z-50 bg-white text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-sky-300 animate-in slide-in-from-bottom-4 duration-200 notranslate">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1084,13 +1053,11 @@ export default function App() {
   return (
     <div id="zavela-app-root" translate="no" className={`min-h-screen ${activePalette.classes.pageBg} text-slate-900 flex flex-col font-sans selection:bg-sky-200 selection:text-sky-900 notranslate transition-colors duration-300 relative`}>
       
-      {/* Dynamic Seasonal & Festive Atmosphere Particles (Snow, Bats, Hearts, Petals, Sparks) */}
       <SeasonalThemeAtmosphere 
         themeId={seasonalThemeInfo.activeThemeId}
         enabled={seasonalThemeInfo.particlesEnabled}
       />
       
-      {/* Barra Fija de Modo de Pruebas Privado para Administrador o Bypass */}
       {settings?.maintenanceMode && (isAdminAuthenticated || isBypassValid) && (
         <AdminMaintenanceBanner
           settings={settings}
@@ -1109,7 +1076,6 @@ export default function App() {
         />
       )}
       
-      {/* Active Advisor Fast Bar */}
       {authenticatedAdvisor && (
         <div className="bg-[#0B1528] border-b border-sky-500/40 px-4 py-2 flex items-center justify-between text-xs text-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
@@ -1135,7 +1101,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Toast Notification */}
       {toastMessage && (
         <div translate="no" className="fixed bottom-6 right-6 z-50 bg-white text-slate-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 border border-sky-300 animate-in slide-in-from-bottom-4 duration-200 notranslate">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1143,7 +1108,6 @@ export default function App() {
         </div>
       )}
 
-      {/* TOP EXPLOSIVE BOOM FLASH SALE BAR WITH LIVE COUNTDOWN TIMER */}
       {currentView === 'store' && (
         <FlashSaleBanner 
           onExploreOffers={() => {
@@ -1155,7 +1119,6 @@ export default function App() {
         />
       )}
 
-      {/* Header with Top Sticky Category Nav Bar (Visible on store and other views) */}
       {currentView !== 'exclusividad' && (
         <Header
           settings={settings}
@@ -1214,7 +1177,6 @@ export default function App() {
         />
       )}
 
-      {/* Exclusivity Page View */}
       {currentView === 'exclusividad' ? (
         <main className="flex-1">
           <ExclusividadZavela
@@ -1261,7 +1223,6 @@ export default function App() {
           />
         </main>
       ) : currentView === 'subpage' ? (
-        /* Dynamic Custom Subpage View (Configured from Admin) */
         <main className="flex-1">
           {(() => {
             const subpagesList = settings?.customSubpages && settings.customSubpages.length > 0 
@@ -1269,7 +1230,7 @@ export default function App() {
               : DEFAULT_CUSTOM_SUBPAGES;
             const resolvedSubpage = subpagesList.find(sp => sp.slug === activeSubpageSlug) || subpagesList[0];
             
-            return (
+            const subpageViewComponent = (
               <CustomSubpageView
                 subpage={resolvedSubpage}
                 settings={settings || ({} as StoreSettings)}
@@ -1296,6 +1257,17 @@ export default function App() {
                 cartCount={totalCartCount}
               />
             );
+
+            // 🛡️ CANDADO DE EDAD: Si la página es la zona +18, pide verificación
+            if (resolvedSubpage.slug === 'zavelastoresex') {
+              return (
+                <AgeVerificationGate>
+                  {subpageViewComponent}
+                </AgeVerificationGate>
+              );
+            }
+
+            return subpageViewComponent;
           })()}
         </main>
       ) : currentView === 'tracking' ? (
@@ -1307,15 +1279,11 @@ export default function App() {
           />
         </main>
       ) : (
-        /* Store Front View */
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
           
-
-          {/* Catalog & Category Section */}
           <div id="catalogo" className="scroll-mt-24"></div>
           <div id="catalog-products-section" className="space-y-4 pt-1 scroll-mt-24">
             
-            {/* Fila compacta y sutil de categorías y selector de ordenamiento (Sin barras duplicadas ni saturación) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white/70 backdrop-blur-xs px-3 sm:px-4 py-2 rounded-2xl border border-slate-200/70 shadow-2xs">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
                 <button
@@ -1331,7 +1299,7 @@ export default function App() {
                       : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
                   }`}
                 >
-                  Todas ({products.filter(p => p.active !== false).length})
+                  Todas ({products.filter(p => p.active !== false && p.categoryName?.toLowerCase() !== 'sexshop' && p.categoryName?.toLowerCase() !== 'adultos').length})
                 </button>
 
                 {effectiveCategories.map((cat) => {
@@ -1366,7 +1334,6 @@ export default function App() {
                 })}
               </div>
 
-              {/* Selector de ordenamiento compacto */}
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 text-xs">
                 {selectedCategoryId !== 'all' && (
                   <button
@@ -1398,9 +1365,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Main Products Grid */}
             <div className="space-y-4">
-              {/* Category Sub-Menú Pills */}
               {selectedCategoryId !== 'all' && (() => {
                 const currentCat = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
                 if (!currentCat || !currentCat.subcategories || currentCat.subcategories.length === 0) return null;
@@ -1507,7 +1472,6 @@ export default function App() {
               )}
             </div>
 
-            {/* 🧠 CommerceMind AI: Real-Time Personalized Recommendations for Shoppers */}
             <div className="pt-2">
               <CommerceMindClientWidget
                 products={products}
@@ -1518,17 +1482,14 @@ export default function App() {
               />
             </div>
 
-            {/* 🛡️ Official Colombia Trust & Guarantees Bar (Zero Risk) */}
             <div className="pt-4">
               <ColombiaTrustGuaranteesBar />
             </div>
 
-            {/* ⭐ Verified Colombian Customer Reviews & Testimonials Section */}
             <div className="pt-2">
               <CustomerReviewsSection />
             </div>
 
-            {/* 📬 Newsletter Subscription Box (Ofertas Exclusivas + Email Marketing con IA) */}
             <div className="pt-2">
               <NewsletterSubscriptionBox 
                 currentCategoryInterest={selectedCategoryId} 
@@ -1536,7 +1497,6 @@ export default function App() {
               />
             </div>
 
-            {/* Creative Authorship Showcase Banner (Mockup: Certificados de Diseño / Banner) */}
             <div className="pt-4">
               <SergioMartinezSignature 
                 variant="banner" 
@@ -1548,7 +1508,6 @@ export default function App() {
         </main>
       )}
 
-      {/* Floating Lucky Wheel Gamified Quick Trigger Badge (Visible ONLY if enabled by admin and for undecided customers) */}
       {currentView === 'store' && settings?.luckyWheel?.enabled === true && isUndecidedCustomer && !hasPurchased && isFloatingBadgeEnabled && (
         <button
           onClick={() => openLuckyWheel('manual')}
@@ -1568,7 +1527,6 @@ export default function App() {
         </button>
       )}
 
-      {/* Floating Gamification Quick Trigger Badge ("Desafío Flash: Atrapa Descuento") */}
       {currentView === 'store' && settings?.gamificationGame?.enabled === true && isGamificationUndecided && !hasPurchasedGamification && isGamificationFloatingBadgeEnabled && (
         <button
           onClick={() => openGamificationGame('manual')}
@@ -1588,10 +1546,8 @@ export default function App() {
         </button>
       )}
 
-      {/* Floating Real-Time Purchase Notifications Widget */}
       <RealTimePurchaseToast />
 
-      {/* Floating WhatsApp Live Advisor Widget (🟢 EN LÍNEA AHORA) */}
       {settings?.chatWidgetMode !== 'tidio' && (
         <WhatsAppAdvisorFloating 
           settings={settings}
@@ -1603,7 +1559,6 @@ export default function App() {
         />
       )}
 
-      {/* Product Detail Modal */}
       {selectedProduct && (
         <ProductDetailModal
           key={selectedProduct.id || selectedProduct.slug || 'product-detail-modal'}
@@ -1625,7 +1580,6 @@ export default function App() {
         />
       )}
 
-      {/* Cart Drawer */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -1639,7 +1593,6 @@ export default function App() {
         freeShippingThreshold={settings?.freeShippingThreshold || 120000}
       />
 
-      {/* Checkout Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
@@ -1648,7 +1601,6 @@ export default function App() {
         appliedCoupon={appliedDiscountCoupon}
         onRemoveCoupon={() => setAppliedDiscountCoupon(null)}
         onOrderCreated={(order, clientDetails) => {
-          // 1. Guardar una copia exacta del firstName, lastName y phone justo antes de limpiar el carrito y el formulario principal
           const savedDetails = {
             firstName: clientDetails?.firstName || order.firstName || (order.customerName ? order.customerName.split(' ')[0] : ''),
             lastName: clientDetails?.lastName || order.lastName || (order.customerName ? order.customerName.split(' ').slice(1).join(' ') : ''),
@@ -1656,7 +1608,6 @@ export default function App() {
           };
           setOrderDetails(savedDetails);
 
-          // Limpiar carrito y cupón
           setCartItems([]);
           setAppliedDiscountCoupon(null);
           setCompletedOrder({
@@ -1672,35 +1623,6 @@ export default function App() {
         freeShippingThreshold={settings?.freeShippingThreshold || 120000}
       />
 
-      {/* Interactive Gamified Lucky Wheel Modal (CRO Ruleta de Descuentos) */}
-      {settings?.luckyWheel?.enabled === true && (
-        <LuckyWheelModal
-          isOpen={isLuckyWheelOpen}
-          onClose={closeLuckyWheel}
-          favoriteProduct={favoriteProduct}
-          luckyWheelSettings={settings?.luckyWheel}
-          onApplyDiscountAndBuy={handleApplyDiscountAndBuy}
-          onApplyDiscountToCart={(coupon) => {
-            setAppliedDiscountCoupon(coupon);
-            showToast(`🎉 ¡Descuento de Ruleta (${coupon.percentage}% OFF) activado!`);
-          }}
-        />
-      )}
-
-      {/* Interactive Gamified Minigame Modal ("Desafío Flash: Atrapa tu Descuento") */}
-      <CatchDiscountGame
-        isOpen={isGamificationOpen}
-        onClose={closeGamificationGame}
-        favoriteProduct={favoriteProduct}
-        gamificationSettings={settings?.gamificationGame}
-        onApplyDiscountAndBuy={handleApplyDiscountAndBuy}
-        onApplyDiscountToCart={(coupon) => {
-          setAppliedDiscountCoupon(coupon);
-          showToast(`🎉 ¡Descuento de Desafío Flash (${coupon.percentage}% OFF) activado!`);
-        }}
-      />
-
-      {/* Order Success Modal */}
       <OrderSuccessModal
         order={completedOrder}
         orderDetails={orderDetails}
@@ -1715,7 +1637,6 @@ export default function App() {
         }}
       />
 
-      {/* Customer Purchase History Portal ("Mis Pedidos") */}
       <CustomerOrdersModal
         isOpen={isCustomerOrdersOpen}
         onClose={() => setIsCustomerOrdersOpen(false)}
@@ -1741,7 +1662,6 @@ export default function App() {
         showToast={showToast}
       />
 
-      {/* Customer Authentication Modal (Login / Register Tabs) */}
       <CustomerAuthModal
         isOpen={isCustomerAuthOpen}
         initialTab={customerAuthInitialTab}
@@ -1753,7 +1673,6 @@ export default function App() {
         }}
       />
 
-      {/* Customer Profile & Address Management Modal */}
       <CustomerProfileModal
         isOpen={isCustomerProfileOpen}
         currentUser={currentCustomer}
@@ -1766,7 +1685,6 @@ export default function App() {
         showToast={showToast}
       />
 
-      {/* Standard Full Footer with Author Signature & Certificate */}
       <Footer
         onOpenTracking={() => {
           setTrackingInitialQuery('');
@@ -1777,13 +1695,11 @@ export default function App() {
         onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
       />
 
-      {/* Author Creative Certificate Modal (Official Sergio Martínez Design System) */}
       <AuthorCertificateModal
         isOpen={isAuthorCertModalOpen}
         onClose={() => setIsAuthorCertModalOpen(false)}
       />
 
-      {/* Secret Admin / Advisor Authentication Modal */}
       <AdminLoginModal
         isOpen={isAdminLoginOpen}
         onClose={() => setIsAdminLoginOpen(false)}
