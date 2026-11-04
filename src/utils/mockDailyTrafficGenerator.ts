@@ -209,6 +209,8 @@ export function generateDailyTrafficReport(catalogProducts: Product[] = []): Sim
   };
 
   try {
+    localStorage.removeItem('zavela_simulation_stopped');
+    localStorage.setItem('zavela_simulation_active', 'true');
     localStorage.setItem(STORAGE_KEY_SIMULATED_TRAFFIC, JSON.stringify(report));
   } catch (e) {
     console.warn('Error saving simulated traffic report to localStorage:', e);
@@ -218,36 +220,147 @@ export function generateDailyTrafficReport(catalogProducts: Product[] = []): Sim
 }
 
 /**
- * Clears stored simulated traffic reports and memory from localStorage
+ * Creates an empty daily traffic report with 0 metrics and empty lists.
+ * Strictly used when simulation is stopped or database has no real records.
+ */
+export function createEmptyDailyTrafficReport(): SimulatedDailyTrafficReport {
+  return {
+    timestamp: new Date().toISOString(),
+    total_visualizaciones: 0,
+    total_compras: 0,
+    total_pedidos: 0,
+    total_ingresos: 0,
+    ticket_promedio: 0,
+    metodo_pago_predominante: 'Sin ventas registradas',
+    total_carritos_abandonados: 0,
+    tasa_conversion_promedio: '0.0%',
+    tiempo_promedio_general_segundos: 0,
+    productos: [],
+    productos_top_visitas: [],
+    productos_top_ingresos: []
+  };
+}
+
+/**
+ * Builds real traffic and sales report aggregating ONLY confirmed database orders
+ */
+export function buildRealTrafficReportFromOrders(orders: any[] = [], catalogProducts: Product[] = []): SimulatedDailyTrafficReport {
+  if (!orders || orders.length === 0) {
+    return createEmptyDailyTrafficReport();
+  }
+
+  const productStatsMap = new Map<string, { compras: number; ingresos: number; visitas: number }>();
+  let totalRevenue = 0;
+
+  for (const o of orders) {
+    totalRevenue += Number(o.total || 0);
+    const items = o.items || [];
+    for (const item of items) {
+      const pid = item.productId || item.id || item.id_producto;
+      if (!pid) continue;
+      const current = productStatsMap.get(pid) || { compras: 0, ingresos: 0, visitas: 0 };
+      const qty = Number(item.quantity || 1);
+      const price = Number(item.price || 0);
+      current.compras += qty;
+      current.ingresos += qty * price;
+      current.visitas += Math.max(qty * 3, 1);
+      productStatsMap.set(pid, current);
+    }
+  }
+
+  const realProductsList: SimulatedProductMetric[] = [];
+  productStatsMap.forEach((val, pid) => {
+    const prod = catalogProducts.find(p => p.id === pid);
+    const nombre = prod?.title || (prod as any)?.name || `Producto ${pid}`;
+    const categoria = prod?.categoryName || 'Catálogo General';
+    const precio = prod?.price || (val.compras > 0 ? Math.round(val.ingresos / val.compras) : 0);
+    const imagen = prod?.images?.[0] || '';
+    const convNum = val.visitas > 0 ? (val.compras / val.visitas) * 100 : 0;
+
+    realProductsList.push({
+      id: pid,
+      nombre,
+      categoria,
+      precio,
+      imagen,
+      visitas: val.visitas,
+      tiempo_promedio_segundos: 120,
+      agregados_carrito: val.compras,
+      compras: val.compras,
+      ingresos_generados: val.ingresos,
+      conversion_tasa: `${convNum.toFixed(1)}%`,
+      conversionNum: convNum,
+      es_estrella: val.ingresos > 0,
+      es_friccion: false
+    });
+  });
+
+  const productos_top_visitas = [...realProductsList].sort((a, b) => b.visitas - a.visitas);
+  const productos_top_ingresos = [...realProductsList].sort((a, b) => b.ingresos_generados - a.ingresos_generados);
+  const total_compras = orders.length;
+  const total_visualizaciones = realProductsList.reduce((acc, p) => acc + p.visitas, 0);
+  const ticket_promedio = total_compras > 0 ? Math.round(totalRevenue / total_compras) : 0;
+  const avgRate = total_visualizaciones > 0 ? (total_compras / total_visualizaciones) * 100 : 0;
+
+  return {
+    timestamp: new Date().toISOString(),
+    total_visualizaciones,
+    total_compras,
+    total_pedidos: total_compras,
+    total_ingresos: totalRevenue,
+    ticket_promedio,
+    metodo_pago_predominante: 'Pago Contra Entrega Real',
+    total_carritos_abandonados: 0,
+    tasa_conversion_promedio: `${avgRate.toFixed(1)}%`,
+    tiempo_promedio_general_segundos: 120,
+    productos: productos_top_visitas,
+    productos_top_visitas,
+    productos_top_ingresos
+  };
+}
+
+/**
+ * Clears stored simulated traffic reports and memory from localStorage and sessionStorage
  */
 export function clearSimulatedTraffic(): void {
   try {
     localStorage.removeItem(STORAGE_KEY_SIMULATED_TRAFFIC);
     localStorage.removeItem('cm_report_memory_v1');
+    localStorage.removeItem('zavela_simulation_active');
+    localStorage.removeItem('cm_admin_last_greeting_date');
+    sessionStorage.removeItem(STORAGE_KEY_SIMULATED_TRAFFIC);
+    sessionStorage.removeItem('zavela_simulation_active');
+    sessionStorage.removeItem('cm_admin_greeting_dismissed');
+    localStorage.setItem('zavela_simulation_stopped', 'true');
   } catch (e) {
     console.warn('Error clearing simulated traffic from localStorage:', e);
   }
 }
 
 /**
- * Retrieves the stored simulated traffic report or generates a new one
+ * Retrieves the stored simulated traffic report ONLY IF simulation is active.
+ * Prohibido generar datos mock de respaldo cuando la simulación está apagada: retorna reporte en CERO (0).
  */
 export function getOrGenerateDailyTrafficReport(catalogProducts: Product[] = []): SimulatedDailyTrafficReport {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY_SIMULATED_TRAFFIC);
-    if (stored) {
-      const parsed: SimulatedDailyTrafficReport = JSON.parse(stored);
-      if (parsed && Array.isArray(parsed.productos) && parsed.productos.length > 0) {
-        // Ensure new fields are present if loaded from old cache
-        if (parsed.total_ingresos === undefined) {
-          return generateDailyTrafficReport(catalogProducts);
+    if (typeof window !== 'undefined') {
+      const isStopped = localStorage.getItem('zavela_simulation_stopped');
+      if (isStopped === 'true') {
+        return createEmptyDailyTrafficReport();
+      }
+      const isSimActive = localStorage.getItem('zavela_simulation_active');
+      const stored = localStorage.getItem(STORAGE_KEY_SIMULATED_TRAFFIC);
+      if (isSimActive === 'true' && stored) {
+        const parsed: SimulatedDailyTrafficReport = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed.productos)) {
+          return parsed;
         }
-        return parsed;
       }
     }
   } catch (e) {
     console.warn('Error reading stored simulated traffic:', e);
   }
 
-  return generateDailyTrafficReport(catalogProducts);
+  // PROHIBIDO usar datos 'mock' como respaldo cuando la simulación está apagada
+  return createEmptyDailyTrafficReport();
 }

@@ -210,38 +210,38 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <div id="top-announcement-bar" className="w-full bg-slate-900 text-white text-xs py-1.5 px-4 sm:px-8 border-b border-slate-800">
+      <div id="top-announcement-bar" className="w-full max-w-[100vw] overflow-hidden bg-slate-900 text-white text-xs py-1.5 px-2.5 sm:px-8 border-b border-slate-800">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-4 text-center sm:text-left">
-          <div className="flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981]" />
-            <span className="text-[11px] font-medium text-slate-200">
-              Envío Gratis Nacional y <strong className="text-emerald-400 font-bold uppercase">Pago Contra Entrega</strong> (Pagas al recibir en casa)
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981] shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-medium text-slate-200 truncate">
+              Envío Gratis Nacional y <strong className="text-emerald-400 font-bold uppercase">Pago Contra Entrega</strong> (Pagas al recibir)
             </span>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-5 text-slate-300 text-[11px]">
+          <div className="flex items-center justify-center gap-2 sm:gap-5 text-slate-300 text-[10px] sm:text-[11px] flex-wrap sm:flex-nowrap">
             <button 
               id="top-bar-contact-btn"
               onClick={() => setIsContactModalOpen(true)}
-              className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+              className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
               <Headphones className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Atención al Cliente</span>
+              <span>Atención</span>
             </button>
 
             <button 
               id="top-bar-track-order-btn"
               onClick={onOpenTracking}
-              className="hover:text-sky-400 transition-colors flex items-center gap-1 cursor-pointer"
+              className="hover:text-sky-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
               <Truck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>Rastrea tu pedido</span>
+              <span>Rastreo</span>
             </button>
 
             <button 
               id="top-bar-warranties-btn"
               onClick={() => setIsWarrantyModalOpen(true)}
-              className="hover:text-amber-400 transition-colors flex items-center gap-1 cursor-pointer"
+              className="hover:text-amber-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               <span>Garantías</span>
@@ -253,34 +253,36 @@ export const Header: React.FC<HeaderProps> = ({
       <header 
         id="main-store-header" 
         ref={megaMenuContainerRef}
-        className="sticky top-0 z-50 bg-white/98 backdrop-blur-md border-b border-slate-200/90 shadow-xs text-slate-900 transition-all"
+        className="sticky top-0 z-50 bg-white/98 backdrop-blur-md border-b border-slate-200/90 shadow-xs text-slate-900 transition-all w-full max-w-[100vw] overflow-hidden"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
-          <div className="flex items-center justify-between gap-4 lg:gap-8">
+        <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-4 lg:gap-8 w-full">
             <Link 
               to="/"
               id="logo-brand-btn"
               onClick={handleHomeClick}
-              className="flex items-center text-left cursor-pointer group focus:outline-none shrink-0 no-underline"
+              className="flex items-center text-left cursor-pointer group focus:outline-none shrink min-w-0 no-underline"
               aria-label="Ir a la página principal de Zavela Store"
             >
-              <SeasonalLogoWrapper
-                themeId={activeSeasonalThemeId}
-                size="md"
-                glowEnabled={settings?.themeStyles?.neonGlowEnabled ?? (activeSeasonalThemeId !== 'standard-light')}
-              >
-                <ZavelaLogo 
-                  size="md" 
-                  showSlogan={true} 
-                  showAnimatedCart={true}
-                  theme="light" 
-                  seasonalTheme={activeSeasonalThemeId} 
-                  animated={true}
-                />
-              </SeasonalLogoWrapper>
+              <div className="transform scale-[0.80] xs:scale-90 sm:scale-100 origin-left shrink min-w-0">
+                <SeasonalLogoWrapper
+                  themeId={activeSeasonalThemeId}
+                  size="md"
+                  glowEnabled={settings?.themeStyles?.neonGlowEnabled ?? (activeSeasonalThemeId !== 'standard-light')}
+                >
+                  <ZavelaLogo 
+                    size="md" 
+                    showSlogan={false} 
+                    showAnimatedCart={true}
+                    theme="light" 
+                    seasonalTheme={activeSeasonalThemeId} 
+                    animated={true}
+                  />
+                </SeasonalLogoWrapper>
+              </div>
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-800">
+            <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0">
               <Link
                 to="/"
                 id="nav-link-inicio"
@@ -343,22 +345,22 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </nav>
 
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="relative">
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0">
+              <div className="relative shrink-0">
                 {isSearchInputOpen ? (
-                  <div className="flex items-center bg-slate-100 rounded-full border border-slate-300 px-3 py-1 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 animate-in fade-in zoom-in-95 duration-150">
                     <input
                       ref={searchInputRef}
                       type="text"
                       value={searchQuery}
                       onChange={(e) => onSearchChange(e.target.value)}
-                      placeholder="Buscar producto..."
-                      className="bg-transparent text-xs text-slate-900 outline-hidden w-36 sm:w-48 placeholder:text-slate-400"
+                      placeholder="Buscar..."
+                      className="bg-transparent text-xs text-slate-900 outline-hidden w-28 xs:w-36 sm:w-48 placeholder:text-slate-400"
                       autoFocus
                     />
                     <button 
                       onClick={() => { setIsSearchInputOpen(false); onSearchChange(''); }}
-                      className="text-slate-400 hover:text-slate-700 ml-1 cursor-pointer"
+                      className="text-slate-400 hover:text-slate-700 ml-1 cursor-pointer p-0.5"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -370,28 +372,28 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsSearchInputOpen(true);
                       setTimeout(() => searchInputRef.current?.focus(), 100);
                     }}
-                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                     title="Buscar productos"
                     aria-label="Abrir buscador"
                   >
-                    <Search className="w-4 h-4" />
+                    <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 )}
               </div>
 
               {currentCustomer ? (
-                <div className="relative" ref={customerMenuRef}>
+                <div className="relative shrink-0" ref={customerMenuRef}>
                   <button
                     id="header-user-account-btn"
                     onClick={() => setIsCustomerMenuOpen(!isCustomerMenuOpen)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
                     title={`Mi Cuenta (${currentCustomer.firstName || currentCustomer.name})`}
                   >
-                    <User className="w-3.5 h-3.5 text-sky-600" />
-                    <span className="hidden sm:inline max-w-[90px] truncate">
+                    <User className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span className="hidden md:inline max-w-[90px] truncate">
                       {currentCustomer.firstName || currentCustomer.name}
                     </span>
-                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                    <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
                   </button>
 
                   {isCustomerMenuOpen && (
@@ -445,12 +447,12 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="header-login-btn"
                   onClick={() => onOpenCustomerAuth?.('login')}
-                  className="w-9 h-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
+                  className="w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5 shrink-0"
                   title="Iniciar Sesión / Registrarse"
                   aria-label="Iniciar sesión o registrarse"
                 >
-                  <User className="w-4 h-4 text-slate-600" />
-                  <span className="hidden sm:inline">Ingresar</span>
+                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 shrink-0" />
+                  <span className="hidden md:inline">Ingresar</span>
                 </button>
               )}
 
@@ -459,7 +461,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => {
                   if (onToggleAdmin) onToggleAdmin();
                 }}
-                className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0 no-underline"
+                className="hidden sm:flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0 no-underline"
                 title="Abrir Panel Administrativo"
               >
                 <span>⚙️ Admin</span>
@@ -468,15 +470,15 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="header-open-cart-btn"
                 onClick={onOpenCart}
-                className="relative flex items-center gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-95 text-white px-3.5 sm:px-4 py-2 rounded-full font-black text-xs shadow-md hover:shadow-lg transition-all cursor-pointer uppercase tracking-wider shrink-0"
+                className="relative flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-95 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full font-black text-xs shadow-md hover:shadow-lg transition-all cursor-pointer uppercase tracking-wider shrink-0"
                 aria-label="Abrir carrito de compras"
               >
-                <ShoppingBag className="w-4 h-4 text-white" />
-                <span className="hidden xs:inline">Carrito</span>
+                <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                <span className="hidden sm:inline">Carrito</span>
                 {totalCartCount > 0 && (
                   <span 
                     id="header-cart-badge-count" 
-                    className="w-5 h-5 bg-white text-[#FF5A36] border border-orange-200 text-[11px] font-mono font-black rounded-full flex items-center justify-center -mr-1 shadow-sm"
+                    className="w-4 h-4 sm:w-5 sm:h-5 bg-white text-[#FF5A36] border border-orange-200 text-[10px] sm:text-[11px] font-mono font-black rounded-full flex items-center justify-center -mr-0.5 sm:-mr-1 shadow-xs"
                   >
                     {totalCartCount}
                   </span>
@@ -486,10 +488,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="mobile-menu-toggle-btn"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors cursor-pointer"
+                className="lg:hidden p-1.5 sm:p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 transition-colors cursor-pointer shrink-0"
                 aria-label="Abrir menú"
               >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {isMobileMenuOpen ? <X className="w-4 h-4 sm:w-5 sm:h-5" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
               </button>
             </div>
           </div>
@@ -570,7 +572,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {isMobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-4 animate-in fade-in duration-200">
+          <div className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-4 animate-in fade-in duration-200 w-full max-h-[85vh] overflow-y-auto">
             <div className="flex flex-col space-y-1 text-xs font-bold uppercase tracking-wider text-slate-800">
               <Link
                 to="/"

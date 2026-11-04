@@ -800,6 +800,7 @@ export interface AdminStats {
   totalDropiFees?: number; // Total cobros/comisiones de plataforma Dropi
   totalNetProfit?: number; // Utilidad Neta Real Líquida en Mano (Ventas - Costos Producto - Fletes - Dropi)
   netMarginPercentage?: number; // Margen Neto % real sobre ventas
+  averageTicket?: number; // Ticket promedio de compra en COP
 
   // Daily and Monthly Metrics
   todaySales: number;

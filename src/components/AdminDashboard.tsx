@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -14,7 +14,9 @@ import {
   ShieldAlert,
   Power,
   Trash2,
-  Link
+  Link,
+  Square,
+  StopCircle
 } from 'lucide-react';
 import { 
   Product, 
@@ -174,26 +176,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleSimulateDailyTraffic = () => {
-    generateDailyTrafficReport(products);
-    setIsDailySummaryOpen(true);
-    setDailySummaryInitialStep('summary');
-    showToast('🎲 ¡Nuevas ventas y tráfico del día simulados con éxito!');
+  const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSimulationActive, setIsSimulationActive] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      return localStorage.getItem('zavela_simulation_active') === 'true' &&
+             localStorage.getItem('zavela_simulation_stopped') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleStopSimulation = () => {
+    // 1. Detener cualquier intervalo de simulación o síntesis de voz
+    if (simulationIntervalRef.current) {
+      clearInterval(simulationIntervalRef.current);
+      simulationIntervalRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // 2. Borrar por completo todas las variables de simulación del estado y del almacenamiento local
+    clearSimulatedTraffic();
+    try {
+      localStorage.setItem('zavela_simulation_stopped', 'true');
+      localStorage.removeItem('zavela_simulation_active');
+      localStorage.removeItem('cm_daily_mock_traffic');
+      localStorage.removeItem('cm_report_memory_v1');
+      sessionStorage.removeItem('cm_daily_mock_traffic');
+      sessionStorage.removeItem('zavela_simulation_active');
+    } catch (e) {
+      console.warn('Error clearing simulation storage:', e);
+    }
+
+    setIsSimulationActive(false);
+
+    // 3. Forzar al panel a consumir ÚNICAMENTE la data real de la base de datos
+    fetchAdminData();
+    showToast('🛑 Simulación detenida. El panel ahora consume exclusivamente la data real de la base de datos.');
   };
 
-  const handleCleanAllInternalTests = async () => {
+  const handleClearTests = async () => {
     if (!confirm('¿Deseas borrar y detener todas las pruebas internas (ventas simuladas, clientes de prueba y tráfico simulado)?')) return;
+    
+    // 1. Detener simulación
+    handleStopSimulation();
+
+    // 2. Borrar registros de prueba en la base de datos
     try {
       await fetch('/api/admin/clean-tests', { method: 'POST' });
       await fetch('/api/admin/orders/clear-all', { method: 'POST' });
       await fetch('/api/admin/customers/clear-all', { method: 'POST' });
-      clearSimulatedTraffic();
       clearAllTestCustomers();
       await fetchAdminData();
-      showToast('🧹 ¡Pruebas internas, ventas simuladas y clientes de prueba eliminados con éxito!');
+      showToast('🧹 ¡Pruebas internas y datos simulados eliminados con éxito! El panel está en ceros si la BD está vacía.');
     } catch (err: any) {
       showToast('Error al limpiar pruebas: ' + (err?.message || err));
     }
+  };
+
+  const handleCleanAllInternalTests = handleClearTests;
+
+  const handleSimulateDailyTraffic = () => {
+    try {
+      localStorage.removeItem('zavela_simulation_stopped');
+      localStorage.setItem('zavela_simulation_active', 'true');
+    } catch {}
+    setIsSimulationActive(true);
+    generateDailyTrafficReport(products);
+    setIsDailySummaryOpen(true);
+    setDailySummaryInitialStep('summary');
+    showToast('🎲 ¡Nuevas ventas y tráfico del día simulados con éxito!');
   };
 
   const fetchAdminData = async () => {
@@ -231,7 +285,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if ('data' in categoriesRes && categoriesRes.success && (categoriesRes as any).data) setCategories((categoriesRes as any).data);
 
       const calculatedStats = calculateDashboardMetrics(loadedOrders, loadedProducts);
-      if (statsRes.success && statsRes.data) {
+      // Condicionamiento estricto: Si la base de datos real está vacía, todos los indicadores en CERO (0)
+      if (loadedOrders.length === 0) {
+        setStats({
+          ...calculatedStats,
+          totalRevenue: 0,
+          totalOrders: 0,
+          totalCarrierCosts: 0,
+          totalProductCosts: 0,
+          totalDropiFees: 0,
+          totalNetProfit: 0,
+          averageTicket: 0,
+          productProfitBreakdown: []
+        });
+      } else if (statsRes.success && statsRes.data) {
         setStats({ ...statsRes.data, ...calculatedStats });
       } else {
         setStats(calculatedStats);
