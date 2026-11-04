@@ -14,6 +14,7 @@ import {
 import { CartItem } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
+import { parseNumCOP } from '../services/cpanelProducts.ts';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -36,10 +37,40 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const SHIPPING_COST_SAVINGS = 15000;
+  // 🚚 Cálculo Dinámico de Envíos Consolidados:
+  // Se acumula el flete de cada unidad en el carrito.
+  // Se descuentan todos los fletes EXCEPTO el flete más alto (que cubre el envío base unificado).
   const totalItems = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
   const rawSubtotal = cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product.price) * (item.quantity || 1)), 0);
-  const consolidatedDiscount = totalItems > 1 ? (totalItems - 1) * SHIPPING_COST_SAVINGS : 0;
+
+  const consolidatedDiscount = (() => {
+    if (totalItems <= 1 || cartItems.length === 0) return 0;
+
+    const allShippingUnits: number[] = [];
+    cartItems.forEach(item => {
+      const p = item.product;
+      const parsedShipping = parseNumCOP(
+        p.shippingCost ??
+        (p as any).shipping_cost ??
+        (p as any).flete ??
+        (p as any).fleteEnvio ??
+        (p as any).flete_envio ??
+        p.estimatedShippingCost
+      );
+      const unitShipping = parsedShipping > 0 ? parsedShipping : 15000;
+      const qty = Math.max(1, item.quantity || 1);
+      for (let i = 0; i < qty; i++) {
+        allShippingUnits.push(unitShipping);
+      }
+    });
+
+    if (allShippingUnits.length <= 1) return 0;
+
+    const maxShipping = Math.max(...allShippingUnits);
+    const totalShipping = allShippingUnits.reduce((sum, cost) => sum + cost, 0);
+    return Math.max(0, totalShipping - maxShipping);
+  })();
+
   const finalTotal = Math.max(0, rawSubtotal - consolidatedDiscount);
 
   // Mantenemos totalItemCount para compatibilidad de interfaz

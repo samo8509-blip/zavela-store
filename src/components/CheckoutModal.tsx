@@ -26,6 +26,7 @@ import { formatCOP } from '../utils/formatters.ts';
 import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
+import { parseNumCOP } from '../services/cpanelProducts.ts';
 
 // NOTA: Se eliminó la importación de decrementCpanelProductStock para proteger el catálogo.
 
@@ -170,7 +171,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsCityDropdownOpen(false);
   };
 
-  const SHIPPING_COST_SAVINGS = 15000;
   const totalItemQuantity = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
   }, [cartItems]);
@@ -180,7 +180,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product?.price || 0) * (item.quantity || 1)), 0);
   }, [cartItems]);
 
-  const consolidatedDiscount = totalItems > 1 ? (totalItems - 1) * SHIPPING_COST_SAVINGS : 0;
+  // 🚚 Descuento consolidado dinámico:
+  // Se suman todos los fletes de los productos y cantidades presentes, 
+  // descontando todos excepto el flete más alto (que cubre el envío base unificado).
+  const consolidatedDiscount = useMemo(() => {
+    if (totalItems <= 1 || cartItems.length === 0) return 0;
+
+    const allShippingUnits: number[] = [];
+    cartItems.forEach(item => {
+      const p = item.product;
+      const parsedShipping = parseNumCOP(
+        p?.shippingCost ??
+        (p as any)?.shipping_cost ??
+        (p as any)?.flete ??
+        (p as any)?.fleteEnvio ??
+        (p as any)?.flete_envio ??
+        p?.estimatedShippingCost
+      );
+      const unitShipping = parsedShipping > 0 ? parsedShipping : 15000;
+      const qty = Math.max(1, item.quantity || 1);
+      for (let i = 0; i < qty; i++) {
+        allShippingUnits.push(unitShipping);
+      }
+    });
+
+    if (allShippingUnits.length <= 1) return 0;
+
+    const maxShipping = Math.max(...allShippingUnits);
+    const totalShipping = allShippingUnits.reduce((sum, cost) => sum + cost, 0);
+    return Math.max(0, totalShipping - maxShipping);
+  }, [cartItems, totalItems]);
+
   const regularSubtotal = rawSubtotal;
   const subtotalAfterConsolidated = Math.max(0, rawSubtotal - consolidatedDiscount);
   const subtotal = subtotalAfterConsolidated;
