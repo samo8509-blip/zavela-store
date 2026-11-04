@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Zap, ShieldCheck, Truck, Sparkles, ChevronRight, CheckCircle2, Eye, Star, Share2 } from 'lucide-react';
 import { Product } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
@@ -7,7 +8,7 @@ import { extractProductImages } from '../utils/imageUtils.ts';
 
 interface ProductCardProps {
   product: Product;
-  onSelectProduct: (product: Product) => void;
+  onSelectProduct?: (product: Product) => void;
   onAddToCart: (product: Product, e?: React.MouseEvent) => void;
   onBuyNow: (product: Product, e?: React.MouseEvent) => void;
 }
@@ -38,9 +39,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   onBuyNow
 }) => {
+  const navigate = useNavigate();
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleNavigateToProduct = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const identifier = product.slug || product.id;
+    navigate(`/producto/${encodeURIComponent(identifier)}`);
+    if (onSelectProduct) {
+      onSelectProduct(product);
+    }
+  };
 
   const productImages = extractProductImages(product);
   const mainImage = productImages[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80';
@@ -74,7 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <div 
       id={`product-card-${product.id}`}
-      onClick={() => onSelectProduct(product)}
+      onClick={handleNavigateToProduct}
       className="group bg-white rounded-2xl border border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-visible cursor-pointer relative"
     >
       {/* Window-like Header bar with High-Visibility Category Tag */}
@@ -92,7 +106,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Image & Badges Container */}
-      <div className="relative aspect-square w-full bg-slate-100/70 overflow-hidden flex items-center justify-center p-2.5">
+      <div 
+        onClick={handleNavigateToProduct}
+        className="relative aspect-square w-full bg-slate-100/70 overflow-hidden flex items-center justify-center p-2.5 cursor-pointer"
+      >
         <img
           src={mainImage}
           alt={product.title}
@@ -136,11 +153,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         ) : null}
 
         {/* Quick View Button on Image Hover */}
-        <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
-          <span className="bg-white text-slate-900 border border-slate-200 font-black text-xs px-3.5 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 uppercase tracking-wider transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200">
+        <div 
+          onClick={handleNavigateToProduct}
+          className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer"
+        >
+          <button
+            type="button"
+            onClick={handleNavigateToProduct}
+            className="bg-white hover:bg-sky-50 text-slate-900 border border-slate-200 font-black text-xs px-3.5 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 uppercase tracking-wider transform translate-y-2 group-hover:translate-y-0 transition-all duration-200 cursor-pointer pointer-events-auto"
+          >
             <Eye className="w-3.5 h-3.5 text-sky-600" />
             Ver Ficha Completa
-          </span>
+          </button>
         </div>
       </div>
 
@@ -161,7 +185,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Title with stronger hierarchy */}
-          <h3 className="font-extrabold text-base text-slate-900 line-clamp-2 leading-snug group-hover:text-sky-600 transition-colors">
+          <h3 
+            onClick={handleNavigateToProduct}
+            className="font-extrabold text-base text-slate-900 line-clamp-2 leading-snug group-hover:text-sky-600 transition-colors cursor-pointer"
+          >
             {product.title}
           </h3>
 
@@ -207,10 +234,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <div 
                 id={`summary-popover-${product.id}`}
                 className="absolute bottom-full left-0 right-0 sm:left-[-12px] sm:right-[-12px] mb-2 z-40 bg-white rounded-2xl p-4 border-2 border-sky-400 shadow-2xl animate-in fade-in zoom-in-95 duration-200 pointer-events-auto text-slate-900"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectProduct(product);
-                }}
+                onClick={handleNavigateToProduct}
               >
                 {/* Top Badge */}
                 <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2.5">
@@ -247,10 +271,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {/* Action to finalize interest & open detail */}
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectProduct(product);
-                  }}
+                  onClick={handleNavigateToProduct}
                   className="w-full py-2 px-3 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-black text-[11px] rounded-xl flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-sm transition-all cursor-pointer group/btn"
                 >
                   <span>Ver más información y pedir</span>

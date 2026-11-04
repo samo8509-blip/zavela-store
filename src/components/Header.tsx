@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ShoppingBag, 
   Search, 
@@ -256,10 +257,11 @@ export const Header: React.FC<HeaderProps> = ({
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3">
           <div className="flex items-center justify-between gap-4 lg:gap-8">
-            <button 
+            <Link 
+              to="/"
               id="logo-brand-btn"
               onClick={handleHomeClick}
-              className="flex items-center text-left cursor-pointer group focus:outline-none shrink-0"
+              className="flex items-center text-left cursor-pointer group focus:outline-none shrink-0 no-underline"
               aria-label="Ir a la página principal de Zavela Store"
             >
               <SeasonalLogoWrapper
@@ -276,20 +278,21 @@ export const Header: React.FC<HeaderProps> = ({
                   animated={true}
                 />
               </SeasonalLogoWrapper>
-            </button>
+            </Link>
 
             <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <button
+              <Link
+                to="/"
                 id="nav-link-inicio"
                 onClick={handleHomeClick}
-                className={`py-2 transition-colors cursor-pointer ${
+                className={`py-2 transition-colors cursor-pointer no-underline ${
                   activeCategoryId === 'all' && !searchQuery && window.location.pathname === '/'
                     ? 'text-sky-600 font-black'
                     : 'hover:text-sky-600'
                 }`}
               >
                 Inicio
-              </button>
+              </Link>
 
               <div 
                 className="relative py-2"
@@ -571,12 +574,13 @@ export const Header: React.FC<HeaderProps> = ({
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-4 animate-in fade-in duration-200">
             <div className="flex flex-col space-y-1 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <button
+              <Link
+                to="/"
                 onClick={handleHomeClick}
-                className="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-100 flex items-center justify-between"
+                className="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-100 flex items-center justify-between no-underline text-slate-800"
               >
                 <span>Inicio</span>
-              </button>
+              </Link>
 
               <div>
                 <button

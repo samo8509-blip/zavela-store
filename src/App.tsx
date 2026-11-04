@@ -90,8 +90,24 @@ import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
 import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
 import { QuienesSomosView } from './components/QuienesSomosView.tsx';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+export function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    // Si la URL no contiene un hash de anclaje (ej. #catalogo), scrollear al tope
+    if (!window.location.hash) {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, search]);
+
+  return null;
+}
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation' | 'quienes-somos'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
@@ -308,52 +324,55 @@ export default function App() {
   }, [products, processProductDeepLink]);
 
   useEffect(() => {
-    const handlePopState = () => {
+    const path = location.pathname.toLowerCase();
+    if (path.startsWith('/producto/')) {
       const routeInfo = extractProductIdentifierFromUrl();
       if (routeInfo.isProductRoute && routeInfo.identifier) {
         const found = resolveProductMatch(routeInfo.identifier, products);
         if (found) {
           setSelectedProduct(found);
           setIsProductNotFoundOpen(false);
-        } else {
+        } else if (products.length > 0) {
           processProductDeepLink(products);
         }
-      } else {
-        setSelectedProduct(null);
-        setIsProductNotFoundOpen(false);
       }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [products, processProductDeepLink]);
+    } else {
+      setSelectedProduct(null);
+      setIsProductNotFoundOpen(false);
+      if (path === '/admin' || path.startsWith('/admin/')) {
+        setCurrentView('admin');
+      } else if (path === '/tracking' || path.startsWith('/rastreo')) {
+        setCurrentView('tracking');
+      } else if (path === '/asesor' || path.startsWith('/advisor')) {
+        setCurrentView('advisor');
+      } else if (path === '/zavelastoresex') {
+        setCurrentView('subpage');
+        setActiveSubpageSlug('zavelastoresex');
+      } else if (path === '/quienes-somos' || path === '/nosotros' || path === '/quienessomos') {
+        setCurrentView('quienes-somos');
+      } else if (path === '/' || path === '') {
+        setCurrentView('store');
+      }
+    }
+  }, [location.pathname, products, processProductDeepLink]);
 
   const handleSelectProduct = useCallback((p: Product) => {
     setSelectedProduct(p);
     trackProductVisit(p);
     setIsProductNotFoundOpen(false);
-    if (typeof window !== 'undefined') {
-      const slug = p.slug || p.id;
-      window.history.pushState(null, '', `/producto/${encodeURIComponent(slug)}`);
-    }
-  }, [trackProductVisit]);
+    const slug = p.slug || p.id;
+    navigate(`/producto/${encodeURIComponent(slug)}`);
+  }, [trackProductVisit, navigate]);
 
   const handleCloseProductDetail = useCallback(() => {
     setSelectedProduct(null);
-    if (typeof window !== 'undefined') {
-      const routeInfo = extractProductIdentifierFromUrl();
-      if (routeInfo.isProductRoute) {
-        window.history.pushState(null, '', '/');
-      }
-    }
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   const handleCloseProductNotFound = useCallback(() => {
     setIsProductNotFoundOpen(false);
-    if (typeof window !== 'undefined') {
-      window.history.pushState(null, '', '/');
-    }
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   const handleApplyDiscountAndBuy = (product: Product, coupon: ActiveDiscountCoupon) => {
     setAppliedDiscountCoupon(coupon);
@@ -1046,6 +1065,7 @@ export default function App() {
 
   return (
     <div id="zavela-app-root" translate="no" className={`min-h-screen ${activePalette.classes.pageBg} text-slate-900 flex flex-col font-sans selection:bg-sky-200 selection:text-sky-900 notranslate transition-colors duration-300 relative`}>
+      <ScrollToTop />
       
       <SeasonalThemeAtmosphere 
         themeId={seasonalThemeInfo.activeThemeId}
@@ -1227,17 +1247,43 @@ export default function App() {
             cartCount={totalCartCount}
           />
         </main>
+      ) : selectedProduct ? (
+        <main className="flex-1">
+          <ProductDetailPage
+            key={selectedProduct.id || selectedProduct.slug || 'product-detail-page'}
+            product={selectedProduct}
+            allProducts={products}
+            cartItems={cartItems}
+            onBack={() => {
+              setSelectedProduct(null);
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/');
+              }
+            }}
+            onSelectProduct={(p) => {
+              handleSelectProduct(p);
+            }}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onAddComboToCart={handleAddComboToCart}
+            onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+            isSocialClosing={isSocialClosingLink}
+            onOpenLuckyWheel={() => openLuckyWheel('social_closing')}
+            isLuckyWheelEnabled={Boolean(settings?.luckyWheel?.enabled === true)}
+          />
+        </main>
       ) : currentView === 'quienes-somos' ? (
         <main className="flex-1">
           <QuienesSomosView
             onGoHome={() => {
               setCurrentView('store');
-              try { window.history.pushState({}, '', '/'); } catch {}
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              navigate('/');
             }}
             onExploreCatalog={() => {
               setCurrentView('store');
-              try { window.history.pushState({}, '', '/'); } catch {}
+              navigate('/');
               setTimeout(() => {
                 const el = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
                 el?.scrollIntoView({ behavior: 'smooth' });
@@ -1246,7 +1292,7 @@ export default function App() {
             onOpenTracking={() => {
               setTrackingInitialQuery('');
               setCurrentView('tracking');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              navigate('/tracking');
             }}
             onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
@@ -1259,11 +1305,10 @@ export default function App() {
               products={products}
               onGoHome={() => {
                 setCurrentView('store');
-                try { window.history.pushState({}, '', '/'); } catch {}
+                navigate('/');
               }}
               onSelectProduct={(p) => {
-                setSelectedProduct(p);
-                trackProductVisit(p);
+                handleSelectProduct(p);
               }}
               onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
               onBuyNow={(p) => handleBuyNow(p, p.variants?.[0], 1)}
@@ -1272,12 +1317,11 @@ export default function App() {
             <QuienesSomosView
               onGoHome={() => {
                 setCurrentView('store');
-                try { window.history.pushState({}, '', '/'); } catch {}
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                navigate('/');
               }}
               onExploreCatalog={() => {
                 setCurrentView('store');
-                try { window.history.pushState({}, '', '/'); } catch {}
+                navigate('/');
                 setTimeout(() => {
                   const el = document.getElementById('catalogo') || document.getElementById('catalog-products-section');
                   el?.scrollIntoView({ behavior: 'smooth' });
@@ -1286,7 +1330,7 @@ export default function App() {
               onOpenTracking={() => {
                 setTrackingInitialQuery('');
                 setCurrentView('tracking');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                navigate('/tracking');
               }}
               onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
               whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
@@ -1305,9 +1349,13 @@ export default function App() {
                   products={products}
                   onAddToCart={handleAddCustomCartItem}
                   onDirectCheckout={handleDirectCustomCheckout}
-                  onNavigateHome={() => setCurrentView('store')}
+                  onNavigateHome={() => {
+                    setCurrentView('store');
+                    navigate('/');
+                  }}
                   onNavigateCatalog={() => {
                     setCurrentView('store');
+                    navigate('/');
                     setTimeout(() => {
                       document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
                     }, 100);
@@ -1315,6 +1363,7 @@ export default function App() {
                   onNavigateTracking={() => {
                     setTrackingInitialQuery('');
                     setCurrentView('tracking');
+                    navigate('/tracking');
                   }}
                   onNavigateExclusivity={() => setCurrentView('exclusividad')}
                   onNavigateSubpage={(slug) => {
@@ -1333,36 +1382,10 @@ export default function App() {
           <OrderTrackingView
             initialQuery={trackingInitialQuery}
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
-            onBackToStore={() => setCurrentView('store')}
-          />
-        </main>
-      ) : selectedProduct ? (
-        <main className="flex-1">
-          <ProductDetailPage
-            key={selectedProduct.id || selectedProduct.slug || 'product-detail-page'}
-            product={selectedProduct}
-            allProducts={products}
-            cartItems={cartItems}
-            onBack={() => {
-              setSelectedProduct(null);
-              try {
-                window.history.pushState(null, '', '/');
-              } catch {}
+            onBackToStore={() => {
+              setCurrentView('store');
+              navigate('/');
             }}
-            onSelectProduct={(p) => {
-              setSelectedProduct(p);
-              trackProductVisit(p);
-              try {
-                window.history.pushState(null, '', `/producto/${encodeURIComponent(p.slug || p.id)}`);
-              } catch {}
-            }}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-            onAddComboToCart={handleAddComboToCart}
-            onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
-            isSocialClosing={isSocialClosingLink}
-            onOpenLuckyWheel={() => openLuckyWheel('social_closing')}
-            isLuckyWheelEnabled={Boolean(settings?.luckyWheel?.enabled === true)}
           />
         </main>
       ) : (

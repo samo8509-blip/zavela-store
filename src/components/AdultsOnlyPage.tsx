@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Moon, ShieldCheck, HeartHandshake, PackageCheck, Flame, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { Product } from '../types/index.ts';
 import { ProductCard } from './ProductCard.tsx';
-import { formatCOP } from '../utils/formatters.ts'; // <-- IMPORTACIÓN CORREGIDA
+import { formatCOP } from '../utils/formatters.ts';
 
 // --- Guardia de Seguridad Embebido ---
 const InternalAgeGate: React.FC<{ children: React.ReactNode; onReject?: () => void }> = ({ children, onReject }) => {
@@ -107,13 +108,16 @@ export const AdultsOnlyPage: React.FC<AdultsOnlyPageProps> = ({
         
         {/* Barra Superior con botón Volver */}
         <div className="bg-slate-900 border-b border-purple-900/40 px-4 sm:px-8 py-3 sticky top-0 z-40 flex items-center justify-between">
-          <button
-            onClick={onGoHome}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer"
+          <Link
+            to="/"
+            onClick={() => {
+              if (onGoHome) onGoHome();
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer no-underline"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver a la Tienda</span>
-          </button>
+          </Link>
         </div>
 
         {/* Banner Hero / Cabecera Boutique Íntima */}
@@ -191,14 +195,15 @@ export const AdultsOnlyPage: React.FC<AdultsOnlyPageProps> = ({
               <p className="text-xs text-slate-400 leading-relaxed">
                 Estamos actualizando el inventario exclusivo de nuestra boutique íntima con novedades y despachos nacionales directos.
               </p>
-              {onGoHome && (
-                <button
-                  onClick={onGoHome}
-                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors cursor-pointer mt-2"
-                >
-                  Volver al Catálogo Principal
-                </button>
-              )}
+              <Link
+                to="/"
+                onClick={() => {
+                  if (onGoHome) onGoHome();
+                }}
+                className="inline-block px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors cursor-pointer mt-2 no-underline"
+              >
+                Volver al Catálogo Principal
+              </Link>
             </div>
           )}
         </main>
