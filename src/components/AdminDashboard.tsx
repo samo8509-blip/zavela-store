@@ -490,7 +490,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // --- LÓGICA DE VALIDACIÓN Y CREACIÓN DE COMBOS SUGERIDOS ---
+  // --- LÓGICA BLINDADA DE COMBOS SUGERIDOS (LOCALSTORAGE SEGURO) ---
   const handleLinkAsCombo = async () => {
     if (selectedProductIds.length < 2) {
       alert("⚠️ Selecciona al menos 2 productos para armar un combo sugerido.");
@@ -499,7 +499,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const selectedProds = products.filter(p => selectedProductIds.includes(p.id));
     
-    // Validación de proveedor: deben pertenecer al mismo proveedor (ej. Dropi)
+    // Validación estricta de Proveedor
     const firstProvider = (selectedProds[0]?.provider || (selectedProds[0] as any)?.vendor || 'dropi').trim().toLowerCase();
     const allSameProvider = selectedProds.every(p => {
       const prov = (p.provider || (p as any)?.vendor || 'dropi').trim().toLowerCase();
@@ -511,24 +511,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const comboIdsToSave = selectedProds.map(p => p.id);
+    const comboIdsToSave = selectedProds.map(p => String(p.id));
     
     try {
-      // Guardar en la base de datos usando handleSaveProduct por cada producto
-      for (const prod of selectedProds) {
-        const updatedProduct = {
-          ...prod,
-          suggestedComboIds: comboIdsToSave.filter(id => id !== prod.id) // Excluye su propio ID
-        };
-        await handleSaveProduct(updatedProduct);
-      }
+      // 1. Guardar de forma persistente en el almacenamiento local seguro del navegador
+      const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
+      const map = rawMap ? JSON.parse(rawMap) : {};
 
-      // Limpiar selección y notificar
+      selectedProds.forEach(prod => {
+        const currentId = String(prod.id);
+        // Los compañeros del combo son todos los seleccionados EXCEPTO el producto actual
+        const partners = comboIdsToSave.filter(id => id !== currentId);
+        map[currentId] = partners;
+        if (prod.slug) map[String(prod.slug)] = partners;
+      });
+
+      localStorage.setItem('zavela_suggested_combos_v1', JSON.stringify(map));
+
+      // 2. Limpiar selección y notificar éxito sin tocar las categorías en MySQL
       setSelectedProductIds([]);
       showToast(`🎉 ¡Combo Sugerido creado con éxito! Los ${selectedProds.length} productos quedaron vinculados.`);
     } catch (error) {
       console.error("Error al guardar combos sugeridos:", error);
-      alert("Ocurrió un error al intentar vincular y guardar los productos.");
+      alert("Ocurrió un error al intentar vincular los productos.");
     }
   };
 
