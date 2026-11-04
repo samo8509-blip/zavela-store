@@ -976,11 +976,13 @@ export default function App() {
         onBackToStore={() => {
           loadStoreData();
           setCurrentView('store');
+          navigate('/');
         }}
         onLogout={() => {
           clearAdminAuthentication();
           loadStoreData();
           setCurrentView('store');
+          navigate('/');
           showToast('Sesión de administrador cerrada correctamente.');
         }}
       />
@@ -992,6 +994,7 @@ export default function App() {
     if (!activeAdv) {
       setIsAdminLoginOpen(true);
       setCurrentView('store');
+      navigate('/');
       return null;
     }
 
@@ -999,7 +1002,10 @@ export default function App() {
       <AdvisorPortal 
         advisor={activeAdv}
         products={products}
-        onBackToStore={() => setCurrentView('store')}
+        onBackToStore={() => {
+          setCurrentView('store');
+          navigate('/');
+        }}
         onLogout={handleAdvisorLogout}
       />
     );

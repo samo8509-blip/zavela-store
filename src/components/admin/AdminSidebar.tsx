@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   BarChart3,
   ShoppingCart,
@@ -299,10 +300,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <aside className="w-72 bg-[#0A1128] border-r border-[#2A3A60] text-slate-200 flex flex-col h-full shrink-0 select-none">
       
-      {/* Brand Header */}
-      <div className="p-5 border-b border-[#2A3A60] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#0E1838] border border-[#2A3A60] flex items-center justify-center shadow-lg shadow-[#48CAE4]/10 p-1">
+      {/* Brand Header & Direct Store Return Link */}
+      <div className="p-4 border-b border-[#2A3A60] space-y-3">
+        <Link
+          to="/"
+          onClick={() => {
+            if (onBackToStore) onBackToStore();
+          }}
+          className="flex items-center gap-3 no-underline group cursor-pointer"
+          title="Regresar a la tienda pública"
+        >
+          <div className="w-10 h-10 rounded-2xl bg-[#0E1838] border border-[#2A3A60] flex items-center justify-center shadow-lg shadow-[#48CAE4]/10 p-1 group-hover:border-[#48CAE4]/50 transition-colors">
             <ZavelaLogo size="xs" variant="icon-only" />
           </div>
           <div>
@@ -314,7 +322,20 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
             <div className="text-[11px] text-slate-400 font-mono">Control Maestro COD</div>
           </div>
-        </div>
+        </Link>
+
+        {/* Botón directo Regresar a la Tienda */}
+        <Link
+          to="/"
+          onClick={() => {
+            if (onBackToStore) onBackToStore();
+          }}
+          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl bg-[#0E1838] hover:bg-[#1C2541] text-[#48CAE4] hover:text-white text-xs font-bold border border-[#2A3A60] hover:border-[#48CAE4]/40 transition-all shadow-xs no-underline cursor-pointer"
+          title="Regresar a la página principal de la tienda"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Regresar a la tienda</span>
+        </Link>
       </div>
 
       {/* Navigation Groups List */}
@@ -387,13 +408,17 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={onBackToStore}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#1C2541] hover:bg-[#253258] text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer border border-[#2A3A60]"
+          <Link
+            to="/"
+            onClick={() => {
+              if (onBackToStore) onBackToStore();
+            }}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-[#1C2541] hover:bg-[#253258] text-slate-200 hover:text-white text-xs font-bold transition-colors cursor-pointer border border-[#2A3A60] no-underline"
+            title="Volver a la tienda pública"
           >
             <Store className="w-3.5 h-3.5 text-[#48CAE4]" />
-            <span>Tienda</span>
-          </button>
+            <span>Volver a tienda</span>
+          </Link>
 
           <button
             onClick={onLogout}

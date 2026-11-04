@@ -14,10 +14,11 @@ import {
   ShieldAlert,
   Power,
   Trash2,
-  Link,
   Square,
-  StopCircle
+  StopCircle,
+  Link2
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { 
   Product, 
   Order, 
@@ -632,13 +633,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <span className="font-black text-sm text-[#48CAE4]">Zavela Store Control</span>
         </div>
 
-        <button
-          onClick={onBackToStore}
-          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#1C2541] text-slate-300 flex items-center gap-1"
+        <Link
+          to="/"
+          onClick={() => {
+            if (onBackToStore) onBackToStore();
+          }}
+          className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#1C2541] text-slate-300 hover:text-white flex items-center gap-1.5 no-underline cursor-pointer"
+          title="Regresar a la tienda pública"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Tienda</span>
-        </button>
+          <ArrowLeft className="w-3.5 h-3.5 text-[#48CAE4]" />
+          <span>Volver a tienda</span>
+        </Link>
       </div>
 
       {/* Sidebar Navigation */}
@@ -781,13 +786,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <RefreshCw className="w-4 h-4" />
             </button>
 
-            <button
-              onClick={onBackToStore}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A1128] hover:bg-[#1C2541] text-white font-bold text-xs transition-colors cursor-pointer"
+            <Link
+              to="/"
+              onClick={() => {
+                if (onBackToStore) onBackToStore();
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A1128] hover:bg-[#1C2541] text-white font-bold text-xs transition-colors cursor-pointer no-underline border border-[#2A3A60]"
+              title="Regresar a la tienda pública"
             >
               <Store className="w-3.5 h-3.5 text-[#48CAE4]" />
               <span>Ver Tienda</span>
-            </button>
+            </Link>
           </div>
         </header>
 
@@ -824,7 +833,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeSection === 'products' && selectedProductIds.length > 0 && (
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 shadow-md flex items-center justify-between sticky top-[68px] z-20 animate-fadeIn">
             <div className="flex items-center gap-3">
-              <Link className="w-5 h-5" />
+              <Link2 className="w-5 h-5" />
               <div>
                 <p className="text-sm font-bold">{selectedProductIds.length} productos seleccionados</p>
                 <p className="text-xs text-indigo-200">Vincúlalos para que la tienda se los ofrezca juntos al cliente.</p>
