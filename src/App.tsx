@@ -613,6 +613,8 @@ export default function App() {
   }, [isAdminLoginOpen, authenticatedAdvisor]);
 
   const handleRequestAdmin = () => {
+    setSelectedProduct(null);
+    navigate('/admin');
     if (checkIsAdminAuthenticated()) {
       setCurrentView('admin');
     } else if (authenticatedAdvisor) {

@@ -454,18 +454,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              <a 
-                href="/admin" 
-                onClick={(e) => {
-                  e.preventDefault();
+              <Link 
+                to="/admin" 
+                onClick={() => {
                   if (onToggleAdmin) onToggleAdmin();
-                  else window.location.href = '/admin';
                 }}
-                className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0"
+                className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0 no-underline"
                 title="Abrir Panel Administrativo"
               >
                 <span>⚙️ Admin</span>
-              </a>
+              </Link>
 
               <button
                 id="header-open-cart-btn"
@@ -668,17 +666,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="pt-2 border-t border-slate-100">
-              <a
-                href="/admin"
-                onClick={(e) => {
-                  e.preventDefault();
+              <Link
+                to="/admin"
+                onClick={() => {
                   setIsMobileMenuOpen(false);
                   if (onToggleAdmin) onToggleAdmin();
                 }}
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm"
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm no-underline"
               >
                 <span>⚙️ Panel Administrativo</span>
-              </a>
+              </Link>
             </div>
           </div>
         )}
