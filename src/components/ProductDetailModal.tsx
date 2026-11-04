@@ -36,6 +36,7 @@ import { extractProductImages } from '../utils/imageUtils.ts';
 import { SameWarehouseRecommendations } from './SameWarehouseRecommendations.tsx';
 import { parseProductDescription } from '../utils/descriptionParser.ts';
 import { calculateQuantityPricing } from '../utils/comboPricing.ts';
+import { parseNumCOP } from '../services/cpanelProducts.ts';
 
 export interface ComboSelection {
   talla: string;
@@ -600,41 +601,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? String(product.dropi_product_id || (product as any).dropiProductId || (product as any).dropi_id)
     : (product.id ? product.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 7).toUpperCase() : '1123768');
 
-  // LÓGICA DE CROSS-SELLING / COMBO SUGERIDO CONECTADA AL PANEL DE ADMINISTRACIÓN
-  const suggestedProduct = useMemo(() => {
-    if (!allProducts || allProducts.length <= 1 || !product) return null;
+  // LÓGICA DE CROSS-SELLING / COMBO SUGERIDO CONECTADA A LOCALSTORAGE ('zavela_suggested_combos_v1')
+  const suggestedComboProducts = useMemo<Product[]>(() => {
+    if (!allProducts || allProducts.length <= 1 || !product) return [];
     const currentId = String(product.id || (product as any).productId || '');
-    
-    // 1. Buscar en IDs vinculados en 'suggestedComboIds' o en localStorage (creados desde el panel)
+    const currentSlug = String(product.slug || '');
+
+    // 1. Leer del localStorage la clave 'zavela_suggested_combos_v1'
     let comboIds: string[] = [];
-    if (Array.isArray(product.suggestedComboIds) && product.suggestedComboIds.length > 0) {
-      comboIds = product.suggestedComboIds.map(String);
-    } else {
-      try {
-        const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
-        if (rawMap) {
-          const map = JSON.parse(rawMap);
-          const saved = map[currentId] || map[String(product.slug)];
-          if (Array.isArray(saved) && saved.length > 0) {
-            comboIds = saved.map(String);
-          }
+    try {
+      const rawMap = localStorage.getItem('zavela_suggested_combos_v1');
+      if (rawMap) {
+        const map = JSON.parse(rawMap);
+        const saved = map[currentId] || (currentSlug ? map[currentSlug] : null);
+        if (Array.isArray(saved) && saved.length > 0) {
+          comboIds = saved.map(String);
         }
-      } catch {}
+      }
+    } catch (e) {
+      console.warn('Error leyendo zavela_suggested_combos_v1:', e);
     }
 
+    // 2. Si no se encuentra en localStorage, verificar en la propiedad suggestedComboIds del producto
+    if (comboIds.length === 0 && Array.isArray(product.suggestedComboIds) && product.suggestedComboIds.length > 0) {
+      comboIds = product.suggestedComboIds.map(String);
+    }
+
+    // Si encontramos IDs vinculados, mapear todos los productos correspondientes del catálogo general
     if (comboIds.length > 0) {
-      const linked = allProducts.find(p => {
-        const pid = String(p.id || (p as any).productId || '');
-        return comboIds.includes(pid) && pid !== currentId && p.active !== false;
-      });
-      if (linked) return linked;
+      const linkedList = comboIds
+        .map(id => allProducts.find(p => String(p.id || (p as any).productId || '') === id && id !== currentId && p.active !== false))
+        .filter((p): p is Product => Boolean(p));
+
+      if (linkedList.length > 0) {
+        return linkedList;
+      }
     }
 
-    // 2. Fallback inteligente (mismo proveedor/categoría)
+    // 3. Fallback inteligente (mismo proveedor/categoría) si no hay combo configurado manualmente
     const candidates = allProducts.filter(p => {
       const pid = String(p.id || (p as any).productId || '');
-      if (pid === currentId) return false;
-      if (p.active === false) return false;
+      if (pid === currentId || p.active === false) return false;
       const cat = String(p.categoryName || (p as any).category || (p as any).categoria || '').toLowerCase();
       const currentCat = String(product.categoryName || (product as any).category || (product as any).categoria || '').toLowerCase();
       const isAdultCurrent = currentCat.includes('sex') || currentCat.includes('adult');
@@ -643,7 +650,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       return true;
     });
 
-    if (candidates.length === 0) return null;
+    if (candidates.length === 0) return [];
 
     const currentCat = String(product.categoryName || (product as any).category || '').toLowerCase();
     const sameCat = candidates.filter(p => {
@@ -653,24 +660,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     const pool = sameCat.length > 0 ? sameCat : candidates;
     const seed = currentId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    return pool[seed % pool.length];
+    const fallbackItem = pool[seed % pool.length];
+    return fallbackItem ? [fallbackItem] : [];
   }, [allProducts, product]);
 
-  const suggestedProductImage = useMemo(() => {
-    if (!suggestedProduct) return '/placeholder.png';
-    const imgs = extractProductImages(suggestedProduct);
-    return imgs[0] || (suggestedProduct as any).image || (suggestedProduct as any).imagen || '/placeholder.png';
-  }, [suggestedProduct]);
-
-  const suggestedProductPrice = suggestedProduct ? (suggestedProduct.price || (suggestedProduct as any).salePrice || 0) : 0;
   const currentProdEffectivePrice = currentPricing.unitEffectivePrice || product.price || 0;
-  const comboOriginalTotal = currentProdEffectivePrice + suggestedProductPrice;
-  const comboDiscountedTotal = Math.max(0, comboOriginalTotal - 15000);
+
+  const linkedProductsTotalPrice = useMemo(() => {
+    return suggestedComboProducts.reduce((sum, p) => sum + (p.price || (p as any).salePrice || 0), 0);
+  }, [suggestedComboProducts]);
+
+  const comboOriginalTotal = currentProdEffectivePrice + linkedProductsTotalPrice;
+
+  // Ahorro dinámico por combo: suma exacta del flete de cada producto adicional
+  const comboConsolidatedSavings = useMemo(() => {
+    return suggestedComboProducts.reduce((sum, p) => {
+      const flete = parseNumCOP(
+        p.shippingCost ??
+        (p as any).shipping_cost ??
+        (p as any).flete ??
+        (p as any).fleteEnvio ??
+        (p as any).flete_envio ??
+        p.estimatedShippingCost
+      );
+      // Flete exacto del producto extra (o fallback estándar de $15.000 si no estuviera configurado)
+      const fleteVal = flete > 0 ? flete : 15000;
+      return sum + fleteVal;
+    }, 0);
+  }, [suggestedComboProducts]);
+
+  const comboDiscountedTotal = Math.max(0, comboOriginalTotal - comboConsolidatedSavings);
 
   const handleAddCrossSellCombo = () => {
-    if (!product || !suggestedProduct) return;
+    if (!product || suggestedComboProducts.length === 0) return;
+    // 1. Agregar el producto actual
     onAddToCart(product, selectedVariant, 1, currentProdEffectivePrice);
-    onAddToCart(suggestedProduct, undefined, 1, suggestedProductPrice);
+
+    // 2. Agregar cada producto vinculado del combo
+    suggestedComboProducts.forEach(linkedProd => {
+      const price = linkedProd.price || (linkedProd as any).salePrice || 0;
+      onAddToCart(linkedProd, undefined, 1, price);
+    });
 
     setComboAddedSuccess(true);
     setTimeout(() => {
@@ -942,11 +972,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </details>
                   </div>
 
-                  {/* 🛒 Bloque UI: Comprados Juntos Habitualmente (Vínculo con el Panel de Admin) */}
-                  {suggestedProduct && (
+                  {/* 🛒 Bloque UI: Comprados Juntos Habitualmente / Lleva el Combo */}
+                  {suggestedComboProducts.length > 0 && (
                     <div 
                       id="cross-selling-combo-box"
-                      className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-white to-slate-50 border border-emerald-300 shadow-xs space-y-3"
+                      className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 border border-emerald-300 shadow-xs space-y-3"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
@@ -955,12 +985,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             Comprados Juntos Habitualmente
                           </h4>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0">
-                          Combo Sugerido
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300 shrink-0 font-bold">
+                          {suggestedComboProducts.length > 1 ? `Combo de ${suggestedComboProducts.length + 1} Productos` : 'Lleva el Combo'}
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 pt-1">
+                      {/* Tarjetas de productos vinculados en el combo */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                        {/* Producto actual */}
                         <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
                           <img
                             src={imagesList[0] || (product as any).image || (product as any).imagen || '/placeholder.png'}
@@ -980,32 +1012,46 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           </div>
                         </div>
 
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 shadow-2xs border border-emerald-200">
-                          +
-                        </div>
+                        {/* Productos Vinculados */}
+                        {suggestedComboProducts.map((linkedItem, idx) => {
+                          const linkedImgs = extractProductImages(linkedItem);
+                          const linkedImg = linkedImgs[0] || (linkedItem as any).image || (linkedItem as any).imagen || '/placeholder.png';
+                          const linkedPrice = linkedItem.price || (linkedItem as any).salePrice || 0;
 
-                        <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
-                          <img
-                            src={suggestedProductImage}
-                            alt={suggestedProduct.title || suggestedProduct.name || 'Producto sugerido'}
-                            className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 block">
-                              Sugerido
-                            </span>
-                            <div className="text-xs font-bold text-slate-800 truncate" title={suggestedProduct.title || suggestedProduct.name}>
-                              {suggestedProduct.title || suggestedProduct.name}
-                            </div>
-                            <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
-                              {formatCOP(suggestedProductPrice)}
-                            </div>
-                          </div>
-                        </div>
+                          return (
+                            <React.Fragment key={linkedItem.id || idx}>
+                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-xs sm:text-sm shrink-0 shadow-2xs border border-emerald-200 self-center">
+                                +
+                              </div>
+
+                              <div className="flex-1 flex items-center gap-2 p-2 rounded-xl bg-white border border-slate-200 shadow-2xs min-w-0">
+                                <img
+                                  src={linkedImg}
+                                  alt={linkedItem.title || linkedItem.name || 'Producto sugerido'}
+                                  className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border border-slate-100 shrink-0"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 block">
+                                    Combo Sugerido
+                                  </span>
+                                  <div className="text-xs font-bold text-slate-800 truncate" title={linkedItem.title || linkedItem.name}>
+                                    {linkedItem.title || linkedItem.name}
+                                  </div>
+                                  <div className="text-xs font-mono font-black text-slate-900 mt-0.5">
+                                    {formatCOP(linkedPrice)}
+                                  </div>
+                                </div>
+                              </div>
+                            </React.Fragment>
+                          );
+                        })}
                       </div>
 
+                      {/* Resumen de Total y Ahorro */}
                       <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/80">
-                        <span className="font-bold text-slate-600">Total por ambos productos:</span>
+                        <span className="font-bold text-slate-600">
+                          Total por los {suggestedComboProducts.length + 1} productos:
+                        </span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400 line-through font-mono">
                             {formatCOP(comboOriginalTotal)}
@@ -1016,6 +1062,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </div>
                       </div>
 
+                      {/* Botón de Agregar Combo */}
                       <button
                         type="button"
                         id="btn-add-cross-sell-combo"
@@ -1034,14 +1081,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         ) : (
                           <>
                             <ShoppingBag className="w-4 h-4 text-white" />
-                            <span>Agregar Combo al Carrito</span>
+                            <span>
+                              {suggestedComboProducts.length > 1
+                                ? `Agregar los ${suggestedComboProducts.length + 1} Productos al Carrito`
+                                : 'Agregar Combo al Carrito'}
+                            </span>
                           </>
                         )}
                       </button>
 
                       <p className="text-[11px] text-emerald-700 font-bold text-center flex items-center justify-center gap-1.5 leading-snug">
                         <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Se aplicará descuento automático por envío consolidado en el carrito</span>
+                        <span>¡Ahorro automático de {formatCOP(comboConsolidatedSavings)} por envíos consolidados en tu carrito!</span>
                       </p>
                     </div>
                   )}
