@@ -154,12 +154,22 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     let variantsList: ProductVariant[] = [];
     const rawVars = prod.variants || prod.variantes;
     if (Array.isArray(rawVars) && rawVars.length > 0) {
-      variantsList = rawVars;
+      variantsList = rawVars.map((v: any) => ({
+        ...v,
+        price: parseNumCOP(v.price ?? v.precio ?? precio),
+        stock: parseNumCOP(v.stock ?? v.inventario ?? stock)
+      }));
     } else if (typeof rawVars === 'string' && rawVars.trim()) {
       try {
         let parsed = JSON.parse(rawVars);
         if (typeof parsed === 'string') parsed = JSON.parse(parsed); 
-        if (Array.isArray(parsed)) variantsList = parsed;
+        if (Array.isArray(parsed)) {
+          variantsList = parsed.map((v: any) => ({
+            ...v,
+            price: parseNumCOP(v.price ?? v.precio ?? precio),
+            stock: parseNumCOP(v.stock ?? v.inventario ?? stock)
+          }));
+        }
       } catch (err) {
         console.error("Error interpretando variantes:", err);
       }
@@ -193,6 +203,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [newImageUrl, setNewImageUrl] = useState<string>('');
   const [newVarColor, setNewVarColor] = useState<string>('');
   const [newVarSize, setNewVarSize] = useState<string>('Única');
+  const [newVarPrice, setNewVarPrice] = useState<string>('');
   const [newVarDropiId, setNewVarDropiId] = useState<string>('');
   const [newVarStock, setNewVarStock] = useState<number>(0);
   const [newVarSku, setNewVarSku] = useState<string>('');
@@ -395,16 +406,37 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const size = newVarSize.trim() || 'Única';
     const name = size !== 'Única' ? `${color} / ${size}` : color;
 
+    // Si se especificó un precio de venta para la variante se usa; de lo contrario hereda el precio base del producto
+    const parsedVarPrice = newVarPrice.trim() !== '' 
+      ? parseNumCOP(newVarPrice) 
+      : parseNumCOP(formData.precio);
+
     const newVariant: ProductVariant = {
-      id: `var-${Date.now()}`, name, color, size, talla: size,
+      id: `var-${Date.now()}`,
+      name,
+      color,
+      size,
+      talla: size,
       stock: parseNumCOP(newVarStock) >= 0 ? parseNumCOP(newVarStock) : 0,
-      price: parseNumCOP(formData.precio),
+      price: parsedVarPrice >= 0 ? parsedVarPrice : parseNumCOP(formData.precio),
       dropi_variation_id: newVarDropiId.trim() || undefined,
       sku: newVarSku.trim() || undefined
     };
 
     setFormData(prev => ({ ...prev, variants: [...prev.variants, newVariant] }));
-    setNewVarColor(''); setNewVarSize('Única'); setNewVarDropiId(''); setNewVarStock(0); setNewVarSku('');
+    setNewVarColor('');
+    setNewVarSize('Única');
+    setNewVarPrice('');
+    setNewVarDropiId('');
+    setNewVarStock(0);
+    setNewVarSku('');
+  };
+
+  const handleUpdateVariant = (variantId: string, updates: Partial<ProductVariant>) => {
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.map(v => v.id === variantId ? { ...v, ...updates } : v)
+    }));
   };
 
   const handleRemoveVariant = (variantId: string) => {
@@ -673,43 +705,126 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
           <div className="space-y-3 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-slate-700">Variantes (Color, Talla, SKU)</label>
-              <span className="text-[11px] text-slate-400">{formData.variants.length} variantes registradas</span>
+              <div>
+                <label className="block text-xs font-bold text-slate-700">Variantes (Color, Talla, Precio, SKU)</label>
+                <p className="text-[11px] text-slate-400">Personaliza opciones con su propio precio de venta y stock individual.</p>
+              </div>
+              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                {formData.variants.length} {formData.variants.length === 1 ? 'variante' : 'variantes'}
+              </span>
             </div>
 
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-5 gap-2.5 items-end">
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2.5 items-end">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">Color / Nombre</label>
-                <input type="text" placeholder="Negro, Rojo..." value={newVarColor} onChange={(e) => setNewVarColor(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none" />
+                <input 
+                  type="text" 
+                  placeholder="Negro, Rojo..." 
+                  value={newVarColor} 
+                  onChange={(e) => setNewVarColor(e.target.value)} 
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" 
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">Talla / Tamaño</label>
-                <input type="text" placeholder="Única, M, L..." value={newVarSize} onChange={(e) => setNewVarSize(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none" />
+                <input 
+                  type="text" 
+                  placeholder="Única, M, L..." 
+                  value={newVarSize} 
+                  onChange={(e) => setNewVarSize(e.target.value)} 
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500" 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 mb-1">Precio de Venta</label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">$</span>
+                  <input 
+                    type="text" 
+                    placeholder={formData.precio ? String(formData.precio) : "0"} 
+                    value={newVarPrice} 
+                    onChange={(e) => setNewVarPrice(e.target.value)} 
+                    className="w-full pl-6 pr-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-bold text-slate-800" 
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">Stock</label>
-                <input type="text" placeholder="0" value={newVarStock === 0 ? '' : newVarStock} onChange={(e) => setNewVarStock(parseNumCOP(e.target.value))} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
+                <input 
+                  type="text" 
+                  placeholder="0" 
+                  value={newVarStock === 0 ? '' : newVarStock} 
+                  onChange={(e) => setNewVarStock(parseNumCOP(e.target.value))} 
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono" 
+                />
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">ID Dropi Var.</label>
-                <input type="text" placeholder="Opcional" value={newVarDropiId} onChange={(e) => setNewVarDropiId(e.target.value)} className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none font-mono" />
+                <input 
+                  type="text" 
+                  placeholder="Opcional" 
+                  value={newVarDropiId} 
+                  onChange={(e) => setNewVarDropiId(e.target.value)} 
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono" 
+                />
               </div>
-              <button type="button" onClick={handleAddVariant} className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 h-[34px]"><Plus className="w-3.5 h-3.5" /> Agregar</button>
+              <button 
+                type="button" 
+                onClick={handleAddVariant} 
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 h-[34px] cursor-pointer transition-colors shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" /> 
+                <span>Agregar</span>
+              </button>
             </div>
 
             {formData.variants.length > 0 && (
               <div className="space-y-1.5 pt-1">
                 {formData.variants.map((v) => (
-                  <div key={v.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-xl text-xs">
-                    <div className="flex items-center gap-2">
+                  <div key={v.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white border border-slate-200 rounded-xl text-xs gap-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-slate-800">{v.name}</span>
-                      {v.color && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.color}</span>}
-                      {v.size && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{v.size}</span>}
+                      {v.color && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">{v.color}</span>}
+                      {v.size && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">{v.size}</span>}
                       {v.dropi_variation_id && <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-mono">Dropi: {v.dropi_variation_id}</span>}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-slate-500">Stock: {v.stock}</span>
-                      <button type="button" onClick={() => handleRemoveVariant(v.id)} className="p-1 text-rose-500 hover:text-rose-700" title="Eliminar variante"><Trash2 className="w-3.5 h-3.5" /></button>
+
+                    <div className="flex items-center gap-3 self-end sm:self-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Precio:</span>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[11px]">$</span>
+                          <input 
+                            type="text" 
+                            value={v.price !== undefined ? v.price : (formData.precio || '')} 
+                            onChange={(e) => handleUpdateVariant(v.id, { price: parseNumCOP(e.target.value) })}
+                            className="w-24 pl-4.5 pr-2 py-1 text-xs border border-slate-300 rounded-lg font-mono font-bold text-slate-900 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none"
+                            placeholder="0"
+                            title="Precio de venta individual de esta variante"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Stock:</span>
+                        <input 
+                          type="text" 
+                          value={v.stock !== undefined ? v.stock : ''} 
+                          onChange={(e) => handleUpdateVariant(v.id, { stock: parseNumCOP(e.target.value) })}
+                          className="w-16 px-2 py-1 text-xs border border-slate-300 rounded-lg font-mono text-slate-700 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:outline-none"
+                          placeholder="0"
+                          title="Stock disponible"
+                        />
+                      </div>
+
+                      <button 
+                        type="button" 
+                        onClick={() => handleRemoveVariant(v.id)} 
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer" 
+                        title="Eliminar variante"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}

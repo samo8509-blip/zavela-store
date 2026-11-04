@@ -25,6 +25,7 @@ import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
 import { ProductDetailModal } from './components/ProductDetailModal.tsx';
+import { ProductDetailPage } from './pages/ProductDetailPage.tsx';
 import { CartDrawer } from './components/CartDrawer.tsx';
 import { CheckoutModal } from './components/CheckoutModal.tsx';
 import { OrderSuccessModal } from './components/OrderSuccessModal.tsx';
@@ -1335,6 +1336,35 @@ export default function App() {
             onBackToStore={() => setCurrentView('store')}
           />
         </main>
+      ) : selectedProduct ? (
+        <main className="flex-1">
+          <ProductDetailPage
+            key={selectedProduct.id || selectedProduct.slug || 'product-detail-page'}
+            product={selectedProduct}
+            allProducts={products}
+            cartItems={cartItems}
+            onBack={() => {
+              setSelectedProduct(null);
+              try {
+                window.history.pushState(null, '', '/');
+              } catch {}
+            }}
+            onSelectProduct={(p) => {
+              setSelectedProduct(p);
+              trackProductVisit(p);
+              try {
+                window.history.pushState(null, '', `/producto/${encodeURIComponent(p.slug || p.id)}`);
+              } catch {}
+            }}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onAddComboToCart={handleAddComboToCart}
+            onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+            isSocialClosing={isSocialClosingLink}
+            onOpenLuckyWheel={() => openLuckyWheel('social_closing')}
+            isLuckyWheelEnabled={Boolean(settings?.luckyWheel?.enabled === true)}
+          />
+        </main>
       ) : (
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
           
@@ -1616,26 +1646,7 @@ export default function App() {
         />
       )}
 
-      {selectedProduct && (
-        <ProductDetailModal
-          key={selectedProduct.id || selectedProduct.slug || 'product-detail-modal'}
-          product={selectedProduct}
-          allProducts={products}
-          cartItems={cartItems}
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            trackProductVisit(p);
-          }}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={handleAddToCart}
-          onBuyNow={handleBuyNow}
-          onAddComboToCart={handleAddComboToCart}
-          onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
-          isSocialClosing={isSocialClosingLink}
-          onOpenLuckyWheel={() => openLuckyWheel('social_closing')}
-          isLuckyWheelEnabled={Boolean(settings?.luckyWheel?.enabled === true)}
-        />
-      )}
+
 
       <CartDrawer
         isOpen={isCartOpen}
