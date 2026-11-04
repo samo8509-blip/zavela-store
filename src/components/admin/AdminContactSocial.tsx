@@ -23,12 +23,12 @@ export const AdminContactSocial: React.FC<AdminContactSocialProps> = ({
   settings,
   onSaveSettings
 }) => {
-  const [whatsapp, setWhatsapp] = useState(settings.whatsappNumber || '573123456789');
+  const [whatsapp, setWhatsapp] = useState(settings.whatsappNumber || '573133595427');
   const [whatsappMessage, setWhatsappMessage] = useState(settings.whatsappDefaultMessage || 'Hola Zavela Store, quiero más información sobre sus productos y envíos.');
-  const [phone, setPhone] = useState(settings.contactPhone || '312 345 6789');
-  const [email, setEmail] = useState(settings.contactEmail || 'contacto@zavelastore.com');
-  const [address, setAddress] = useState(settings.contactAddress || 'Centro Empresarial Calle 93 # 14 - 20');
-  const [city, setCity] = useState(settings.contactCity || 'Bogotá D.C., Colombia');
+  const [phone, setPhone] = useState(settings.contactPhone || '+57 313 359 5427');
+  const [email, setEmail] = useState(settings.contactEmail || 'contacto@zavelastore.com.co');
+  const [address, setAddress] = useState(settings.contactAddress || 'Cartagena, Bolívar, Colombia');
+  const [city, setCity] = useState(settings.contactCity || 'Cartagena, Bolívar, Colombia');
   const [hours, setHours] = useState(settings.businessHours || 'Lunes a Sábado: 8:00 AM - 7:00 PM');
   
   // Social links

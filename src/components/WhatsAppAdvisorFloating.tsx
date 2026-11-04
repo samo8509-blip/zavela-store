@@ -63,13 +63,13 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
   const isEnabled = settings?.whatsappSettings?.enabled ?? settings?.whatsappFloatingEnabled ?? true;
   const isAIEnabled = settings?.aiAgentSettings?.enabled ?? true;
   
-  const rawTargetPhone = settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || whatsappNumber || '573008784427';
+  const rawTargetPhone = settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || whatsappNumber || '573133595427';
   // Standardize Colombian phone number with prefix
   let cleanPhone = rawTargetPhone.replace(/[^\d]/g, '');
   if (cleanPhone.length === 10 && cleanPhone.startsWith('3')) {
     cleanPhone = `57${cleanPhone}`;
   }
-  if (!cleanPhone) cleanPhone = '573008784427';
+  if (!cleanPhone) cleanPhone = '573133595427';
 
   const advisorName = settings?.whatsappSettings?.advisorName || settings?.whatsappAdvisorName || 'Sofía - Asesora Experta en Regalos y Compras';
   const aiAgentName = settings?.aiAgentSettings?.agentName || 'Sofía';

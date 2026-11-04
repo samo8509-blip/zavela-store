@@ -40,7 +40,7 @@ export const QuienesSomosView: React.FC<QuienesSomosViewProps> = ({
   onExploreCatalog,
   onOpenTracking,
   onOpenAuthorCertificate,
-  whatsappNumber = '573157894512'
+  whatsappNumber = '573133595427'
 }) => {
   const handleCatalogClick = () => {
     if (onExploreCatalog) {

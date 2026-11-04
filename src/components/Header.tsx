@@ -706,21 +706,52 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-2.5 leading-relaxed">
+            <div className="text-xs text-slate-600 space-y-3 leading-relaxed">
               <p>Nuestro equipo de soporte está disponible de lunes a sábado de 8:00 AM a 7:00 PM para resolver inquietudes sobre envíos, garantías y pagos contra entrega.</p>
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 font-mono text-slate-800 text-[11px]">
-                <p>💬 WhatsApp: +57 310 123 4567</p>
-                <p>✉️ Correo: contacto@zavelastore.co</p>
-                <p>📍 Bodega Principal: Bogotá D.C., Colombia</p>
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-slate-800 text-[11px] font-mono">
+                <p className="flex items-center gap-2">
+                  <span>💬 WhatsApp:</span>
+                  <a 
+                    href="https://wa.me/573133595427?text=%C2%A1Hola%20Zavela%20Store!%20Necesito%20atenci%C3%B3n%20al%20cliente." 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline"
+                  >
+                    +57 313 359 5427
+                  </a>
+                </p>
+                <p className="flex items-center gap-2">
+                  <span>✉️ Correo electrónico:</span>
+                  <a 
+                    href="mailto:contacto@zavelastore.com.co" 
+                    className="text-slate-700 hover:text-slate-900 hover:underline font-semibold"
+                  >
+                    contacto@zavelastore.com.co
+                  </a>
+                </p>
+                <p className="flex items-center gap-2">
+                  <span>📍 Bodega Principal:</span>
+                  <span className="font-semibold text-slate-900">Cartagena, Bolívar, Colombia</span>
+                </p>
               </div>
             </div>
 
-            <button
-              onClick={() => setIsContactModalOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
-            >
-              Cerrar
-            </button>
+            <div className="flex gap-2 pt-1">
+              <a
+                href="https://wa.me/573133595427?text=%C2%A1Hola%20Zavela%20Store!%20Necesito%20atenci%C3%B3n%20al%20cliente."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                <span>💬 Abrir WhatsApp (+57 313 359 5427)</span>
+              </a>
+              <button
+                onClick={() => setIsContactModalOpen(false)}
+                className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

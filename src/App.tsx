@@ -1248,7 +1248,7 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
-            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
           />
         </main>
       ) : currentView === 'subpage' ? (
@@ -1288,7 +1288,7 @@ export default function App() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
-              whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+              whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             />
           ) : (
             (() => {
@@ -1331,7 +1331,7 @@ export default function App() {
         <main className="flex-1">
           <OrderTrackingView
             initialQuery={trackingInitialQuery}
-            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             onBackToStore={() => setCurrentView('store')}
           />
         </main>
@@ -1608,7 +1608,7 @@ export default function App() {
       {settings?.chatWidgetMode !== 'tidio' && (
         <WhatsAppAdvisorFloating 
           settings={settings}
-          whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'} 
+          whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'} 
           onSelectProduct={(p) => {
             setSelectedProduct(p);
             trackProductVisit(p);
@@ -1683,7 +1683,7 @@ export default function App() {
       <OrderSuccessModal
         order={completedOrder}
         orderDetails={orderDetails}
-        whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573157894512'}
+        whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
         onClose={() => {
           setCompletedOrder(null);
           setOrderDetails(null);
