@@ -885,6 +885,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <AdminCommerceMindAI
                 products={products}
                 stats={stats}
+                orders={orders}
+                onStopSimulation={handleStopSimulation}
+                onClearTests={handleClearTests}
+                isSimulationActive={isSimulationActive}
               />
             )}
 

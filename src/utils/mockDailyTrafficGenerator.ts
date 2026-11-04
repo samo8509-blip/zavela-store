@@ -325,10 +325,12 @@ export function buildRealTrafficReportFromOrders(orders: any[] = [], catalogProd
 export function clearSimulatedTraffic(): void {
   try {
     localStorage.removeItem(STORAGE_KEY_SIMULATED_TRAFFIC);
+    localStorage.removeItem('commerce_mind_mock_data');
     localStorage.removeItem('cm_report_memory_v1');
     localStorage.removeItem('zavela_simulation_active');
     localStorage.removeItem('cm_admin_last_greeting_date');
     sessionStorage.removeItem(STORAGE_KEY_SIMULATED_TRAFFIC);
+    sessionStorage.removeItem('commerce_mind_mock_data');
     sessionStorage.removeItem('zavela_simulation_active');
     sessionStorage.removeItem('cm_admin_greeting_dismissed');
     localStorage.setItem('zavela_simulation_stopped', 'true');

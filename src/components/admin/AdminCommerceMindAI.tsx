@@ -39,13 +39,17 @@ import {
   FileCode,
   ChevronRight,
   MessageSquare,
-  Phone
+  Phone,
+  Trash2
 } from 'lucide-react';
-import { Product, AdminStats } from '../../types/index.ts';
+import { Product, AdminStats, Order } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { 
   getOrGenerateDailyTrafficReport, 
   generateDailyTrafficReport,
+  createEmptyDailyTrafficReport,
+  buildRealTrafficReportFromOrders,
+  clearSimulatedTraffic,
   SimulatedDailyTrafficReport 
 } from '../../utils/mockDailyTrafficGenerator.ts';
 import {
@@ -175,6 +179,10 @@ const SIMULATION_PRESETS = [
 interface AdminCommerceMindAIProps {
   products: Product[];
   stats: AdminStats | null;
+  orders?: Order[];
+  onStopSimulation?: () => void;
+  onClearTests?: () => void;
+  isSimulationActive?: boolean;
 }
 
 interface TopVisualizado {
@@ -213,7 +221,11 @@ interface ClientModeResponse {
 
 export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
   products,
-  stats
+  stats,
+  orders = [],
+  onStopSimulation,
+  onClearTests,
+  isSimulationActive = false
 }) => {
   const [activeTab, setActiveTab] = useState<'admin' | 'cliente' | 'raw_json'>('admin');
   const [loading, setLoading] = useState(false);
@@ -314,22 +326,69 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
     }
   }, [products]);
 
-  // Load Admin Mode Analysis on mount
+  // Load Admin Mode Analysis on mount and when real orders change
   useEffect(() => {
     fetchAdminAnalysis();
-  }, []);
+  }, [orders.length, products.length]);
 
   const fetchAdminAnalysis = async (forceRegenerate: boolean = false) => {
     setLoading(true);
     setErrorMsg(null);
     stopVoiceNarration();
     try {
-      // Build aggregated metrics from simulated/current store state
-      const traffic = forceRegenerate 
-        ? generateDailyTrafficReport(products) 
-        : getOrGenerateDailyTrafficReport(products);
+      let isSimActive = false;
+      try {
+        const isStopped = localStorage.getItem('zavela_simulation_stopped');
+        const activeFlag = localStorage.getItem('zavela_simulation_active');
+        isSimActive = isStopped !== 'true' && activeFlag === 'true';
+      } catch {}
+
+      let traffic: SimulatedDailyTrafficReport;
+
+      if (forceRegenerate) {
+        try {
+          localStorage.removeItem('zavela_simulation_stopped');
+          localStorage.setItem('zavela_simulation_active', 'true');
+        } catch {}
+        traffic = generateDailyTrafficReport(products);
+      } else if (isSimActive) {
+        traffic = getOrGenerateDailyTrafficReport(products);
+      } else if (orders && orders.length > 0) {
+        // Modo real: consumir exclusivamente la base de datos confirmada
+        traffic = buildRealTrafficReportFromOrders(orders, products);
+      } else {
+        // Estricto: Si la base de datos real está vacía y la simulación está apagada, NUNCA usar datos mock
+        traffic = createEmptyDailyTrafficReport();
+      }
 
       setTrafficReport(traffic);
+
+      // Si está en ceros (sin pedidos y sin productos con ventas), establecer estado limpio de ceros
+      if (traffic.total_pedidos === 0 && traffic.productos.length === 0) {
+        setComparison(null);
+        setAdminResult({
+          resumen_estadistico: {
+            top_visualizados: [],
+            hallazgos_clave: [
+              "Base de datos en tiempo real: Sin pedidos ni visitas registradas en este momento.",
+              "Simulación apagada: Todas las métricas reflejan la base de datos real en cero (0)."
+            ]
+          },
+          asistente_admin: {
+            diagnostico_estrategico: "La base de datos real no registra transacciones en este momento. La simulación y datos de prueba están apagados. Todas las métricas están en cero (0).",
+            acciones_sugeridas: [
+              {
+                area: "Marketing",
+                accion: "Iniciar campañas en Meta Ads o WhatsApp para captar los primeros compradores reales.",
+                impacto_esperado: "Generar pedidos contra entrega en cPanel MySQL."
+              }
+            ]
+          }
+        });
+        setLoading(false);
+        return;
+      }
+
       const comp = compareWithLastReport(traffic);
       setComparison(comp);
 
@@ -371,6 +430,82 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
       setErrorMsg(err.message || 'Error al conectar con CommerceMind AI');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearTests = async () => {
+    stopVoiceNarration();
+
+    // 1. Borrar todas las variables de simulación de localStorage y sessionStorage
+    clearSimulatedTraffic();
+    try {
+      localStorage.removeItem('commerce_mind_mock_data');
+      localStorage.removeItem('cm_daily_mock_traffic');
+      localStorage.removeItem('cm_report_memory_v1');
+      localStorage.removeItem('zavela_simulation_active');
+      localStorage.removeItem('zavela_mock_orders');
+      sessionStorage.removeItem('commerce_mind_mock_data');
+      sessionStorage.removeItem('cm_daily_mock_traffic');
+      sessionStorage.removeItem('zavela_simulation_active');
+      localStorage.setItem('zavela_simulation_stopped', 'true');
+    } catch (e) {
+      console.warn('Error clearing mock data keys:', e);
+    }
+
+    // 2. Establecer estados explícitamente a cero (0)
+    const emptyReport = createEmptyDailyTrafficReport();
+    setTrafficReport(emptyReport);
+    setComparison(null);
+    setAdminResult({
+      resumen_estadistico: {
+        top_visualizados: [],
+        hallazgos_clave: [
+          "Base de datos en tiempo real: Sin transacciones de prueba ni registros simulados.",
+          "Métricas en ceros (0) a la espera de ventas reales de clientes."
+        ]
+      },
+      asistente_admin: {
+        diagnostico_estrategico: "Todos los datos de prueba y métricas simuladas han sido eliminados por completo. El panel está consumiendo la base de datos real en ceros.",
+        acciones_sugeridas: [
+          {
+            area: "Marketing",
+            accion: "Publicar ofertas reales en redes sociales y canales de WhatsApp.",
+            impacto_esperado: "Registrar las primeras ventas reales en el sistema."
+          }
+        ]
+      }
+    });
+
+    // 3. Forzar recarga o sincronización con el backend
+    if (onClearTests) {
+      await onClearTests();
+    } else {
+      await fetchAdminAnalysis(false);
+    }
+  };
+
+  const handleStopSimulation = () => {
+    stopVoiceNarration();
+    clearSimulatedTraffic();
+    try {
+      localStorage.removeItem('commerce_mind_mock_data');
+      localStorage.removeItem('cm_daily_mock_traffic');
+      localStorage.removeItem('cm_report_memory_v1');
+      localStorage.removeItem('zavela_simulation_active');
+      localStorage.setItem('zavela_simulation_stopped', 'true');
+      sessionStorage.removeItem('commerce_mind_mock_data');
+      sessionStorage.removeItem('cm_daily_mock_traffic');
+      sessionStorage.removeItem('zavela_simulation_active');
+    } catch (e) {}
+
+    const emptyReport = createEmptyDailyTrafficReport();
+    setTrafficReport(emptyReport);
+    setComparison(null);
+
+    if (onStopSimulation) {
+      onStopSimulation();
+    } else {
+      fetchAdminAnalysis(false);
     }
   };
 
@@ -624,21 +759,49 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             {activeTab === 'admin' && (
-              <button
-                type="button"
-                onClick={() => {
-                  generateDailyTrafficReport(products);
-                  fetchAdminAnalysis();
-                }}
-                disabled={loading}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs sm:text-sm border border-indigo-500/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                title="Generar nuevas cifras aleatorias de tráfico diario"
-              >
-                <Shuffle className="w-4 h-4 text-indigo-400" />
-                <span>Simular Tráfico</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleClearTests}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs border border-rose-500/40 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                  title="Eliminar de inmediato datos simulados y forzar ceros o datos reales"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Limpiar Pruebas</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleStopSimulation}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
+                  title="Detener simulación activa"
+                >
+                  <Square className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Detener Simulación</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem('zavela_simulation_stopped');
+                      localStorage.setItem('zavela_simulation_active', 'true');
+                    } catch {}
+                    generateDailyTrafficReport(products);
+                    fetchAdminAnalysis(true);
+                  }}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold text-xs border border-indigo-500/30 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  title="Generar nuevas cifras de tráfico simulado para pruebas"
+                >
+                  <Shuffle className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Simular Tráfico</span>
+                </button>
+              </>
             )}
 
             <button
@@ -648,10 +811,10 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 if (activeTab === 'raw_json') executeRawJsonPlayground();
               }}
               disabled={loading}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Analizando...' : 'Ejecutar Análisis'}
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Analizando...' : 'Actualizar'}</span>
             </button>
           </div>
         </div>
@@ -901,30 +1064,36 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 </div>
 
                 <div className="divide-y divide-slate-800">
-                  {trafficReport.productos_top_visitas.slice(0, 5).map((item, idx) => (
-                    <div key={item.id || idx} className="py-3 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs font-black flex items-center justify-center shrink-0">
-                          #{idx + 1}
-                        </span>
-                        <div className="truncate">
-                          <div className="text-sm font-semibold text-white truncate">{item.nombre}</div>
-                          <div className="text-xs text-slate-400">
-                            {item.visitas} vistas • {item.tiempo_promedio_segundos}s prom.
+                  {trafficReport.productos_top_visitas.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-500">
+                      Sin visitas registradas en la base de datos real.
+                    </div>
+                  ) : (
+                    trafficReport.productos_top_visitas.slice(0, 5).map((item, idx) => (
+                      <div key={item.id || idx} className="py-3 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs font-black flex items-center justify-center shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <div className="truncate">
+                            <div className="text-sm font-semibold text-white truncate">{item.nombre}</div>
+                            <div className="text-xs text-slate-400">
+                              {item.visitas} vistas • {item.tiempo_promedio_segundos}s prom.
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right shrink-0">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                            item.conversionNum === 0
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {item.compras} ventas ({item.conversion_tasa})
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                          item.conversionNum === 0
-                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {item.compras} ventas ({item.conversion_tasa})
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -939,29 +1108,35 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 </div>
 
                 <div className="divide-y divide-slate-800">
-                  {trafficReport.productos_top_ingresos.slice(0, 5).map((item, idx) => (
-                    <div key={item.id || idx} className="py-3 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-6 h-6 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 text-xs font-black flex items-center justify-center shrink-0">
-                          #{idx + 1}
-                        </span>
-                        <div className="truncate">
-                          <div className="text-sm font-semibold text-white truncate">{item.nombre}</div>
-                          <div className="text-xs text-slate-400">
-                            {item.compras} pedidos cerrados a {formatCOP(item.precio)}
+                  {trafficReport.productos_top_ingresos.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-500">
+                      Sin ventas registradas en la base de datos real.
+                    </div>
+                  ) : (
+                    trafficReport.productos_top_ingresos.slice(0, 5).map((item, idx) => (
+                      <div key={item.id || idx} className="py-3 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/30 text-xs font-black flex items-center justify-center shrink-0">
+                            #{idx + 1}
+                          </span>
+                          <div className="truncate">
+                            <div className="text-sm font-semibold text-white truncate">{item.nombre}</div>
+                            <div className="text-xs text-slate-400">
+                              {item.compras} pedidos cerrados a {formatCOP(item.precio)}
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-sm font-bold font-mono text-emerald-400 block">
+                            {formatCOP(item.ingresos_generados)}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {item.conversion_tasa} conv.
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-bold font-mono text-emerald-400 block">
-                          {formatCOP(item.ingresos_generados)}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {item.conversion_tasa} conv.
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -978,51 +1153,57 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 <span className="text-xs font-mono text-indigo-300">Análisis Predictivo</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Producto Estrella */}
-                {(() => {
-                  const star = trafficReport.productos.find(p => p.es_estrella) || trafficReport.productos[0];
-                  if (!star) return null;
-                  return (
-                    <div className="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                          <Award className="w-3 h-3" /> ★ Producto Estrella (Alta Facturación)
-                        </span>
-                        <span className="text-xs font-mono font-bold text-emerald-400">
-                          {formatCOP(star.ingresos_generados)}
-                        </span>
+              {trafficReport.productos.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl border border-dashed border-slate-800">
+                  Sin datos de correlación aún. Las oportunidades de conversión y productos estrella se detectarán automáticamente conforme tus clientes reales naveguen y compren en la tienda.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Producto Estrella */}
+                  {(() => {
+                    const star = trafficReport.productos.find(p => p.es_estrella) || trafficReport.productos[0];
+                    if (!star) return null;
+                    return (
+                      <div className="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <Award className="w-3 h-3" /> ★ Producto Estrella (Alta Facturación)
+                          </span>
+                          <span className="text-xs font-mono font-bold text-emerald-400">
+                            {formatCOP(star.ingresos_generados)}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white truncate">{star.nombre}</h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          Lidera el catálogo con {star.visitas} visualizaciones y {star.compras} compras completadas. Representa el motor de ventas principal del día.
+                        </p>
                       </div>
-                      <h4 className="text-sm font-bold text-white truncate">{star.nombre}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        Lidera el catálogo con {star.visitas} visualizaciones y {star.compras} compras completadas. Representa el motor de ventas principal del día.
-                      </p>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
 
-                {/* Producto con Fricción */}
-                {(() => {
-                  const friction = trafficReport.productos.find(p => p.es_friccion) || trafficReport.productos[1];
-                  if (!friction) return null;
-                  return (
-                    <div className="p-4 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" /> ⚠️ Fricción: Muchas Vistas, Pocas Compras
-                        </span>
-                        <span className="text-xs font-mono font-bold text-amber-400">
-                          {friction.conversion_tasa} conv.
-                        </span>
+                  {/* Producto con Fricción */}
+                  {(() => {
+                    const friction = trafficReport.productos.find(p => p.es_friccion) || trafficReport.productos[1];
+                    if (!friction) return null;
+                    return (
+                      <div className="p-4 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> ⚠️ Fricción: Muchas Vistas, Pocas Compras
+                          </span>
+                          <span className="text-xs font-mono font-bold text-amber-400">
+                            {friction.conversion_tasa} conv.
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white truncate">{friction.nombre}</h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          Retiene {friction.visitas} visualizaciones con solo {friction.compras} compras. Se aconseja probar combo promocional con envío gratis para convertir el tráfico.
+                        </p>
                       </div>
-                      <h4 className="text-sm font-bold text-white truncate">{friction.nombre}</h4>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        Retiene {friction.visitas} visualizaciones con solo {friction.compras} compras. Se aconseja probar combo promocional con envío gratis para convertir el tráfico.
-                      </p>
-                    </div>
-                  );
-                })()}
-              </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
 
