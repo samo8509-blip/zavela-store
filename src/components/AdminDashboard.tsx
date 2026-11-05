@@ -490,7 +490,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         dropi_fee: finalFee,
         dropi_product_id: finalDropiCode,
         dropiProductId: finalDropiCode,
-        publishToFacebook: productData.publishToFacebook !== false
+        publishOnFacebook: Boolean(productData.publishOnFacebook ?? productData.publishToFacebook ?? false),
+        publishToFacebook: Boolean(productData.publishOnFacebook ?? productData.publishToFacebook ?? false)
       };
 
       setProducts(prev => {
@@ -505,7 +506,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       let fbSyncResult: any = null;
 
-      if (productData.publishToFacebook !== false) {
+      if (Boolean(productData.publishOnFacebook ?? productData.publishToFacebook)) {
         try {
           const localToken = localStorage.getItem('zavela_facebook_accessToken') || undefined;
           const localPageId = localStorage.getItem('zavela_facebook_pageId') || undefined;

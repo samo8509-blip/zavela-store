@@ -60,6 +60,7 @@ export interface ProductFormData {
   stock: number;
   active: boolean;
   featured: boolean;
+  publishOnFacebook: boolean;
   images: string[];
   variants: ProductVariant[];
 }
@@ -85,6 +86,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     categoryId: categories[0]?.id || '', categoryName: categories[0]?.name || 'General',
     provider: '', supplier: '', dropiId: '', comisionDropi: 0, costoProveedor: 0,
     fleteEnvio: 0, precio: 0, compareAtPrice: 0, stock: 0, active: true, featured: false,
+    publishOnFacebook: false,
     images: [], variants: []
   });
 
@@ -180,12 +182,18 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     const categoryId = String(prod.categoryId || prod.category_id || cats[0]?.id || '');
     const categoryName = String(prod.categoryName || prod.categoria || cats.find(c => c.id === categoryId)?.name || 'General');
 
+    const publishOnFacebook = Boolean(
+      prod.publishOnFacebook ?? prod.publishToFacebook ?? prod.publicar_en_facebook ?? false
+    );
+
     return {
       id: pId, title, slug: pSlug || (title ? title.toLowerCase().trim().replace(/[^a-z0-9]/g, '-') : ''),
       description, shortDescription, categoryId, categoryName, provider: mappedProvider,
       supplier: String(prod.supplier || (mappedProvider === 'dropi' ? 'Dropi Colombia' : (mappedProvider === 'derocha' ? 'DeRocha' : 'Bodega Propia'))),
       dropiId, comisionDropi, costoProveedor, fleteEnvio, precio, compareAtPrice, stock,
-      active: prod.active !== false, featured: Boolean(prod.featured), images: imagesList, variants: variantsList
+      active: prod.active !== false, featured: Boolean(prod.featured),
+      publishOnFacebook,
+      images: imagesList, variants: variantsList
     };
   };
 
@@ -362,7 +370,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         categoryName: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         categoria: categories.find(c => c.id === formData.categoryId)?.name || formData.categoryName || 'General',
         active: Boolean(formData.active),
-        featured: Boolean(formData.featured)
+        featured: Boolean(formData.featured),
+        publishOnFacebook: Boolean(formData.publishOnFacebook),
+        publishToFacebook: Boolean(formData.publishOnFacebook),
+        publicar_en_facebook: Boolean(formData.publishOnFacebook)
       };
 
       if (onSave) {
@@ -664,7 +675,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
 
         <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-6">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100"><Layers className="w-5 h-5 text-indigo-600" /><h2 className="text-lg font-black text-slate-900">4. Inventario, Imágenes y Variantes</h2></div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Stock</label>
               <input type="text" placeholder="0" value={formData.stock === 0 ? '' : formData.stock} onChange={(e) => setFormData(prev => ({ ...prev, stock: parseNumCOP(e.target.value) }))} className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500" />
@@ -673,14 +684,40 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" checked={formData.active} onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))} className="sr-only peer" />
                 <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-                <span className="ml-3 text-xs font-bold text-slate-700">Producto Activo</span>
+                <div className="ml-3 flex flex-col">
+                  <span className="text-xs font-bold text-slate-700">Producto Activo</span>
+                  <span className="text-[10px] text-slate-400">{formData.active ? 'Activo' : 'Inactivo'}</span>
+                </div>
               </label>
             </div>
             <div className="flex items-center gap-3 pt-4">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" checked={formData.featured} onChange={(e) => setFormData(prev => ({ ...prev, featured: e.target.checked }))} className="sr-only peer" />
                 <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
-                <span className="ml-3 text-xs font-bold text-slate-700">Destacado</span>
+                <div className="ml-3 flex flex-col">
+                  <span className="text-xs font-bold text-slate-700">Destacado</span>
+                  <span className="text-[10px] text-slate-400">{formData.featured ? 'Activo' : 'Inactivo'}</span>
+                </div>
+              </label>
+            </div>
+            <div className="flex items-center gap-3 pt-4">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={formData.publishOnFacebook} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, publishOnFacebook: e.target.checked }))} 
+                  className="sr-only peer" 
+                />
+                <div className="w-11 h-6 bg-slate-300 rounded-full peer peer-checked:bg-[#1877F2] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                <div className="ml-3 flex flex-col">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#1877F2] inline-block"></span>
+                    Publicar en Facebook
+                  </span>
+                  <span className={`text-[10px] font-semibold ${formData.publishOnFacebook ? 'text-[#1877F2]' : 'text-slate-400'}`}>
+                    {formData.publishOnFacebook ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
               </label>
             </div>
           </div>

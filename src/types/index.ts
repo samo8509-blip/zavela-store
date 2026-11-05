@@ -507,6 +507,8 @@ export interface Product {
 
   // Social & Facebook Meta Graph API v26.0
   publishToFacebook?: boolean;
+  publishOnFacebook?: boolean;
+  publicar_en_facebook?: boolean;
   publishToSocial?: boolean;
 
   // Status & Visibility
