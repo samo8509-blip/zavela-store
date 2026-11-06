@@ -47,11 +47,11 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
     const cat = (product.categoryName || '').toLowerCase();
     if (title.includes(q)) score += 40;
     if (desc.includes(q)) score += 20;
-    if (cat.includes(q)) score += 25;
     return { product, score };
-  }).sort((a, b) => b.score - a.score);
+  });
 
-  return scored.slice(0, limit).map(s => s.product);
+  const matched = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+  return matched.slice(0, limit).map(s => s.product);
 }
 
 // Generate AI Reply for incoming WhatsApp message using direct fetch to Gemini REST API
@@ -72,7 +72,7 @@ async function generateAIReply(userMessage: string, senderPhone: string): Promis
 
   if (apiKey) {
     try {
-      const catalogSummary = allProducts.slice(0, 30).map(p => ({
+      const catalogSummary = allProducts.map(p => ({
         id: p.id,
         title: p.title,
         price: `$${p.price.toLocaleString('es-CO')} COP`,
@@ -80,16 +80,21 @@ async function generateAIReply(userMessage: string, senderPhone: string): Promis
         shortDesc: p.shortDescription || (p.description ? p.description.slice(0, 100) : '')
       }));
 
-      const systemPrompt = `Eres "Sofía", la asesora oficial de ventas vía WhatsApp de Zavela Store (${STORE_URL}).
-Tu objetivo es responder de forma rápida, amable y resolutiva para cerrar ventas.
+      const systemPrompt = `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia (${STORE_URL}).
 
-REGLAS:
-- Respuestas cortas (máximo 2 a 4 líneas por párrafo).
-- Uso moderado de emojis.
-- Si el cliente confirma un producto, dice "sí", o muestra intención de compra, NO repitas el catálogo. Pídele INMEDIATAMENTE: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser exactamente: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.
+
+REGLAS COMPLEMENTARIAS:
+- Respuestas cortas, ejecutivas y resolutivas (máximo 2 a 4 líneas por párrafo).
+- Uso profesional y moderado de emojis.
+- Si el cliente confirma un producto o intención de compra, solicita: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
 - Destaca Pago Contra Entrega en toda Colombia (2 a 5 días hábiles).
 
-Catálogo disponible:
+INVENTARIO EN VIVO CONFIRMADO DE ZAVELA STORE:
 ${JSON.stringify(catalogSummary)}`;
 
       const payload = {
@@ -122,11 +127,11 @@ ${JSON.stringify(catalogSummary)}`;
     }
   }
 
-  // RESPALDO RÁPIDO
+  // RESPALDO RÁPIDO CON REGLAS DE ELIZABETH
   const textLower = userMessage.toLowerCase();
   
   if (textLower.includes('si') || textLower.includes('sí') || textLower.includes('quiero') || textLower.includes('comprar')) {
-    const confirmReply = `¡Excelente elección! 📦 Para generarte tu pedido con Pago Contra Entrega, por favor indícame:\n\n👤 Nombre completo:\n📱 Teléfono alterno:\n📍 Dirección y Barrio:\n🏙️ Ciudad/Departamento:\n\n¡Quedo atenta para tomar tu pedido! 😊`;
+    const confirmReply = `¡Con mucho gusto! 📦 Para registrar tu pedido con Pago Contra Entrega en Colombia, por favor compárteme:\n\n👤 Nombre completo:\n📱 Teléfono de contacto:\n📍 Dirección y Barrio:\n🏙️ Ciudad y Departamento:\n\nQuedo atenta para procesarlo de inmediato. 😊`;
     history.push({ role: 'model', parts: [{ text: confirmReply }] });
     return confirmReply;
   }
@@ -134,12 +139,12 @@ ${JSON.stringify(catalogSummary)}`;
   const matched = searchCatalogProducts(userMessage, allProducts, 2);
   if (matched.length > 0) {
     const list = matched.map(p => `• 🛍️ *${p.title}* — $${p.price.toLocaleString('es-CO')} COP`).join('\n');
-    const fallbackReply = `¡Hola! 👋 Te recomiendo estas opciones de nuestro catálogo:\n${list}\n\n🚚 Tenemos **Pago Contra Entrega** en todo el país.\n\n¿Te gustaría que te tome el pedido de alguno? 😊📦`;
+    const fallbackReply = `¡Hola! 👋 Soy Elizabeth, Asesora Ejecutiva de Zavela Store. Confirmado en nuestro inventario en vivo:\n${list}\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia.\n\n¿Deseas que preparemos tu despacho? Con gusto te asisto. 📦`;
     history.push({ role: 'model', parts: [{ text: fallbackReply }] });
     return fallbackReply;
   }
 
-  const defaultReply = `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store.\n\nPuedes ver nuestro catálogo aquí: ${STORE_URL} 🛍️\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia. ¿Buscas algún producto en especial? ✨`;
+  const defaultReply = `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
   history.push({ role: 'model', parts: [{ text: defaultReply }] });
   return defaultReply;
 }

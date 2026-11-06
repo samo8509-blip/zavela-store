@@ -214,15 +214,15 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   const initialWhatsApp = settings.whatsappSettings || {
     enabled: settings.whatsappFloatingEnabled !== false,
     phoneNumber: settings.whatsappNumber || '573008784427',
-    advisorName: settings.whatsappAdvisorName || 'Sofía - Asesora Experta en Regalos y Compras',
-    defaultMessage: settings.whatsappDefaultMessage || settings.whatsappMessage || '¡Hola Sofía! Quisiera asesoría personalizada para encontrar el regalo ideal en Zavela Store Colombia.',
-    orderConfirmationTemplate: 'Hola Sofía, quiero confirmar mi pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirmas el despacho?',
+    advisorName: settings.whatsappAdvisorName || 'Elizabeth - Asesora Ejecutiva Zavela Store',
+    defaultMessage: settings.whatsappDefaultMessage || settings.whatsappMessage || '¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo de Zavela Store Colombia.',
+    orderConfirmationTemplate: 'Hola Elizabeth, quiero confirmar mi pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirmas el despacho?',
     supportHoursNotice: 'Lunes a Sábado: 8:00 AM - 8:00 PM | Envíos a toda Colombia con Pago Contra Entrega'
   };
 
   const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfigSettings>(initialWhatsApp);
   const [whatsappNumberRaw, setWhatsappNumberRaw] = useState(settings.whatsappNumber || initialWhatsApp.phoneNumber || '573008784427');
-  const [whatsappAdvisorName, setWhatsappAdvisorName] = useState(initialWhatsApp.advisorName || 'Sofía - Asesora Experta en Regalos y Compras');
+  const [whatsappAdvisorName, setWhatsappAdvisorName] = useState(initialWhatsApp.advisorName || 'Elizabeth - Asesora Ejecutiva Zavela Store');
   const [whatsappDefaultMessage, setWhatsappDefaultMessage] = useState(initialWhatsApp.defaultMessage);
 
   // WhatsApp Cloud API & Webhook (Meta for Developers) State
@@ -272,31 +272,25 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   // AI Agent State
   const initialAIAgent: AIAgentSettings = settings.aiAgentSettings || {
     enabled: true,
-    agentName: 'Sofía',
-    agentRole: 'Asesora Experta en Regalos y Personal Shopper',
+    agentName: 'Elizabeth',
+    agentRole: 'Asesora Ejecutiva de Zavela Store Colombia',
     personalityTone: 'friendly_colombian',
-    welcomeMessage: '¡Hola! 👋 Qué alegría saludarte. Soy Sofía, tu asesora experta en regalos y compras de Zavela Store Colombia. Mi misión es ser tu Personal Shopper y ayudarte a encontrar el detalle perfecto según la persona y la ocasión. 🎁✨\n\nCuéntame:\n1️⃣ ¿Para quién es el regalo?\n2️⃣ ¿Qué le gusta hacer a esa persona o cuáles son sus pasatiempos?\n3️⃣ ¿Cuál es la ocasión especial?',
-    customPromptInstructions: `Eres Sofía, la asesora experta en regalos y compras de Zavela Store Colombia.
-Tu misión principal es actuar como un "Personal Shopper" que ayuda al usuario a encontrar el regalo ideal según la persona y la ocasión.
+    welcomeMessage: '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo colaborar hoy?',
+    customPromptInstructions: `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
 
-DIRECTRICES DE CONVERSACIÓN:
-1. TONO: Cercano, empático, entusiasta y servicial (español de Colombia amigable y profesional).
-2. SALUDO INICIAL: Saluda cordialmente y pregunta directamente:
-   - ¿Para quién es el regalo?
-   - ¿Qué le gusta hacer a esa persona o cuáles son sus pasatiempos?
-   - ¿Cuál es la ocasión especial?
-3. PERFILADO: Escucha con atención los gustos (ej. si le gusta el bricolaje/herramientas, tecnología, moda, accesorios). Si falta información clave, haz máximo una pregunta breve de seguimiento.
-4. RECOMENDACIÓN: Sugiere entre 1 y 3 productos que mejor encajen con lo descrito de nuestro catálogo activo. Explica brevemente por qué es una excelente opción para esa persona.
-5. CIERRE DE VENTA: Recuerda siempre que contamos con Envíos a toda Colombia y Pago Contra Entrega en efectivo al recibir el paquete. Facilita el botón/enlace de compra directa.`,
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.`,
     recommendationMode: 'all_catalog',
     maxProductsToSuggest: 3,
     enableDirectWhatsAppHandoff: true,
     suggestQuickQuestions: [
-      '🎁 Ayúdame a elegir un regalo especial',
-      '🔧 Regalos para amantes del bricolaje y herramientas',
-      '🌸 Perfumes y fragancias para regalar',
+      '🔍 Consultar disponibilidad de un producto en vivo',
       '🚚 ¿Cómo funciona el Pago Contra Entrega en Colombia?',
-      '🛍️ Quiero tomar mi pedido por chat'
+      '🛍️ Quiero tomar mi pedido por chat',
+      '📦 ¿Tiempos de entrega a mi ciudad?'
     ]
   };
 
@@ -308,7 +302,7 @@ DIRECTRICES DE CONVERSACIÓN:
     {
       id: 'msg-welcome',
       sender: 'agent',
-      text: aiConfig.welcomeMessage || '¡Hola! 👋 Qué alegría saludarte. Soy Sofía, tu asesora experta en regalos y Personal Shopper de Zavela Store Colombia. ¿En qué te puedo orientar hoy?',
+      text: aiConfig.welcomeMessage || '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué producto o requerimiento te puedo orientar hoy?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -316,26 +310,25 @@ DIRECTRICES DE CONVERSACIÓN:
   const [isSimulatorLoading, setIsSimulatorLoading] = useState(false);
   const [simCustomerMode, setSimCustomerMode] = useState<'guest' | 'registered'>('guest');
   const [simCustomerName, setSimCustomerName] = useState('Carlos Mendoza');
-  const [simViewedProduct, setSimViewedProduct] = useState('Taladro 2421 Dewalt Con Herramientas');
+  const [simViewedProduct, setSimViewedProduct] = useState('Producto en inventario en vivo');
 
   // Quick Preset Prompt Templates
   const applyPromptTemplate = (type: 'colombian_closer' | 'gifts_special' | 'cod_assurance' | 'perfumes_deals') => {
     let template = '';
     if (type === 'colombian_closer') {
-      template = `Eres Sofía, la asesora experta en regalos y compras de Zavela Store Colombia.
-Tu misión principal es actuar como un "Personal Shopper" que ayuda al usuario a encontrar el regalo ideal según la persona y la ocasión.
+      template = `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
 
-DIRECTRICES:
-1. Tono cercano, empático y servicial colombiano.
-2. Saludo con las 3 preguntas clave (¿Para quién?, ¿Pasatiempos?, ¿Ocasión?).
-3. Perfilado atento y recomendación de 1 a 3 productos del catálogo.
-4. Cierre recordando Envíos a toda Colombia y Pago Contra Entrega en efectivo.`;
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.`;
     } else if (type === 'gifts_special') {
-      template = `Especialista en regalos y Personal Shopper de Zavela Store Colombia. Pregunta para quién es el detalle, gustos/pasatiempos y ocasión especial. Recomienda de 1 a 3 productos ideales del catálogo activo con Pago Contra Entrega.`;
+      template = `Eres Elizabeth, Asesora Ejecutiva de Zavela Store Colombia. Brinda atención ejecutiva para la selección de productos y pedidos especiales. Solo menciona o cotiza productos verificados en el inventario en vivo. Si no hay datos, indica: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."`;
     } else if (type === 'cod_assurance') {
-      template = `Enfócate en generar máxima confianza en Zavela Store Colombia con envíos a nivel nacional y Pago Contra Entrega. Explica que cancelan en efectivo al recibir el paquete en su puerta (2 a 4 días hábiles).`;
+      template = `Eres Elizabeth, Asesora Ejecutiva. Enfócate en generar máxima confianza en Zavela Store Colombia con envíos a nivel nacional y Pago Contra Entrega (pagas en efectivo al transportador al recibir en casa en 2 a 5 días hábiles).`;
     } else if (type === 'perfumes_deals') {
-      template = `Asesora de alta perfumería de Zavela Store. Recomienda fragancias exclusivas de fijación duradera para hombre o mujer según la ocasión, recordando el Pago Contra Entrega en todo el país.`;
+      template = `Eres Elizabeth, Asesora Ejecutiva. Prohibido inventar fragancias o nombres de perfumes no cargados en la base de datos en vivo. Valida siempre disponibilidad real antes de confirmar cualquier precio.`;
     }
     setAiConfig(prev => ({ ...prev, customPromptInstructions: template }));
   };
@@ -1314,7 +1307,7 @@ DIRECTRICES:
                     type="text"
                     value={aiConfig.agentName}
                     onChange={(e) => setAiConfig(prev => ({ ...prev, agentName: e.target.value }))}
-                    placeholder="Ej: Sofía - Asesora Inteligente Zavela"
+                    placeholder="Ej: Elizabeth - Asesora Ejecutiva Zavela"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:border-cyan-500 focus:bg-white outline-hidden"
                   />
                 </div>
@@ -1613,7 +1606,7 @@ DIRECTRICES:
                 </div>
                 <div>
                   <h4 className="font-extrabold text-xs uppercase tracking-wider text-white flex items-center gap-1.5">
-                    <span>{aiConfig.agentName || 'Sofía'}</span>
+                    <span>{aiConfig.agentName || 'Elizabeth'}</span>
                     <span className="text-[9px] bg-cyan-400/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">
                       Simulador en Vivo
                     </span>
@@ -1632,9 +1625,9 @@ DIRECTRICES:
                     sender: 'agent',
                     text: simCustomerMode === 'registered'
                       ? (simViewedProduct 
-                          ? `¡Hola ${simCustomerName}! Qué alegría verte de nuevo en Zavela Store 😊. Noté que estuviste mirando ${simViewedProduct}. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?`
-                          : `¡Hola ${simCustomerName}! Qué alegría verte de nuevo en Zavela Store 😊. ¿En qué te puedo asesorar hoy o buscas un detalle para alguna fecha especial?`)
-                      : '¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?',
+                          ? `¡Hola ${simCustomerName}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. Noté tu interés en ${simViewedProduct}. ¿Deseas consultar inventario en vivo?`
+                          : `¡Hola ${simCustomerName}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué te puedo asesorar hoy?`)
+                      : '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo colaborar hoy?',
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   }
                 ])}
@@ -1658,7 +1651,7 @@ DIRECTRICES:
                       {
                         id: `msg-${Date.now()}`,
                         sender: 'agent',
-                        text: '¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?',
+                        text: '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo colaborar hoy?',
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                       }
                     ]);
@@ -1785,7 +1778,7 @@ DIRECTRICES:
               {isSimulatorLoading && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-2xl w-fit border border-slate-200 shadow-2xs">
                   <RefreshCw className="w-3.5 h-3.5 text-cyan-600 animate-spin" />
-                  <span>{aiConfig.agentName || 'Sofía'} está buscando en el catálogo y redactando...</span>
+                  <span>{aiConfig.agentName || 'Elizabeth'} está consultando inventario en vivo y redactando...</span>
                 </div>
               )}
             </div>

@@ -20,29 +20,36 @@ function normalizePhoneNumber(rawPhone?: string): string {
 
 /**
  * Generador de respuesta inteligente para Wavy (Wai) WhatsApp
+ * Asesora Ejecutiva: Elizabeth (Zavela Store Colombia)
  */
 function buildWavyBotResponse(userMessage: string, customerPhone: string): string {
   const msg = (userMessage || '').toLowerCase().trim();
 
   // 1. Saludos y bienvenida
   if (msg.match(/^(hola|buenas|buenos dias|buenas tardes|buenas noches|inicio|menu|hi|hello)/i)) {
-    return `¡Hola! 👋 Te damos la bienvenida a *${STORE_NAME}*.\n\nSoy *Sofía*, tu asesora personal. ¿En qué te puedo colaborar hoy?\n\n1️⃣ Consultar catálogo y ofertas del día\n2️⃣ Información sobre *Pago Contra Entrega* (Pagas al recibir en casa)\n3️⃣ Estado de una orden o guía de envío\n4️⃣ Hablar con un asesor humano\n\n_Escríbeme el nombre del producto que buscas o tu duda y con gusto te asesoro._ 🛍️✨`;
+    return `¡Hola! 👋 Te damos una cordial bienvenida a *${STORE_NAME}*.\n\nSoy *Elizabeth*, tu Asesora Ejecutiva. Es un gusto saludarte. ¿En qué producto o requerimiento te puedo colaborar hoy con el mayor de los gustos?\n\n1️⃣ Consultar disponibilidad de un producto en inventario en vivo\n2️⃣ Información sobre *Pago Contra Entrega* (Pagas al recibir en casa)\n3️⃣ Estado de una orden o guía de despacho\n4️⃣ Hablar con un asesor comercial\n\n_Escríbeme tu consulta o el producto de tu interés y con gusto te asesoro._ ✨🇨🇴`;
   }
 
   // 2. Información de Pago Contra Entrega y Envíos
   if (msg.includes('contra entrega') || msg.includes('envio') || msg.includes('flete') || msg.includes('domicilio') || msg.includes('pago')) {
-    return `🚚 *¡En ${STORE_NAME} pagas seguro en la puerta de tu casa!* 🇨🇴\n\n✅ *Envío Gratis y Pago Contra Entrega* a nivel nacional.\n✅ El pedido llega en 2 a 5 días hábiles a través de Servientrega, Coordinadora o Envía.\n✅ Pagas en efectivo cuando el transportador te entregue el paquete en mano.\n\n¿Deseas realizar un pedido de algún producto? Envíame el nombre o enlace para apartártelo de inmediato. 📦`;
+    return `🚚 *¡En ${STORE_NAME} compras con total tranquilidad y respaldo!* 🇨🇴\n\n✅ *Envío Nacional y Pago Contra Entrega* en las principales ciudades y municipios de Colombia.\n✅ El pedido llega en un lapso estimado de 2 a 5 días hábiles mediante transportadoras certificadas (Servientrega, Coordinadora, Envía o Inter Rapidísimo).\n✅ Pagas en efectivo directamente al transportador cuando tengas el paquete en tus manos.\n\n¿Tienes algún producto en mente para validar inventario en vivo y ayudarte a apartarlo? Quedo muy atenta. 📦`;
   }
 
   // 3. Consulta de Guía o Estado de Pedido
   if (msg.includes('guia') || msg.includes('pedido') || msg.includes('rastreo') || msg.includes('estado') || msg.includes('despacho')) {
-    return `📦 *Rastreo de Pedidos Zavela Store*\n\nPara consultar el estado de tu despacho o el número de guía con la transportadora, por favor indícame:\n\n• Tu *Nombre Completo*\n• Número de *Cédula* o *Celular registrado*\n• Producto comprado\n\nUn asesor de logística verificará tu despacho en nuestro sistema cPanel en minutos. 🚚💨`;
+    return `📦 *Rastreo y Estado de Despacho - Zavela Store*\n\nCon mucho gusto verifico tu despacho en nuestro sistema en vivo. Por favor compárteme:\n\n• Tu *Nombre Completo*\n• Número de *Cédula* o *Celular registrado en la compra*\n• Producto adquirido\n\nCon estos datos consulto inmediatamente la guía de la transportadora para darte el reporte exacto. 🚚💨`;
   }
 
-  // 4. Búsqueda en catálogo de productos activos
+  // 4. Búsqueda y validación estricta de inventario en vivo (Cero alucinaciones, dependencia exclusiva de BD en tiempo real)
   try {
     const products = db.getProducts({ onlyActive: true });
-    if (products && products.length > 0 && msg.length >= 3) {
+    
+    // Si la base de datos en vivo está vacía o no tiene productos activos
+    if (!products || products.length === 0) {
+      return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
+    }
+
+    if (msg.length >= 3) {
       const matched = products.filter(p => {
         const title = (p.title || (p as any).name || '').toLowerCase();
         const desc = (p.description || '').toLowerCase();
@@ -51,22 +58,29 @@ function buildWavyBotResponse(userMessage: string, customerPhone: string): strin
       }).slice(0, 3);
 
       if (matched.length > 0) {
-        let reply = `🔍 *Encontramos estas opciones para ti en Zavela Store:*\n\n`;
+        let reply = `🔍 *Confirmado en nuestro inventario en vivo de Zavela Store:*\n\n`;
         matched.forEach((item, idx) => {
-          const price = item.price ? `$${item.price.toLocaleString('es-CO')} COP` : 'Consultar precio';
+          const price = item.price ? `$${item.price.toLocaleString('es-CO')} COP` : 'Consultar disponibilidad';
           const link = `${STORE_URL}/producto/${item.slug || item.id}`;
-          reply += `${idx + 1}️⃣ *${item.title}*\n💰 Precio: *${price}*\n🚚 Pago Contra Entrega Incluido\n🔗 Ver ficha: ${link}\n\n`;
+          reply += `${idx + 1}️⃣ *${item.title}*\n💰 Precio confirmado: *${price}*\n🚚 Pago Contra Entrega disponible\n🔗 Ficha: ${link}\n\n`;
         });
-        reply += `¿Deseas pedir alguno de estos productos? Solo responde *SÍ* junto con tu ciudad de entrega para gestionarlo. 🛍️`;
+        reply += `¿Deseas que reservemos alguna unidad para ti con despacho contra entrega? Indícame tu ciudad de destino para proceder. 🛍️`;
         return reply;
+      } else {
+        // Si el usuario preguntó por un producto específico pero no está en la base de datos en vivo
+        const isProductQuery = msg.includes('precio') || msg.includes('tienen') || msg.includes('venden') || msg.includes('disponible') || msg.includes('cuanto') || msg.includes('costo') || msg.includes('perfume') || msg.includes('reloj') || msg.includes('producto');
+        if (isProductQuery) {
+          return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
+        }
       }
     }
   } catch (err) {
-    console.warn('[Wavy Webhook] Error consultando productos:', err);
+    console.warn('[Wavy Webhook] Error consultando inventario en vivo:', err);
+    return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
   }
 
-  // 5. Respuesta por defecto con invitación a compra y llamada a la acción
-  return `¡Gracias por tu mensaje! 🌟\n\nEn *${STORE_NAME}* contamos con cientos de productos en tecnología, hogar, moda y belleza con *Pago Contra Entrega en toda Colombia*.\n\nPuedes ver todo nuestro catálogo oficial en:\n👉 ${STORE_URL}\n\nO si deseas que te tome el pedido directamente por aquí, compártenos el producto que deseas, tu dirección y ciudad de destino. ¡Quedo muy atenta! 😊`;
+  // 5. Respuesta institucional predeterminada
+  return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
 }
 
 /**

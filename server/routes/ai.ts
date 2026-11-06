@@ -121,7 +121,12 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
     return sorted.slice(0, limit).map(s => s.product);
   }
 
-  // Fallback to featured or newest products
+  // Si se buscaron términos específicos y no hubo coincidencia en el inventario real, retornar vacío (amnesia de catálogo y cero alucinaciones)
+  if (words.length > 0) {
+    return [];
+  }
+
+  // Fallback solo para consultas completamente abiertas sin términos de producto
   const featured = allProducts.filter(p => p.active && p.featured);
   if (featured.length > 0) return featured.slice(0, limit);
   return allProducts.filter(p => p.active).slice(0, limit);
@@ -139,7 +144,7 @@ function generateStructuredPreDesignedResponse(
     purchaseHistory?: string;
   }
 ): { reply: string; recommendedProducts: Product[]; whatsappMessage: string; suggestedQuestions?: string[] } {
-  const agentName = agentSettings.agentName || 'Sofía';
+  const agentName = 'Elizabeth';
   const rawPhone = settings.whatsappSettings?.phoneNumber || settings.whatsappNumber || '573008784427';
   const whatsappNum = formatWhatsAppNumber(rawPhone);
   const q = message.toLowerCase().trim();
@@ -148,190 +153,114 @@ function generateStructuredPreDesignedResponse(
   const clientName = customerContext?.customerName && customerContext.customerName !== 'Invitado' ? customerContext.customerName : null;
   const viewedProds = customerContext?.viewedProducts || [];
 
-  // 1. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN (SECCIÓN 2)
-  if (q === 'hola' || q === 'buenas' || q === 'buenos dias' || q === 'buenos días' || q === 'buenas tardes' || q === 'buenas noches' || q === 'hey' || q === 'hola sofia' || q === 'hola sofía' || q === 'iniciar') {
+  // Verificación de inventario en vivo disponible
+  if (!allProducts || allProducts.length === 0) {
+    return {
+      reply: 'Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.',
+      recommendedProducts: [],
+      whatsappMessage: `¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo.`,
+      suggestedQuestions: [
+        '¿Cómo funciona el Pago Contra Entrega?',
+        'Hablar con un asesor comercial'
+      ]
+    };
+  }
+
+  // 1. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN
+  if (q === 'hola' || q === 'buenas' || q === 'buenos dias' || q === 'buenos días' || q === 'buenas tardes' || q === 'buenas noches' || q === 'hey' || q === 'hola elizabeth' || q === 'iniciar') {
     const featured = allProducts.filter(p => p.active && p.featured).slice(0, maxProducts);
     
     // CLIENTE REGISTRADO ([NOMBRE_CLIENTE] disponible)
     if (clientName) {
       if (viewedProds.length > 0) {
+        const liveMatch = allProducts.filter(p => p.title.toLowerCase().includes(viewedProds[0].toLowerCase())).slice(0, 1);
         return {
-          reply: `¡Hola ${clientName}! Qué alegría verte de nuevo en Zavela Store 😊. Noté que estuviste mirando ${viewedProds[0]}. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?`,
-          recommendedProducts: allProducts.filter(p => p.title.toLowerCase().includes(viewedProds[0].toLowerCase())).slice(0, 1),
-          whatsappMessage: `¡Hola Sofía! Soy ${clientName}, vi el producto ${viewedProds[0]} y quiero asesoría.`,
+          reply: `¡Hola ${clientName}! Qué alegría saludarte de nuevo en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. Noté tu interés en ${viewedProds[0]}. ¿Te gustaría conocer detalles de su inventario en vivo o buscas asesoría comercial para una compra?`,
+          recommendedProducts: liveMatch,
+          whatsappMessage: `¡Hola Elizabeth! Soy ${clientName}, vi el producto ${viewedProds[0]} en Zavela Store y quisiera asesoría.`,
           suggestedQuestions: [
-            `Quiero más detalles de ${viewedProds[0]}`,
-            'Estoy buscando un regalo para alguien especial',
-            '¿Cómo funciona el Pago Contra Entrega?'
+            `Confirmar disponibilidad de ${viewedProds[0]}`,
+            '¿Cómo funciona el Pago Contra Entrega?',
+            'Ver opciones disponibles hoy'
           ]
         };
       }
       return {
-        reply: `¡Hola ${clientName}! Qué alegría verte de nuevo en Zavela Store 😊. ¿En qué puedo asesorarte hoy o buscas un detalle para alguna fecha especial?`,
+        reply: `¡Hola ${clientName}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué producto o requerimiento te puedo colaborar hoy?`,
         recommendedProducts: featured,
-        whatsappMessage: `¡Hola Sofía! Soy ${clientName}, quiero asesoría para una compra en Zavela Store.`,
+        whatsappMessage: `¡Hola Elizabeth! Soy ${clientName}, deseo asesoría ejecutiva para una compra en Zavela Store.`,
         suggestedQuestions: [
-          '🎁 Busco un regalo para alguien especial',
-          '🔥 ¿Cuáles son los productos más vendidos hoy?',
-          '¿Cómo funciona el Pago Contra Entrega?'
+          '🔥 ¿Cuáles son los productos disponibles hoy?',
+          '¿Cómo funciona el Pago Contra Entrega?',
+          'Hablar con un asesor comercial'
         ]
       };
     }
 
     // CLIENTE INVITADO (Sin sesión iniciada)
     return {
-      reply: `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?`,
+      reply: `¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo asistir hoy?`,
       recommendedProducts: featured,
-      whatsappMessage: `¡Hola Sofía! Quiero tu asesoría para elegir un regalo especial en Zavela Store.`,
+      whatsappMessage: `¡Hola Elizabeth! Quisiera información y asesoría sobre un producto en Zavela Store.`,
       suggestedQuestions: [
-        'Es un cumpleaños',
-        'Es nuestro aniversario',
-        'Es un detalle espontáneo para mi pareja'
+        'Consultar disponibilidad de un producto',
+        '¿Cómo funciona el Pago Contra Entrega en Colombia?',
+        'Tomar mi pedido por chat'
       ]
     };
   }
 
-  // 2. HERRAMIENTAS / BRICOLAJE / MANUALIDADES
-  if (q.includes('taladro') || q.includes('herramienta') || q.includes('bricolaje') || q.includes('construccion') || q.includes('carpinteria') || q.includes('arreglos') || q.includes('mecanica') || q.includes('dewalt')) {
-    const dewaltProds = allProducts.filter(p => p.id === 'prod-dewalt-2421' || p.title.toLowerCase().includes('dewalt') || p.title.toLowerCase().includes('taladro'));
-    const recs = dewaltProds.length > 0 ? dewaltProds : allProducts.filter(p => p.active).slice(0, 1);
-    const prod = recs[0];
-
+  // 2. TOMAR PEDIDO DIRECTO POR CHAT
+  if (q.includes('tomar pedido') || q.includes('quiero comprar') || q.includes('pedir por aqui') || q.includes('pedir por chat') || q.includes('como compro') || q.includes('hacer pedido')) {
+    const featuredProds = allProducts.filter(p => p.active && p.featured).slice(0, 2);
     return {
-      reply: `¡Es una fantástica elección para quien disfruta de los arreglos y proyectos! Te recomiendo especialmente:\n\n• 🔧 **${prod.title}** — *$${prod.price.toLocaleString('es-CO')} COP*\n\n✨ **¿Por qué es ideal?** Viene con maletín rígido, 24 accesorios y doble batería de litio para realizar cualquier reparación o proyecto en casa sin esfuerzo. ¡Un obsequio súper práctico y duradero!\n\n🚚 Recuerda que contamos con **Envíos a toda Colombia** y **Pago Contra Entrega** en efectivo al recibir el paquete en tu puerta.\n\n¿Te gustaría que tomemos tus datos para despachártelo hoy mismo? 😊📦`,
-      recommendedProducts: recs,
-      whatsappMessage: `¡Hola Sofía! Me interesa pedir el Taladro Dewalt con kit de herramientas para regalo con Pago Contra Entrega.`,
+      reply: `¡Con el mayor gusto tomo tu pedido ahora mismo! 🛍️🇨🇴\n\nPara programar tu despacho oficial con **Pago Contra Entrega**, por favor indícame:\n\n• **Nombre y Apellido:**\n• **Teléfono de contacto:**\n• **Dirección completa (Barrio y especificaciones):**\n• **Ciudad y Departamento:**\n• **Producto de tu interés:**\n\n🚚 Recuerda: Pagas en efectivo únicamente cuando el transportador te entregue el producto en mano. ¿Cuál es el producto que deseas ordenar? Quedo muy atenta. 😊📦`,
+      recommendedProducts: featuredProds,
+      whatsappMessage: `¡Hola Elizabeth! Quiero formalizar mi pedido con los siguientes datos:\n- Nombre:\n- Teléfono:\n- Dirección:\n- Ciudad:\n- Producto:`,
       suggestedQuestions: [
-        'Quiero tomar mi pedido por chat',
         '¿Cuánto tarda el envío a mi ciudad?',
-        '¿Tienen garantía?'
-      ]
-    };
-  }
-
-  // 3. MODA / ACCESORIOS / BOLSOS DE CUENTAS / ROCHY / MUJER
-  if (q.includes('bolso') || q.includes('perla') || q.includes('rochy') || q.includes('moda') || q.includes('accesorio') || q.includes('elegante') || q.includes('mama') || q.includes('mamá') || q.includes('esposa')) {
-    const fashionProds = allProducts.filter(p => p.id === 'prod-bolso-perla-rochy' || p.title.toLowerCase().includes('bolso') || p.categoryName?.toLowerCase().includes('moda'));
-    const recs = fashionProds.length > 0 ? fashionProds : allProducts.filter(p => p.active).slice(0, 1);
-    const prod = recs[0];
-
-    return {
-      reply: `¡Qué detalle tan distinguido y especial! Para una mujer elegante, te sugiero:\n\n• 💎 **${prod.title}** — *$${prod.price.toLocaleString('es-CO')} COP*\n\n✨ **¿Por qué es ideal?** Es una pieza de edición limitada tejida 100% a mano con cuentas perladas de alto brillo, placa de autenticidad Rochy con código QR y acabados de lujo. Un regalo memorable que no pasa desapercibido.\n\n🚚 Además, disfrutas de **Envíos a toda Colombia** y **Pago Contra Entrega** en efectivo al recibir en tus manos.\n\n¿Te gustaría que reservemos esta pieza para ti? 😊`,
-      recommendedProducts: recs,
-      whatsappMessage: `¡Hola Sofía! Quisiera pedir el Bolso Artesanal Rochy con Pago Contra Entrega.`,
-      suggestedQuestions: [
-        'Quiero tomar mi pedido por chat',
-        '¿Tienen perfumes para complementar?',
         '¿Cómo funciona el Pago Contra Entrega?'
       ]
     };
   }
 
-  // 4. PERFUMES / FRAGANCIAS / CUIDADO PERSONAL
-  if (q.includes('perfume') || q.includes('locion') || q.includes('loción') || q.includes('fragancia') || q.includes('aroma') || q.includes('olor') || q.includes('creed') || q.includes('one million') || q.includes('bright')) {
-    const perfumeProducts = searchCatalogProducts('perfume fragancia locion', allProducts, maxProducts);
-    const prodList = perfumeProducts.map(p => `• ✨ **${p.title}** — *$${p.price.toLocaleString('es-CO')} COP*`).join('\n');
-
-    return {
-      reply: `¡Una fragancia es un regalo clásico que siempre enamora! Te presento nuestras opciones destacadas:\n\n${prodList}\n\n✨ **¿Por qué es ideal?** Fórmulas de alta fijación con estela envolvente y empaques elegantes listos para obsequiar.\n\n🚚 Recuerda que contamos con **Envíos a toda Colombia** y **Pago Contra Entrega** en efectivo al recibir tu paquete.\n\n¿Buscas notas amaderadas e intensas para hombre o florales y dulces para dama? 😊`,
-      recommendedProducts: perfumeProducts,
-      whatsappMessage: `¡Hola Sofía! Me gustaría ordenar un perfume de Zavela Store con pago contra entrega.`,
-      suggestedQuestions: [
-        'Quiero tomar mi pedido por chat',
-        '¿Cuáles son los más vendidos hoy?',
-        '¿Cuánto tarda el envío a mi ciudad?'
-      ]
-    };
-  }
-
-  // 5. MODO CONSULTIVO DE REGALOS (METODOLOGÍA DE PERFILAMIENTO: MÁXIMO 2 PREGUNTAS A LA VEZ)
-  if (q.includes('regalo') || q.includes('detalle') || q.includes('obsequio') || q.includes('asesor') || q.includes('ayudame') || q.includes('ayúdame') || q.includes('cumpleaños') || q.includes('aniversario') || q.includes('novi') || q.includes('espos') || q.includes('pareja')) {
-    const hasWho = q.includes('espos') || q.includes('pareja') || q.includes('papa') || q.includes('papá') || q.includes('mama') || q.includes('mamá') || q.includes('amig') || q.includes('hombre') || q.includes('mujer');
-    const hasHobbies = q.includes('herramienta') || q.includes('bricolaje') || q.includes('moda') || q.includes('perfume') || q.includes('tecnologia');
-
-    if (!hasWho) {
-      return {
-        reply: `¡Con el mayor gusto te acompaño a encontrar el regalo soñado! 🎁✨\n\nPara perfilar la mejor opción, cuéntame:\n1️⃣ **¿Para quién es el detalle?** (¿Tu pareja, papá, mamá, un amigo o colega?)\n2️⃣ **¿Cuáles son los gustos o aficiones principales de esa persona?** (¿Bricolaje y herramientas, moda y accesorios, o perfumería fina?)\n\n¡Con esos datos te daré una recomendación a la medida! 😊`,
-        recommendedProducts: allProducts.filter(p => p.active && p.featured).slice(0, 2),
-        whatsappMessage: `¡Hola Sofía! Quiero tu asesoría para elegir un regalo especial en Zavela Store.`,
-        suggestedQuestions: [
-          'Es para mi pareja (le gusta la perfumería)',
-          'Es para mi papá (le gustan las herramientas)',
-          'Es para una mujer elegante (moda y bolsos)'
-        ]
-      };
-    }
-
-    if (!hasHobbies) {
-      return {
-        reply: `¡Excelente! Para afinar la recomendación perfecta para esa persona especial:\n\n1️⃣ **¿Qué estilo de vida o pasatiempos tiene?** (¿Le gusta el bricolaje y proyectos en casa, los accesorios y bolsos de tendencia, o prefiere fragancias exclusivas?)\n2️⃣ **¿Cuál es la ocasión puntual que celebran?** (¿Cumpleaños, aniversario, un agradecimiento o sorpresa?)\n\n¡Así encontramos el detalle exacto! 😊`,
-        recommendedProducts: allProducts.filter(p => p.active && p.featured).slice(0, 2),
-        whatsappMessage: `¡Hola Sofía! Te cuento los gustos para el regalo.`,
-        suggestedQuestions: [
-          'Le apasiona el bricolaje y las herramientas',
-          'Le encanta la moda y los bolsos elegantes',
-          'Prefiere las fragancias y perfumes de lujo'
-        ]
-      };
-    }
-  }
-
-  // 6. TOMAR PEDIDO DIRECTO POR CHAT
-  if (q.includes('tomar pedido') || q.includes('quiero comprar') || q.includes('pedir por aqui') || q.includes('pedir por chat') || q.includes('como compro') || q.includes('hacer pedido')) {
-    const featuredProds = allProducts.filter(p => p.active && p.featured).slice(0, 2);
-    return {
-      reply: `¡Con todo el gusto tomo tu pedido ahora mismo! 🛍️✨\n\nPor favor compárteme estos datos para programar tu despacho con **Pago Contra Entrega**:\n\n• **Nombre y Apellido:**\n• **Teléfono de contacto:**\n• **Dirección completa (con barrio y detalles):**\n• **Ciudad y Departamento:**\n• **Producto y cantidad:**\n\n🚚 Recuerda: No adelantas dinero; pagas en efectivo solo cuando el paquete llegue a tu puerta. ¿Qué producto deseas ordenar? 😊📦`,
-      recommendedProducts: featuredProds,
-      whatsappMessage: `¡Hola Sofía! Quiero realizar un pedido con estos datos:\n- Nombre:\n- Teléfono:\n- Dirección:\n- Ciudad:\n- Producto:`,
-      suggestedQuestions: [
-        '¿Cuáles son los productos más vendidos hoy?',
-        '¿Cómo funciona el Pago Contra Entrega?',
-        '¿Cuánto tarda el envío a mi ciudad?'
-      ]
-    };
-  }
-
-  // 7. MÉTODOS DE PAGO Y ENVÍOS (PAGO CONTRA ENTREGA)
+  // 3. MÉTODOS DE PAGO Y ENVÍOS (PAGO CONTRA ENTREGA)
   if (q.includes('contra entrega') || q.includes('como funciona') || q.includes('pago') || q.includes('pagar') || q.includes('efectivo') || q.includes('medio de pago') || q.includes('envio') || q.includes('envío') || q.includes('tarda') || q.includes('tiempo')) {
     const sampleProducts = allProducts.filter(p => p.active).slice(0, 2);
     return {
-      reply: `¡Comprar en Zavela Store es sumamente fácil y confiable! 🇨🇴🚚\n\n• **Envíos a toda Colombia:** Despachos a ciudades principales y municipios con tiempos de **2 a 4 días hábiles**.\n• **Pago Contra Entrega:** Pagas en efectivo al recibir el paquete en la comodidad de tu casa. Cero anticipos.\n• **Garantía Directa:** 30 días de respaldo por defectos de fábrica.\n\n¿Te gustaría que te ayude a coordinar el envío de algún producto? 😊`,
+      reply: `¡En Zavela Store tu compra es 100% segura y garantizada! 🇨🇴🚚\n\n• **Envíos a toda Colombia:** Despachos a nivel nacional con tiempos estimados de **2 a 5 días hábiles** mediante transportadoras aliadas.\n• **Pago Contra Entrega:** Pagas en efectivo directamente en la puerta de tu casa al recibir el paquete.\n• **Garantía Directa:** Cobertura de respaldo por defectos de fábrica.\n\n¿Deseas verificar la disponibilidad de algún artículo en vivo para coordinar el envío? Quedo a tu total disposición. 😊`,
       recommendedProducts: sampleProducts,
-      whatsappMessage: `¡Hola Sofía! Quisiera tomar un pedido con Pago Contra Entrega.`,
+      whatsappMessage: `¡Hola Elizabeth! Deseo realizar un pedido con Pago Contra Entrega en Zavela Store.`,
       suggestedQuestions: [
-        '🎁 Ayúdame a elegir un regalo especial',
         'Quiero tomar mi pedido por chat',
-        '¿Cuáles son los productos más vendidos hoy?'
+        'Consultar disponibilidad de un producto'
       ]
     };
   }
 
-  // 8. PRODUCT SEARCH BY KEYWORDS
+  // 4. BÚSQUEDA ESTRICTA EN CATÁLOGO REAL EN VIVO (CERO ALUCINACIONES)
   const matched = searchCatalogProducts(message, allProducts, maxProducts);
   if (matched.length > 0) {
     const prodList = matched.map(p => `• 🛍️ **${p.title}** — *$${p.price.toLocaleString('es-CO')} COP* ${p.discountPercentage > 0 ? `(${p.discountPercentage}% OFF)` : ''}`).join('\n');
     return {
-      reply: `¡Excelente opción! Para lo que buscas, te sugiero estas alternativas de nuestro catálogo:\n\n${prodList}\n\n✨ Todas cuentan con garantía y son excelentes detalles que dejan una gran impresión.\n\n🚚 Recuerda que cuentas con **Envíos a toda Colombia** y **Pago Contra Entrega** en efectivo al recibir el paquete.\n\n¿Te gustaría que tomemos el pedido de alguna de estas opciones? 😊📦`,
+      reply: `¡Con mucho gusto! Confirmado en nuestro inventario en vivo de Zavela Store:\n\n${prodList}\n\n🚚 Disponibles para despacho con **Pago Contra Entrega** en toda Colombia.\n\n¿Deseas que reservemos alguna unidad para apartarla a tu nombre? Con gusto te asisto. 😊📦`,
       recommendedProducts: matched,
-      whatsappMessage: `¡Hola Sofía! Me interesa este producto: "${message.slice(0, 60)}"`,
+      whatsappMessage: `¡Hola Elizabeth! Me interesa este producto confirmado en stock: "${message.slice(0, 60)}"`,
       suggestedQuestions: [
-        'Quiero tomar mi pedido por chat',
-        '¿Cómo funciona el Pago Contra Entrega?',
-        '¿Cuánto tarda el envío a mi ciudad?'
+        'Tomar mi pedido por chat',
+        '¿Cuánto tarda el despacho a mi ciudad?'
       ]
     };
   }
 
-  // 9. GENERIC FALLBACK
-  const topFeatured = allProducts.filter(p => p.active && p.featured).slice(0, maxProducts);
+  // 5. RESPUESTA ANTE PRODUCTOS NO EXISTENTES O CONSULTAS FUERA DE INVENTARIO EN VIVO
   return {
-    reply: `¡Hola! Con mucho gusto te asesoro. Soy **Sofía**, tu asistente de compras y asesora de regalos en Zavela Store Colombia. 🎁✨\n\nCuéntame: ¿para quién es el detalle, qué gustos tiene esa persona y cuál es la ocasión? Con gusto te recomendaré entre 1 y 3 opciones perfectas de nuestro catálogo activo.\n\n🚚 Recuerda que todos nuestros productos tienen **Envíos a toda Colombia** y **Pago Contra Entrega** en efectivo al recibir.\n\n¿En qué te puedo colaborar hoy? 😊`,
-    recommendedProducts: topFeatured.length > 0 ? topFeatured : allProducts.filter(p => p.active).slice(0, maxProducts),
-    whatsappMessage: `¡Hola Sofía! Tengo una consulta sobre: "${message.slice(0, 60)}"`,
+    reply: 'Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.',
+    recommendedProducts: [],
+    whatsappMessage: `¡Hola Elizabeth! Quisiera consultar disponibilidad en vivo sobre: "${message.slice(0, 60)}"`,
     suggestedQuestions: [
-      '🎁 Ayúdame a elegir un regalo especial',
-      '¿Cuáles son los productos más vendidos hoy?',
-      '¿Cómo funciona el Pago Contra Entrega?'
+      '¿Cómo funciona el Pago Contra Entrega en Colombia?',
+      'Tomar mi pedido por chat'
     ]
   };
 }
@@ -369,73 +298,29 @@ router.post('/chat', async (req, res) => {
 
     const agentSettings: AIAgentSettings = {
       enabled: true,
-      agentName: 'Sofía',
-      agentRole: 'Asesora de Ventas y Asistente de Compras Inteligente',
+      agentName: 'Elizabeth',
+      agentRole: 'Asesora Ejecutiva de Zavela Store Colombia',
       personalityTone: 'friendly_colombian',
       welcomeMessage: customerName !== 'Invitado'
         ? (viewedProducts.length > 0 
-            ? `¡Hola ${customerName}! Qué alegría verte de nuevo en Zavela Store 😊. Noté que estuviste mirando ${viewedProducts[0]}. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?`
-            : `¡Hola ${customerName}! Qué alegría verte de nuevo en Zavela Store 😊. ¿En qué te puedo asesorar hoy o buscas un detalle para alguna fecha especial?`)
-        : '¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?',
-      customPromptInstructions: `Eres Sofía, la asesora de ventas y asistente de compras inteligente de Zavela Store Colombia.
-Tu objetivo principal es brindar una atención cálida, humana y altamente personalizada, ayudando a los clientes a encontrar el producto ideal o el regalo perfecto para sus seres queridos.
+            ? `¡Hola ${customerName}! Qué alegría saludarte de nuevo en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. Noté tu interés en ${viewedProducts[0]}. ¿Te gustaría conocer detalles de su inventario en vivo o buscas asesoría comercial para una compra?`
+            : `¡Hola ${customerName}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué te puedo asesorar hoy?`)
+        : '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo colaborar hoy?',
+      customPromptInstructions: `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. CONTEXTO DE ENTRADA Y VARIABLES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- [NOMBRE_CLIENTE]: Nombre del usuario autenticado (o "Invitado" si no inició sesión).
-- [PRODUCTOS_VISTOS]: Lista de productos que el usuario vio recientemente en la tienda.
-- [HISTORIAL_COMPRAS]: Si tiene compras previas registradas.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• CLIENTE REGISTRADO ([NOMBRE_CLIENTE] disponible):
-  - Saluda inmediatamente por su nombre con un tono muy cálido, alegre y cercano (estilo colombiano educado y profesional: "¡Hola [NOMBRE_CLIENTE]! Qué alegría verte de nuevo en Zavela Store 😊").
-  - Si existen [PRODUCTOS_VISTOS]:
-    * Menciona sutilmente los productos que estuvo mirando: "Noté que estuviste mirando [Producto X]. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?"
-  - Si NO tiene productos vistos:
-    * Pregunta en qué puedes asesorarlo hoy o si busca un detalle para una fecha especial.
-
-• CLIENTE INVITADO (Sin sesión iniciada):
-  - "¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3. MODO ASESOR DE REGALOS (METODOLOGÍA CONSULTIVA)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cuando el cliente indique que busca un regalo o acepte asesoría:
-1. PERFILAMIENTO BREVE (Haz preguntas directas, máximo 2 a la vez):
-   - ¿Para quién es el detalle? (Pareja, amigo, papá/mamá, etc.)
-   - ¿Cuáles son los gustos, aficiones o estilo de vida de esa persona? (Herramientas, tecnología, moda, cuidado personal, etc.)
-   - ¿Hay alguna ocasión puntual? (Cumpleaños, aniversario, Amor y Amistad, detalle espontáneo).
-2. RECOMENDACIÓN PRECISA:
-   - Recomienda entre 1 y 3 opciones del catálogo de la tienda que encajen estrictamente con los gustos mencionados.
-   - Explica brevemente por qué es el regalo ideal para esa persona según lo que el cliente te contó.
-   - Presenta el nombre exacto del producto y su precio.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. BENEFICIOS CLAVE Y CIERRE DE VENTA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En el momento oportuno, refuerza la confianza de compra destacando:
-- Envíos a toda Colombia.
-- Opción de Pago Contra Entrega (el cliente paga en efectivo cuando recibe el paquete en su casa).
-- Facilita la confirmación del pedido o enlace directo para completar la compra.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. TONO Y REGLAS DE RESPUESTA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Tono: Empático, conversacional, servicial y seguro.
-- Respuestas concisas: No abrumes con textos gigantes; mantén la conversación fluida como un chat real de asesoría.
-- Si el usuario pregunta por un artículo fuera de inventario, guíalo amablemente hacia la alternativa más cercana que tengamos en Zavela Store.`,
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.`,
       recommendationMode: 'all_catalog',
       maxProductsToSuggest: 3,
       enableDirectWhatsAppHandoff: true,
       suggestQuickQuestions: [
-        '🎁 Ayúdame a elegir un regalo especial',
-        '🔧 Regalos para amantes del bricolaje y herramientas',
-        '🌸 Perfumes y fragancias para regalar',
+        '🔍 Consultar disponibilidad de un producto en vivo',
         '🚚 ¿Cómo funciona el Pago Contra Entrega en Colombia?',
-        '🛍️ Quiero tomar mi pedido por chat'
+        '🛍️ Quiero tomar mi pedido por chat',
+        '📦 ¿Tiempos de entrega a mi ciudad?'
       ],
       ...(dbSettings.aiAgentSettings || {}),
       ...(previewSettings?.aiAgentSettings || {})
@@ -460,81 +345,46 @@ En el momento oportuno, refuerza la confianza de compra destacando:
     // If Gemini client is available and not in cooldown, execute with exact Prompt instructions
     if (aiClient && !isGeminiInCooldown()) {
       try {
-        const catalogSummary = candidateProducts.slice(0, 35).map(p => ({
+        const catalogSummary = candidateProducts.map(p => ({
           id: p.id,
           slug: p.slug,
           title: p.title,
           price: `$${p.price.toLocaleString('es-CO')} COP`,
           discount: p.discountPercentage > 0 ? `${p.discountPercentage}% OFF` : null,
           category: p.categoryName || 'General',
-          shortDescription: p.shortDescription || p.description.slice(0, 120),
-          tags: p.tags || []
+          shortDescription: p.shortDescription || p.description?.slice(0, 120) || ''
         }));
 
         const systemInstruction = `
-# ROL Y IDENTIDAD
-Eres Sofía, la asesora de ventas y asistente de compras inteligente de Zavela Store Colombia (${STORE_NAME}).
-Tu objetivo principal es brindar una atención cálida, humana y altamente personalizada, ayudando a los clientes a encontrar el producto ideal o el regalo perfecto para sus seres queridos.
+INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia (${STORE_NAME}).
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. CONTEXTO DE ENTRADA Y VARIABLES DEL CLIENTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario o el producto no está en el listado entregado abajo, tu respuesta predeterminada DEBE ser exactamente: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.
+
+CONTEXTO DEL CLIENTE:
 - [NOMBRE_CLIENTE]: ${customerName}
 - [PRODUCTOS_VISTOS]: ${viewedProducts.length > 0 ? viewedProducts.join(', ') : 'Ninguno'}
 - [HISTORIAL_COMPRAS]: ${purchaseHistory}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-2. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• CLIENTE REGISTRADO ([NOMBRE_CLIENTE] disponible y distinto de "Invitado"):
-  - Saluda inmediatamente por su nombre con un tono muy cálido, alegre y cercano (estilo colombiano educado y profesional: "¡Hola ${customerName}! Qué alegría verte de nuevo en Zavela Store 😊").
-  - Si existen [PRODUCTOS_VISTOS] (${viewedProducts.join(', ')}):
-    * Menciona sutilmente los productos que estuvo mirando: "Noté que estuviste mirando ${viewedProducts[0] || 'nuestros productos'}. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?"
-  - Si NO tiene productos vistos:
-    * Pregunta en qué puedes asesorarlo hoy o si busca un detalle para una fecha especial.
-
-• CLIENTE INVITADO (Sin sesión iniciada / [NOMBRE_CLIENTE] es "Invitado"):
-  - "¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-3. MODO ASESOR DE REGALOS (METODOLOGÍA CONSULTIVA)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cuando el cliente indique que busca un regalo o acepte asesoría:
-1. PERFILAMIENTO BREVE (Haz preguntas directas, máximo 2 a la vez):
-   - ¿Para quién es el detalle? (Pareja, amigo, papá/mamá, etc.)
-   - ¿Cuáles son los gustos, aficiones o estilo de vida de esa persona? (Herramientas, tecnología, moda, cuidado personal, etc.)
-   - ¿Hay alguna ocasión puntual? (Cumpleaños, aniversario, Amor y Amistad, detalle espontáneo).
-2. RECOMENDACIÓN PRECISA:
-   - Recomienda entre 1 y 3 opciones del catálogo activo de la tienda que encajen estrictamente con los gustos mencionados.
-   - Explica brevemente por qué es el regalo ideal para esa persona según lo que el cliente te contó.
-   - Presenta el nombre exacto del producto y su precio.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-4. BENEFICIOS CLAVE Y CIERRE DE VENTA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-En el momento oportuno, refuerza la confianza de compra destacando:
-- Envíos a toda Colombia.
-- Opción de Pago Contra Entrega (el cliente paga en efectivo cuando recibe el paquete en su casa).
-- Facilita la confirmación del pedido o enlace directo para completar la compra.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-5. TONO Y REGLAS DE RESPUESTA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Tono: Empático, conversacional, servicial y seguro (español de Colombia amigable y profesional).
-- Respuestas concisas: No abrumes con textos gigantes; mantén la conversación fluida como un chat real de asesoría.
-- Si el usuario pregunta por un artículo fuera de inventario, guíalo amablemente hacia la alternativa más cercana que tengamos en Zavela Store.
+BENEFICIOS CLAVE:
+- Envíos a toda Colombia (2 a 5 días hábiles).
+- Pago Contra Entrega en efectivo al recibir el paquete en casa.
+- Si el cliente confirma un producto, solicita: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
 
 LÍNEA WHATSAPP OFICIAL CONECTADA: +${whatsappNumber}
 
-CATÁLOGO ACTIVO EN VIVO DE ZAVELA STORE:
+INVENTARIO EN VIVO CONFIRMADO DE ZAVELA STORE (ÚNICA FUENTE DE VERDAD):
 ${JSON.stringify(catalogSummary, null, 2)}
 
 FORMATO DE SALIDA REQUERIDO:
 Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 {
-  "reply": "Texto conversacional de Sofía cumpliendo exactamente las directrices, tono cercano colombiano, mención de variables si aplica, y cierre con Pago Contra Entrega",
-  "recommendedProductIds": ["id_del_producto_1", "id_del_producto_2"],
-  "whatsappMessage": "Texto breve y sugerido para continuar en WhatsApp con Sofía"
+  "reply": "Texto conversacional de Elizabeth respetando estrictamente las 4 instrucciones de reinicio de sistema base, amnesia de catálogo y frase predeterminada si no hay datos en vivo",
+  "recommendedProductIds": ["id_del_producto_confirmado_en_vivo"],
+  "whatsappMessage": "Texto breve y sugerido para continuar en WhatsApp con Elizabeth"
 }
 `;
 
@@ -587,7 +437,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
             : searchCatalogProducts(message, candidateProducts, agentSettings.maxProductsToSuggest || 3);
           
           const finalIds = finalProducts.map(p => p.id);
-          const finalWaMessage = parsedResponse.whatsappMessage || `¡Hola Sofía! Quiero asesoría sobre: ${message.slice(0, 60)}`;
+          const finalWaMessage = parsedResponse.whatsappMessage || `¡Hola Elizabeth! Deseo consultar en vivo sobre: ${message.slice(0, 60)}`;
           const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalWaMessage)}`;
 
           return res.json({
@@ -607,7 +457,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
       }
     }
 
-    // High-performance Sofia Personal Shopper Sales Engine Fallback
+    // High-performance Elizabeth Asesora Ejecutiva Sales Engine Fallback
     const engineResult = generateStructuredPreDesignedResponse(
       message, 
       candidateProducts, 
@@ -623,7 +473,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 
     return res.json({
       success: true,
-      provider: 'sofia-personal-shopper',
+      provider: 'elizabeth-asesora-ejecutiva',
       reply: engineResult.reply,
       recommendedProducts: engineResult.recommendedProducts,
       recommendedProductIds: engineResult.recommendedProducts.map(p => p.id),
@@ -636,7 +486,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 
   } catch (error: any) {
     console.error('Error in /api/ai/chat:', error);
-    res.status(500).json({ success: false, message: error.message || 'Error al procesar consulta con Sofía' });
+    res.status(500).json({ success: false, message: error.message || 'Error al procesar consulta con Elizabeth' });
   }
 });
 

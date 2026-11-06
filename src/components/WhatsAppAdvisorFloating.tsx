@@ -71,8 +71,8 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
   }
   if (!cleanPhone) cleanPhone = '573133595427';
 
-  const advisorName = settings?.whatsappSettings?.advisorName || settings?.whatsappAdvisorName || 'Sofía - Asesora Experta en Regalos y Compras';
-  const aiAgentName = settings?.aiAgentSettings?.agentName || 'Sofía';
+  const advisorName = settings?.whatsappSettings?.advisorName || settings?.whatsappAdvisorName || 'Elizabeth - Asesora Ejecutiva Zavela Store';
+  const aiAgentName = settings?.aiAgentSettings?.agentName || 'Elizabeth';
   // Active Customer Session & Personalization Context
   const [currentCustomer, setCurrentCustomer] = useState(() => getCurrentCustomer());
 
@@ -176,9 +176,9 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
         setActiveAdvisors([
           {
             id: 'adv-default',
-            name: advisorName || 'Sofía - Asesora Oficial',
+            name: advisorName || 'Elizabeth - Asesora Ejecutiva Oficial',
             phone: cleanPhone || '573008784427',
-            role: 'Atención al Cliente & Ventas',
+            role: 'Atención al Cliente & Asesoría Ejecutiva',
             sellerCode: 'OFICIAL'
           }
         ]);
@@ -200,16 +200,16 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
     return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
   };
 
-  // Calculate Initial Personalized Greeting according to Section 2 of Sofía Guidelines
+  // Calculate Initial Personalized Greeting according to Elizabeth Guidelines
   const getInitialWelcomeMessage = (): string => {
     if (currentCustomer) {
       const name = currentCustomer.firstName || currentCustomer.name;
       if (viewedProducts.length > 0) {
-        return `¡Hola ${name}! Qué alegría verte de nuevo en Zavela Store 😊. Noté que estuviste mirando ${viewedProducts[0]}. Es una excelente opción. ¿Te gustaría conocer más detalles o estás buscando un regalo para alguien especial?`;
+        return `¡Hola ${name}! Qué alegría saludarte de nuevo en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. Noté tu interés en ${viewedProducts[0]}. ¿Te gustaría conocer detalles de disponibilidad en inventario en vivo o necesitas asesoría comercial?`;
       }
-      return `¡Hola ${name}! Qué alegría verte de nuevo en Zavela Store 😊. ¿En qué te puedo asesorar hoy o buscas un detalle para alguna fecha especial?`;
+      return `¡Hola ${name}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué te puedo asesorar hoy con el mayor de los gustos?`;
     }
-    return `¡Hola! 👋 Soy Sofía, tu asesora de compras en Zavela Store Colombia. Te ayudo a encontrar exactamente lo que necesitas o el regalo perfecto para esa persona especial. ¿Qué ocasión celebras hoy?`;
+    return `¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué producto o requerimiento te puedo colaborar hoy?`;
   };
 
   const customQuickQuestions = settings?.aiAgentSettings?.suggestQuickQuestions && settings.aiAgentSettings.suggestQuickQuestions.length > 0

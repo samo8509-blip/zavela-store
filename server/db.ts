@@ -61,9 +61,9 @@ const DEFAULT_SETTINGS: StoreSettings = {
   glowEnabled: true,
 
   whatsappNumber: '573133595427',
-  whatsappAdvisorName: 'Sofía - Asesora Experta en Regalos y Compras',
-  whatsappMessage: '¡Hola Sofía! Quiero asesoría personalizada para encontrar el regalo ideal en Zavela Store Colombia.',
-  whatsappDefaultMessage: '¡Hola Sofía! Quiero asesoría personalizada para encontrar el regalo ideal en Zavela Store Colombia.',
+  whatsappAdvisorName: 'Elizabeth - Asesora Ejecutiva Zavela Store',
+  whatsappMessage: '¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo de Zavela Store Colombia.',
+  whatsappDefaultMessage: '¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo de Zavela Store Colombia.',
   whatsappFloatingEnabled: true,
   contactEmail: 'contacto@zavelastore.com.co',
   contactPhone: '+57 313 359 5427',
@@ -76,26 +76,32 @@ const DEFAULT_SETTINGS: StoreSettings = {
   whatsappSettings: {
     enabled: true,
     phoneNumber: '573133595427',
-    advisorName: 'Sofía - Asesora Experta en Regalos y Compras',
-    defaultMessage: '¡Hola Sofía! Quiero asesoría personalizada para encontrar el regalo ideal en Zavela Store Colombia.',
-    orderConfirmationTemplate: 'Hola Sofía, quiero confirmar mi pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirmas el despacho?',
+    advisorName: 'Elizabeth - Asesora Ejecutiva Zavela Store',
+    defaultMessage: '¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo de Zavela Store Colombia.',
+    orderConfirmationTemplate: 'Hola Elizabeth, quiero confirmar mi pedido *{ORDER_NUMBER}* a nombre de *{NAME}* por valor de *{TOTAL}*. ¿Me confirmas el despacho?',
     supportHoursNotice: 'Lunes a Sábado: 8:00 AM - 8:00 PM | Envíos a toda Colombia con Pago Contra Entrega'
   },
   aiAgentSettings: {
     enabled: true,
-    agentName: 'Sofía',
-    agentRole: 'Asesora Experta en Regalos y Personal Shopper',
+    agentName: 'Elizabeth',
+    agentRole: 'Asesora Ejecutiva de Zavela Store Colombia',
     personalityTone: 'friendly_colombian',
-    welcomeMessage: '¡Hola! 👋 Qué alegría saludarte. Soy Sofía, tu asesora experta en regalos y compras de Zavela Store Colombia.',
-    customPromptInstructions: `Eres Sofía, la asesora experta en regalos y compras de Zavela Store Colombia.`,
+    welcomeMessage: '¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo colaborar hoy?',
+    customPromptInstructions: `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
+Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
+
+1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
+2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
+3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
+4. TONO: Amable, profesional y comercial, 100% colombiano.`,
     recommendationMode: 'all_catalog',
     maxProductsToSuggest: 3,
     enableDirectWhatsAppHandoff: true,
     suggestQuickQuestions: [
-      '🎁 Ayúdame a elegir un regalo especial',
-      '🌸 Perfumes y fragancias para regalar',
+      '🔍 Consultar disponibilidad de un producto en vivo',
       '🚚 ¿Cómo funciona el Pago Contra Entrega en Colombia?',
-      '🛍️ Quiero tomar mi pedido por chat'
+      '🛍️ Quiero tomar mi pedido por chat',
+      '📦 ¿Tiempos de entrega a mi ciudad?'
     ]
   },
 
