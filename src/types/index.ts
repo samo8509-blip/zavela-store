@@ -321,6 +321,11 @@ export interface WhatsAppCloudApiSettings {
   metaApiVersion?: string; // Versión de Meta Graph API (e.g. "v20.0")
   lastWebhookPing?: string;
   lastReceivedEvent?: string;
+
+  // WAI (Wavy) WhatsApp Integration
+  waiApiKey?: string; // Llave de API de WAI (wai_sk_...)
+  waiWebhookSecret?: string; // Secreto del Webhook de WAI (whsec_...)
+  waiEnabled?: boolean; // Habilitar canal WAI
 }
 
 export type WhatsAppAlertType = 'NEW_SALE' | 'SECURITY_ALERT' | 'LOW_STOCK' | 'CUSTOM' | 'DAILY_SUMMARY';
@@ -379,6 +384,11 @@ export interface StoreSettings {
   whatsappCloudApi?: WhatsAppCloudApiSettings;
   whatsappAlerts?: WhatsAppAlertsSettings;
   aiAgentSettings?: AIAgentSettings;
+
+  // WAI (Wavy) WhatsApp Integration
+  waiApiKey?: string;
+  waiWebhookSecret?: string;
+  waiEnabled?: boolean;
 
   // Tidio Live Chat & AI Integration
   tidioChatEnabled?: boolean;

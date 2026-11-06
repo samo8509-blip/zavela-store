@@ -248,6 +248,21 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://remix-novora-tienda-online-dropi-6871.ai.studio';
   const callbackUrl = `${originUrl}/api/whatsapp/webhook`;
   const callbackAliasUrl = `${originUrl}/api/webhook/whatsapp`;
+  const wavyWebhookUrl = `${originUrl}/api/wavy-webhook`;
+
+  // WAI (Wavy) Credentials State
+  const [waiApiKey, setWaiApiKey] = useState<string>(() => {
+    return (settings as any).waiApiKey || settings.whatsappCloudApi?.waiApiKey || (typeof window !== 'undefined' ? localStorage.getItem('zavela_wai_apiKey') || '' : '');
+  });
+  const [waiWebhookSecret, setWaiWebhookSecret] = useState<string>(() => {
+    return (settings as any).waiWebhookSecret || settings.whatsappCloudApi?.waiWebhookSecret || (typeof window !== 'undefined' ? localStorage.getItem('zavela_wai_webhookSecret') || '' : '');
+  });
+  const [waiEnabled, setWaiEnabled] = useState<boolean>(() => {
+    return (settings as any).waiEnabled ?? settings.whatsappCloudApi?.waiEnabled ?? true;
+  });
+  const [copiedWaiWebhookUrl, setCopiedWaiWebhookUrl] = useState<boolean>(false);
+  const [isTestingWaiWebhook, setIsTestingWaiWebhook] = useState<boolean>(false);
+  const [waiTestResult, setWaiTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Tidio Live Chat & Lyro AI State
   const [tidioChatEnabled, setTidioChatEnabled] = useState<boolean>(settings.tidioChatEnabled ?? false);
@@ -377,6 +392,42 @@ DIRECTRICES:
     }
   };
 
+  const handleTestWaiWebhook = async () => {
+    setIsTestingWaiWebhook(true);
+    setWaiTestResult(null);
+    try {
+      const phoneToUse = whatsappNumberRaw.replace(/\D/g, '') || '573008784427';
+      const res = await fetch('/api/wavy-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'TEST_PING',
+          phone: phoneToUse,
+          message: 'Hola, mensaje de prueba desde el panel administrativo Zavela Store.'
+        })
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setWaiTestResult({
+          success: true,
+          message: `¡Webhook de WAI respondiendo correctamente! (HTTP 200 OK) - Respuesta bot generada con éxito.`
+        });
+      } else {
+        setWaiTestResult({
+          success: false,
+          message: `El Webhook respondió con error o formato inesperado (HTTP ${res.status}).`
+        });
+      }
+    } catch (e: any) {
+      setWaiTestResult({
+        success: false,
+        message: `Error al conectar con /api/wavy-webhook: ${e.message}`
+      });
+    } finally {
+      setIsTestingWaiWebhook(false);
+    }
+  };
+
   const handleFetchWebhookLogs = async () => {
     setIsLoadingLogs(true);
     try {
@@ -421,6 +472,12 @@ DIRECTRICES:
         }
       }
 
+      // Persistir credenciales de WAI localmente
+      try {
+        localStorage.setItem('zavela_wai_apiKey', waiApiKey.trim());
+        localStorage.setItem('zavela_wai_webhookSecret', waiWebhookSecret.trim());
+      } catch {}
+
       await onSaveSettings({
         whatsappNumber: cleanPhone,
         whatsappAdvisorName: whatsappAdvisorName,
@@ -428,7 +485,15 @@ DIRECTRICES:
         whatsappMessage: whatsappDefaultMessage,
         whatsappFloatingEnabled: whatsappConfig.enabled,
         whatsappSettings: updatedWhatsapp,
-        whatsappCloudApi: cloudApiConfig,
+        whatsappCloudApi: {
+          ...cloudApiConfig,
+          waiApiKey: waiApiKey.trim(),
+          waiWebhookSecret: waiWebhookSecret.trim(),
+          waiEnabled: waiEnabled
+        },
+        waiApiKey: waiApiKey.trim(),
+        waiWebhookSecret: waiWebhookSecret.trim(),
+        waiEnabled: waiEnabled,
         aiAgentSettings: aiConfig,
         tidioChatEnabled: tidioChatEnabled,
         tidioScriptUrl: cleanTidioScript,
@@ -1221,6 +1286,172 @@ DIRECTRICES:
                 </p>
               </div>
 
+            </div>
+
+            {/* WAI (Wavy) Custom Channel Credentials Card */}
+            <div className="bg-white p-6 rounded-2xl border-2 border-indigo-200/90 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-xl shadow-xs">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-slate-900 text-sm">
+                        Canal Personalizado WAI (Wavy) - WhatsApp Business
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        WAI / Sinch
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Configura las credenciales de tu canal oficial en WAI para recibir y responder eventos de WhatsApp automáticamente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-600">Canal Activo</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={waiEnabled}
+                      onChange={(e) => setWaiEnabled(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              {/* URL de Webhook para WAI */}
+              <div className="space-y-1.5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                    URL de Webhook para WAI (Callback URL)
+                  </label>
+                  <span className="text-[10px] font-mono text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                    POST /api/wavy-webhook
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={wavyWebhookUrl}
+                    className="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono font-bold text-indigo-300 select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(wavyWebhookUrl);
+                      setCopiedWaiWebhookUrl(true);
+                      setTimeout(() => setCopiedWaiWebhookUrl(false), 2500);
+                    }}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shrink-0 shadow-xs active:scale-95"
+                  >
+                    {copiedWaiWebhookUrl ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedWaiWebhookUrl ? 'Copiada' : 'Copiar'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Registra esta URL exacta en el panel de WAI para escuchar los eventos entrantes (mensajes de clientes).
+                </p>
+              </div>
+
+              {/* Formulario de Credenciales de WAI: Llave de API y Secreto del Webhook */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                {/* Input 1: Llave de API de WAI */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Llave de API de WAI (wai_sk_...)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={waiApiKey}
+                      onChange={(e) => setWaiApiKey(e.target.value)}
+                      placeholder="wai_sk_live_9a8b7c6d5e4f3a2b1c0..."
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:border-indigo-500 focus:bg-white outline-hidden transition-all"
+                    />
+                    <Key className="absolute left-3 top-3 w-4 h-4 text-indigo-500" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Clave secreta generada en el panel de WAI para autenticar envíos y solicitudes.
+                  </p>
+                </div>
+
+                {/* Input 2: Secreto del Webhook de WAI */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Secreto del Webhook de WAI (whsec_...)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={waiWebhookSecret}
+                      onChange={(e) => setWaiWebhookSecret(e.target.value)}
+                      placeholder="whsec_4x8y9z0a1b2c3d4e5f6..."
+                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:border-indigo-500 focus:bg-white outline-hidden transition-all"
+                    />
+                    <Shield className="absolute left-3 top-3 w-4 h-4 text-indigo-500" />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Firma de seguridad para validar la autenticidad de los mensajes entrantes de WAI.
+                  </p>
+                </div>
+              </div>
+
+              {/* Botón de Prueba y Feedback en Vivo */}
+              <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block">
+                        Verificar Conexión de Webhook WAI
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Envía un ping de prueba simulado al endpoint local /api/wavy-webhook
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTestWaiWebhook}
+                    disabled={isTestingWaiWebhook}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 shrink-0"
+                  >
+                    {isTestingWaiWebhook ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Comprobando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Probar Webhook WAI (200 OK)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {waiTestResult && (
+                  <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 border ${
+                    waiTestResult.success 
+                      ? 'bg-emerald-50 text-emerald-900 border-emerald-200' 
+                      : 'bg-rose-50 text-rose-900 border-rose-200'
+                  }`}>
+                    {waiTestResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <p className="font-bold">{waiTestResult.message}</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Real-time Webhook Events Log Monitor */}
