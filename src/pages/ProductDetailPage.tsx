@@ -21,7 +21,8 @@ import {
   Clock,
   Award,
   Layers,
-  Heart
+  Heart,
+  MessageCircle
 } from 'lucide-react';
 import { Product, ProductVariant, CartItem } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
@@ -298,6 +299,12 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   }, [suggestedComboProducts]);
 
   const comboDiscountedTotal = Math.max(0, comboOriginalTotal - comboConsolidatedSavings);
+
+  // Enlace dinámico de WhatsApp para consultas del producto actual
+  const product = activeProduct;
+  const whatsappUrl = product
+    ? `https://wa.me/573008784427?text=${encodeURIComponent('Hola, estoy interesado en el producto ' + product.title + ' que vi en Zavela Store y quisiera más información.')}`
+    : 'https://wa.me/573008784427';
 
   // Manejadores de compra
   const handleAddToCartClick = () => {
@@ -697,6 +704,18 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                     </>
                   )}
                 </button>
+
+                {/* 💬 Botón Directo: Asesor WhatsApp / Preguntar por WhatsApp */}
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  id="btn-product-whatsapp-advisor"
+                  className="w-full py-3 px-6 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-2 border-emerald-500/40 hover:border-emerald-500 active:scale-98 transition-all cursor-pointer uppercase tracking-wider"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+                  <span>Preguntar por WhatsApp / Asesor</span>
+                </a>
               </div>
 
               {/* Promesa de Entrega */}
@@ -991,6 +1010,25 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
           onClose={() => setIsShareOpen(false)}
           product={activeProduct}
         />
+      )}
+
+      {/* 💬 Botón Flotante de Asesor WhatsApp */}
+      {product && (
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          id="btn-floating-whatsapp-product"
+          aria-label="Preguntar por WhatsApp al Asesor"
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs sm:text-sm rounded-full shadow-2xl shadow-emerald-600/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+        >
+          <div className="relative">
+            <MessageCircle className="w-5 h-5 fill-white text-emerald-800" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white rounded-full animate-ping" />
+          </div>
+          <span className="hidden sm:inline">Preguntar por WhatsApp</span>
+          <span className="sm:hidden">Asesor WhatsApp</span>
+        </a>
       )}
     </div>
   );

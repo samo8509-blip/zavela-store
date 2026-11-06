@@ -8,6 +8,7 @@ import ordersRouter from './server/routes/orders.ts';
 import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
 import whatsappRouter from './server/routes/whatsapp.ts';
+import wavyWebhookRouter from './server/routes/wavyWebhook.ts';
 import alertsRouter from './server/routes/alerts.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
@@ -70,6 +71,9 @@ async function startServer() {
   app.use('/api/webhook/whatsapp', whatsappRouter);
   app.use('/webhook/whatsapp', whatsappRouter);
   app.use('/webhook', whatsappRouter);
+  app.use('/api/wavy-webhook', wavyWebhookRouter);
+  app.use('/api/webhook/wavy', wavyWebhookRouter);
+  app.use('/wavy-webhook', wavyWebhookRouter);
   app.use('/api/alerts', alertsRouter);
   app.use('/api/customers', customersRouter);
   app.use('/api/advisors', advisorsRouter);
