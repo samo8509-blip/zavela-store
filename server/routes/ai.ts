@@ -49,68 +49,62 @@ function formatWhatsAppNumber(phone?: string): string {
   return clean;
 }
 
-// Helper to search products locally for fallback & context matching
-function searchCatalogProducts(query: string, allProducts: Product[], limit: number = 3): Product[] {
+// CATÁLOGO OFICIAL AUTORIZADO (Única fuente de verdad de Zavela Store Colombia)
+export const AUTHORIZED_OFFICIAL_CATALOG = [
+  { id: 'auth-ariana', slug: 'perfume-ari-by-ariana-grande-100ml-mujer', title: 'Perfume Ari By Ariana Grande 100ml Mujer', price: 93000, categoryName: 'Perfumería', active: true, featured: true, discountPercentage: 0, image: '/images/products/perfume-ari.jpg' },
+  { id: 'auth-goodgirl', slug: 'perfume-good-girl-carolina-herrera-mujer', title: 'Perfume Good Girl Carolina Herrera Mujer', price: 89500, categoryName: 'Perfumería', active: true, featured: true, discountPercentage: 0, image: '/images/products/good-girl.jpg' },
+  { id: 'auth-bvlgari', slug: 'perfume-bvlgari-omnia-coral-65ml-mujer', title: 'Perfume Bvlgari Omnia Coral 65ml Mujer', price: 93000, categoryName: 'Perfumería', active: true, featured: true, discountPercentage: 0, image: '/images/products/bvlgari-omnia.jpg' },
+  { id: 'auth-212vip', slug: 'perfume-212-vip-rose-ch-dama', title: 'Perfume 212 Vip Rose C.H Dama', price: 93000, categoryName: 'Perfumería', active: true, featured: true, discountPercentage: 0, image: '/images/products/212-vip-rose.jpg' },
+  { id: 'auth-arbol210', slug: 'arbol-de-navidad-cm-210', title: 'Árbol De Navidad CM 210', price: 500000, categoryName: 'Navidad y Hogar', active: true, featured: true, discountPercentage: 0, image: '/images/products/arbol-navidad-210.jpg' },
+  { id: 'auth-ollas', slug: 'bateria-ollas-schaffhausen-mocka-9pz', title: 'Batería Ollas Schaffhausen Mocka 9pz', price: 663500, categoryName: 'Hogar y Cocina', active: true, featured: true, discountPercentage: 0, image: '/images/products/bateria-ollas-schaffhausen.jpg' },
+  { id: 'auth-watch-onn', slug: 'watch-onn-full-hd-con-magis-tv', title: 'Watch Onn Full Hd Con Magis Tv', price: 195000, categoryName: 'Tecnología', active: true, featured: true, discountPercentage: 0, image: '/images/products/watch-onn-magis-tv.jpg' },
+  { id: 'auth-camara-wifi', slug: 'camara-de-seguridad-tipo-bombillo-wifi', title: 'Cámara De Seguridad Tipo Bombillo Wifi', price: 96000, categoryName: 'Seguridad y Tecnología', active: true, featured: true, discountPercentage: 0, image: '/images/products/camara-bombillo-wifi.jpg' },
+  { id: 'auth-reflector-led', slug: 'reflector-solar-led-exterior', title: 'Reflector Solar LED Exterior', price: 95000, categoryName: 'Iluminación y Energía', active: true, featured: true, discountPercentage: 0, image: '/images/products/reflector-solar-led.jpg' }
+];
+
+// Helper to search products locally in authorized catalog
+function searchCatalogProducts(query: string, allProducts: any[], limit: number = 3): any[] {
+  // Always restrict strictly to authorized official catalog
+  const catalogPool = AUTHORIZED_OFFICIAL_CATALOG;
   if (!query || !query.trim()) {
-    return allProducts.filter(p => p.featured && p.active).slice(0, limit);
+    return catalogPool.slice(0, limit);
   }
 
   const q = query.toLowerCase().trim();
   const words = q.split(/\s+/).filter(w => w.length > 2);
 
-  const scored = allProducts.filter(p => p.active).map(product => {
+  const scored = catalogPool.map(product => {
     let score = 0;
-    const title = (product.title || '').toLowerCase();
-    const desc = (product.description || '').toLowerCase();
-    const shortDesc = (product.shortDescription || '').toLowerCase();
-    const cat = (product.categoryName || '').toLowerCase();
-    const subcat = (product.subcategoryName || '').toLowerCase();
-    const tags = (product.tags || []).map(t => t.toLowerCase());
+    const title = product.title.toLowerCase();
+    const cat = product.categoryName.toLowerCase();
 
     // Direct phrase match
-    if (title.includes(q)) score += 40;
-    if (desc.includes(q) || shortDesc.includes(q)) score += 20;
-    if (cat.includes(q) || subcat.includes(q)) score += 25;
-    if (tags.some(t => t.includes(q))) score += 30;
+    if (title.includes(q)) score += 50;
+    if (cat.includes(q)) score += 25;
 
     // Word matches
     for (const word of words) {
-      if (title.includes(word)) score += 12;
-      if (cat.includes(word) || subcat.includes(word)) score += 10;
-      if (tags.some(t => t.includes(word))) score += 8;
-      if (desc.includes(word) || shortDesc.includes(word)) score += 5;
+      if (title.includes(word)) score += 15;
+      if (cat.includes(word)) score += 10;
     }
 
-    // Special intent keywords
-    if ((q.includes('mas vendido') || q.includes('más vendido') || q.includes('top') || q.includes('populares') || q.includes('favoritos')) && product.featured) {
-      score += 35;
-    }
-    if ((q.includes('regalo') || q.includes('pareja') || q.includes('amor') || q.includes('novi') || q.includes('aniversario') || q.includes('cumpleaños')) && 
-        (title.includes('rosa') || title.includes('collar') || title.includes('pulsera') || title.includes('lámpara') || title.includes('perfume') || tags.includes('amor-amistad') || tags.includes('amor y amistad'))) {
-      score += 30;
-    }
-    if ((q.includes('disfraz') || q.includes('halloween') || q.includes('máscara') || q.includes('terror')) &&
-        (title.includes('disfraz') || title.includes('máscara') || title.includes('caldero') || tags.includes('halloween'))) {
-      score += 30;
-    }
-    if ((q.includes('navidad') || q.includes('diciembre') || q.includes('luces') || q.includes('árbol') || q.includes('decoracion')) &&
-        (title.includes('navidad') || title.includes('luces') || title.includes('proyector') || tags.includes('navidad'))) {
-      score += 30;
-    }
-    if ((q.includes('perfume') || q.includes('loción') || q.includes('locion') || q.includes('fragancia') || q.includes('olor') || q.includes('hombre') || q.includes('mujer')) &&
-        (title.includes('perfume') || cat.includes('perfum') || tags.includes('perfumería') || title.includes('sauvage') || title.includes('good girl') || title.includes('fragancia'))) {
-      score += 35;
-    }
-    if ((q.includes('barato') || q.includes('oferta') || q.includes('descuento') || q.includes('promo') || q.includes('rebaja')) && product.discountPercentage > 15) {
+    if ((q.includes('perfume') || q.includes('fragancia') || q.includes('locion') || q.includes('loción') || q.includes('mujer') || q.includes('dama')) && cat.includes('perfumer')) {
       score += 25;
     }
-    if ((q.includes('tecnologia') || q.includes('reloj') || q.includes('smartwatch') || q.includes('proyector') || q.includes('gadget')) &&
-        (cat.includes('tecno') || title.includes('smartwatch') || title.includes('proyector') || title.includes('reloj'))) {
-      score += 30;
+    if ((q.includes('navidad') || q.includes('arbol') || q.includes('árbol')) && title.includes('árbol')) {
+      score += 40;
     }
-    if ((q.includes('hogar') || q.includes('lampara') || q.includes('luz') || q.includes('humidificador')) &&
-        (cat.includes('hogar') || title.includes('humidificador') || title.includes('lámpara') || title.includes('luz'))) {
-      score += 30;
+    if ((q.includes('olla') || q.includes('cocina') || q.includes('bateria') || q.includes('batería')) && title.includes('ollas')) {
+      score += 40;
+    }
+    if ((q.includes('tv') || q.includes('magis') || q.includes('onn') || q.includes('streaming') || q.includes('reloj') || q.includes('watch')) && title.includes('watch onn')) {
+      score += 40;
+    }
+    if ((q.includes('camara') || q.includes('cámara') || q.includes('seguridad') || q.includes('bombillo') || q.includes('wifi')) && title.includes('cámara')) {
+      score += 40;
+    }
+    if ((q.includes('reflector') || q.includes('solar') || q.includes('led') || q.includes('luz exterior') || q.includes('iluminacion')) && title.includes('reflector')) {
+      score += 40;
     }
 
     return { product, score };
@@ -121,21 +115,13 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
     return sorted.slice(0, limit).map(s => s.product);
   }
 
-  // Si se buscaron términos específicos y no hubo coincidencia en el inventario real, retornar vacío (amnesia de catálogo y cero alucinaciones)
-  if (words.length > 0) {
-    return [];
-  }
-
-  // Fallback solo para consultas completamente abiertas sin términos de producto
-  const featured = allProducts.filter(p => p.active && p.featured);
-  if (featured.length > 0) return featured.slice(0, limit);
-  return allProducts.filter(p => p.active).slice(0, limit);
+  return [];
 }
 
-// Pre-designed response generator adhering strictly to Sofía's Personal Shopper guidelines for Zavela Store Colombia
+// Pre-designed response generator adhering strictly to Zavela Store Colombia official guidelines
 function generateStructuredPreDesignedResponse(
   message: string, 
-  allProducts: Product[], 
+  allProducts: any[], 
   settings: StoreSettings,
   agentSettings: AIAgentSettings,
   customerContext?: {
@@ -143,68 +129,25 @@ function generateStructuredPreDesignedResponse(
     viewedProducts?: string[];
     purchaseHistory?: string;
   }
-): { reply: string; recommendedProducts: Product[]; whatsappMessage: string; suggestedQuestions?: string[] } {
-  const agentName = 'Elizabeth';
+): { reply: string; recommendedProducts: any[]; whatsappMessage: string; suggestedQuestions?: string[] } {
   const rawPhone = settings.whatsappSettings?.phoneNumber || settings.whatsappNumber || '573008784427';
   const whatsappNum = formatWhatsAppNumber(rawPhone);
   const q = message.toLowerCase().trim();
   const maxProducts = agentSettings.maxProductsToSuggest || 3;
 
   const clientName = customerContext?.customerName && customerContext.customerName !== 'Invitado' ? customerContext.customerName : null;
-  const viewedProds = customerContext?.viewedProducts || [];
-
-  // Verificación de inventario en vivo disponible
-  if (!allProducts || allProducts.length === 0) {
-    return {
-      reply: 'Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.',
-      recommendedProducts: [],
-      whatsappMessage: `¡Hola Elizabeth! Deseo consultar la disponibilidad de un producto en el inventario en vivo.`,
-      suggestedQuestions: [
-        '¿Cómo funciona el Pago Contra Entrega?',
-        'Hablar con un asesor comercial'
-      ]
-    };
-  }
 
   // 1. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN
-  if (q === 'hola' || q === 'buenas' || q === 'buenos dias' || q === 'buenos días' || q === 'buenas tardes' || q === 'buenas noches' || q === 'hey' || q === 'hola elizabeth' || q === 'iniciar') {
-    const featured = allProducts.filter(p => p.active && p.featured).slice(0, maxProducts);
-    
-    // CLIENTE REGISTRADO ([NOMBRE_CLIENTE] disponible)
-    if (clientName) {
-      if (viewedProds.length > 0) {
-        const liveMatch = allProducts.filter(p => p.title.toLowerCase().includes(viewedProds[0].toLowerCase())).slice(0, 1);
-        return {
-          reply: `¡Hola ${clientName}! Qué alegría saludarte de nuevo en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. Noté tu interés en ${viewedProds[0]}. ¿Te gustaría conocer detalles de su inventario en vivo o buscas asesoría comercial para una compra?`,
-          recommendedProducts: liveMatch,
-          whatsappMessage: `¡Hola Elizabeth! Soy ${clientName}, vi el producto ${viewedProds[0]} en Zavela Store y quisiera asesoría.`,
-          suggestedQuestions: [
-            `Confirmar disponibilidad de ${viewedProds[0]}`,
-            '¿Cómo funciona el Pago Contra Entrega?',
-            'Ver opciones disponibles hoy'
-          ]
-        };
-      }
-      return {
-        reply: `¡Hola ${clientName}! Qué alegría saludarte en Zavela Store Colombia 😊. Soy Elizabeth, tu Asesora Ejecutiva. ¿En qué producto o requerimiento te puedo colaborar hoy?`,
-        recommendedProducts: featured,
-        whatsappMessage: `¡Hola Elizabeth! Soy ${clientName}, deseo asesoría ejecutiva para una compra en Zavela Store.`,
-        suggestedQuestions: [
-          '🔥 ¿Cuáles son los productos disponibles hoy?',
-          '¿Cómo funciona el Pago Contra Entrega?',
-          'Hablar con un asesor comercial'
-        ]
-      };
-    }
-
-    // CLIENTE INVITADO (Sin sesión iniciada)
+  if (q === 'hola' || q === 'buenas' || q === 'buenos dias' || q === 'buenos días' || q === 'buenas tardes' || q === 'buenas noches' || q === 'hey' || q === 'iniciar') {
+    const prods = AUTHORIZED_OFFICIAL_CATALOG.slice(0, maxProducts);
+    const greetingName = clientName ? `¡Hola ${clientName}!` : '¡Hola!';
     return {
-      reply: `¡Hola! 👋 Te doy una cordial bienvenida a Zavela Store Colombia. Soy Elizabeth, tu Asesora Ejecutiva. Es un gusto atenderte. ¿En qué producto o consulta te puedo asistir hoy?`,
-      recommendedProducts: featured,
-      whatsappMessage: `¡Hola Elizabeth! Quisiera información y asesoría sobre un producto en Zavela Store.`,
+      reply: `${greetingName} 👋 Bienvenido a **Zavela Store Colombia**. Soy tu asistente virtual oficial. Es un gusto atenderte. Estoy aquí para ayudarte a elegir el producto ideal y coordinar tu despacho con **Pago Contra Entrega** en toda Colombia.\n\n¿Qué producto estás buscando hoy?`,
+      recommendedProducts: prods,
+      whatsappMessage: `¡Hola! Deseo más información sobre los productos disponibles con Pago Contra Entrega en Zavela Store.`,
       suggestedQuestions: [
-        'Consultar disponibilidad de un producto',
-        '¿Cómo funciona el Pago Contra Entrega en Colombia?',
+        'Ver perfumes autorizados',
+        '¿Cómo funciona el Pago Contra Entrega?',
         'Tomar mi pedido por chat'
       ]
     };
@@ -212,55 +155,58 @@ function generateStructuredPreDesignedResponse(
 
   // 2. TOMAR PEDIDO DIRECTO POR CHAT
   if (q.includes('tomar pedido') || q.includes('quiero comprar') || q.includes('pedir por aqui') || q.includes('pedir por chat') || q.includes('como compro') || q.includes('hacer pedido')) {
-    const featuredProds = allProducts.filter(p => p.active && p.featured).slice(0, 2);
+    const featuredProds = AUTHORIZED_OFFICIAL_CATALOG.slice(0, 2);
     return {
-      reply: `¡Con el mayor gusto tomo tu pedido ahora mismo! 🛍️🇨🇴\n\nPara programar tu despacho oficial con **Pago Contra Entrega**, por favor indícame:\n\n• **Nombre y Apellido:**\n• **Teléfono de contacto:**\n• **Dirección completa (Barrio y especificaciones):**\n• **Ciudad y Departamento:**\n• **Producto de tu interés:**\n\n🚚 Recuerda: Pagas en efectivo únicamente cuando el transportador te entregue el producto en mano. ¿Cuál es el producto que deseas ordenar? Quedo muy atenta. 😊📦`,
+      reply: `¡Con el mayor gusto tomamos tu pedido de inmediato! 🛍️🇨🇴\n\nPara programar tu despacho oficial con **Pago Contra Entrega**, por favor indícame:\n\n• **Nombre y Apellido:**\n• **Teléfono de contacto:**\n• **Dirección completa (Barrio y datos adicionales):**\n• **Ciudad y Departamento:**\n• **Producto del catálogo oficial:**\n\n🚚 Recuerda: Pagas en efectivo al recibir el paquete en la puerta de tu casa. ¿Cuál de nuestros productos autorizados deseas ordenar?`,
       recommendedProducts: featuredProds,
-      whatsappMessage: `¡Hola Elizabeth! Quiero formalizar mi pedido con los siguientes datos:\n- Nombre:\n- Teléfono:\n- Dirección:\n- Ciudad:\n- Producto:`,
+      whatsappMessage: `¡Hola! Quiero formalizar mi pedido con Pago Contra Entrega en Zavela Store.`,
       suggestedQuestions: [
         '¿Cuánto tarda el envío a mi ciudad?',
-        '¿Cómo funciona el Pago Contra Entrega?'
+        'Ver catálogo oficial'
       ]
     };
   }
 
   // 3. MÉTODOS DE PAGO Y ENVÍOS (PAGO CONTRA ENTREGA)
   if (q.includes('contra entrega') || q.includes('como funciona') || q.includes('pago') || q.includes('pagar') || q.includes('efectivo') || q.includes('medio de pago') || q.includes('envio') || q.includes('envío') || q.includes('tarda') || q.includes('tiempo')) {
-    const sampleProducts = allProducts.filter(p => p.active).slice(0, 2);
+    const sampleProducts = AUTHORIZED_OFFICIAL_CATALOG.slice(0, 2);
     return {
-      reply: `¡En Zavela Store tu compra es 100% segura y garantizada! 🇨🇴🚚\n\n• **Envíos a toda Colombia:** Despachos a nivel nacional con tiempos estimados de **2 a 5 días hábiles** mediante transportadoras aliadas.\n• **Pago Contra Entrega:** Pagas en efectivo directamente en la puerta de tu casa al recibir el paquete.\n• **Garantía Directa:** Cobertura de respaldo por defectos de fábrica.\n\n¿Deseas verificar la disponibilidad de algún artículo en vivo para coordinar el envío? Quedo a tu total disposición. 😊`,
+      reply: `¡En Zavela Store tu compra es 100% segura y garantizada! 🇨🇴🚚\n\n• **Envíos a toda Colombia:** Despachos a nivel nacional con tiempos de entrega de **2 a 5 días hábiles** mediante transportadoras aliadas.\n• **Pago Contra Entrega:** Pagas en efectivo únicamente cuando el paquete llega a tu puerta.\n• **Garantía Directa:** Total respaldo en cada producto de nuestro catálogo oficial.\n\n¿Cuál de nuestros artículos autorizados deseas que programemos para tu despacho?`,
       recommendedProducts: sampleProducts,
-      whatsappMessage: `¡Hola Elizabeth! Deseo realizar un pedido con Pago Contra Entrega en Zavela Store.`,
-      suggestedQuestions: [
-        'Quiero tomar mi pedido por chat',
-        'Consultar disponibilidad de un producto'
-      ]
-    };
-  }
-
-  // 4. BÚSQUEDA ESTRICTA EN CATÁLOGO REAL EN VIVO (CERO ALUCINACIONES)
-  const matched = searchCatalogProducts(message, allProducts, maxProducts);
-  if (matched.length > 0) {
-    const prodList = matched.map(p => `• 🛍️ **${p.title}** — *$${p.price.toLocaleString('es-CO')} COP* ${p.discountPercentage > 0 ? `(${p.discountPercentage}% OFF)` : ''}`).join('\n');
-    return {
-      reply: `¡Con mucho gusto! Confirmado en nuestro inventario en vivo de Zavela Store:\n\n${prodList}\n\n🚚 Disponibles para despacho con **Pago Contra Entrega** en toda Colombia.\n\n¿Deseas que reservemos alguna unidad para apartarla a tu nombre? Con gusto te asisto. 😊📦`,
-      recommendedProducts: matched,
-      whatsappMessage: `¡Hola Elizabeth! Me interesa este producto confirmado en stock: "${message.slice(0, 60)}"`,
+      whatsappMessage: `¡Hola! Deseo realizar un pedido con Pago Contra Entrega en Zavela Store.`,
       suggestedQuestions: [
         'Tomar mi pedido por chat',
-        '¿Cuánto tarda el despacho a mi ciudad?'
+        'Ver catálogo oficial'
       ]
     };
   }
 
-  // 5. RESPUESTA ANTE PRODUCTOS NO EXISTENTES O CONSULTAS FUERA DE INVENTARIO EN VIVO
+  // 4. BÚSQUEDA EN CATÁLOGO OFICIAL AUTORIZADO
+  const matched = searchCatalogProducts(message, AUTHORIZED_OFFICIAL_CATALOG, maxProducts);
+  if (matched.length > 0) {
+    const prodList = matched.map(p => `• 🛍️ **${p.title}** — *$${p.price.toLocaleString('es-CO')} COP*`).join('\n');
+    return {
+      reply: `¡Con gusto! Disponible en nuestro Catálogo Oficial Autorizado de Zavela Store:\n\n${prodList}\n\n🚚 Recuerda que contamos con **Pago Contra Entrega** en toda Colombia: recibes en tu puerta y pagas en efectivo.\n\n¿Deseas que coordinemos tu despacho hoy mismo?`,
+      recommendedProducts: matched,
+      whatsappMessage: `¡Hola! Me interesa este producto de su catálogo oficial: "${matched[0].title}" con Pago Contra Entrega.`,
+      suggestedQuestions: [
+        'Tomar mi pedido ahora',
+        '¿Cuánto tarda el envío a mi ciudad?'
+      ]
+    };
+  }
+
+  // 5. PRODUCTO NO DISPONIBLE EN EL CATÁLOGO OFICIAL (FILTRO ESTRICTO DE AISLAMIENTO)
+  const alternatives = AUTHORIZED_OFFICIAL_CATALOG.slice(0, 3);
+  const altList = alternatives.map(p => `• **${p.title}** ($${p.price.toLocaleString('es-CO')} COP)`).join('\n');
   return {
-    reply: 'Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.',
-    recommendedProducts: [],
-    whatsappMessage: `¡Hola Elizabeth! Quisiera consultar disponibilidad en vivo sobre: "${message.slice(0, 60)}"`,
+    reply: `Agradezco tu interés, pero esa línea o referencia específica no se encuentra disponible actualmente en nuestro catálogo oficial. Con gusto te ofrezco estas excelentes alternativas disponibles para despacho inmediato con **Pago Contra Entrega**:\n\n${altList}\n\n¿Te gustaría programar el envío de alguna de estas opciones?`,
+    recommendedProducts: alternatives,
+    whatsappMessage: `¡Hola! Quisiera consultar sobre las alternativas disponibles en Zavela Store.`,
     suggestedQuestions: [
-      '¿Cómo funciona el Pago Contra Entrega en Colombia?',
-      'Tomar mi pedido por chat'
+      'Ver perfumes autorizados',
+      '¿Cómo funciona el Pago Contra Entrega?',
+      'Tomar mi pedido'
     ]
   };
 }
@@ -356,35 +302,36 @@ Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
         }));
 
         const systemInstruction = `
-INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
-Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia (${STORE_NAME}).
+Eres el asistente virtual oficial y exclusivo de Zavela Store Colombia (${STORE_NAME}).
+Tu objetivo es brindar soporte a los clientes y ayudarles a encontrar el producto ideal para cerrar la venta mediante pago contra entrega.
 
-1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
-2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario o el producto no está en el listado entregado abajo, tu respuesta predeterminada DEBE ser exactamente: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
-3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
-4. TONO: Amable, profesional y comercial, 100% colombiano.
+CATÁLOGO OFICIAL AUTORIZADO (Única fuente de verdad):
+- Perfume Ari By Ariana Grande 100ml Mujer ($93.000 COP) [ID: auth-ariana]
+- Perfume Good Girl Carolina Herrera Mujer ($89.500 COP) [ID: auth-goodgirl]
+- Perfume Bvlgari Omnia Coral 65ml Mujer ($93.000 COP) [ID: auth-bvlgari]
+- Perfume 212 Vip Rose C.H Dama ($93.000 COP) [ID: auth-212vip]
+- Árbol De Navidad CM 210 ($500.000 COP) [ID: auth-arbol210]
+- Batería Ollas Schaffhausen Mocka 9pz ($663.500 COP) [ID: auth-ollas]
+- Watch Onn Full Hd Con Magis Tv ($195.000 COP) [ID: auth-watch-onn]
+- Cámara De Seguridad Tipo Bombillo Wifi ($96.000 COP) [ID: auth-camara-wifi]
+- Reflector Solar LED Exterior ($95.000 COP) [ID: auth-reflector-led]
 
-CONTEXTO DEL CLIENTE:
-- [NOMBRE_CLIENTE]: ${customerName}
-- [PRODUCTOS_VISTOS]: ${viewedProducts.length > 0 ? viewedProducts.join(', ') : 'Ninguno'}
-- [HISTORIAL_COMPRAS]: ${purchaseHistory}
+DIRECTIVA DE AISLAMIENTO DE DATOS:
+Es posible que tu sistema reciba datos, metadatos o historial de conversaciones que contengan referencias a productos descontinuados (ejemplo: "Perfume Versace Eros", "Lámparas solares"). 
+Actúa como un filtro estricto: omite, descarta y no menciones NINGÚN producto que no se encuentre expresamente escrito en el Catálogo Oficial Autorizado de arriba.
 
-BENEFICIOS CLAVE:
-- Envíos a toda Colombia (2 a 5 días hábiles).
-- Pago Contra Entrega en efectivo al recibir el paquete en casa.
-- Si el cliente confirma un producto, solicita: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
-
-LÍNEA WHATSAPP OFICIAL CONECTADA: +${whatsappNumber}
-
-INVENTARIO EN VIVO CONFIRMADO DE ZAVELA STORE (ÚNICA FUENTE DE VERDAD):
-${JSON.stringify(catalogSummary, null, 2)}
+REGLAS DE INTERACCIÓN:
+1. Si un cliente solicita un producto que no está en tu catálogo oficial, infórmale amablemente que esa línea no está disponible y ofrécele una alternativa de tu lista oficial.
+2. Evita usar frases como "déjame consultar con el equipo". Eres el contacto definitivo.
+3. Pago Contra Entrega: Envíos a toda Colombia (2 a 5 días hábiles), pagando en efectivo al recibir en casa. Para formalizar el pedido solicita: Nombre completo, Teléfono, Dirección (con barrio) y Ciudad/Departamento.
+4. Tono: Cálido, respetuoso, comercial y 100% colombiano.
 
 FORMATO DE SALIDA REQUERIDO:
 Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 {
-  "reply": "Texto conversacional de Elizabeth respetando estrictamente las 4 instrucciones de reinicio de sistema base, amnesia de catálogo y frase predeterminada si no hay datos en vivo",
-  "recommendedProductIds": ["id_del_producto_confirmado_en_vivo"],
-  "whatsappMessage": "Texto breve y sugerido para continuar en WhatsApp con Elizabeth"
+  "reply": "Respuesta como asistente virtual de Zavela Store aplicando el catálogo oficial y la directiva de aislamiento",
+  "recommendedProductIds": ["auth-goodgirl"],
+  "whatsappMessage": "Mensaje para continuar la confirmación del pedido por WhatsApp"
 }
 `;
 
@@ -429,15 +376,15 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
             : [];
 
           const recommendedProducts = validProductIds
-            .map(id => candidateProducts.find(p => p.id === id || p.slug === id))
-            .filter((p): p is Product => Boolean(p));
+            .map(id => AUTHORIZED_OFFICIAL_CATALOG.find(p => p.id === id || p.slug === id) || candidateProducts.find(p => p.id === id || p.slug === id))
+            .filter(Boolean);
 
           const finalProducts = recommendedProducts.length > 0 
             ? recommendedProducts 
-            : searchCatalogProducts(message, candidateProducts, agentSettings.maxProductsToSuggest || 3);
+            : searchCatalogProducts(message, AUTHORIZED_OFFICIAL_CATALOG, agentSettings.maxProductsToSuggest || 3);
           
           const finalIds = finalProducts.map(p => p.id);
-          const finalWaMessage = parsedResponse.whatsappMessage || `¡Hola Elizabeth! Deseo consultar en vivo sobre: ${message.slice(0, 60)}`;
+          const finalWaMessage = parsedResponse.whatsappMessage || `¡Hola! Deseo más información sobre los productos disponibles con Pago Contra Entrega en Zavela Store: ${message.slice(0, 60)}`;
           const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(finalWaMessage)}`;
 
           return res.json({
