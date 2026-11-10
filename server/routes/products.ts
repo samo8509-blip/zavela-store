@@ -79,7 +79,7 @@ router.get('/', async (req, res) => {
     if (nativePool) {
       try {
         const [rows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
-        if (Array.isArray(rows)) products = rows.map(mapSqlRowToProduct);
+        if (Array.isArray(rows)) products = rows.map(mapSqlRowToProduct).filter(p => !isTestProduct(p));
       } catch (e) {
         console.error("Error GET MySQL:", e);
       }

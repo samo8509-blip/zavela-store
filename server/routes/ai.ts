@@ -62,8 +62,16 @@ export const AUTHORIZED_OFFICIAL_CATALOG = [
   { id: 'auth-reflector-led', slug: 'reflector-solar-led-exterior', title: 'Reflector Solar LED Exterior', price: 95000, categoryName: 'Iluminación y Energía', active: true, featured: true, discountPercentage: 0, image: '/images/products/reflector-solar-led.jpg' }
 ];
 
+// 🛡️ FIREWALL DE ASESORES: Bloqueo estricto de perfiles humanos, asesores y administradores
+export const FIREWALL_ASESORES_REGEX = /\b(asesor|asesora|asesores|asesor de redes|asesora de redes|admin|administrador|administradora|administradores|sergio\s*mart[ií]nez|vendedor|personal)\b/i;
+
 // Helper to search products locally in authorized catalog
 function searchCatalogProducts(query: string, allProducts: any[], limit: number = 3): any[] {
+  // Bloqueo de perfiles humanos en búsquedas de productos
+  if (FIREWALL_ASESORES_REGEX.test(query)) {
+    return [];
+  }
+
   // Always restrict strictly to authorized official catalog
   const catalogPool = AUTHORIZED_OFFICIAL_CATALOG;
   if (!query || !query.trim()) {
@@ -136,6 +144,22 @@ function generateStructuredPreDesignedResponse(
   const maxProducts = agentSettings.maxProductsToSuggest || 3;
 
   const clientName = customerContext?.customerName && customerContext.customerName !== 'Invitado' ? customerContext.customerName : null;
+
+  // 🛡️ FIREWALL DE ASESORES: Intercepción si la consulta incluye perfiles humanos, asesores o administradores
+  if (FIREWALL_ASESORES_REGEX.test(q)) {
+    const prods = AUTHORIZED_OFFICIAL_CATALOG.slice(0, maxProducts);
+    const prodList = prods.map(p => `• 🛍️ **${p.title}** ($${p.price.toLocaleString('es-CO')} COP)`).join('\n');
+    return {
+      reply: `En **Zavela Store Colombia**, nuestro catálogo está compuesto exclusivamente por artículos físicos reales de perfumería, hogar, tecnología y herramientas. Los asesores y administradores formamos parte del equipo humano de atención y no somos productos para la venta.\n\nCon mucho gusto te presento los productos oficiales autorizados disponibles para despacho con **Pago Contra Entrega** en toda Colombia:\n\n${prodList}\n\n¿Deseas programar el envío de alguno de estos artículos?`,
+      recommendedProducts: prods,
+      whatsappMessage: `¡Hola! Deseo más información sobre los artículos disponibles con Pago Contra Entrega en Zavela Store.`,
+      suggestedQuestions: [
+        'Ver perfumes autorizados',
+        '¿Cómo funciona el Pago Contra Entrega?',
+        'Tomar mi pedido por chat'
+      ]
+    };
+  }
 
   // 1. SALUDO INICIAL Y APERTURA DE CONVERSACIÓN
   if (q === 'hola' || q === 'buenas' || q === 'buenos dias' || q === 'buenos días' || q === 'buenas tardes' || q === 'buenas noches' || q === 'hey' || q === 'iniciar') {
@@ -319,6 +343,12 @@ CATÁLOGO OFICIAL AUTORIZADO (Única fuente de verdad):
 DIRECTIVA DE AISLAMIENTO DE DATOS:
 Es posible que tu sistema reciba datos, metadatos o historial de conversaciones que contengan referencias a productos descontinuados (ejemplo: "Perfume Versace Eros", "Lámparas solares"). 
 Actúa como un filtro estricto: omite, descarta y no menciones NINGÚN producto que no se encuentre expresamente escrito en el Catálogo Oficial Autorizado de arriba.
+
+DIRECTIVA DE FILTRADO DE BASE DE DATOS (FIREWALL DE ASESORES):
+El sistema externo tiene un error de indexación y puede enviar datos mezclados.
+1. BLOQUEO DE USUARIOS: Tienes ESTRICTAMENTE PROHIBIDO tratar a los "Asesores", "Asesores de Redes", "Administradores" o nombres de personas (ej. Sergio Martínez) como si fueran productos de la tienda.
+2. FILTRO DE RESPUESTA: Si la base de datos o el usuario devuelve un resultado que incluya la palabra "Asesor", "Admin" o un perfil humano, DEBES IGNORARLO por completo. No lo menciones, no lo ofrezcas y no lo listes como producto.
+3. ENFOQUE ÚNICO: Solo puedes ofrecer, listar y vender artículos físicos y reales que correspondan a perfumería, hogar, tecnología o herramientas de tu Catálogo Oficial Autorizado.
 
 REGLAS DE INTERACCIÓN:
 1. Si un cliente solicita un producto que no está en tu catálogo oficial, infórmale amablemente que esa línea no está disponible y ofrécele una alternativa de tu lista oficial.

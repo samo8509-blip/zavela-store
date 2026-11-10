@@ -293,8 +293,34 @@ export const DEFAULT_SOCIAL_POSTS: SocialBroadcastPost[] = [];
 const DEFAULT_ORDERS: Order[] = [];
 const DEFAULT_CUSTOMERS: Customer[] = [];
 
+export function isHumanOrAdvisorProfile(p: any): boolean {
+  if (!p) return false;
+  const title = String(p.title || p.nombre || p.name || '').toLowerCase().trim();
+  const id = String(p.id || (p as any).productId || '').toLowerCase().trim();
+  const slug = String(p.slug || '').toLowerCase().trim();
+  const cat = String(p.categoryName || p.categoria || (p as any).role || (p as any).rol || '').toLowerCase().trim();
+
+  // 🛡️ FIREWALL DE ASESORES: Bloqueo estricto de usuarios, administradores y perfiles humanos
+  const humanKeywords = [
+    'asesor', 'asesora', 'asesores', 'asesor de redes', 'asesora de redes',
+    'admin', 'administrador', 'administradora', 'administradores',
+    'sergio martínez', 'sergio martinez', 'asesor de ventas', 'asesor comercial',
+    'vendedor', 'vendedora', 'atencion al cliente', 'atención al cliente',
+    'soporte humano', 'ejecutivo de ventas', 'ejecutiva de ventas'
+  ];
+
+  return humanKeywords.some(kw => 
+    title.includes(kw) || 
+    slug.includes(kw.replace(/\s+/g, '-')) || 
+    cat.includes(kw) || 
+    id.includes(kw.replace(/\s+/g, '-'))
+  );
+}
+
 export function isTestProduct(p: any): boolean {
   if (!p) return false;
+  if (isHumanOrAdvisorProfile(p)) return true;
+
   const title = String(p.title || p.nombre || p.name || '').toLowerCase().trim();
   const id = String(p.id || (p as any).productId || '').toLowerCase().trim();
   const slug = String(p.slug || '').toLowerCase().trim();
