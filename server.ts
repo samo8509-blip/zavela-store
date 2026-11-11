@@ -20,6 +20,7 @@ import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
 import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
+import { ssrService } from './server/services/ssrService.ts';
 
 dotenv.config();
 
@@ -160,6 +161,72 @@ async function startServer() {
       }
     } catch (e: any) {
       res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // =========================================================================
+  // 🗺️ SEO & SSR: Sitemap XML, Robots TXT, Catálogo HTML y Producto SSR
+  // =========================================================================
+
+  app.get('/sitemap.xml', (req, res) => {
+    try {
+      const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || 'zavelastore.com.co';
+      const baseUrl = `${forwardedProto}://${host}`;
+      const xml = ssrService.generateSitemapXml(baseUrl);
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(xml);
+    } catch (err: any) {
+      console.error('[Sitemap XML Error]:', err);
+      res.status(500).send('Error generando sitemap.xml');
+    }
+  });
+
+  app.get('/robots.txt', (req, res) => {
+    try {
+      const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || 'zavelastore.com.co';
+      const baseUrl = `${forwardedProto}://${host}`;
+      const txt = ssrService.generateRobotsTxt(baseUrl);
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(txt);
+    } catch (err: any) {
+      console.error('[Robots TXT Error]:', err);
+      res.status(500).send('User-agent: *\nAllow: /\n');
+    }
+  });
+
+  // Página /catalogo en HTML simple (sin JS dependiente) con paginación
+  app.get(['/catalogo', '/catalogo/'], (req, res) => {
+    try {
+      const html = ssrService.renderCatalogPage(req);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.send(html);
+    } catch (err: any) {
+      console.error('[SSR Catalogo Error]:', err);
+      res.status(500).send('Error generando página de catálogo');
+    }
+  });
+
+  // Página individual de producto SSR con OpenGraph, Schema.org y HTML real
+  app.get(['/producto/:identifier', '/producto/:identifier/'], (req, res, next) => {
+    const identifier = req.params.identifier;
+    // Omitir si es un asset estático (ej. js, css, svg, png)
+    if (identifier.includes('.')) {
+      return next();
+    }
+
+    try {
+      const html = ssrService.renderProductPage(req, identifier);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.send(html);
+    } catch (err: any) {
+      console.error('[SSR Producto Error]:', err);
+      res.status(500).send('Error generando página de producto');
     }
   });
 

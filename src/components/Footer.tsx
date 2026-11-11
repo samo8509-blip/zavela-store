@@ -121,6 +121,11 @@ export const Footer: React.FC<FooterProps> = ({
                 </li>
               )}
               <li>
+                <a href="/catalogo" className="text-slate-600 hover:text-sky-600 transition-colors cursor-pointer flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold">›</span> Catálogo Completo (Versión HTML / Buscadores)
+                </a>
+              </li>
+              <li>
                 <button onClick={onOpenTracking} className="text-slate-600 hover:text-sky-600 transition-colors cursor-pointer flex items-center gap-1.5 font-medium">
                   <span className="text-sky-600 font-bold">›</span> Rastrear mi Pedido
                 </button>
