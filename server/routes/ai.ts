@@ -380,7 +380,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
         });
 
         const response = await aiClient.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: formattedContents,
           config: {
             systemInstruction,
@@ -419,7 +419,7 @@ Debes responder ÚNICAMENTE en formato JSON válido con la siguiente estructura:
 
           return res.json({
             success: true,
-            provider: 'gemini-2.5-flash',
+            provider: 'gemini-3.8-flash',
             reply: parsedResponse.reply,
             recommendedProducts: finalProducts,
             recommendedProductIds: finalIds,
@@ -850,7 +850,7 @@ async function handleCommerceMind(req: any, res: any) {
     if (aiClient && !isGeminiInCooldown()) {
       try {
         const response = await aiClient.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: [
             {
               role: 'user',

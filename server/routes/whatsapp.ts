@@ -1,6 +1,13 @@
 import { Router, Request, Response } from 'express';
+import { GoogleGenAI } from '@google/genai';
 import { db } from '../db.ts';
 import { Product, StoreSettings } from '../../src/types/index.ts';
+import {
+  buscarProductosToolDeclaration,
+  executeBuscarProductos,
+  interceptAndExecuteToolCalls,
+  sanitizeWhatsAppMessage
+} from '../services/whatsappToolService.ts';
 
 const router = Router();
 
@@ -54,10 +61,27 @@ function searchCatalogProducts(query: string, allProducts: Product[], limit: num
   return matched.slice(0, limit).map(s => s.product);
 }
 
-// Generate AI Reply for incoming WhatsApp message using direct fetch to Gemini REST API
-async function generateAIReply(userMessage: string, senderPhone: string): Promise<string> {
-  const allProducts = db.getProducts({ onlyActive: true });
+// Shared Gemini Client
+function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build'
+      }
+    }
+  });
+}
+
+// Generate AI Reply for incoming WhatsApp message with tool execution and interception
+async function generateAIReply(userMessage: string, senderPhone: string): Promise<string> {
+  // 1. Si el mensaje entrante es ya una llamada a herramienta (de un bot o webhook puente), interceptarla de inmediato
+  const directInterception = await interceptAndExecuteToolCalls(userMessage);
+  if (directInterception !== userMessage) {
+    return directInterception;
+  }
 
   if (!chatMemory.has(senderPhone)) {
     chatMemory.set(senderPhone, []);
@@ -70,64 +94,107 @@ async function generateAIReply(userMessage: string, senderPhone: string): Promis
     history.splice(0, history.length - 8);
   }
 
-  if (apiKey) {
+  const aiClient = getGeminiClient();
+
+  if (aiClient) {
     try {
-      const catalogSummary = allProducts.map(p => ({
-        id: p.id,
-        title: p.title,
-        price: `$${p.price.toLocaleString('es-CO')} COP`,
-        category: p.categoryName,
-        shortDesc: p.shortDescription || (p.description ? p.description.slice(0, 100) : '')
+      const systemPrompt = `Eres Elizabeth, la Asesora Ejecutiva oficial de Zavela Store Colombia (${STORE_URL}).
+Tu misión es atender a los clientes con calidez colombiana, generar confianza y cerrar ventas mediante Pago Contra Entrega.
+
+REGLAS ABSOLUTAS:
+1. SI EL CLIENTE PREGUNTA POR UN PRODUCTO, PRECIO O DISPONIBILIDAD: Debes invocar la función 'buscar_productos'.
+2. NUNCA MUESTRES CÓDIGO NI JSON AL CLIENTE. Toda interacción debe ser texto natural, humano y cordial.
+3. CERO ALUCINACIONES: No inventes precios ni confirmes artículos sin antes consultarlos con 'buscar_productos'.
+4. CONDICIONES COMERCIALES DE ZAVELA STORE:
+   - Envíos a toda Colombia de 2 a 5 días hábiles.
+   - Pago Contra Entrega: el cliente paga en efectivo únicamente cuando el transportador llegue a su domicilio.
+   - Si el cliente desea comprar, solicita: Nombre completo, Teléfono celular, Dirección con barrio, y Ciudad/Departamento.
+5. TONO: Ejecutivo, cálido, profesional y comercial, 100% colombiano.`;
+
+      const contents = history.map(item => ({
+        role: item.role,
+        parts: item.parts.map(p => ({ text: p.text }))
       }));
 
-      const systemPrompt = `INSTRUCCIÓN DE REINICIO DE SISTEMA (SISTEMA BASE):
-Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia (${STORE_URL}).
-
-1. AMNESIA DE CATÁLOGO: A partir de este momento, tienes estrictamente prohibido recordar, mencionar o sugerir CUALQUIER producto de pruebas anteriores, bases de datos estáticas locales o catálogos viejos (ej. Perfume Versense, productos de Dropi no vinculados, etc.). Tu memoria de productos locales ha sido borrada.
-2. DEPENDENCIA DE API/BASE DE DATOS: Solo puedes ofrecer, mencionar o confirmar el precio de un producto SI Y SOLO SI la información te es entregada en tiempo real mediante el webhook, la base de datos en vivo o el contexto inmediato de la consulta. Si no recibes datos externos del inventario, tu respuesta predeterminada DEBE ser exactamente: "Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad."
-3. CERO ALUCINACIONES: Bajo ninguna circunstancia puedes inventar precios, nombres de productos, ni placas de autenticidad.
-4. TONO: Amable, profesional y comercial, 100% colombiano.
-
-REGLAS COMPLEMENTARIAS:
-- Respuestas cortas, ejecutivas y resolutivas (máximo 2 a 4 líneas por párrafo).
-- Uso profesional y moderado de emojis.
-- Si el cliente confirma un producto o intención de compra, solicita: Nombre completo, Teléfono, Dirección, Barrio y Ciudad/Departamento.
-- Destaca Pago Contra Entrega en toda Colombia (2 a 5 días hábiles).
-
-INVENTARIO EN VIVO CONFIRMADO DE ZAVELA STORE:
-${JSON.stringify(catalogSummary)}`;
-
-      const payload = {
-        system_instruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: history
-      };
-
-  const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`, {
-        method: 'POST',
-        headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-        body: JSON.stringify(payload)
+      // Invocación a Gemini 3.8 Flash con la herramienta buscar_productos
+      const response = await aiClient.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          tools: [{ functionDeclarations: [buscarProductosToolDeclaration] }]
+        }
       });
 
-      const data = await aiResponse.json();
+      // Caso 1: Intercepción de Function Calls nativas del SDK
+      const functionCalls = response.functionCalls;
+      if (functionCalls && functionCalls.length > 0) {
+        const call = functionCalls.find(c => c.name === 'buscar_productos') || functionCalls[0];
+        const queryArg = String((call.args as any)?.query || (call.args as any)?.producto || (call.args as any)?.q || userMessage);
 
-      if (data.candidates && data.candidates.length > 0) {
-        const botReply = data.candidates[0].content.parts[0].text.trim();
-        history.push({ role: 'model', parts: [{ text: botReply }] });
-        return botReply;
-      } else {
-        console.error('Error de formato en Gemini API:', data);
+        console.log(`[WhatsApp Tool Call]: Ejecutando buscar_productos en segundo plano con query="${queryArg}"`);
+        const toolResult = await executeBuscarProductos(queryArg);
+
+        // Devolver el resultado de la función al modelo para que genere la respuesta natural
+        try {
+          const followUp = await aiClient.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: [
+              ...contents,
+              response.candidates![0].content,
+              {
+                role: 'user',
+                parts: [
+                  {
+                    functionResponse: {
+                      id: call.id,
+                      name: call.name,
+                      response: {
+                        encontrado: toolResult.found,
+                        productos: toolResult.products,
+                        instruccion_estricta: "Responde de forma 100% natural al cliente en WhatsApp como Elizabeth. Incluye el nombre del producto, precio exacto en COP, despacho con Pago Contra Entrega en efectivo al recibir en casa, y el enlace de compra. NUNCA muestres JSON ni menciones nombres de herramientas."
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            config: {
+              systemInstruction: systemPrompt
+            }
+          });
+
+          let naturalReply = followUp.text || toolResult.formattedText;
+          // Salvaguarda: interceptar cualquier pseudo-JSON residual
+          naturalReply = await interceptAndExecuteToolCalls(naturalReply);
+          naturalReply = sanitizeWhatsAppMessage(naturalReply);
+
+          history.push({ role: 'model', parts: [{ text: naturalReply }] });
+          return naturalReply;
+        } catch (eFollowUp: any) {
+          console.warn('[WhatsApp Tool FollowUp Warning]:', eFollowUp?.message || eFollowUp);
+          const fallbackNatural = sanitizeWhatsAppMessage(toolResult.formattedText);
+          history.push({ role: 'model', parts: [{ text: fallbackNatural }] });
+          return fallbackNatural;
+        }
+      }
+
+      // Caso 2: El modelo respondió con texto directamente.
+      // Interceptar si el modelo imprimió erróneamente un pseudo-JSON en lugar de un Tool Call formal.
+      let botText = response.text || '';
+      botText = await interceptAndExecuteToolCalls(botText);
+      botText = sanitizeWhatsAppMessage(botText);
+
+      if (botText) {
+        history.push({ role: 'model', parts: [{ text: botText }] });
+        return botText;
       }
     } catch (e: any) {
-      console.error('Fallo en la conexión directa a Gemini:', e?.message || e);
+      console.error('[WhatsApp Gemini Error]:', e?.message || e);
     }
   }
 
-  // RESPALDO RÁPIDO CON REGLAS DE ELIZABETH
+  // Fallback rápido si no hay API key o si hubo error:
   const textLower = userMessage.toLowerCase();
   
   if (textLower.includes('si') || textLower.includes('sí') || textLower.includes('quiero') || textLower.includes('comprar')) {
@@ -136,12 +203,12 @@ ${JSON.stringify(catalogSummary)}`;
     return confirmReply;
   }
 
-  const matched = searchCatalogProducts(userMessage, allProducts, 2);
-  if (matched.length > 0) {
-    const list = matched.map(p => `• 🛍️ *${p.title}* — $${p.price.toLocaleString('es-CO')} COP`).join('\n');
-    const fallbackReply = `¡Hola! 👋 Soy Elizabeth, Asesora Ejecutiva de Zavela Store. Confirmado en nuestro inventario en vivo:\n${list}\n\n🚚 Contamos con **Pago Contra Entrega** en toda Colombia.\n\n¿Deseas que preparemos tu despacho? Con gusto te asisto. 📦`;
-    history.push({ role: 'model', parts: [{ text: fallbackReply }] });
-    return fallbackReply;
+  // Ejecutar buscar_productos directamente en segundo plano para consultas de producto
+  const toolResult = await executeBuscarProductos(userMessage);
+  if (toolResult.found) {
+    const naturalText = sanitizeWhatsAppMessage(toolResult.formattedText);
+    history.push({ role: 'model', parts: [{ text: naturalText }] });
+    return naturalText;
   }
 
   const defaultReply = `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
@@ -160,6 +227,12 @@ async function sendWhatsAppCloudMessage(to: string, text: string, config: any): 
     return false;
   }
 
+  // Sanitización estricta para evitar que cualquier JSON de herramientas llegue al chat del cliente
+  let cleanText = sanitizeWhatsAppMessage(text);
+  if (!cleanText || cleanText.trim().length === 0) {
+    cleanText = 'Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.';
+  }
+
   try {
     const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
     const response = await fetch(url, {
@@ -175,7 +248,7 @@ async function sendWhatsAppCloudMessage(to: string, text: string, config: any): 
         type: 'text',
         text: {
           preview_url: true,
-          body: text
+          body: cleanText
         }
       })
     });

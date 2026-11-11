@@ -1,5 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db.ts';
+import {
+  executeBuscarProductos,
+  interceptAndExecuteToolCalls,
+  sanitizeWhatsAppMessage
+} from '../services/whatsappToolService.ts';
 
 const router = Router();
 
@@ -20,66 +25,52 @@ function normalizePhoneNumber(rawPhone?: string): string {
 
 /**
  * Generador de respuesta inteligente para Wavy (Wai) WhatsApp
+ * Intercepta y ejecuta llamadas a funciones (tool calls) en segundo plano
  * Asesora Ejecutiva: Elizabeth (Zavela Store Colombia)
  */
-function buildWavyBotResponse(userMessage: string, customerPhone: string): string {
+async function buildWavyBotResponse(userMessage: string, customerPhone: string): Promise<string> {
+  // 1. INTERCEPCIÓN DIRECTA DE TOOL CALLS (JSON o pseudo-código buscar_productos)
+  // Si WAI o el bot externo envió un bloque como:
+  // json { tool: buscar_productos, query: luces navideñas solares }
+  // se intercepta, se ejecuta en segundo plano y se devuelve únicamente texto natural.
+  const intercepted = await interceptAndExecuteToolCalls(userMessage);
+  if (intercepted !== userMessage) {
+    return sanitizeWhatsAppMessage(intercepted);
+  }
+
   const msg = (userMessage || '').toLowerCase().trim();
 
-  // 1. Saludos y bienvenida
+  // 2. Saludos y bienvenida
   if (msg.match(/^(hola|buenas|buenos dias|buenas tardes|buenas noches|inicio|menu|hi|hello)/i)) {
     return `¡Hola! 👋 Te damos una cordial bienvenida a *${STORE_NAME}*.\n\nSoy *Elizabeth*, tu Asesora Ejecutiva. Es un gusto saludarte. ¿En qué producto o requerimiento te puedo colaborar hoy con el mayor de los gustos?\n\n1️⃣ Consultar disponibilidad de un producto en inventario en vivo\n2️⃣ Información sobre *Pago Contra Entrega* (Pagas al recibir en casa)\n3️⃣ Estado de una orden o guía de despacho\n4️⃣ Hablar con un asesor comercial\n\n_Escríbeme tu consulta o el producto de tu interés y con gusto te asesoro._ ✨🇨🇴`;
   }
 
-  // 2. Información de Pago Contra Entrega y Envíos
+  // 3. Información de Pago Contra Entrega y Envíos
   if (msg.includes('contra entrega') || msg.includes('envio') || msg.includes('flete') || msg.includes('domicilio') || msg.includes('pago')) {
     return `🚚 *¡En ${STORE_NAME} compras con total tranquilidad y respaldo!* 🇨🇴\n\n✅ *Envío Nacional y Pago Contra Entrega* en las principales ciudades y municipios de Colombia.\n✅ El pedido llega en un lapso estimado de 2 a 5 días hábiles mediante transportadoras certificadas (Servientrega, Coordinadora, Envía o Inter Rapidísimo).\n✅ Pagas en efectivo directamente al transportador cuando tengas el paquete en tus manos.\n\n¿Tienes algún producto en mente para validar inventario en vivo y ayudarte a apartarlo? Quedo muy atenta. 📦`;
   }
 
-  // 3. Consulta de Guía o Estado de Pedido
+  // 4. Consulta de Guía o Estado de Pedido
   if (msg.includes('guia') || msg.includes('pedido') || msg.includes('rastreo') || msg.includes('estado') || msg.includes('despacho')) {
     return `📦 *Rastreo y Estado de Despacho - Zavela Store*\n\nCon mucho gusto verifico tu despacho en nuestro sistema en vivo. Por favor compárteme:\n\n• Tu *Nombre Completo*\n• Número de *Cédula* o *Celular registrado en la compra*\n• Producto adquirido\n\nCon estos datos consulto inmediatamente la guía de la transportadora para darte el reporte exacto. 🚚💨`;
   }
 
-  // 4. Búsqueda y validación estricta de inventario en vivo (Cero alucinaciones, dependencia exclusiva de BD en tiempo real)
-  try {
-    const products = db.getProducts({ onlyActive: true });
-    
-    // Si la base de datos en vivo está vacía o no tiene productos activos
-    if (!products || products.length === 0) {
-      return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
-    }
-
-    if (msg.length >= 3) {
-      const matched = products.filter(p => {
-        const title = (p.title || (p as any).name || '').toLowerCase();
-        const desc = (p.description || '').toLowerCase();
-        const cat = (p.categoryName || '').toLowerCase();
-        return title.includes(msg) || desc.includes(msg) || cat.includes(msg);
-      }).slice(0, 3);
-
-      if (matched.length > 0) {
-        let reply = `🔍 *Confirmado en nuestro inventario en vivo de Zavela Store:*\n\n`;
-        matched.forEach((item, idx) => {
-          const price = item.price ? `$${item.price.toLocaleString('es-CO')} COP` : 'Consultar disponibilidad';
-          const link = `${STORE_URL}/producto/${item.slug || item.id}`;
-          reply += `${idx + 1}️⃣ *${item.title}*\n💰 Precio confirmado: *${price}*\n🚚 Pago Contra Entrega disponible\n🔗 Ficha: ${link}\n\n`;
-        });
-        reply += `¿Deseas que reservemos alguna unidad para ti con despacho contra entrega? Indícame tu ciudad de destino para proceder. 🛍️`;
-        return reply;
-      } else {
-        // Si el usuario preguntó por un producto específico pero no está en la base de datos en vivo
-        const isProductQuery = msg.includes('precio') || msg.includes('tienen') || msg.includes('venden') || msg.includes('disponible') || msg.includes('cuanto') || msg.includes('costo') || msg.includes('perfume') || msg.includes('reloj') || msg.includes('producto');
-        if (isProductQuery) {
-          return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[Wavy Webhook] Error consultando inventario en vivo:', err);
-    return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
+  // 5. Intención de compra directa
+  if (msg.includes('si') || msg.includes('sí') || msg.includes('quiero') || msg.includes('comprar') || msg.includes('ordenar') || msg.includes('pedir')) {
+    return `¡Con mucho gusto! 📦 Para registrar tu pedido con Pago Contra Entrega en Colombia, por favor compárteme:\n\n👤 Nombre completo:\n📱 Teléfono de contacto:\n📍 Dirección y Barrio:\n🏙️ Ciudad y Departamento:\n\nQuedo atenta para procesarlo de inmediato y apartarlo en bodega. 😊`;
   }
 
-  // 5. Respuesta institucional predeterminada
+  // 6. Búsqueda y validación estricta de inventario en vivo con la herramienta buscar_productos
+  try {
+    const toolResult = await executeBuscarProductos(userMessage);
+    if (toolResult.found) {
+      return sanitizeWhatsAppMessage(toolResult.formattedText);
+    }
+  } catch (err) {
+    console.warn('[Wavy Webhook] Error consultando buscar_productos:', err);
+  }
+
+  // 7. Respuesta institucional predeterminada
   return `Permíteme verificar el sistema de inventario en vivo para confirmarte disponibilidad.`;
 }
 
@@ -109,7 +100,7 @@ router.get(['/', '/wavy-webhook', '/webhook'], (req: Request, res: Response) => 
  * POST /api/wavy-webhook
  * Recepción de eventos de mensajes entrantes de Wavy y retorno de respuesta estructurada
  */
-router.post(['/', '/wavy-webhook', '/webhook'], (req: Request, res: Response) => {
+router.post(['/', '/wavy-webhook', '/webhook'], async (req: Request, res: Response) => {
   try {
     const body = req.body || {};
 
@@ -148,8 +139,8 @@ router.post(['/', '/wavy-webhook', '/webhook'], (req: Request, res: Response) =>
       });
     }
 
-    // 3. Generar la respuesta del bot para el usuario
-    const replyText = buildWavyBotResponse(message, phone);
+    // 3. Generar la respuesta del bot para el usuario ejecutando herramientas en segundo plano
+    const replyText = await buildWavyBotResponse(message, phone);
 
     // 4. Formato de respuesta compatible con Wavy / Wai para contestar al cliente de WhatsApp
     const responsePayload = {
