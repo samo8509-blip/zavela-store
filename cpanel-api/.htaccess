@@ -1,0 +1,34 @@
+# Desactivar MultiViews para evitar que Apache/LiteSpeed intercepte /producto antes de mod_rewrite
+Options -MultiViews +FollowSymLinks
+
+# Reglas de enrutamiento para cPanel (Apache / LiteSpeed)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Sitemap dinámico y Robots
+  RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+  # 2. Catálogo SSR en PHP (HTML sin JavaScript requerido)
+  RewriteRule ^catalogo/?$ catalogo.php [L,QSA]
+
+  # 3. Página individual de producto SSR en PHP: Captura dinámica de ID (/producto/prod-1793405803457)
+  # Pasa tanto 'id' como 'slug' para compatibilidad universal
+  RewriteRule ^producto/([^/]+)/?$ producto.php?id=$1&slug=$1 [L,QSA]
+  RewriteRule ^producto/?$ producto.php [L,QSA]
+
+  # 4. Enrutamiento para SPA de React
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Cache-Control para favicon y logotipo
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/svg+xml "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/png "access plus 1 month"
+</IfModule>

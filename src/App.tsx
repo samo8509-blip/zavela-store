@@ -143,7 +143,12 @@ export default function App() {
   const activePalette = TRUST_PALETTES.find(p => p.id === activePaletteId) || TRUST_PALETTES[0];
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    if (typeof window !== 'undefined' && Array.isArray((window as any).__INITIAL_CATEGORIES__) && (window as any).__INITIAL_CATEGORIES__.length > 0) {
+      return (window as any).__INITIAL_CATEGORIES__;
+    }
+    return DEFAULT_CATEGORIES;
+  });
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');

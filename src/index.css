@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Menú desplegable Catálogo mediante CSS puro (SEO & Sin JS) */
+.catalog-dropdown-container {
+  position: relative;
+}
+
+.catalog-dropdown-menu {
+  display: none;
+}
+
+/* Activación por hover o focus en CSS puro (SEO Friendly) */
+.catalog-dropdown-container:hover > .catalog-dropdown-menu,
+.catalog-dropdown-container:focus-within > .catalog-dropdown-menu,
+.catalog-dropdown-menu:hover,
+.catalog-dropdown-menu.is-open {
+  display: block !important;
+}
+
+.catalog-dropdown-container:hover #nav-link-catalogo .catalog-chevron,
+.catalog-dropdown-container:focus-within #nav-link-catalogo .catalog-chevron {
+  transform: rotate(180deg);
+  color: #0284c7;
+}
+
 /* Ajuste de notificación de compra reciente solo para celulares */
 @media (max-width: 768px) {
   /* Si deseas moverlo a la parte superior */
@@ -16,3 +39,4 @@
     z-index: 99 !important;
   }
 }
+

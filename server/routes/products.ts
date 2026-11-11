@@ -9,7 +9,7 @@ const router = Router();
 // 🛡️ FUNCIÓN BLINDADA PARA NÚMEROS EN COP (PESOS COLOMBIANOS) 🛡️
 // Elimina símbolos $, puntos de miles, espacios y letras, dejando el número entero real.
 // Ej: "$ 114.997" -> 114997
-function parseNumCOP(val: any): number {
+export function parseNumCOP(val: any): number {
   if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   
@@ -20,7 +20,7 @@ function parseNumCOP(val: any): number {
   return isNaN(num) ? 0 : num;
 }
 
-function mapSqlRowToProduct(row: any): any {
+export function mapSqlRowToProduct(row: any): any {
   let images: string[] = [];
   if (typeof row.imagenes === 'string' && row.imagenes.trim()) {
     try { images = JSON.parse(row.imagenes); } catch { images = [row.imagenes]; }
@@ -190,7 +190,195 @@ router.post('/bulk-import', async (req, res) => {
       `, [id, item.name||'', parseNumCOP(item.price), parseNumCOP(item.cost_price), parseNumCOP(item.suggested_price), parseNumCOP(item.stock), item.description||'', item.dropi_product_id||null, shipping, shipping, shipping, dropiFee, item.images?.[0]||'', JSON.stringify(item.images||[])]);
     }
     res.status(201).json({ success: true, message: 'Importación exitosa' });
-    } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+  } catch (error: any) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ==============================================================================
+// 🤖 Endpoint de Consulta para Bots de WhatsApp (WAI / ManyChat / Kommo)
+// ==============================================================================
+export async function searchProductForBot(query: string): Promise<any> {
+  const cleanQuery = (query || '').trim();
+  const baseUrl = 'https://zavelastore.com.co';
+
+  if (!cleanQuery) {
+    return {
+      encontrado: false,
+      error: 'Parámetro de búsqueda requerido.',
+      instruccion: 'Envía el parámetro por GET (?producto=nombre) o POST JSON {"producto": "nombre"}',
+      nombre: '',
+      precio: 0,
+      precio_formateado: '$0 COP',
+      estado: 'no_especificado',
+      disponible: false,
+      stock: 0,
+      url: `${baseUrl}/catalogo`,
+      url_compra: `${baseUrl}/catalogo`,
+      imagen: `${baseUrl}/images/logo-zavela.jpg`,
+      mensaje: 'Por favor indícanos el nombre del producto que deseas consultar para darte el precio oficial y enlace directo.',
+      tienda: 'Zavela Store Colombia'
+    };
+  }
+
+  let matchedProduct: any = null;
+
+  // 1. Intentar consulta en MySQL
+  if (nativePool) {
+    try {
+      // 1.1 Coincidencia exacta por ID o Slug
+      const [exactRows]: any = await pool.query(
+        `SELECT * FROM productos 
+         WHERE (id = ? OR slug = ? OR dropi_product_id = ?) 
+           AND active = 1 
+           AND LOWER(nombre) NOT LIKE '%asesor%' 
+           AND LOWER(nombre) NOT LIKE '%admin%' 
+           AND LOWER(nombre) NOT LIKE '%prueba%' 
+         LIMIT 1`,
+        [cleanQuery, cleanQuery, cleanQuery]
+      );
+
+      if (Array.isArray(exactRows) && exactRows.length > 0) {
+        matchedProduct = mapSqlRowToProduct(exactRows[0]);
+      } else {
+        // 1.2 Búsqueda por palabras clave
+        const words = cleanQuery.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+        const stopWords = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'para', 'y', 'en', 'con', 'por', 'a', 'al', 'que', 'me', 'interesa', 'quiero', 'precio', 'costo', 'tienen', 'venden', 'comprar']);
+        const keywords = words.filter(w => !stopWords.has(w));
+
+        if (keywords.length > 0) {
+          const conditions = keywords.map(() => '(LOWER(nombre) LIKE ? OR LOWER(descripcion) LIKE ?)').join(' AND ');
+          const params: string[] = [];
+          for (const kw of keywords) {
+            params.push(`%${kw}%`, `%${kw}%`);
+          }
+
+          const [keywordRows]: any = await pool.query(
+            `SELECT *, 
+                    (CASE WHEN LOWER(nombre) LIKE ? THEN 10 ELSE 0 END + CASE WHEN stock > 0 THEN 5 ELSE 0 END) AS score
+             FROM productos
+             WHERE ${conditions}
+               AND active = 1
+               AND LOWER(nombre) NOT LIKE '%asesor%'
+               AND LOWER(nombre) NOT LIKE '%admin%'
+               AND LOWER(nombre) NOT LIKE '%prueba%'
+               AND LOWER(nombre) NOT LIKE '%dummy%'
+             ORDER BY score DESC, stock DESC, created_at DESC
+             LIMIT 1`,
+            [`%${cleanQuery.toLowerCase()}%`, ...params]
+          );
+
+          if (Array.isArray(keywordRows) && keywordRows.length > 0) {
+            matchedProduct = mapSqlRowToProduct(keywordRows[0]);
+          }
+        }
+
+        // 1.3 Coincidencia general parcial
+        if (!matchedProduct) {
+          const [likeRows]: any = await pool.query(
+            `SELECT * FROM productos
+             WHERE (LOWER(nombre) LIKE ? OR LOWER(categoria) LIKE ?)
+               AND active = 1
+               AND LOWER(nombre) NOT LIKE '%asesor%'
+               AND LOWER(nombre) NOT LIKE '%admin%'
+             ORDER BY stock DESC, created_at DESC
+             LIMIT 1`,
+            [`%${cleanQuery.toLowerCase()}%`, `%${cleanQuery.toLowerCase()}%`]
+          );
+          if (Array.isArray(likeRows) && likeRows.length > 0) {
+            matchedProduct = mapSqlRowToProduct(likeRows[0]);
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Bot Search MySQL Warning]:', e?.message);
+    }
+  }
+
+  // 2. Fallback a la base de datos local
+  if (!matchedProduct) {
+    const allProducts = db.getProducts({ onlyActive: true }).filter(p => !isTestProduct(p));
+    matchedProduct = allProducts.find(p => p.id === cleanQuery || p.slug === cleanQuery || p.dropiProductId === cleanQuery);
+
+    if (!matchedProduct) {
+      const qLower = cleanQuery.toLowerCase();
+      matchedProduct = allProducts.find(p => (p.title || '').toLowerCase().includes(qLower));
+    }
+
+    if (!matchedProduct) {
+      const words = cleanQuery.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+      if (words.length > 0) {
+        matchedProduct = allProducts.find(p => {
+          const t = (p.title || '').toLowerCase();
+          return words.every(w => t.includes(w));
+        });
+      }
+    }
+  }
+
+  // 3. Respuesta JSON estricta
+  if (matchedProduct) {
+    const id = String(matchedProduct.id);
+    const nombre = matchedProduct.title || 'Producto Zavela';
+    const precio = Number(matchedProduct.price || 0);
+    const stock = Number(matchedProduct.stock ?? 1);
+    const disponible = stock > 0 && matchedProduct.active !== false;
+    const estado = disponible ? 'disponible' : 'agotado';
+    const precioFormateado = `$${precio.toLocaleString('es-CO')} COP`;
+    const url = `${baseUrl}/producto/${id}`;
+    const imagen = matchedProduct.image || `${baseUrl}/images/logo-zavela.jpg`;
+
+    const rawDesc = String(matchedProduct.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const descripcion = rawDesc.length > 160 ? rawDesc.slice(0, 157) + '...' : rawDesc;
+
+    const mensaje = `✅ *${nombre}*\n\n` +
+                    `💰 *Precio oficial:* ${precioFormateado}\n` +
+                    `📦 *Estado:* ${disponible ? 'Disponible para despacho inmediato' : 'Temporalmente agotado'}\n` +
+                    `🚚 *Envío:* Gratis a nivel nacional con Pago Contra Entrega (pagas en efectivo al recibir)\n\n` +
+                    `👉 *Haz tu pedido o consulta fotos aquí:*\n${url}`;
+
+    return {
+      encontrado: true,
+      id,
+      nombre,
+      precio,
+      precio_formateado: precioFormateado,
+      estado,
+      disponible,
+      stock,
+      url,
+      url_compra: url,
+      categoria: matchedProduct.categoryName || 'General',
+      descripcion,
+      imagen,
+      mensaje,
+      metodos_pago: 'Pago Contra Entrega en efectivo, ePayco, Tarjeta',
+      garantia: 'Garantía directa de tienda Zavela Store Colombia'
+    };
+  }
+
+  return {
+    encontrado: false,
+    termino_buscado: cleanQuery,
+    id: '',
+    nombre: '',
+    precio: 0,
+    precio_formateado: '$0 COP',
+    estado: 'agotado',
+    disponible: false,
+    stock: 0,
+    url: `${baseUrl}/catalogo`,
+    url_compra: `${baseUrl}/catalogo`,
+    imagen: `${baseUrl}/images/logo-zavela.jpg`,
+    mensaje: `No encontramos un producto exacto con el nombre "${cleanQuery}" en nuestra base de datos oficial.\n\n👉 Puedes explorar nuestro catálogo completo con precios actualizados y pago contra entrega aquí:\n${baseUrl}/catalogo`,
+    sugerencia: `Visita ${baseUrl}/catalogo para ver todos los artículos disponibles`
+  };
+}
+
+router.all(['/bot-search', '/search-bot', '/consulta-bot'], async (req, res) => {
+  const query = (req.query.producto || req.query.q || req.query.nombre || req.query.search || req.query.query ||
+                 req.body?.producto || req.body?.q || req.body?.nombre || req.body?.query || req.body?.message || req.body?.text || '') as string;
+  const result = await searchProductForBot(query);
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json(result);
 });
 
 export default router;

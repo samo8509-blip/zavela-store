@@ -27,6 +27,7 @@ import { CustomerUser } from '../utils/customerAuthManager.ts';
 import { ZavelaLogo } from './ZavelaLogo.tsx';
 import { SeasonalLogoWrapper } from './SeasonalThemeOrnaments.tsx';
 import { resolveActiveSeasonalTheme } from '../utils/seasonalThemes.ts';
+import { DEFAULT_CATEGORIES } from '../data/categories.ts';
 
 interface HeaderProps {
   settings?: StoreSettings | null;
@@ -202,7 +203,15 @@ export const Header: React.FC<HeaderProps> = ({
     window.location.href = '/zavelastoresex';
   };
 
-  const activeCategories = categories.filter(c => c.active !== false && c.name.toLowerCase() !== 'sexshop' && c.name.toLowerCase() !== 'adultos');
+  const baseCategories = (categories && categories.length > 0)
+    ? categories
+    : ((typeof window !== 'undefined' && Array.isArray((window as any).__INITIAL_CATEGORIES__) && (window as any).__INITIAL_CATEGORIES__.length > 0)
+      ? (window as any).__INITIAL_CATEGORIES__
+      : DEFAULT_CATEGORIES);
+
+  const activeCategories = baseCategories.filter(
+    (c: Category) => c.active !== false && c.name && !c.name.toLowerCase().includes('sexshop') && !c.name.toLowerCase().includes('adult') && !c.name.toLowerCase().includes('asesor') && !c.name.toLowerCase().includes('admin')
+  );
 
   const activeCategoryId = selectedCategoryId !== 'all' 
     ? selectedCategoryId 
@@ -253,7 +262,7 @@ export const Header: React.FC<HeaderProps> = ({
       <header 
         id="main-store-header" 
         ref={megaMenuContainerRef}
-        className="sticky top-0 z-50 bg-white/98 backdrop-blur-md border-b border-slate-200/90 shadow-xs text-slate-900 transition-all w-full max-w-[100vw] overflow-hidden"
+        className="sticky top-0 z-50 bg-white/98 backdrop-blur-md border-b border-slate-200/90 shadow-xs text-slate-900 transition-all w-full max-w-[100vw] overflow-visible"
       >
         <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3">
           <div className="flex items-center justify-between gap-1.5 sm:gap-4 lg:gap-8 w-full">
@@ -297,22 +306,113 @@ export const Header: React.FC<HeaderProps> = ({
               </Link>
 
               <div 
-                className="relative py-2"
+                className="catalog-dropdown-container group/catalog relative py-2"
                 onMouseEnter={() => setIsMegaMenuOpen(true)}
+                onMouseLeave={() => setIsMegaMenuOpen(false)}
               >
-                <button
+                <a
+                  href="/catalogo"
                   id="nav-link-catalogo"
-                  onClick={() => setIsMegaMenuOpen(!isMegaMenuOpen)}
-                  className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  onClick={(e) => {
+                    if (window.innerWidth < 1024) {
+                      e.preventDefault();
+                      setIsMegaMenuOpen(!isMegaMenuOpen);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 transition-colors cursor-pointer no-underline ${
                     activeCategoryId !== 'all' || isMegaMenuOpen
                       ? 'text-sky-600 font-black'
-                      : 'hover:text-sky-600'
+                      : 'text-slate-800 hover:text-sky-600'
                   }`}
                   aria-expanded={isMegaMenuOpen}
+                  aria-haspopup="true"
                 >
                   <span>Catálogo</span>
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMegaMenuOpen ? 'rotate-180 text-sky-600' : 'text-slate-400'}`} />
-                </button>
+                  <ChevronDown className={`catalog-chevron w-3.5 h-3.5 transition-transform duration-200 ${isMegaMenuOpen ? 'rotate-180 text-sky-600' : 'text-slate-400 group-hover/catalog:rotate-180 group-hover/catalog:text-sky-600'}`} />
+                </a>
+
+                {/* Pure CSS Dropdown: siempre en el DOM, visible con :hover y :focus-within por CSS o por isMegaMenuOpen */}
+                <div 
+                  className={`catalog-dropdown-menu ${isMegaMenuOpen ? 'is-open' : ''} absolute top-full left-1/2 -translate-x-1/4 sm:-translate-x-1/3 md:-translate-x-1/2 w-[840px] max-w-[92vw] bg-white shadow-2xl border border-slate-200/90 rounded-2xl p-6 z-50 animate-in fade-in slide-in-from-top-1 duration-150`}
+                  role="menu"
+                  aria-label="Categorías del Catálogo"
+                >
+                  <div className="flex flex-col md:flex-row gap-6">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-100">
+                        <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
+                          <Layers className="w-3.5 h-3.5" />
+                        </div>
+                        <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
+                          Nuestras Categorías
+                        </h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {activeCategories.map(cat => {
+                          const catSlug = cat.slug || cat.id;
+                          const count = products.filter(p => p.categoryId === cat.id || p.categoryName === cat.name).length;
+                          return (
+                            <a
+                              key={cat.id}
+                              href={`/catalogo?categoria=${encodeURIComponent(catSlug)}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleCategorySelection(cat.id);
+                              }}
+                              className="group/item text-left p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50 transition-all flex items-center gap-3 cursor-pointer no-underline text-slate-800"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 group-hover/item:bg-white group-hover/item:border-sky-300 flex items-center justify-center shrink-0">
+                                <ShoppingBag className="w-4 h-4 text-slate-400 group-hover/item:text-sky-500" />
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className="font-bold text-xs text-slate-800 group-hover/item:text-sky-700 truncate">
+                                  {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {count > 0 ? `${count} productos` : 'Ver catálogo'}
+                                </p>
+                              </div>
+                            </a>
+                          );
+                        })}
+                        
+                        {activeCategories.length === 0 && (
+                          <p className="text-xs text-slate-400 col-span-full">No hay categorías configuradas.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="md:w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md shrink-0">
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-black flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Pago Contra Entrega</span>
+                        </span>
+                        <h3 className="font-black text-sm text-white leading-tight">
+                          Compra segura a nivel nacional
+                        </h3>
+                        <p className="text-[11px] text-slate-300 leading-snug">
+                          Revisa los productos en casa antes de pagar en efectivo al domiciliario.
+                        </p>
+                      </div>
+
+                      <div className="pt-4">
+                        <a
+                          href="/catalogo"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleCategorySelection('all');
+                          }}
+                          className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer no-underline"
+                        >
+                          <span>Ver Todo el Catálogo</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <button
@@ -497,80 +597,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {isMegaMenuOpen && (
-          <div 
-            className="absolute left-0 w-full bg-white shadow-xl border-t border-b border-slate-200 p-6 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
-            onMouseEnter={() => setIsMegaMenuOpen(true)}
-            onMouseLeave={() => setIsMegaMenuOpen(false)}
-          >
-            <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
-              
-              <div className="flex-1">
-                <div className="flex items-center gap-2 pb-2 mb-4 border-b border-slate-100">
-                  <div className="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center text-xs">
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                  <h4 className="font-black text-xs uppercase tracking-wider text-slate-900">
-                    Nuestras Categorías
-                  </h4>
-                </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {activeCategories.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => handleCategorySelection(cat.id)}
-                      className="group text-left p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50 transition-all flex items-center gap-3 cursor-pointer"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 group-hover:bg-white group-hover:border-sky-300 flex items-center justify-center shrink-0">
-                        <ShoppingBag className="w-4 h-4 text-slate-400 group-hover:text-sky-500" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="font-bold text-xs text-slate-800 group-hover:text-sky-700 truncate">
-                          {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          {products.filter(p => p.categoryId === cat.id).length} productos
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  
-                  {activeCategories.length === 0 && (
-                    <p className="text-xs text-slate-400 col-span-full">No hay categorías configuradas.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="md:w-72 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white rounded-2xl p-5 flex flex-col justify-between shadow-md shrink-0">
-                <div className="space-y-2">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-black flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Pago Contra Entrega</span>
-                  </span>
-                  <h3 className="font-black text-sm text-white leading-tight">
-                    Compra segura a nivel nacional
-                  </h3>
-                  <p className="text-[11px] text-slate-300 leading-snug">
-                    Revisa los productos en casa antes de pagar en efectivo al domiciliario.
-                  </p>
-                </div>
-
-                <div className="pt-4">
-                  <button
-                    onClick={() => handleCategorySelection('all')}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    <span>Ver Todo el Catálogo</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-slate-200 bg-white px-4 py-4 space-y-4 animate-in fade-in duration-200 w-full max-h-[85vh] overflow-y-auto">
             <div className="flex flex-col space-y-1 text-xs font-bold uppercase tracking-wider text-slate-800">
@@ -585,7 +611,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div>
                 <button
                   onClick={() => setIsMobileCatalogOpen(!isMobileCatalogOpen)}
-                  className="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-100 flex items-center justify-between text-slate-900 font-black"
+                  className="w-full text-left py-2 px-3 rounded-xl hover:bg-slate-100 flex items-center justify-between text-slate-900 font-black cursor-pointer"
                 >
                   <span>Catálogo de Productos</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${isMobileCatalogOpen ? 'rotate-180 text-sky-600' : ''}`} />
@@ -593,25 +619,36 @@ export const Header: React.FC<HeaderProps> = ({
 
                 {isMobileCatalogOpen && (
                   <div className="pl-4 pr-1 py-1 space-y-1 border-l-2 border-sky-400 ml-3 mt-1">
-                    <button
-                      onClick={() => handleCategorySelection('all')}
-                      className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold ${
+                    <a
+                      href="/catalogo"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleCategorySelection('all');
+                      }}
+                      className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold block no-underline ${
                         activeCategoryId === 'all' ? 'text-sky-600 font-black' : 'text-slate-600'
                       }`}
                     >
                       • Ver Todos los Productos
-                    </button>
-                    {activeCategories.map((cat) => (
-                      <button
-                        key={cat.id || cat.slug}
-                        onClick={() => handleCategorySelection(cat.id)}
-                        className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold truncate ${
-                          activeCategoryId === cat.id ? 'text-sky-600 font-black' : 'text-slate-600'
-                        }`}
-                      >
-                        • {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
-                      </button>
-                    ))}
+                    </a>
+                    {activeCategories.map((cat) => {
+                      const catSlug = cat.slug || cat.id;
+                      return (
+                        <a
+                          key={cat.id || cat.slug}
+                          href={`/catalogo?categoria=${encodeURIComponent(catSlug)}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleCategorySelection(cat.id);
+                          }}
+                          className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold truncate block no-underline ${
+                            activeCategoryId === cat.id ? 'text-sky-600 font-black' : 'text-slate-600'
+                          }`}
+                        >
+                          • {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
+                        </a>
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /catalogo
+Allow: /producto/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /asesor
+Disallow: /advisor
+
+Sitemap: https://zavelastore.com.co/sitemap.xml

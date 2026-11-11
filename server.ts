@@ -1,9 +1,10 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 
-import productsRouter from './server/routes/products.ts';
+import productsRouter, { searchProductForBot } from './server/routes/products.ts';
 import ordersRouter from './server/routes/orders.ts';
 import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
@@ -132,6 +133,30 @@ async function startServer() {
     next();
   });
 
+  // Soporte directo para API Webhook de consulta de productos para WAI y bots de WhatsApp
+  const handleBotProductRequest = async (req: express.Request, res: express.Response) => {
+    try {
+      const query = (req.query.producto || req.query.q || req.query.nombre || req.query.search || req.query.query ||
+                     req.body?.producto || req.body?.q || req.body?.nombre || req.body?.query || req.body?.message || req.body?.text || '') as string;
+      const result = await searchProductForBot(query);
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      return res.status(200).json(result);
+    } catch (err: any) {
+      return res.status(500).json({ encontrado: false, error: err.message, tienda: 'Zavela Store Colombia' });
+    }
+  };
+
+  app.all([
+    '/api-productos.php', 
+    '/api/api-productos.php', 
+    '/cpanel-api/api-productos.php',
+    '/api/bot/producto',
+    '/api/bot/productos'
+  ], handleBotProductRequest);
+
   // Soporte directo para convenciones de URLs PHP de cPanel MySQL
   app.use('/api/products.php', productsRouter);
   app.use('/api.php', productsRouter);
@@ -168,12 +193,12 @@ async function startServer() {
   // 🗺️ SEO & SSR: Sitemap XML, Robots TXT, Catálogo HTML y Producto SSR
   // =========================================================================
 
-  app.get('/sitemap.xml', (req, res) => {
+  app.get('/sitemap.xml', async (req, res) => {
     try {
       const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || 'zavelastore.com.co';
       const baseUrl = `${forwardedProto}://${host}`;
-      const xml = ssrService.generateSitemapXml(baseUrl);
+      const xml = await ssrService.generateSitemapXml(baseUrl);
       res.setHeader('Content-Type', 'application/xml; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.send(xml);
@@ -199,9 +224,9 @@ async function startServer() {
   });
 
   // Página /catalogo en HTML simple (sin JS dependiente) con paginación
-  app.get(['/catalogo', '/catalogo/'], (req, res) => {
+  app.get(['/catalogo', '/catalogo/'], async (req, res) => {
     try {
-      const html = ssrService.renderCatalogPage(req);
+      const html = await ssrService.renderCatalogPage(req);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=300');
       res.send(html);
@@ -212,7 +237,7 @@ async function startServer() {
   });
 
   // Página individual de producto SSR con OpenGraph, Schema.org y HTML real
-  app.get(['/producto/:identifier', '/producto/:identifier/'], (req, res, next) => {
+  app.get(['/producto/:identifier', '/producto/:identifier/'], async (req, res, next) => {
     const identifier = req.params.identifier;
     // Omitir si es un asset estático (ej. js, css, svg, png)
     if (identifier.includes('.')) {
@@ -220,7 +245,7 @@ async function startServer() {
     }
 
     try {
-      const html = ssrService.renderProductPage(req, identifier);
+      const html = await ssrService.renderProductPage(req, identifier);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=300');
       res.send(html);
@@ -230,19 +255,79 @@ async function startServer() {
     }
   });
 
+  // Soporte para URLs con parámetro query (/producto?id=prod-1793405803457)
+  app.get(['/producto', '/producto/'], async (req, res) => {
+    const id = (req.query.id || req.query.slug) as string | undefined;
+    if (id && typeof id === 'string') {
+      try {
+        const html = await ssrService.renderProductPage(req, id);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        return res.send(html);
+      } catch (err: any) {
+        console.error('[SSR Producto Query Error]:', err);
+        return res.status(500).send('Error generando página de producto');
+      }
+    }
+    return res.redirect('/catalogo');
+  });
+
+  // Helper to inject initial categories into index.html for instant Navbar rendering
+  const injectInitialCategoriesIntoHtml = async (html: string): Promise<string> => {
+    try {
+      const categories = await ssrService.getActiveCategoriesFromDb();
+      if (categories && categories.length > 0) {
+        const scriptTag = `<script id="server-injected-categories">window.__INITIAL_CATEGORIES__ = ${JSON.stringify(categories)};</script>`;
+        return html.replace('</head>', `  ${scriptTag}\n  </head>`);
+      }
+    } catch (e: any) {
+      console.warn('[Server Categories Injection Warning]:', e?.message);
+    }
+    return html;
+  };
+
   // Vite middleware for development & Static build for production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
+
+    // Inyectar categorías iniciales en la carga del HTML principal
+    app.use(async (req, res, next) => {
+      const url = req.originalUrl;
+      if (req.method === 'GET' && (url === '/' || url.startsWith('/?'))) {
+        try {
+          const template = await fs.promises.readFile(path.join(process.cwd(), 'index.html'), 'utf-8');
+          let html = await vite.transformIndexHtml(url, template);
+          html = await injectInitialCategoriesIntoHtml(html);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.status(200).send(html);
+        } catch (e) {
+          return next(e);
+        }
+      }
+      next();
+    });
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res, next) => {
+    app.get('*', async (req, res, next) => {
       if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
         return next();
+      }
+      try {
+        const indexPath = path.join(distPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          const rawHtml = await fs.promises.readFile(indexPath, 'utf-8');
+          const html = await injectInitialCategoriesIntoHtml(rawHtml);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          return res.status(200).send(html);
+        }
+      } catch (e) {
+        // Fallback standard
       }
       res.sendFile(path.join(distPath, 'index.html'));
     });
