@@ -23,6 +23,39 @@
   color: #0284c7;
 }
 
+/* Ajuste de legibilidad para los botones de categorías en el menú desplegable */
+.catalog-dropdown-menu .group\/item,
+.dropdown-cat-card {
+  display: flex !important;
+  align-items: center !important;
+  min-height: 54px;
+}
+
+.catalog-dropdown-menu .group\/item > div:first-child,
+.cat-card-icon {
+  flex-shrink: 0 !important;
+}
+
+.catalog-dropdown-menu .group\/item > div:last-child,
+.cat-card-info {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+/* Permitir que el texto fluya a segunda línea y eliminar cualquier corte por ellipsis */
+.catalog-dropdown-menu .group\/item p:first-child,
+.cat-card-title {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  line-height: 1.25 !important;
+  max-width: 100% !important;
+}
+
 /* Ajuste de notificación de compra reciente solo para celulares */
 @media (max-width: 768px) {
   /* Si deseas moverlo a la parte superior */

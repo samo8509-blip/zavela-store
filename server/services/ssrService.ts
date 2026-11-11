@@ -605,6 +605,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       text-decoration: none;
       transition: all 0.15s ease;
       background: #ffffff;
+      min-height: 52px;
     }
     .dropdown-cat-card:hover {
       border-color: #bae6fd;
@@ -613,12 +614,28 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
     .cat-card-icon {
       font-size: 1.1rem;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cat-card-info {
+      flex: 1;
+      min-width: 0;
+      overflow: visible;
     }
     .cat-card-title {
       display: block;
       font-size: 0.82rem;
       font-weight: 700;
       color: #1e293b;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: normal;
+      text-overflow: clip;
+      overflow: visible;
+      line-height: 1.25;
     }
     .dropdown-cat-card:hover .cat-card-title {
       color: #0369a1;
@@ -627,6 +644,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       display: block;
       font-size: 0.7rem;
       color: #64748b;
+      margin-top: 0.15rem;
     }
     .dropdown-promo-col {
       width: 250px;
@@ -1304,6 +1322,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       text-decoration: none;
       transition: all 0.15s ease;
       background: #ffffff;
+      min-height: 52px;
     }
     .dropdown-cat-card:hover {
       border-color: #bae6fd;
@@ -1312,12 +1331,28 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
     .cat-card-icon {
       font-size: 1.1rem;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cat-card-info {
+      flex: 1;
+      min-width: 0;
+      overflow: visible;
     }
     .cat-card-title {
       display: block;
       font-size: 0.82rem;
       font-weight: 700;
       color: #1e293b;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: normal;
+      text-overflow: clip;
+      overflow: visible;
+      line-height: 1.25;
     }
     .dropdown-cat-card:hover .cat-card-title {
       color: #0369a1;
@@ -1326,6 +1361,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       display: block;
       font-size: 0.7rem;
       color: #64748b;
+      margin-top: 0.15rem;
     }
     .dropdown-promo-col {
       width: 250px;

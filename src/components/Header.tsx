@@ -360,16 +360,16 @@ export const Header: React.FC<HeaderProps> = ({
                                 e.preventDefault();
                                 handleCategorySelection(cat.id);
                               }}
-                              className="group/item text-left p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50 transition-all flex items-center gap-3 cursor-pointer no-underline text-slate-800"
+                              className="group/item text-left p-3 rounded-xl border border-slate-100 hover:border-sky-200 hover:bg-sky-50 transition-all flex items-center gap-3 cursor-pointer no-underline text-slate-800 min-h-[56px]"
                             >
                               <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 group-hover/item:bg-white group-hover/item:border-sky-300 flex items-center justify-center shrink-0">
                                 <ShoppingBag className="w-4 h-4 text-slate-400 group-hover/item:text-sky-500" />
                               </div>
-                              <div className="overflow-hidden">
-                                <p className="font-bold text-xs text-slate-800 group-hover/item:text-sky-700 truncate">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-xs text-slate-800 group-hover/item:text-sky-700 leading-snug break-words whitespace-normal">
                                   {cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
                                 </p>
-                                <p className="text-[10px] text-slate-500">
+                                <p className="text-[10px] text-slate-500 mt-0.5">
                                   {count > 0 ? `${count} productos` : 'Ver catálogo'}
                                 </p>
                               </div>
@@ -641,7 +641,7 @@ export const Header: React.FC<HeaderProps> = ({
                             e.preventDefault();
                             handleCategorySelection(cat.id);
                           }}
-                          className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold truncate block no-underline ${
+                          className={`w-full text-left py-1.5 px-2 rounded-lg text-xs font-bold break-words whitespace-normal leading-snug block no-underline ${
                             activeCategoryId === cat.id ? 'text-sky-600 font-black' : 'text-slate-600'
                           }`}
                         >

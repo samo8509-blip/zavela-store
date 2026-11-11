@@ -257,10 +257,11 @@ $waMsg = urlencode("¡Hola Zavela Store! Quiero pedir con Pago Contra Entrega el
     .dropdown-categories-col { flex: 1; }
     .dropdown-heading { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #0f172a; padding-bottom: 0.5rem; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 0.4rem; }
     .dropdown-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
-    .dropdown-cat-card { display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.8rem; border: 1px solid #f1f5f9; border-radius: 10px; text-decoration: none; background: white; }
+    .dropdown-cat-card { display: flex; align-items: center; gap: 0.65rem; padding: 0.6rem 0.8rem; border: 1px solid #f1f5f9; border-radius: 10px; text-decoration: none; background: white; min-height: 52px; }
     .dropdown-cat-card:hover { border-color: #bae6fd; background: #f0f9ff; }
-    .cat-card-title { font-size: 0.82rem; font-weight: 700; color: #1e293b; display: block; }
-    .cat-card-count { font-size: 0.7rem; color: #64748b; display: block; }
+    .cat-card-info { flex: 1; min-width: 0; overflow: visible; }
+    .cat-card-title { font-size: 0.82rem; font-weight: 700; color: #1e293b; display: block; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; word-break: normal; text-overflow: clip; overflow: visible; line-height: 1.25; }
+    .cat-card-count { font-size: 0.7rem; color: #64748b; display: block; margin-top: 0.15rem; }
     .dropdown-promo-col { width: 240px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0369a1 100%); color: white; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; }
     .promo-badge { color: #34d399; font-size: 0.65rem; font-weight: 800; }
     .promo-title { font-size: 0.95rem; font-weight: 800; margin: 0.4rem 0; line-height: 1.25; }
