@@ -18,7 +18,7 @@ import dropiRouter from './server/routes/dropi.ts';
 import backupsRouter from './server/routes/backups.ts';
 import { authRouter } from './server/routes/auth.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
-import { db } from './server/db.ts';
+import { db, isTestProduct } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
 import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
 import { ssrService } from './server/services/ssrService.ts';
@@ -156,6 +156,35 @@ async function startServer() {
     '/api/bot/producto',
     '/api/bot/productos'
   ], handleBotProductRequest);
+
+  // Endpoint de descarga de catálogo en texto plano .txt para Agente de IA (WAI)
+  app.get(['/export_catalogo_wai.php', '/catalogo_wai.txt', '/api/export_catalogo_wai.php'], async (req, res) => {
+    try {
+      const baseUrl = 'https://zavelastore.com.co';
+      const allProducts = await ssrService.getActiveProductsFromDb();
+
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="catalogo_wai.txt"');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      const lines = allProducts
+        .filter(p => !isTestProduct(p))
+        .map(p => {
+          const name = (p.title || (p as any).nombre || 'Producto Zavela').trim();
+          const price = Math.round(p.price || (p as any).precio || 0);
+          const priceFormatted = `$${price.toLocaleString('es-CO')} COP`;
+          const slug = p.slug || p.id || 'producto';
+          return `${name} | Precio: ${priceFormatted} | Enlace: ${baseUrl}/producto/${slug}`;
+        });
+
+      res.send(lines.join('\n'));
+    } catch (e: any) {
+      console.error('[Export Catalogo WAI Error]:', e);
+      res.status(500).send('Error exportando catálogo');
+    }
+  });
 
   // Soporte directo para convenciones de URLs PHP de cPanel MySQL
   app.use('/api/products.php', productsRouter);
