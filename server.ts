@@ -176,7 +176,7 @@ async function startServer() {
           const price = Math.round(p.price || (p as any).precio || 0);
           const priceFormatted = `$${price.toLocaleString('es-CO')} COP`;
           const slug = p.slug || p.id || 'producto';
-          return `${name} | Precio: ${priceFormatted} | Enlace: ${baseUrl}/producto/${slug}`;
+          return `${name} | Precio: ${priceFormatted} | Enlace: ${baseUrl}/producto/${slug} | Enlace de compra: ${baseUrl}/?producto=${encodeURIComponent(slug)}&comprar=1`;
         });
 
       res.send(lines.join('\n'));
