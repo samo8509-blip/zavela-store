@@ -73,8 +73,8 @@ export function extractProductIdentifierFromUrl(): ExtractedProductRoute {
     }
   }
 
-  // 2. Detección en parámetros de búsqueda (?product=... o ?p=... o ?id=...)
-  const queryParam = searchParams.get('product') || searchParams.get('p') || searchParams.get('id');
+  // 2. Detección en parámetros de búsqueda (?product=... o ?producto=... o ?p=... o ?id=...)
+  const queryParam = searchParams.get('product') || searchParams.get('producto') || searchParams.get('p') || searchParams.get('id');
   if (queryParam) {
     try {
       const decoded = decodeURIComponent(queryParam).trim();

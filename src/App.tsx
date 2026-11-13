@@ -690,6 +690,51 @@ export default function App() {
     setIsCheckoutOpen(true);
   };
 
+  // Enlace de compra directa (ej. enviado por el agente de IA en el chat):
+  //   https://zavelastore.com.co/?producto=<slug>&comprar=1&cantidad=2
+  // Abre el checkout con el producto ya en el carrito. El precio sale siempre del catálogo.
+  // Si el producto tiene variantes (talla/color) o no tiene stock, solo se abre su ficha.
+  const hasProcessedBuyLink = useRef(false);
+  useEffect(() => {
+    if (hasProcessedBuyLink.current || products.length === 0) return;
+    hasProcessedBuyLink.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const wantsBuy = ['1', 'true', 'si'].includes((params.get('comprar') || '').toLowerCase());
+    if (!wantsBuy) return;
+
+    const routeInfo = extractProductIdentifierFromUrl();
+    if (!routeInfo.isProductRoute || !routeInfo.identifier) return;
+
+    const rawQty = parseInt(params.get('cantidad') || '1', 10);
+    const quantity = Math.min(10, Math.max(1, Number.isFinite(rawQty) ? rawQty : 1));
+
+    (async () => {
+      try {
+        const product =
+          resolveProductMatch(routeInfo.identifier!, products) ||
+          (await fetchProductDirectlyFromApi(routeInfo.identifier!));
+        if (!product) return; // el flujo normal mostrará "producto no encontrado"
+
+        // Quita los parámetros de compra para que recargar la página no vuelva a agregar el producto
+        const cleanParams = new URLSearchParams(window.location.search);
+        ['comprar', 'cantidad'].forEach(k => cleanParams.delete(k));
+        const cleanSearch = cleanParams.toString();
+        navigate(`${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`, { replace: true });
+
+        const hasVariants = (product.variants?.length || 0) > 1;
+        const outOfStock = typeof product.stock === 'number' && product.stock <= 0;
+        if (hasVariants || outOfStock) {
+          setSelectedProduct(product); // que el cliente elija variante o vea que no hay stock
+          return;
+        }
+        handleBuyNow(product, product.variants?.[0], quantity);
+      } catch (e) {
+        console.warn('Error procesando enlace de compra directa:', e);
+      }
+    })();
+  }, [products]);
+
   const handleAddComboToCart = (
     product: Product,
     comboItems: {

@@ -126,8 +126,8 @@ while ($producto = $stmt->fetch()) {
     }
 
     // Línea de salida en formato estricto:
-    // [Nombre del producto] | Precio: $[Precio formateado con puntos] COP | Enlace: https://zavelastore.com.co/producto/[slug]
-    $linea = "{$nombre} | Precio: \${$precioFormateado} COP | Enlace: {$base_url}/producto/{$slug}\n";
+    // [Nombre del producto] | Precio: $[Precio formateado con puntos] COP | Enlace: https://zavelastore.com.co/producto/[slug] | Enlace de compra: https://zavelastore.com.co/?producto=[slug]&comprar=1
+    $linea = "{$nombre} | Precio: \${$precioFormateado} COP | Enlace: {$base_url}/producto/{$slug} | Enlace de compra: {$base_url}/?producto=" . rawurlencode($slug) . "&comprar=1\n";
     fwrite($salida, $linea);
 }
 
