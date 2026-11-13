@@ -45,6 +45,18 @@
     <div id="root" class="notranslate" translate="no"></div>
     <script id="epayco-checkout-script" src="https://checkout.epayco.co/checkout.js" async></script>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Chat web WAI (agente de IA). No se carga en el panel de administración ni de asesores. -->
+    <script>
+      (function () {
+        var p = location.pathname;
+        if (p.indexOf('/admin') === 0 || p.indexOf('/advisor') === 0 || p.indexOf('/asesor') === 0) return;
+        var s = document.createElement('script');
+        s.src = 'https://api.artechclick.com/api/v1/chatweb/widget.js';
+        s.setAttribute('data-wai', 'cw_pub_1sp5ttzhz0h6c1tuv3em');
+        s.async = true;
+        document.body.appendChild(s);
+      })();
+    </script>
   </body>
 </html>
 

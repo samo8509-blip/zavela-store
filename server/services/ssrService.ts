@@ -5,6 +5,10 @@ import { mapSqlRowToProduct } from '../routes/products.ts';
 import { Product, StoreSettings } from '../../src/types/index.ts';
 import { DEFAULT_CATEGORIES } from '../../src/data/categories.ts';
 
+// Chat web de WAI (agente de IA). Se inyecta en las páginas SSR (catálogo y producto).
+const WAI_CHAT_SCRIPT = `<script src="https://api.artechclick.com/api/v1/chatweb/widget.js" data-wai="cw_pub_1sp5ttzhz0h6c1tuv3em" async></script>`;
+
+
 // Helper to sanitize strings for HTML insertion
 function escapeHtml(str: string = ''): string {
   return String(str)
@@ -1045,6 +1049,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
     });
   </script>
+  ${WAI_CHAT_SCRIPT}
 </body>
 </html>`;
   }
@@ -1719,6 +1724,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       }
     });
   </script>
+  ${WAI_CHAT_SCRIPT}
 </body>
 </html>`;
   }
