@@ -162,7 +162,7 @@ export const TopCategoryNav: React.FC<TopCategoryNavProps> = ({
       return {
         icon: <Gift className="w-3.5 h-3.5 text-amber-300 animate-pulse" />,
         isChristmas: true,
-        badgeText: '🎄 50% OFF',
+        badgeText: '🎄 OFERTAS',
         badgeBg: 'bg-red-950 text-amber-300 border-red-500/60'
       };
     }
