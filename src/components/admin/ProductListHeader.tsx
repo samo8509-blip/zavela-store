@@ -1,10 +1,11 @@
 import React from 'react';
-import { Database, BookOpen, RefreshCw, Boxes, Plus } from 'lucide-react';
+import { Database, BookOpen, RefreshCw, Boxes, Plus, FileSpreadsheet } from 'lucide-react';
 
 export interface ProductListHeaderProps {
   productsCount: number;
   onOpenBackups: () => void;
   onOpenMagazine: () => void;
+  onDownloadPriceList?: () => void;
   onSync: () => void;
   onNavigateToDropiImporter?: () => void;
   onCreateProduct: () => void;
@@ -14,6 +15,7 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
   productsCount,
   onOpenBackups,
   onOpenMagazine,
+  onDownloadPriceList,
   onSync,
   onNavigateToDropiImporter,
   onCreateProduct
@@ -66,6 +68,19 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
           <span className="hidden sm:inline">Revista Catálogo PDF</span>
           <span className="sm:hidden">Revista PDF</span>
         </button>
+
+        {onDownloadPriceList && (
+          <button
+            onClick={onDownloadPriceList}
+            type="button"
+            title="Descargar para Excel la lista de productos activos con nombre, precio de venta y costo"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer shrink-0"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Lista de precios (Excel)</span>
+            <span className="sm:hidden">Lista Excel</span>
+          </button>
+        )}
 
         <button
           onClick={onSync}

@@ -735,6 +735,31 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         productsCount={products.length}
         onOpenBackups={() => setIsBackupModalOpen(true)}
         onOpenMagazine={() => setIsMagazineModalOpen(true)}
+        onDownloadPriceList={() => {
+          // Lista simple para Excel: solo Producto, Precio de venta y Costo (productos activos)
+          const active = products.filter(p => p.active !== false);
+          const quote = (v: string) => `"${v.replace(/"/g, '""')}"`;
+          let withoutCost = 0;
+          const rows = active.map(p => {
+            const name = String(p.title || (p as any).name || '').replace(/\s+/g, ' ').trim();
+            const price = parseNumCOP(p.price || (p as any).precio);
+            const cost = parseNumCOP(p.costPrice || (p as any).supplier_cost || (p as any).costo);
+            if (!cost) withoutCost++;
+            return [quote(name), String(price), cost ? String(cost) : ''];
+          });
+          // BOM + separador ";" para que Excel en español lo abra en columnas y con tildes correctas
+          const csv = '\uFEFF' + [['Producto', 'Precio de venta', 'Costo'], ...rows].map(r => r.join(';')).join('\r\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `lista-precios-zavela-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast(`Lista descargada: ${active.length} productos${withoutCost ? ` (${withoutCost} sin costo registrado)` : ''}`);
+        }}
         onSync={async () => {
           showToast('Sincronizando catálogo con cPanel MySQL...');
           onRefresh();
