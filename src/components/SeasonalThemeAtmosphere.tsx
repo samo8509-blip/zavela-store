@@ -16,6 +16,7 @@ interface Particle {
   content: string;
   type: 'emoji' | 'circle' | 'sparkle';
   color?: string;
+  colorText?: boolean; // aplica el color también a caracteres de texto (%, $)
 }
 
 export const SeasonalThemeAtmosphere: React.FC<SeasonalThemeAtmosphereProps> = ({
@@ -105,6 +106,21 @@ export const SeasonalThemeAtmosphere: React.FC<SeasonalThemeAtmosphereProps> = (
           type: content === '•' ? 'circle' : 'emoji',
           color: '#ef4444'
         });
+      } else if (themeId === 'black-friday') {
+        const saleChars = ['%', '$', '✨', '•', '%'];
+        const content = saleChars[i % saleChars.length];
+        list.push({
+          id: i,
+          left,
+          size: content === '•' ? 5 : 14 + (i % 3) * 4,
+          duration: duration + 1,
+          delay,
+          opacity: opacity * 0.9,
+          content,
+          type: content === '•' ? 'circle' : 'emoji',
+          color: '#facc15',
+          colorText: true
+        });
       } else if (themeId === 'standard-cyber') {
         // High-tech subtle cyan glowing nodes
         list.push({
@@ -128,7 +144,7 @@ export const SeasonalThemeAtmosphere: React.FC<SeasonalThemeAtmosphereProps> = (
     return null;
   }
 
-  const isDriftingDown = themeId === 'navidad-fin-ano' || themeId === 'madre';
+  const isDriftingDown = themeId === 'navidad-fin-ano' || themeId === 'madre' || themeId === 'black-friday';
 
   return (
     <div 
@@ -196,7 +212,7 @@ export const SeasonalThemeAtmosphere: React.FC<SeasonalThemeAtmosphereProps> = (
                 className="block rounded-full" 
               />
             ) : (
-              <span className="drop-shadow-xs">{p.content}</span>
+              <span className="drop-shadow-xs" style={p.colorText ? { color: p.color, fontWeight: 800 } : undefined}>{p.content}</span>
             )}
           </div>
         );

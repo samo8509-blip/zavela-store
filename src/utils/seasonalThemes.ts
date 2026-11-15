@@ -18,8 +18,8 @@ export interface SeasonalThemeDefinition {
   accentColor: string;
   previewBgClass: string;
   previewBorderColor: string;
-  ornamentType: 'none' | 'santa-hat' | 'witch-hat' | 'hearts' | 'mother-flower' | 'friendship-ribbon' | 'cyber-hud';
-  particleTypes: ('snow' | 'bat' | 'pumpkin' | 'heart' | 'rose-petal' | 'gold-sparkle' | 'cyan-spark')[];
+  ornamentType: 'none' | 'santa-hat' | 'witch-hat' | 'hearts' | 'mother-flower' | 'friendship-ribbon' | 'cyber-hud' | 'price-tag';
+  particleTypes: ('snow' | 'bat' | 'pumpkin' | 'heart' | 'rose-petal' | 'gold-sparkle' | 'cyan-spark' | 'percent')[];
 }
 
 export const SEASONAL_THEMES: SeasonalThemeDefinition[] = [
@@ -136,6 +136,25 @@ export const SEASONAL_THEMES: SeasonalThemeDefinition[] = [
     particleTypes: ['bat', 'pumpkin', 'gold-sparkle']
   },
   {
+    id: 'black-friday',
+    name: 'Black Friday y Cyber Monday (Noviembre)',
+    shortName: 'Black Friday',
+    monthLabel: 'Noviembre',
+    targetMonth: 10,
+    icon: '🏷️',
+    badgeColor: 'bg-black/80 text-yellow-300 border-yellow-400/60',
+    tagline: 'Las mejores ofertas del año',
+    description: 'Etiqueta de oferta negra y dorada sobre el logo, resplandor amarillo y símbolos de descuento cayendo. Se activa solo en la semana de Black Friday hasta Cyber Monday.',
+    primaryColor: '#facc15',
+    secondaryColor: '#ef4444',
+    glowColor: '#facc15',
+    accentColor: '#f97316',
+    previewBgClass: 'bg-gradient-to-br from-black via-[#111111] to-[#1c1917] text-white border-yellow-400/60',
+    previewBorderColor: '#facc15',
+    ornamentType: 'price-tag',
+    particleTypes: ['percent', 'gold-sparkle']
+  },
+  {
     id: 'navidad-fin-ano',
     name: 'Navidad y Fin de Año (Diciembre)',
     shortName: 'Navidad & Fin de Año',
@@ -162,9 +181,30 @@ export const MONTH_NAMES_ES = [
 ];
 
 /**
+ * Black Friday = cuarto viernes de noviembre del año dado.
+ */
+export function getBlackFridayDate(year: number): Date {
+  const firstOfNovember = new Date(year, 10, 1);
+  const offsetToFriday = (5 - firstOfNovember.getDay() + 7) % 7; // 5 = viernes
+  return new Date(year, 10, 1 + offsetToFriday + 21);
+}
+
+/**
+ * Semana de Black Friday: desde el lunes anterior hasta el Cyber Monday (lunes siguiente).
+ * Fuera de esas fechas el calendario automático sigue con Navidad.
+ */
+export function isBlackFridayWindow(date: Date = new Date()): boolean {
+  const bf = getBlackFridayDate(date.getFullYear());
+  const start = new Date(bf.getFullYear(), bf.getMonth(), bf.getDate() - 4);
+  const end = new Date(bf.getFullYear(), bf.getMonth(), bf.getDate() + 3, 23, 59, 59);
+  return date >= start && date <= end;
+}
+
+/**
  * Detecta qué tema corresponde al mes actual del calendario
  */
 export function detectCalendarSeasonalTheme(): SeasonalThemeId {
+  if (isBlackFridayWindow()) return 'black-friday';
   const month = new Date().getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
   if (month === 1) return 'san-valentin';
   if (month === 4) return 'madre';
