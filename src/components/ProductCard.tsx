@@ -124,11 +124,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <Zap className="w-3 h-3 fill-yellow-300 text-yellow-300" />
             <span>-{product.discountPercentage}% BOOM</span>
           </div>
-        ) : (
-          <div className="absolute top-2.5 right-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-xs">
-            🔥 BOOM OFERTA
-          </div>
-        )}
+        ) : null}
 
         {/* Warehouse Tag */}
         <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-700 text-[10px] font-mono font-semibold px-2 py-0.5 rounded border border-slate-200 shadow-2xs flex items-center gap-1">
