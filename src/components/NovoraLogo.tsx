@@ -3,6 +3,7 @@ import { detectCalendarSeasonalTheme } from '../utils/seasonalThemes.ts';
 
 export type SupportedSeasonalTheme = 
   | 'halloween' 
+  | 'black-friday' 
   | 'navidad-fin-ano' 
   | 'san-valentin' 
   | 'amor-amistad' 
@@ -13,6 +14,7 @@ export type SupportedSeasonalTheme =
 export const normalizeSeasonalTheme = (theme?: string): SupportedSeasonalTheme => {
   if (!theme) return (detectCalendarSeasonalTheme() as SupportedSeasonalTheme) || 'standard-cyber';
   const lower = theme.toLowerCase().trim();
+  if (lower.includes('black') || lower.includes('cyber monday')) return 'black-friday';
   if (lower.includes('hallow') || lower === 'octubre') return 'halloween';
   if (lower.includes('navi') || lower.includes('diciembre') || lower.includes('ano') || lower.includes('año')) return 'navidad-fin-ano';
   if (lower.includes('valentin') || lower.includes('febrero')) return 'san-valentin';
@@ -98,6 +100,11 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
     xl: 'w-12 h-12 sm:w-14 sm:h-14',
     '2xl': 'w-16 h-16 sm:w-20 sm:h-20'
   }[size] || 'w-7 h-7 sm:w-8 sm:h-8';
+
+  // Degradado de la palabra STORE: dorado/naranja en Black Friday, cian en el resto del año
+  const storeGradientClass = currentSeason === 'black-friday'
+    ? 'from-amber-500 via-orange-500 to-red-500'
+    : 'from-cyan-400 via-sky-400 to-indigo-400';
 
   // Text color based on theme
   const textColorClass = 
@@ -399,6 +406,18 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
             </div>
           )}
 
+          {currentSeason === 'black-friday' && (
+            <div
+              className="absolute -top-3 sm:-top-3.5 -right-1 sm:-right-2 w-6 h-6 sm:w-7 sm:h-7 pointer-events-none select-none z-20 drop-shadow-md rotate-12"
+              title="Black Friday Zavela"
+            >
+              <svg viewBox="0 0 50 50" fill="none" className="w-full h-full overflow-visible">
+                <circle cx="25" cy="25" r="21" fill="#0a0a0a" stroke="#facc15" strokeWidth="3" />
+                <text x="25" y="33" textAnchor="middle" fontSize="24" fontWeight="900" fill="#facc15" fontFamily="Arial, sans-serif">%</text>
+              </svg>
+            </div>
+          )}
+
           {(currentSeason === 'san-valentin' || currentSeason === 'amor-amistad') && (
             <div 
               className="absolute -top-3 -right-1 pointer-events-none select-none z-20 flex items-center gap-0.5"
@@ -587,7 +606,9 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
           className={`${cartSizeClasses} overflow-visible ${
             currentSeason === 'halloween'
               ? 'drop-shadow-[0_2px_12px_rgba(249,115,22,0.85)]'
-              : currentSeason === 'navidad-fin-ano'
+              : currentSeason === 'black-friday'
+                ? 'drop-shadow-[0_2px_12px_rgba(250,204,21,0.85)]'
+                : currentSeason === 'navidad-fin-ano'
                 ? 'drop-shadow-[0_2px_12px_rgba(239,68,68,0.85)]'
                 : currentSeason === 'san-valentin' || currentSeason === 'amor-amistad'
                   ? 'drop-shadow-[0_2px_12px_rgba(244,63,94,0.85)]'
@@ -608,6 +629,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
               cy="24" 
               r="3.2" 
               fill={
+                currentSeason === 'black-friday' ? '#FACC15' :
                 currentSeason === 'halloween' ? '#A855F7' :
                 currentSeason === 'navidad-fin-ano' ? '#EF4444' :
                 currentSeason === 'san-valentin' ? '#E11D48' :
@@ -639,6 +661,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
               cy="24" 
               r="3.2" 
               fill={
+                currentSeason === 'black-friday' ? '#FACC15' :
                 currentSeason === 'halloween' ? '#F97316' :
                 currentSeason === 'navidad-fin-ano' ? '#10B981' :
                 currentSeason === 'san-valentin' ? '#EC4899' :
@@ -670,7 +693,8 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
           <path 
             d="M 12 7 L 14 17 M 17 7 L 18 17 M 22 7 L 22 17" 
             stroke={
-              currentSeason === 'halloween' ? '#F97316' :
+              currentSeason === 'black-friday' ? '#FACC15' :
+                currentSeason === 'halloween' ? '#F97316' :
               currentSeason === 'navidad-fin-ano' ? '#10B981' :
               currentSeason === 'san-valentin' ? '#FDA4AF' :
               currentSeason === 'amor-amistad' ? '#FCD34D' :
@@ -775,7 +799,27 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
             </g>
           )}
 
-          {currentSeason !== 'halloween' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
+          {currentSeason === 'black-friday' && (
+            <g
+              style={{
+                transformOrigin: '17px 11px',
+                animation: 'cartItemsFill20s 20s cubic-bezier(0.34, 1.56, 0.64, 1) infinite'
+              }}
+            >
+              {/* Caja negra con lazo dorado */}
+              <rect x="9.5" y="7.5" width="6.5" height="6.5" rx="1.2" fill="#111111" stroke="#FACC15" strokeWidth="0.8" />
+              <line x1="12.8" y1="7.5" x2="12.8" y2="14" stroke="#FACC15" strokeWidth="1" />
+
+              {/* Caja amarilla con lazo negro */}
+              <rect x="15.5" y="5.5" width="7.5" height="9" rx="1.4" fill="#FACC15" />
+              <line x1="19.2" y1="5.5" x2="19.2" y2="14.5" stroke="#111111" strokeWidth="1" />
+
+              {/* Etiqueta de descuento */}
+              <circle cx="16" cy="3.5" r="1.8" fill="#EF4444" />
+            </g>
+          )}
+
+          {currentSeason !== 'halloween' && currentSeason !== 'black-friday' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
             <g 
               style={{ 
                 transformOrigin: '17px 11px',
@@ -804,6 +848,13 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
                 <stop offset="100%" stopColor="#C084FC" />
               </linearGradient>
             )}
+            {currentSeason === 'black-friday' && (
+              <linearGradient id={`zavelaCartGrad_${currentSeason}`} x1="2" y1="4" x2="27" y2="17" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#FACC15" />
+                <stop offset="55%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#EF4444" />
+              </linearGradient>
+            )}
             {currentSeason === 'navidad-fin-ano' && (
               <linearGradient id={`zavelaCartGrad_${currentSeason}`} x1="2" y1="4" x2="27" y2="17" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#EF4444" />
@@ -825,7 +876,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
                 <stop offset="100%" stopColor="#FDE047" />
               </linearGradient>
             )}
-            {currentSeason !== 'halloween' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
+            {currentSeason !== 'halloween' && currentSeason !== 'black-friday' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
               <linearGradient id={`zavelaCartGrad_${currentSeason}`} x1="2" y1="4" x2="27" y2="17" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#00F5FF" />
                 <stop offset="50%" stopColor="#3B82F6" />
@@ -843,11 +894,12 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
           }}
         >
           {currentSeason === 'halloween' && <span>🎃 🦇</span>}
+          {currentSeason === 'black-friday' && <span>🏷️ ✨</span>}
           {currentSeason === 'navidad-fin-ano' && <span>⭐ 🎁</span>}
           {currentSeason === 'san-valentin' && <span>💖 ✨</span>}
           {currentSeason === 'amor-amistad' && <span>💝 ⭐</span>}
           {currentSeason === 'madre' && <span>🌸 💖</span>}
-          {currentSeason !== 'halloween' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
+          {currentSeason !== 'halloween' && currentSeason !== 'black-friday' && currentSeason !== 'navidad-fin-ano' && currentSeason !== 'san-valentin' && currentSeason !== 'amor-amistad' && currentSeason !== 'madre' && (
             <span>⚡ ✨</span>
           )}
         </div>
@@ -882,7 +934,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
           </span>
           <span 
             translate="no" 
-            className={`font-extrabold font-sans leading-none tracking-[0.38em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400 mt-1 sm:mt-1.5 ${sloganSizes[size]}`}
+            className={`font-extrabold font-sans leading-none tracking-[0.38em] text-transparent bg-clip-text bg-gradient-to-r ${storeGradientClass} mt-1 sm:mt-1.5 ${sloganSizes[size]}`}
           >
             STORE
           </span>
@@ -920,7 +972,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
             </span>
             <span 
               translate="no" 
-              className="font-extrabold tracking-[0.18em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-indigo-400 ml-1.5 drop-shadow-[0_0_12px_rgba(0,240,255,0.45)]"
+              className={`font-extrabold tracking-[0.18em] text-transparent bg-clip-text bg-gradient-to-r ${storeGradientClass} ml-1.5 ${currentSeason === 'black-friday' ? 'drop-shadow-[0_0_12px_rgba(250,204,21,0.45)]' : 'drop-shadow-[0_0_12px_rgba(0,240,255,0.45)]'}`}
             >
               STORE
             </span>

@@ -267,6 +267,22 @@ export const FriendshipRibbonOrnament: React.FC<{ size?: 'sm' | 'md' | 'lg' }> =
 };
 
 /**
+ * Etiqueta de oferta negra y dorada para Black Friday
+ */
+export const BlackFridayTagOrnament: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
+  const scale = size === 'sm' ? 'w-6 h-6 -top-3 -right-2' : size === 'lg' ? 'w-12 h-12 -top-6 -right-4' : 'w-8 h-8 -top-4 -right-3';
+  return (
+    <div className={`absolute ${scale} pointer-events-none select-none z-20 transform rotate-12 drop-shadow-md`}>
+      <svg viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full overflow-visible">
+        <path d="M 6 24 L 24 6 H 42 Q 46 6 46 10 V 28 L 28 46 Q 26 47 24 46 L 6 28 Q 5 26 6 24 Z" fill="#0a0a0a" stroke="#facc15" strokeWidth="2.5" strokeLinejoin="round" />
+        <circle cx="36" cy="16" r="2.8" fill="#facc15" />
+        <text x="22" y="33" textAnchor="middle" fontSize="20" fontWeight="900" fill="#facc15" fontFamily="Arial, sans-serif">%</text>
+      </svg>
+    </div>
+  );
+};
+
+/**
  * Cyber HUD Brackets para Estándar Cyber
  */
 export const CyberHudOrnament: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
@@ -347,6 +363,7 @@ export const SeasonalLogoWrapper: React.FC<{
         {themeId === 'san-valentin' && <HeartsOrnament size={size} />}
         {themeId === 'madre' && <MotherFlowerOrnament size={size} />}
         {themeId === 'amor-amistad' && <FriendshipRibbonOrnament size={size} />}
+        {themeId === 'black-friday' && <BlackFridayTagOrnament size={size} />}
         {themeId === 'standard-cyber' && <CyberHudOrnament size={size} />}
       </div>
     </div>

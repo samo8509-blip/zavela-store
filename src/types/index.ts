@@ -207,6 +207,7 @@ export type SeasonalThemeId =
   | 'madre'
   | 'amor-amistad'
   | 'halloween'
+  | 'black-friday'
   | 'navidad-fin-ano';
 
 export interface SeasonalThemeConfig {
