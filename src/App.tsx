@@ -690,10 +690,12 @@ export default function App() {
     setIsCheckoutOpen(true);
   };
 
-  // Enlace de compra directa (ej. enviado por el agente de IA en el chat):
-  //   https://zavelastore.com.co/?producto=<slug>&comprar=1&cantidad=2
-  // Abre el checkout con el producto ya en el carrito. El precio sale siempre del catálogo.
-  // Si el producto tiene variantes (talla/color) o no tiene stock, solo se abre su ficha.
+  // Enlace de compra directa (ej. enviado por el agente de IA en el chat). Dos formatos:
+  //   Un producto:      https://zavelastore.com.co/?producto=<codigo>&comprar=1&cantidad=2
+  //   Varios productos: https://zavelastore.com.co/?comprar=1&productos=<codigo1>:2,<codigo2>:1
+  // Abre el checkout con los productos ya en el carrito. El precio sale siempre del catálogo.
+  // Abrir el mismo enlace dos veces NO duplica: la cantidad del enlace reemplaza a la del carrito.
+  // Los productos con variantes (talla/color) o sin stock no se agregan: el cliente los elige en la tienda.
   const hasProcessedBuyLink = useRef(false);
   useEffect(() => {
     if (hasProcessedBuyLink.current || products.length === 0) return;
@@ -703,32 +705,82 @@ export default function App() {
     const wantsBuy = ['1', 'true', 'si'].includes((params.get('comprar') || '').toLowerCase());
     if (!wantsBuy) return;
 
-    const routeInfo = extractProductIdentifierFromUrl();
-    if (!routeInfo.isProductRoute || !routeInfo.identifier) return;
+    const clampQty = (raw: unknown) => {
+      const n = parseInt(String(raw ?? '1'), 10);
+      return Math.min(10, Math.max(1, Number.isFinite(n) ? n : 1));
+    };
 
-    const rawQty = parseInt(params.get('cantidad') || '1', 10);
-    const quantity = Math.min(10, Math.max(1, Number.isFinite(rawQty) ? rawQty : 1));
+    // Lista de { identificador, cantidad } desde ?productos=a:2,b:1 o desde ?producto=a&cantidad=2
+    const requested: { id: string; qty: number }[] = [];
+    const multi = params.get('productos');
+    if (multi) {
+      multi.split(',').forEach(part => {
+        const raw = part.trim();
+        if (!raw) return;
+        const colon = raw.lastIndexOf(':');
+        const hasQty = colon > 0 && /^\d+$/.test(raw.slice(colon + 1));
+        const id = (hasQty ? raw.slice(0, colon) : raw).trim();
+        if (id) requested.push({ id, qty: hasQty ? clampQty(raw.slice(colon + 1)) : 1 });
+      });
+    } else {
+      const routeInfo = extractProductIdentifierFromUrl();
+      if (routeInfo.isProductRoute && routeInfo.identifier) {
+        requested.push({ id: routeInfo.identifier, qty: clampQty(params.get('cantidad')) });
+      }
+    }
+    if (requested.length === 0) return;
 
     (async () => {
       try {
-        const product =
-          resolveProductMatch(routeInfo.identifier!, products) ||
-          (await fetchProductDirectlyFromApi(routeInfo.identifier!));
-        if (!product) return; // el flujo normal mostrará "producto no encontrado"
+        const resolved: { product: Product; qty: number }[] = [];
+        for (const item of requested.slice(0, 10)) {
+          const product =
+            resolveProductMatch(item.id, products) ||
+            (await fetchProductDirectlyFromApi(item.id));
+          if (product && !resolved.some(r => r.product.id === product.id)) {
+            resolved.push({ product, qty: item.qty });
+          }
+        }
+        if (resolved.length === 0) return; // el flujo normal mostrará "producto no encontrado"
 
-        // Quita los parámetros de compra para que recargar la página no vuelva a agregar el producto
+        // Quita los parámetros de compra para que recargar la página no vuelva a procesar el enlace
         const cleanParams = new URLSearchParams(window.location.search);
-        ['comprar', 'cantidad'].forEach(k => cleanParams.delete(k));
+        ['comprar', 'cantidad', 'productos'].forEach(k => cleanParams.delete(k));
         const cleanSearch = cleanParams.toString();
         navigate(`${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`, { replace: true });
 
-        const hasVariants = (product.variants?.length || 0) > 1;
-        const outOfStock = typeof product.stock === 'number' && product.stock <= 0;
-        if (hasVariants || outOfStock) {
-          setSelectedProduct(product); // que el cliente elija variante o vea que no hay stock
+        const buyable = resolved.filter(({ product }) => {
+          const hasVariants = (product.variants?.length || 0) > 1;
+          const outOfStock = typeof product.stock === 'number' && product.stock <= 0;
+          return !hasVariants && !outOfStock;
+        });
+        const skipped = resolved.filter(r => !buyable.includes(r));
+
+        if (buyable.length === 0) {
+          setSelectedProduct(skipped[0].product); // que el cliente elija variante o vea que no hay stock
           return;
         }
-        handleBuyNow(product, product.variants?.[0], quantity);
+
+        setCartItems(prev => {
+          let next = [...prev];
+          buyable.forEach(({ product, qty }) => {
+            const idx = next.findIndex(i => i.product.id === product.id && !i.variant);
+            if (idx >= 0) {
+              next[idx] = { ...next[idx], quantity: qty };
+            } else {
+              const originalPrice = (product as any).originalPrice || product.price;
+              next.push({ product: { ...product, originalPrice }, quantity: qty });
+            }
+          });
+          return next;
+        });
+
+        setIsCartOpen(false);
+        setSelectedProduct(null);
+        setIsCheckoutOpen(true);
+        if (skipped.length > 0) {
+          showToast(`"${skipped[0].product.title}" requiere elegir opciones o no tiene stock; agrégalo desde la tienda.`);
+        }
       } catch (e) {
         console.warn('Error procesando enlace de compra directa:', e);
       }
