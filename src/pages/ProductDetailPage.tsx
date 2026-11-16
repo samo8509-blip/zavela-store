@@ -30,6 +30,7 @@ import { extractProductImages } from '../utils/imageUtils.ts';
 import { parseProductDescription } from '../utils/descriptionParser.ts';
 import { getVerifiedPositiveReviews, ProductReview } from '../utils/reviewsManager.ts';
 import { parseNumCOP } from '../services/cpanelProducts.ts';
+import { trackTikTokViewContent } from '../utils/tiktokPixel.ts';
 import { 
   extractProductIdentifierFromUrl, 
   resolveProductMatch, 
@@ -139,12 +140,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
     };
   }, [initialProduct, targetIdentifier, allProducts]);
 
-  // Manejo de títulos SEO y Meta
+  // Manejo de títulos SEO, Meta y TikTok Pixel ViewContent
   useEffect(() => {
     if (activeProduct) {
       const title = activeProduct.title || activeProduct.name || 'Detalle del Producto';
       document.title = `${title} | Zavela Store Colombia`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      trackTikTokViewContent(activeProduct);
     }
   }, [activeProduct]);
 

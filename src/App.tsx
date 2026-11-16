@@ -88,6 +88,7 @@ import {
 } from './utils/productUrlResolver.ts';
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
+import { trackTikTokAddToCart } from './utils/tiktokPixel.ts';
 import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
 import { QuienesSomosView } from './components/QuienesSomosView.tsx';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -680,6 +681,7 @@ export default function App() {
       return [...prev, { product: effectiveProduct, variant: effectiveVariant, quantity }];
     });
 
+    trackTikTokAddToCart(product, quantity, effectivePrice);
     showToast(`¡"${product.title}" agregado al carrito!`);
   };
 

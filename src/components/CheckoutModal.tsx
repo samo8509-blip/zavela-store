@@ -27,6 +27,7 @@ import { getCurrentCustomer } from '../utils/customerAuthManager.ts';
 import { triggerEpaycoCheckout } from '../services/epaycoService.ts';
 import { calculateCartTotals } from '../utils/comboPricing.ts';
 import { parseNumCOP } from '../services/cpanelProducts.ts';
+import { trackTikTokInitiateCheckout, trackTikTokPurchase } from '../utils/tiktokPixel.ts';
 
 // NOTA: Se eliminó la importación de decrementCpanelProductStock para proteger el catálogo.
 
@@ -235,6 +236,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const shippingCost = shippingCalculation.finalRate;
   const total = discountedSubtotal + shippingCost;
+
+  useEffect(() => {
+    if (isOpen && cartItems.length > 0) {
+      trackTikTokInitiateCheckout(cartItems, total);
+    }
+  }, [isOpen]);
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
@@ -540,6 +547,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }
         }));
       }
+
+      trackTikTokPurchase(
+        cartItems.map(item => ({
+          product: item.product,
+          quantity: item.quantity || 1,
+          unitPrice: item.variant?.price || item.product?.price
+        })),
+        total,
+        { phone: clientDetails.phone, email: formData.email?.trim() }
+      );
 
       onOrderCreated(createdOrder, clientDetails);
       onClose();

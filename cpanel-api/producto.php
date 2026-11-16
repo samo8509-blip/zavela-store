@@ -283,6 +283,29 @@ $waMsg = urlencode("¡Hola Zavela Store! Quiero pedir con Pago Contra Entrega el
     .btn-spa { display: block; text-align: center; background: #e0e7ff; color: var(--primary); padding: 0.85rem; border-radius: 8px; font-weight: 700; margin-top: 0.75rem; }
     .desc-body { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); white-space: pre-line; color: #334155; }
   </style>
+  <!-- TikTok Pixel Code Start -->
+  <script>
+  !function (w, d, t) {
+    w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
+  var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
+  ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+
+    ttq.load('DBTI9D3C77UEEP3E5PVG');
+    ttq.page();
+    ttq.track('ViewContent', {
+      contents: [{
+        content_id: <?= json_encode((string)$product['id']) ?>,
+        content_type: 'product',
+        content_name: <?= json_encode($title) ?>,
+        price: <?= $price ?>,
+        quantity: 1
+      }],
+      value: <?= $price ?>,
+      currency: 'COP'
+    });
+  }(window, document, 'ttq');
+  </script>
+  <!-- TikTok Pixel Code End -->
 </head>
 <body>
   <div class="trust-bar">
