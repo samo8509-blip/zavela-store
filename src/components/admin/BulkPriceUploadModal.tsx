@@ -135,9 +135,7 @@ export const BulkPriceUploadModal: React.FC<Props> = ({ isOpen, onClose, product
             await saveCpanelProduct({
               ...p,
               price,
-              precio: price,
-              compareAtPrice: mode === 'apply' ? Number(p.price) : 0,
-              suggested_price: mode === 'apply' ? Number(p.price) : 0
+              precio: price
             } as any);
             ok++;
           } catch {
@@ -176,8 +174,8 @@ export const BulkPriceUploadModal: React.FC<Props> = ({ isOpen, onClose, product
 
           <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3">
             {mode === 'apply'
-              ? 'Cada producto pasa a su precio Black Friday y su precio anterior queda como precio tachado (es el precio real al que se vendía). Antes de cambiar nada se crea un respaldo del catálogo.'
-              : 'Cada producto vuelve a su "Precio actual" del archivo y se quita el precio tachado. Usa el mismo archivo con el que aplicaste la campaña.'}
+              ? 'Cada producto pasa a su precio Black Friday. No se usa precio tachado. Antes de cambiar nada se crea un respaldo del catálogo.'
+              : 'Cada producto vuelve a su "Precio actual" del archivo. Usa el mismo archivo con el que aplicaste la campaña.'}
           </p>
 
           <label htmlFor="bf-file" className="flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 rounded-xl p-4 text-sm font-bold text-slate-600 cursor-pointer hover:border-amber-400">
