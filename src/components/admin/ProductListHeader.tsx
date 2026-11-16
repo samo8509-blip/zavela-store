@@ -6,6 +6,7 @@ export interface ProductListHeaderProps {
   onOpenBackups: () => void;
   onOpenMagazine: () => void;
   onDownloadPriceList?: () => void;
+  onOpenBulkPrices?: () => void;
   onSync: () => void;
   onNavigateToDropiImporter?: () => void;
   onCreateProduct: () => void;
@@ -16,6 +17,7 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
   onOpenBackups,
   onOpenMagazine,
   onDownloadPriceList,
+  onOpenBulkPrices,
   onSync,
   onNavigateToDropiImporter,
   onCreateProduct
@@ -68,6 +70,19 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
           <span className="hidden sm:inline">Revista Catálogo PDF</span>
           <span className="sm:hidden">Revista PDF</span>
         </button>
+
+        {onOpenBulkPrices && (
+          <button
+            onClick={onOpenBulkPrices}
+            type="button"
+            title="Cargar precios de campaña (Black Friday) desde un archivo CSV"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-black text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">Cargar precios (CSV)</span>
+            <span className="sm:hidden">Cargar precios</span>
+          </button>
+        )}
 
         {onDownloadPriceList && (
           <button

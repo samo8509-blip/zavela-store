@@ -11,6 +11,7 @@ import { Product, Category } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { ProductCatalogMagazineModal } from './ProductCatalogMagazineModal.tsx';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
+import { BulkPriceUploadModal } from './BulkPriceUploadModal.tsx';
 import { CatalogBackupsModal } from './CatalogBackupsModal.tsx';
 import { ProductListHeader } from './ProductListHeader.tsx';
 import { 
@@ -166,6 +167,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isMagazineModalOpen, setIsMagazineModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isBulkPricesOpen, setIsBulkPricesOpen] = useState(false);
 
   // Multi-Selection State
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -735,6 +737,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         productsCount={products.length}
         onOpenBackups={() => setIsBackupModalOpen(true)}
         onOpenMagazine={() => setIsMagazineModalOpen(true)}
+        onOpenBulkPrices={() => setIsBulkPricesOpen(true)}
         onDownloadPriceList={() => {
           // Lista para Excel (productos activos): precio, costo proveedor, flete, comisión Dropi, costo operativo y ganancia neta
           const active = products.filter(p => p.active !== false);
@@ -1506,6 +1509,13 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
           </div>
         </div>
       )}
+
+      <BulkPriceUploadModal
+        isOpen={isBulkPricesOpen}
+        onClose={() => setIsBulkPricesOpen(false)}
+        products={localProducts}
+        onDone={onRefresh}
+      />
 
       {/* Revista Digital Catálogo Modal */}
       <ProductCatalogMagazineModal
