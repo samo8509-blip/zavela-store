@@ -736,7 +736,7 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
         onOpenBackups={() => setIsBackupModalOpen(true)}
         onOpenMagazine={() => setIsMagazineModalOpen(true)}
         onDownloadPriceList={() => {
-          // Lista simple para Excel: solo Producto, Precio de venta y Costo (productos activos)
+          // Lista para Excel (productos activos): precio, costo proveedor, flete, comisión Dropi, costo operativo y ganancia neta
           const active = products.filter(p => p.active !== false);
           const quote = (v: string) => `"${v.replace(/"/g, '""')}"`;
           let withoutCost = 0;
@@ -745,10 +745,14 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
             const price = parseNumCOP(p.price || (p as any).precio);
             const cost = parseNumCOP(p.costPrice || (p as any).supplier_cost || (p as any).costo);
             if (!cost) withoutCost++;
-            return [quote(name), String(price), cost ? String(cost) : ''];
+            const flete = parseNumCOP((p as any).shippingCost ?? (p as any).shipping_cost ?? (p as any).flete_envio ?? (p as any).flete ?? 0);
+            const comision = parseNumCOP((p as any).dropiFee ?? (p as any).dropi_fee ?? 0);
+            const costoOp = p.totalOperatingCost !== undefined ? parseNumCOP(p.totalOperatingCost) : cost + flete + comision;
+            const gananciaNeta = price - costoOp;
+            return [quote(name), String(price), cost ? String(cost) : '', String(flete), String(comision), String(costoOp), String(gananciaNeta)];
           });
           // BOM + separador ";" para que Excel en español lo abra en columnas y con tildes correctas
-          const csv = '\uFEFF' + [['Producto', 'Precio de venta', 'Costo'], ...rows].map(r => r.join(';')).join('\r\n');
+          const csv = '\uFEFF' + [['Producto', 'Precio de venta', 'Costo proveedor', 'Flete', 'Comisión Dropi', 'Costo operativo base', 'Ganancia neta'], ...rows].map(r => r.join(';')).join('\r\n');
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
