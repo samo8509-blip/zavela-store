@@ -280,8 +280,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const aplicarPrecioSugerido = (nuevoPrecio: number) => {
     if (nuevoPrecio <= 0) return;
     setFormData(prev => ({
-      ...prev, precio: nuevoPrecio,
-      compareAtPrice: prev.compareAtPrice > nuevoPrecio ? prev.compareAtPrice : Math.ceil((nuevoPrecio * 1.3) / 500) * 500
+      ...prev, precio: nuevoPrecio
     }));
   };
 
@@ -361,9 +360,10 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         provider: String(provider),
         supplier: String(formData.supplier || provider),
         
-        compareAtPrice: parseNumCOP(formData.compareAtPrice),
-        compare_price: parseNumCOP(formData.compareAtPrice),
-        suggested_price: parseNumCOP(formData.compareAtPrice),
+        // Precio tachado desactivado: ya no se usa esta táctica de venta
+        compareAtPrice: 0,
+        compare_price: 0,
+        suggested_price: 0,
         
         slug: finalSlug,
         categoryId: formData.categoryId || '',
@@ -614,10 +614,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-900 mb-1">Precio Venta Cliente (\$ COP) <span className="text-rose-500">*</span></label>
                 <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-base">$</span><input type="text" required placeholder="0" value={formData.precio === 0 ? '' : formData.precio} onChange={(e) => setFormData(prev => ({ ...prev, precio: parseNumCOP(e.target.value) }))} className="w-full pl-9 pr-3.5 py-3 rounded-2xl border-2 border-indigo-500 bg-white font-mono text-base font-black text-indigo-950 focus:ring-2 focus:ring-indigo-400 focus:outline-none shadow-xs" /></div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Precio Antes / Tachado (\$ COP)</label>
-                <div className="relative"><span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span><input type="text" placeholder="0" value={formData.compareAtPrice === 0 ? '' : formData.compareAtPrice} onChange={(e) => setFormData(prev => ({ ...prev, compareAtPrice: parseNumCOP(e.target.value) }))} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" /></div>
               </div>
             </div>
 
