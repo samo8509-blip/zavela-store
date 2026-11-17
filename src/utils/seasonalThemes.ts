@@ -280,6 +280,8 @@ export interface StorefrontPalette {
   badgeBg: string;
   badgeInk: string;
   badge: string;
+  heroInk: string;
+  stripBg: string;
 }
 
 const PALETTE_STANDARD: StorefrontPalette = {
@@ -287,17 +289,32 @@ const PALETTE_STANDARD: StorefrontPalette = {
   hero: 'linear-gradient(135deg,#0A192F 0%,#1e3a8a 60%,#4f46e5 100%)', glow: '#06b6d4',
   p1: '#22D3EE', p1Ink: '#0A192F', p2: '#4F46E5',
   cta: 'linear-gradient(90deg,#06b6d4,#4f46e5)', ctaInk: '#FFFFFF',
-  badgeBg: '#22D3EE', badgeInk: '#0A192F', badge: 'ENVÍO GRATIS · PAGO CONTRA ENTREGA'
+  badgeBg: '#22D3EE', badgeInk: '#0A192F', badge: 'ENVÍO GRATIS · PAGO CONTRA ENTREGA',
+  heroInk: '#FFFFFF',
+  stripBg: 'linear-gradient(135deg,#0A192F 0%,#1e3a8a 60%,#4f46e5 100%)'
 };
 
-export function getStorefrontPalette(themeId: SeasonalThemeId): StorefrontPalette {
+// Estilo "Mercado vivo": amarillo, azul oscuro y coral
+const PALETTE_MERCADO_VIVO: StorefrontPalette = {
+  topbar: '#0B1F4B', topbarInk: '#FFD23F',
+  hero: '#FFD23F', glow: '#FFFFFF',
+  p1: '#FF5A4E', p1Ink: '#FFFFFF', p2: '#0B1F4B',
+  cta: '#0B1F4B', ctaInk: '#FFFFFF',
+  badgeBg: '#0B1F4B', badgeInk: '#FFD23F', badge: 'ENVÍO GRATIS · PAGO CONTRA ENTREGA',
+  heroInk: '#0B1F4B',
+  stripBg: '#0B1F4B'
+};
+
+export function getStorefrontPalette(themeId: SeasonalThemeId, style: 'marca' | 'mercado-vivo' = 'marca'): StorefrontPalette {
   if (themeId === 'black-friday') {
     return {
       topbar: '#FACC15', topbarInk: '#0B0B0B',
       hero: 'linear-gradient(135deg,#000000 0%,#1c1917 70%,#3b2a05 100%)', glow: '#facc15',
       p1: '#FACC15', p1Ink: '#0B0B0B', p2: '#EF4444',
       cta: 'linear-gradient(90deg,#facc15,#f97316)', ctaInk: '#0B0B0B',
-      badgeBg: '#FACC15', badgeInk: '#0B0B0B', badge: 'BLACK FRIDAY · PRECIOS ESPECIALES'
+      badgeBg: '#FACC15', badgeInk: '#0B0B0B', badge: 'BLACK FRIDAY · PRECIOS ESPECIALES',
+      heroInk: '#FFFFFF',
+      stripBg: 'linear-gradient(135deg,#000000 0%,#1c1917 70%,#3b2a05 100%)'
     };
   }
   if (themeId === 'navidad-fin-ano') {
@@ -306,10 +323,14 @@ export function getStorefrontPalette(themeId: SeasonalThemeId): StorefrontPalett
       hero: 'linear-gradient(135deg,#071912 0%,#0f5132 65%,#7f1d1d 100%)', glow: '#22c55e',
       p1: '#EF4444', p1Ink: '#FFFFFF', p2: '#10B981',
       cta: 'linear-gradient(90deg,#dc2626,#ef4444)', ctaInk: '#FFFFFF',
-      badgeBg: '#EAB308', badgeInk: '#1f1500', badge: 'NAVIDAD · REGALOS LISTOS PARA ENTREGAR'
+      badgeBg: '#EAB308', badgeInk: '#1f1500', badge: 'NAVIDAD · REGALOS LISTOS PARA ENTREGAR',
+      heroInk: '#FFFFFF',
+      stripBg: 'linear-gradient(135deg,#071912 0%,#0f5132 65%,#7f1d1d 100%)'
     };
   }
-  if (themeId === 'standard-light' || themeId === 'standard-cyber') return PALETTE_STANDARD;
+  if (themeId === 'standard-light' || themeId === 'standard-cyber') {
+    return style === 'mercado-vivo' ? PALETTE_MERCADO_VIVO : PALETTE_STANDARD;
+  }
   // San Valentín, Madre, Amor y Amistad, Halloween: colores de la propia temporada
   const def = SEASONAL_THEMES.find(t => t.id === themeId);
   if (!def) return PALETTE_STANDARD;
@@ -318,13 +339,15 @@ export function getStorefrontPalette(themeId: SeasonalThemeId): StorefrontPalett
     hero: `linear-gradient(135deg,#0b0b14 0%,${def.secondaryColor}99 70%,${def.primaryColor}cc 100%)`, glow: def.glowColor,
     p1: def.primaryColor, p1Ink: '#FFFFFF', p2: def.secondaryColor,
     cta: `linear-gradient(90deg,${def.primaryColor},${def.secondaryColor})`, ctaInk: '#FFFFFF',
-    badgeBg: def.accentColor, badgeInk: '#111827', badge: 'ENVÍO GRATIS · PAGO CONTRA ENTREGA'
+    badgeBg: def.accentColor, badgeInk: '#111827', badge: 'ENVÍO GRATIS · PAGO CONTRA ENTREGA',
+    heroInk: '#FFFFFF',
+    stripBg: `linear-gradient(135deg,#0b0b14 0%,${def.secondaryColor}99 70%,${def.primaryColor}cc 100%)`
   };
 }
 
-export function applyStorefrontPalette(themeId: SeasonalThemeId): void {
+export function applyStorefrontPalette(themeId: SeasonalThemeId, style: 'marca' | 'mercado-vivo' = 'marca'): void {
   if (typeof document === 'undefined') return;
-  const p = getStorefrontPalette(themeId);
+  const p = getStorefrontPalette(themeId, style);
   const s = document.documentElement.style;
   s.setProperty('--zv-topbar', p.topbar);
   s.setProperty('--zv-topbar-ink', p.topbarInk);

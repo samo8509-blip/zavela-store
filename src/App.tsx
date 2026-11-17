@@ -161,8 +161,8 @@ export default function App() {
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
   useEffect(() => {
-    applyStorefrontPalette(seasonalThemeInfo.activeThemeId);
-  }, [seasonalThemeInfo.activeThemeId]);
+    applyStorefrontPalette(seasonalThemeInfo.activeThemeId, settings?.storefrontStyle);
+  }, [seasonalThemeInfo.activeThemeId, settings?.storefrontStyle]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -1509,6 +1509,7 @@ export default function App() {
           
           <HomeHero
             themeId={seasonalThemeInfo.activeThemeId}
+            style={settings?.storefrontStyle}
             products={products}
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             onExploreCatalog={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}

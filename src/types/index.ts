@@ -444,6 +444,8 @@ export interface StoreSettings {
   themeStyles?: ThemeStylesSettings;
   seasonalTheme?: SeasonalThemeId;
   seasonalThemeConfig?: SeasonalThemeConfig;
+  /** Estilo de la vitrina en temporadas normales: colores de la marca (azul/cian) o Mercado vivo (amarillo) */
+  storefrontStyle?: 'marca' | 'mercado-vivo';
   socialMarketingSettings?: SocialMarketingSettings;
   luckyWheel?: LuckyWheelSettings;
   gamificationGame?: GamificationGameSettings;

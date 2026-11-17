@@ -57,6 +57,7 @@ export const AdminBrandIdentity: React.FC<AdminBrandIdentityProps> = ({
     settings.seasonalThemeConfig?.particlesEnabled ?? true
   );
 
+  const [storefrontStyle, setStorefrontStyle] = useState<'marca' | 'mercado-vivo'>(settings.storefrontStyle || 'marca');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
@@ -103,6 +104,7 @@ export const AdminBrandIdentity: React.FC<AdminBrandIdentityProps> = ({
         primaryColor,
         secondaryColor,
         seasonalTheme,
+        storefrontStyle,
         seasonalThemeConfig: {
           activeTheme: seasonalTheme,
           autoCalendar,
@@ -310,6 +312,33 @@ export const AdminBrandIdentity: React.FC<AdminBrandIdentityProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <div>
+          <h3 className="font-extrabold text-base text-slate-900 tracking-tight">Estilo del inicio de la tienda</h3>
+          <p className="text-xs text-slate-500">Cambia los colores del inicio, la barra superior y los botones en los meses normales. Black Friday, Navidad y las demás temporadas usan siempre sus propios colores. El logo no cambia.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { id: 'marca', name: 'Colores de la marca', desc: 'Azul marino y cian, como tu logo.', sw: ['#0A192F', '#22D3EE', '#4F46E5'] },
+            { id: 'mercado-vivo', name: 'Mercado vivo', desc: 'Amarillo, azul oscuro y coral. Más llamativo.', sw: ['#FFD23F', '#0B1F4B', '#FF5A4E'] }
+          ] as const).map(opt => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setStorefrontStyle(opt.id)}
+              className={`text-left p-4 rounded-2xl border-2 transition-all cursor-pointer ${storefrontStyle === opt.id ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-slate-300'}`}
+            >
+              <div className="flex items-center gap-1.5 mb-2">
+                {opt.sw.map(c => <span key={c} className="w-6 h-6 rounded-full border border-slate-200" style={{ background: c }} />)}
+              </div>
+              <div className="font-black text-sm text-slate-900">{opt.name}{storefrontStyle === opt.id ? ' · Activo' : ''}</div>
+              <div className="text-xs text-slate-600">{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-500">Recuerda pulsar "Guardar" arriba para aplicar el cambio.</p>
       </div>
 
       {/* MÓDULO NUEVO OBLIGATORIO: Temporadas y Festividades Dinámicas */}

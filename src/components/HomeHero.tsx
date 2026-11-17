@@ -5,6 +5,7 @@ import { getStorefrontPalette, SeasonalThemeId } from '../utils/seasonalThemes.t
 
 interface HomeHeroProps {
   themeId: SeasonalThemeId;
+  style?: 'marca' | 'mercado-vivo';
   products: Product[];
   whatsappNumber: string;
   onExploreCatalog: () => void;
@@ -16,8 +17,8 @@ const firstImage = (p: Product): string => {
   return anyP.image || anyP.imagen || (Array.isArray(anyP.images) ? anyP.images[0] : '') || (Array.isArray(anyP.imagenes) ? anyP.imagenes[0] : '') || '';
 };
 
-export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, products, whatsappNumber, onExploreCatalog, onSelectProduct }) => {
-  const palette = getStorefrontPalette(themeId);
+export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct }) => {
+  const palette = getStorefrontPalette(themeId, style);
   const featured = products
     .filter(p => p.active !== false && Number(p.stock) !== 0 && firstImage(p))
     .filter(p => !/sex|adult/i.test(String(p.categoryName || '')))
@@ -28,8 +29,8 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, products, whatsappN
     <section id="home-hero" aria-label="Bienvenida" className="space-y-4">
       <div className="flex flex-col lg:flex-row gap-4 items-stretch">
         <div
-          className="relative flex-1 min-w-0 rounded-[28px] sm:rounded-[32px] px-6 py-8 sm:px-12 sm:py-12 text-white overflow-hidden flex flex-col justify-center gap-4 sm:gap-5"
-          style={{ background: palette.hero }}
+          className="relative flex-1 min-w-0 rounded-[28px] sm:rounded-[32px] px-6 py-8 sm:px-12 sm:py-12 overflow-hidden flex flex-col justify-center gap-4 sm:gap-5"
+          style={{ background: palette.hero, color: palette.heroInk }}
         >
           <div className="absolute -right-10 -top-10 w-56 h-56 rounded-full opacity-35 pointer-events-none" style={{ background: palette.glow }} />
           <span
@@ -58,7 +59,8 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, products, whatsappN
               href={waHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-bold px-6 py-3.5 rounded-full text-sm sm:text-base bg-white/15 hover:bg-white/25 text-white transition-colors"
+              className="font-bold px-6 py-3.5 rounded-full text-sm sm:text-base bg-white/20 hover:bg-white/30 transition-colors"
+              style={{ color: palette.heroInk }}
             >
               Hablar con un asesor
             </a>
@@ -95,7 +97,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, products, whatsappN
 
       <div
         className="rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 text-white grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
-        style={{ background: palette.hero }}
+        style={{ background: palette.stripBg }}
       >
         {[
           { t: '1. Elige', d: 'Escoge tu producto y llena tus datos de envío.' },
@@ -103,7 +105,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, products, whatsappN
           { t: '3. Paga', d: 'Pagas en efectivo al recibir. Sin adelantos.' }
         ].map(s => (
           <div key={s.t}>
-            <div className="font-black text-xl sm:text-2xl" style={{ color: palette.p1 }}>{s.t}</div>
+            <div className="font-black text-xl sm:text-2xl" style={{ color: style === 'mercado-vivo' && palette.stripBg === '#0B1F4B' ? '#FFD23F' : palette.p1 }}>{s.t}</div>
             <div className="text-sm opacity-90 mt-1">{s.d}</div>
           </div>
         ))}
