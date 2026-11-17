@@ -69,6 +69,7 @@ import { registerProductObservation } from './services/commerceMindClient.ts';
 import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.tsx';
 import { resolveActiveSeasonalTheme, applyStorefrontPalette } from './utils/seasonalThemes.ts';
 import { HomeHero } from './components/HomeHero.tsx';
+import { CategoryTiles } from './components/CategoryTiles.tsx';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
 import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
@@ -1516,6 +1517,19 @@ export default function App() {
             onSelectProduct={(p) => {
               setSelectedProduct(p);
               trackProductVisit(p);
+            }}
+          />
+
+          <CategoryTiles
+            categories={effectiveCategories}
+            selectedCategoryId={selectedCategoryId}
+            getCount={getCategoryProductCount}
+            onSelect={(catId) => {
+              setSelectedCategoryId(catId);
+              setSelectedSubcategoryId('all');
+              setTimeout(() => {
+                document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           />
 
