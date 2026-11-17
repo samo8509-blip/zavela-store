@@ -160,7 +160,7 @@ function formatProductOutput($row) {
 
     $price = (float)($row['precio'] ?? $row['price'] ?? 0);
     $costPrice = (float)($row['supplier_cost'] ?? $row['costo'] ?? $row['cost_price'] ?? 0);
-    $comparePrice = (float)($row['suggested_price'] ?? $row['compare_price'] ?? ($price > 0 ? $price + 20000 : 0));
+    $comparePrice = 0; // Precio tachado desactivado
     $marginAmount = $price - $costPrice;
     $marginPercentage = $costPrice > 0 ? round(($marginAmount / $costPrice) * 100, 1) : 0;
 
@@ -203,7 +203,7 @@ function formatProductOutput($row) {
         'supplier_cost'         => $costPrice,
         'compareAtPrice'        => $comparePrice,
         'suggested_price'       => $comparePrice,
-        'discountPercentage'    => (int)($row['discount_percentage'] ?? 0),
+        'discountPercentage'    => 0,
         'marginAmount'          => $marginAmount,
         'marginPercentage'      => $marginPercentage,
         'shippingCost'          => $shippingCost,

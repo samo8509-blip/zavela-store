@@ -363,7 +363,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
     const productCardsHtml = pageProducts.map(p => {
       const productUrl = `/producto/${encodeURIComponent(p.slug || p.id)}`;
-      const hasDiscount = p.compareAtPrice && p.compareAtPrice > p.price;
+      const hasDiscount = false; // precio tachado desactivado
       const discountPercentage = hasDiscount 
         ? Math.round(((p.compareAtPrice! - p.price) / p.compareAtPrice!) * 100) 
         : 0;
@@ -1090,7 +1090,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     const canonicalUrl = `${baseUrl}/producto/${encodeURIComponent(product.slug || product.id)}`;
     const imageUrl = product.image ? (product.image.startsWith('http') ? product.image : `${baseUrl}${product.image}`) : `${baseUrl}/images/logo-zavela.jpg`;
 
-    const hasDiscount = product.compareAtPrice && product.compareAtPrice > product.price;
+    const hasDiscount = false; // precio tachado desactivado
     const discountPercentage = hasDiscount 
       ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100) 
       : 0;

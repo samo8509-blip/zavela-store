@@ -241,8 +241,8 @@ export const CustomSubpageView: React.FC<CustomSubpageViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {displayProducts.map((p) => {
-              const compareAt = p.compareAtPrice || Math.round(p.price * 1.25);
-              const discount = Math.round(((compareAt - p.price) / compareAt) * 100);
+              const compareAt = 0; // precio tachado desactivado
+              const discount = 0;
 
               return (
                 <div
@@ -255,9 +255,11 @@ export const CustomSubpageView: React.FC<CustomSubpageViewProps> = ({
                       alt={p.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
+                    {discount > 0 && (
                     <span className="absolute top-3 left-3 bg-[#FF4757] text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow">
                       {discount}% OFF
                     </span>
+                    )}
                     <span className="absolute bottom-3 left-3 bg-emerald-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow">
                       ✓ Pago al Recibir
                     </span>
@@ -279,9 +281,11 @@ export const CustomSubpageView: React.FC<CustomSubpageViewProps> = ({
                         <span className="text-base font-black text-slate-950">
                           ${p.price.toLocaleString('es-CO')} COP
                         </span>
+                        {compareAt > 0 && (
                         <span className="text-xs text-slate-400 line-through">
                           ${compareAt.toLocaleString('es-CO')}
                         </span>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">

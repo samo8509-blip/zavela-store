@@ -47,7 +47,7 @@ export function mapSqlRowToProduct(row: any): any {
     slug: row.slug || String(row.id),
     price: parseNumCOP(row.precio || row.price),
     costPrice: parseNumCOP(row.supplier_cost),
-    compareAtPrice: parseNumCOP(row.suggested_price),
+    compareAtPrice: 0, // precio tachado desactivado
     shippingCost: parsedShipping,
     shipping_cost: parsedShipping,
     flete_envio: parsedShipping,
