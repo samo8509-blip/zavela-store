@@ -561,6 +561,38 @@ export const pool = {
     cpanelDbService.saveFacebookConfig(fullConfig).catch(() => {});
   },
 
+  /** Conexión guardada de Instagram o TikTok (JSON en la tabla configuraciones). null si nunca se guardó. */
+  async getSocialConnection(platform: 'instagram' | 'tiktok'): Promise<any | null> {
+    const key = `social_connection_${platform}`;
+    try {
+      if (nativePool) {
+        const [rows]: any = await nativePool.query('SELECT valor FROM configuraciones WHERE clave = ? LIMIT 1', [key]);
+        const raw = rows?.[0]?.valor;
+        return raw ? JSON.parse(raw) : null;
+      }
+      ensureLocalConfigInitialized();
+      const raw = localConfigStore.get(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err: any) {
+      console.warn('[getSocialConnection Warning]:', err.message);
+      return null;
+    }
+  },
+
+  async setSocialConnection(platform: 'instagram' | 'tiktok', conn: any): Promise<void> {
+    const key = `social_connection_${platform}`;
+    const val = JSON.stringify(conn);
+    if (nativePool) {
+      await nativePool.query(
+        'INSERT INTO configuraciones (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = ?',
+        [key, val, val]
+      );
+      return;
+    }
+    ensureLocalConfigInitialized();
+    localConfigStore.set(key, val);
+  },
+
   /**
    * Ejecución de consultas SQL con soporte para MySQL cPanel nativo
    * y fallback transparente en memoria/almacenamiento persistente local.

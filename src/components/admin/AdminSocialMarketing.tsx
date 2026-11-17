@@ -276,7 +276,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
     }
     const conn = settings?.connections[plat];
     setConnectModalPlatform(plat);
-    setModalAccountName(conn?.accountName || (plat === 'instagram' ? '@zavelastore.col' : '@zavelastore_oficial'));
+    setModalAccountName(conn?.accountName || '');
     setModalPageOrId(conn?.pageId || conn?.accountId || '');
     setModalToken(conn?.accessToken || '');
     setModalPixelId(conn?.pixelId || '');
@@ -292,7 +292,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
           accountName: modalAccountName,
           pageId: modalPageOrId,
           accountId: modalPageOrId,
-          accessToken: modalToken || `token_${Date.now()}`,
+          accessToken: modalToken,
           pixelId: modalPixelId
         })
       });
