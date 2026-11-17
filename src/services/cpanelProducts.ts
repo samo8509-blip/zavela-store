@@ -67,6 +67,11 @@ export function normalizeCpanelProduct(p: any): Product {
     costoProveedor: costPrice,
     price,
     precio: price,
+    // Precio tachado desactivado en toda la tienda
+    compareAtPrice: 0,
+    compare_price: 0,
+    suggested_price: 0,
+    discountPercentage: 0,
     shippingCost: shipping,
     shipping_cost: shipping,
     flete_envio: shipping,

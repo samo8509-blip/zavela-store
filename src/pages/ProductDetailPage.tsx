@@ -187,9 +187,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Precio de referencia o comparación
   const activeCompareAtPrice = useMemo(() => {
     if (!activeProduct) return 0;
-    const baseCompare = activeProduct.compareAtPrice || (activeProduct as any).compare_price || (activeProduct as any).suggested_price || 0;
-    if (baseCompare > activeUnitPrice) return baseCompare;
-    return Math.round(activeUnitPrice * 1.35);
+    // Precio tachado desactivado: no se muestra ningún "precio antes"
+    return 0;
   }, [activeProduct, activeUnitPrice]);
 
   const discountPercentage = useMemo(() => {
