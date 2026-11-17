@@ -342,9 +342,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               e.stopPropagation();
               onBuyNow(product, e);
             }}
-            className="w-full h-11 bg-gradient-to-r from-red-600 via-[#FF5A36] to-pink-600 hover:from-red-700 hover:via-[#E04826] hover:to-pink-700 active:scale-98 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all uppercase tracking-wider cursor-pointer border border-yellow-300/30"
+            className="w-full h-11 hover:brightness-110 active:scale-98 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all uppercase tracking-wider cursor-pointer" style={{ background: 'var(--zv-cta, linear-gradient(90deg,#06b6d4,#4f46e5))', color: 'var(--zv-cta-ink, #fff)' }}
           >
-            <Zap className="w-4 h-4 fill-yellow-300 text-yellow-300 animate-pulse" />
+            <Zap className="w-4 h-4 fill-current" />
             <span className="font-extrabold tracking-wide">¡PEDIR Y PAGAR EN CASA!</span>
           </button>
 

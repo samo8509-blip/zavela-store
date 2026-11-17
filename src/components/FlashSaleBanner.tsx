@@ -35,7 +35,7 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
   const formatDigits = (n: number) => n.toString().padStart(2, '0');
 
   return (
-    <div id="flash-sale-boom-banner" className="bg-gradient-to-r from-red-600 via-[#FF5A36] to-pink-600 text-white shadow-md relative overflow-hidden py-2 px-3 sm:px-6">
+    <div id="flash-sale-boom-banner" className="shadow-md relative overflow-hidden py-2 px-3 sm:px-6" style={{ background: 'var(--zv-topbar, #0A192F)', color: 'var(--zv-topbar-ink, #22D3EE)' }}>
       {/* Subtle animated background shimmer */}
       <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full animate-[shimmer_3s_infinite]" />
 
@@ -48,10 +48,10 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
             <span>{isCampaign ? 'BLACK FRIDAY' : 'ENVÍO GRATIS'}</span>
           </div>
 
-          <span className="font-extrabold text-white tracking-wide text-xs sm:text-sm drop-shadow-xs">
+          <span className="font-extrabold tracking-wide text-xs sm:text-sm">
             {isCampaign && (
               <>
-                <strong className="text-yellow-300 font-black text-sm sm:text-base">Precios especiales</strong> +{' '}
+                <strong className="font-black text-sm sm:text-base">Precios especiales</strong> +{' '}
               </>
             )}
             Envío Gratis y Pago Contra Entrega en Toda Colombia 🇨🇴
@@ -76,9 +76,9 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
           {onExploreOffers && (
             <button
               onClick={onExploreOffers}
-              className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-black text-[10px] sm:text-[11px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1"
+              className="font-black text-[10px] sm:text-[11px] uppercase tracking-wider px-3 py-1 rounded-xl shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1" style={{ background: 'var(--zv-cta, linear-gradient(90deg,#06b6d4,#4f46e5))', color: 'var(--zv-cta-ink, #fff)' }}
             >
-              <Zap className="w-3 h-3 fill-slate-900" />
+              <Zap className="w-3 h-3 fill-current" />
               <span>Aprovechar</span>
             </button>
           )}

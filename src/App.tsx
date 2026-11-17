@@ -67,7 +67,8 @@ import { CustomSubpageView } from './components/CustomSubpageView.tsx';
 import { DEFAULT_CUSTOM_SUBPAGES } from './utils/exclusivityPresets.ts';
 import { registerProductObservation } from './services/commerceMindClient.ts';
 import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.tsx';
-import { resolveActiveSeasonalTheme } from './utils/seasonalThemes.ts';
+import { resolveActiveSeasonalTheme, applyStorefrontPalette } from './utils/seasonalThemes.ts';
+import { HomeHero } from './components/HomeHero.tsx';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
 import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
@@ -159,6 +160,9 @@ export default function App() {
 
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
+  useEffect(() => {
+    applyStorefrontPalette(seasonalThemeInfo.activeThemeId);
+  }, [seasonalThemeInfo.activeThemeId]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -1503,6 +1507,17 @@ export default function App() {
       ) : (
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
           
+          <HomeHero
+            themeId={seasonalThemeInfo.activeThemeId}
+            products={products}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
+            onExploreCatalog={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}
+            onSelectProduct={(p) => {
+              setSelectedProduct(p);
+              trackProductVisit(p);
+            }}
+          />
+
           <div id="catalogo" className="scroll-mt-24"></div>
           <div id="catalog-products-section" className="space-y-4 pt-1 scroll-mt-24">
             
