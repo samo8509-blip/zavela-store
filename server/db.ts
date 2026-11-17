@@ -866,7 +866,17 @@ class DatabaseStore {
   markAdvisorSalesDropiStatus(ids: string[], status: DropiStatus): number { return 0; }
   getAdvisorsPerformance(): AdvisorPerformance[] { return []; }
   getSocialMarketingSettings(): SocialMarketingSettings { return this.data.socialSettings || DEFAULT_SOCIAL_SETTINGS; }
-  saveSocialMarketingSettings(settings: Partial<SocialMarketingSettings>): SocialMarketingSettings { return this.data.socialSettings!; }
+  saveSocialMarketingSettings(settings: Partial<SocialMarketingSettings>): SocialMarketingSettings {
+    const current = this.data.socialSettings || DEFAULT_SOCIAL_SETTINGS;
+    const merged: SocialMarketingSettings = {
+      ...current,
+      ...settings,
+      connections: { ...(current.connections || {}), ...((settings as any)?.connections || {}) } as any
+    };
+    this.data.socialSettings = merged;
+    this.saveData(this.data);
+    return merged;
+  }
   getSocialBroadcastPosts(): SocialBroadcastPost[] { return this.data.socialPosts || []; }
   publishSocialPost(params: any): SocialBroadcastPost | null { return null; }
   deleteSocialBroadcastPost(id: string): boolean { return false; }

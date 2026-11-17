@@ -3278,6 +3278,21 @@ router.get('/social/settings', async (req, res) => {
       autoPostEnabled: fbConfig.autoPostEnabled,
       lastSyncAt: fbConfig.lastSyncAt || settings.connections.facebook?.lastSyncAt
     };
+    // Instagram y TikTok: solo cuentan como vinculadas si el usuario las guardó de verdad.
+    // Los datos de ejemplo que venían en data_store.json ya no se muestran como "En línea".
+    for (const plat of ['instagram', 'tiktok'] as const) {
+      const stored = await pool.getSocialConnection(plat);
+      if (stored) {
+        settings.connections[plat] = stored;
+      } else {
+        settings.connections[plat] = {
+          platform: plat,
+          connected: false,
+          status: 'disconnected',
+          autoPostEnabled: false
+        } as any;
+      }
+    }
     res.json({ success: true, data: settings });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -3311,6 +3326,11 @@ router.post('/social/connect/:platform', async (req, res) => {
 
     const { accountName, pageId, accountId, accessToken, pixelId } = req.body;
     const current = db.getSocialMarketingSettings();
+    const previousConn: any = platform === 'facebook' ? current.connections[platform] : await pool.getSocialConnection(platform as 'instagram' | 'tiktok');
+    const finalToken = String(accessToken || previousConn?.accessToken || '').trim();
+    if (platform !== 'facebook' && (!finalToken || /^token_\d+$/.test(finalToken))) {
+      return res.status(400).json({ success: false, message: 'Falta el Access Token real de la cuenta. Pégalo en el campo del token.' });
+    }
 
     const updatedConn = {
       ...current.connections[platform],
@@ -3319,7 +3339,7 @@ router.post('/social/connect/:platform', async (req, res) => {
       accountName: accountName || current.connections[platform]?.accountName || `@zavela.${platform}`,
       pageId: pageId || current.connections[platform]?.pageId,
       accountId: accountId || current.connections[platform]?.accountId,
-      accessToken: accessToken || current.connections[platform]?.accessToken || `token_${Date.now()}`,
+      accessToken: platform === 'facebook' ? (accessToken || current.connections[platform]?.accessToken || `token_${Date.now()}`) : finalToken,
       pixelId: pixelId || current.connections[platform]?.pixelId,
       status: 'connected' as const,
       lastSyncAt: new Date().toISOString(),
@@ -3328,6 +3348,8 @@ router.post('/social/connect/:platform', async (req, res) => {
 
     if (platform === 'facebook') {
       await pool.setFacebookConfig(updatedConn);
+    } else {
+      await pool.setSocialConnection(platform as 'instagram' | 'tiktok', updatedConn);
     }
 
     const saved = db.saveSocialMarketingSettings({
@@ -3358,15 +3380,19 @@ router.post('/social/disconnect/:platform', async (req, res) => {
     }
 
     const current = db.getSocialMarketingSettings();
+    const base: any = platform === 'facebook' ? current.connections[platform] : await pool.getSocialConnection(platform as 'instagram' | 'tiktok');
     const updatedConn = {
-      ...current.connections[platform],
+      ...(base || { platform }),
       connected: false,
       status: 'disconnected' as const,
-      autoPostEnabled: false
+      autoPostEnabled: false,
+      accessToken: ''
     };
 
     if (platform === 'facebook') {
       await pool.setFacebookConfig(updatedConn);
+    } else {
+      await pool.setSocialConnection(platform as 'instagram' | 'tiktok', updatedConn);
     }
 
     const saved = db.saveSocialMarketingSettings({
