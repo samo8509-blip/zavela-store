@@ -270,10 +270,10 @@ export const Header: React.FC<HeaderProps> = ({
               to="/"
               id="logo-brand-btn"
               onClick={handleHomeClick}
-              className="flex items-center text-left cursor-pointer group focus:outline-none shrink min-w-0 no-underline"
+              className="flex items-center text-left cursor-pointer group focus:outline-none shrink min-w-0 lg:shrink-0 lg:mr-6 no-underline"
               aria-label="Ir a la página principal de Zavela Store"
             >
-              <div className="transform scale-[0.80] xs:scale-90 sm:scale-100 origin-left shrink min-w-0">
+              <div className="transform scale-[0.80] xs:scale-90 sm:scale-100 origin-left shrink min-w-0 lg:shrink-0">
                 <SeasonalLogoWrapper
                   themeId={activeSeasonalThemeId}
                   size="md"
