@@ -1166,7 +1166,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onRefreshData={fetchAdminData}
       />
 
-      {/* Floating Immediate WhatsApp Notifications Banner (+57 300 878 4427) */}
+      {/* Floating Immediate WhatsApp Notifications Banner (+57 300 *** 4427) */}
       <WhatsAppAlertFloatingBanner />
 
       {/* Modal de Conexión & Sesión Facebook Business Page Meta Graph API v26.0 */}

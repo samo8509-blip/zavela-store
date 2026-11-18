@@ -134,7 +134,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           key: 'copilot_private_alerts', 
           label: 'Canal Privado Copiloto WhatsApp', 
           icon: MessageSquare,
-          badge: '+57 300 878 4427',
+          badge: '+57 300 *** 4427',
           badgeColor: 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black'
         },
         { 

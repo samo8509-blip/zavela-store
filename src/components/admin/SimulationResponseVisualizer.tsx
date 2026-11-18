@@ -79,7 +79,7 @@ Atención: Se detectaron múltiples intentos fallidos o sospechosos hacia la cue
 • Recomendaciones: ${(data?.recomendaciones || []).map((r: any) => r.nombre).join(', ')}`;
     }
 
-    const url = `https://wa.me/573008784427?text=${encodeURIComponent(reportText)}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(reportText)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -159,10 +159,10 @@ Atención: Se detectaron múltiples intentos fallidos o sospechosos hacia la cue
               type="button"
               onClick={handleOpenWhatsAppReport}
               className="px-2.5 py-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-              title="Abrir chat en WhatsApp Web con reporte para +57 300 878 4427"
+              title="Abrir chat en WhatsApp Web con reporte para +57 300 *** 4427"
             >
               <MessageSquare className="w-3.5 h-3.5 fill-white" />
-              <span className="hidden sm:inline">WhatsApp (+57 300 878 4427)</span>
+              <span className="hidden sm:inline">WhatsApp (+57 300 *** 4427)</span>
               <span className="sm:hidden">WhatsApp</span>
             </button>
 

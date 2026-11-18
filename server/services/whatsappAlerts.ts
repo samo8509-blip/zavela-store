@@ -16,6 +16,7 @@
 
 import { Order, WhatsAppAlertLog, WhatsAppAlertType } from '../../src/types/index.ts';
 import { db } from '../db.ts';
+import { sendAlertEmail, EmailResult } from './emailAlerts.ts';
 
 export const ADMIN_WHATSAPP_NUMBER_RAW = '573008784427';
 export const ADMIN_WHATSAPP_NUMBER_FORMATTED = '+57 300 878 4427';
@@ -41,7 +42,7 @@ export function getAdminPhoneNumber(): string {
   try {
     const settings = db.getSettings();
     const configured = settings.whatsappAlerts?.adminPhoneNumber || process.env.ADMIN_WHATSAPP_NUMBER;
-    if (configured && configured.trim()) {
+    if (configured && configured.trim() && !configured.includes('*')) {
       return configured.replace(/[^\d]/g, '');
     }
   } catch {}
@@ -152,6 +153,20 @@ Atención Administrador: El producto "${product.title}" (SKU: ${skuText}) de alt
 👉 Acción sugerida: Reabastecer inventario con el proveedor Dropi de inmediato para evitar quiebre de stock.`;
 }
 
+const EMAIL_SUBJECT: Record<string, string> = {
+  NEW_SALE: '🛍️ Nueva compra por aprobar',
+  LOW_STOCK: '⚠️ Stock bajo',
+  SECURITY_ALERT: '🛡️ Alerta de seguridad',
+  HUMAN_REQUEST: '🙋 Un cliente quiere hablar con una persona',
+  DAILY_SUMMARY: '📊 Resumen del día'
+};
+
+/** Envía el mismo aviso por correo (sin enlaces con el número personal). */
+async function emailAlert(type: string, title: string, message: string): Promise<EmailResult> {
+  const subject = `${EMAIL_SUBJECT[type] || 'Aviso'}: ${title.replace(/^[^\wÁÉÍÓÚÑáéíóúñ#]+/, '')}`.slice(0, 150);
+  return sendAlertEmail(subject, message);
+}
+
 export interface DispatchAlertResult {
   success: boolean;
   alertId: string;
@@ -162,6 +177,7 @@ export interface DispatchAlertResult {
   recipientPhone: string;
   metaResponse?: any;
   error?: string;
+  email?: EmailResult;
 }
 
 /**
@@ -274,6 +290,8 @@ export async function dispatchWhatsAppAlert(params: {
     console.log(`ℹ️ [CANAL PRIVADO COPILOTO] Respaldo Directo Activo para WhatsApp Web: ${waMeUrl}`);
   }
 
+  const emailResult = await emailAlert(params.type, params.title, params.message);
+
   const logEntry: WhatsAppAlertLog = {
     id: alertId,
     timestamp: new Date().toISOString(),
@@ -286,7 +304,9 @@ export async function dispatchWhatsAppAlert(params: {
     metaMessageId: apiResult.data?.messages?.[0]?.id,
     details: {
       ...params.details,
-      apiError: apiResult.error
+      apiError: apiResult.error,
+      emailSent: emailResult.sent,
+      emailError: emailResult.reason
     }
   };
 
@@ -296,7 +316,7 @@ export async function dispatchWhatsAppAlert(params: {
   db.addLog({
     type: 'WHATSAPP_ALERT',
     action: `Canal Privado Copiloto: ${params.title}`,
-    details: `${params.title} -> +${targetPhone}. Estado: ${status}`,
+    details: `${params.title}. WhatsApp: ${status}. Correo: ${emailResult.sent ? 'enviado' : 'no enviado'}`,
     status: apiResult.success ? 'success' : 'info'
   });
 
@@ -309,7 +329,8 @@ export async function dispatchWhatsAppAlert(params: {
     formattedMessage: params.message,
     recipientPhone: targetPhone,
     metaResponse: apiResult.data,
-    error: apiResult.error
+    error: apiResult.error,
+    email: emailResult
   };
 }
 
@@ -377,5 +398,32 @@ export async function sendLowStockAlert(product: {
       sku: product.sku,
       stock: product.stock
     }
+  });
+}
+
+/**
+ * Trigger: CLIENTE PIDE HABLAR CON UNA PERSONA
+ */
+export async function sendHumanRequestAlert(info: {
+  name?: string;
+  phone?: string;
+  message?: string;
+  page?: string;
+}): Promise<DispatchAlertResult> {
+  const cut = (v: any, n: number) => String(v ?? '').replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n);
+  const name = cut(info.name, 80) || 'Cliente sin nombre';
+  const phone = cut(info.phone, 30) || 'No indicado';
+  const text = cut(info.message, 400) || 'Pidió hablar con un asesor.';
+  const page = cut(info.page, 200);
+  const message = `🙋 UN CLIENTE QUIERE HABLAR CON UNA PERSONA - ZAVELA STORE
+• Cliente: ${name}
+• Teléfono: ${phone}
+• Mensaje: ${text}${page ? `\n• Página: ${page}` : ''}
+👉 Acción: contactarlo lo antes posible.`;
+  return dispatchWhatsAppAlert({
+    type: 'HUMAN_REQUEST',
+    title: `Cliente pide un asesor (${name})`,
+    message,
+    details: { name, phone, page }
   });
 }

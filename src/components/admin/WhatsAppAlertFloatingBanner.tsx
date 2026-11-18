@@ -60,10 +60,10 @@ export const WhatsAppAlertFloatingBanner: React.FC<WhatsAppAlertFloatingBannerPr
           timestamp: new Date().toISOString(),
           type: detail.type || 'NEW_SALE',
           title: detail.title || 'Alerta Inmediata Zavela Store',
-          recipientPhone: detail.recipientPhone || '573008784427',
+          recipientPhone: detail.recipientPhone || '',
           message: detail.formattedMessage || detail.message || '',
           status: detail.sentViaApi ? 'sent_cloud_api' : 'pending_direct_backup',
-          waMeUrl: detail.waMeUrl || `https://wa.me/573008784427?text=${encodeURIComponent(detail.formattedMessage || '')}`,
+          waMeUrl: detail.waMeUrl || `https://wa.me/?text=${encodeURIComponent(detail.formattedMessage || '')}`,
           details: detail.details || detail.order
         };
         setCurrentAlert(newLog);
@@ -92,7 +92,7 @@ export const WhatsAppAlertFloatingBanner: React.FC<WhatsAppAlertFloatingBannerPr
     if (currentAlert?.waMeUrl) {
       window.open(currentAlert.waMeUrl, '_blank', 'noopener,noreferrer');
     } else {
-      const fallbackUrl = `https://wa.me/573008784427?text=${encodeURIComponent(currentAlert?.message || '')}`;
+      const fallbackUrl = `https://wa.me/?text=${encodeURIComponent(currentAlert?.message || '')}`;
       window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
     }
   };
@@ -137,7 +137,7 @@ export const WhatsAppAlertFloatingBanner: React.FC<WhatsAppAlertFloatingBannerPr
                 <span>Alerta WhatsApp Activa</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               </div>
-              <div className="text-[10px] text-slate-400 font-mono">+57 300 878 4427</div>
+              <div className="text-[10px] text-slate-400 font-mono">+57 300 *** 4427</div>
             </div>
             <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-white" />
           </button>
@@ -168,7 +168,7 @@ export const WhatsAppAlertFloatingBanner: React.FC<WhatsAppAlertFloatingBannerPr
                 </div>
                 <div className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
                   <Phone className="w-2.5 h-2.5 text-emerald-400" />
-                  <span>Destino: <strong>+57 300 878 4427</strong></span>
+                  <span>Destino: <strong>+57 300 *** 4427</strong></span>
                 </div>
               </div>
             </div>
