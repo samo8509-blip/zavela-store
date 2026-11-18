@@ -122,6 +122,69 @@ function expandSizes(text: string): string[] {
   return Array.from(new Set(out));
 }
 
+const xmlDecode = (t: string) =>
+  t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(Number(n))).replace(/&amp;/g, '&');
+
+/** Lee un .xlsx (zip + XML) sin librerías y lo devuelve como texto separado por tabuladores (primera hoja). */
+async function xlsxToText(buf: ArrayBuffer): Promise<string> {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+  if (eocd < 0) throw new Error('No es un archivo de Excel válido.');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const files: Record<string, { method: number; size: number; off: number }> = {};
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true);
+    const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl));
+    files[name] = { method: dv.getUint16(p + 10, true), size: dv.getUint32(p + 20, true), off: dv.getUint32(p + 42, true) };
+    p += 46 + nl + el + cl;
+  }
+  const read = async (name: string): Promise<string> => {
+    const e = files[name];
+    if (!e) return '';
+    const start = e.off + 30 + dv.getUint16(e.off + 26, true) + dv.getUint16(e.off + 28, true);
+    const raw = u8.subarray(start, start + e.size);
+    if (e.method === 0) return new TextDecoder().decode(raw);
+    const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+  };
+  const sheetName = Object.keys(files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0];
+  if (!sheetName) throw new Error('No encontré hojas en el archivo.');
+  const shared: string[] = [];
+  const ss = await read('xl/sharedStrings.xml');
+  for (const m of ss.matchAll(/<si>([\s\S]*?)<\/si>/g)) {
+    shared.push(xmlDecode(Array.from(m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)).map(x => x[1]).join('')));
+  }
+  const xml = await read(sheetName);
+  const colIdx = (ref: string) => ref.replace(/\d+/g, '').split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+  const lines: string[] = [];
+  for (const r of xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)) {
+    const cells: string[] = [];
+    for (const c of r[1].matchAll(/<c ([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const ref = /r="([A-Z]+\d+)"/.exec(c[1]);
+      if (!ref) continue;
+      const type = /t="(\w+)"/.exec(c[1])?.[1];
+      const body = c[2] || '';
+      let val = '';
+      if (type === 's') val = shared[Number(/<v>(\d+)<\/v>/.exec(body)?.[1])] ?? '';
+      else if (type === 'inlineStr') val = xmlDecode(Array.from(body.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)).map(x => x[1]).join(''));
+      else val = xmlDecode(/<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? '');
+      cells[colIdx(ref[1])] = val.replace(/[\t\r\n]+/g, ' ');
+    }
+    if (cells.some(x => x)) lines.push(Array.from(cells, x => x ?? '').join('\t'));
+  }
+  return lines.join('\n');
+}
+
+/** Texto de un CSV: UTF-8, o Windows-1252 cuando Excel lo guardó con acentos en ANSI. */
+async function csvToText(f: File): Promise<string> {
+  const b = await f.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(b); } catch { return new TextDecoder('windows-1252').decode(b); }
+}
+
 const variantName = (color: string, size: string) => (size && size !== 'Única' ? `${color} / ${size}` : color);
 
 export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, basePrice, onApply }) => {
@@ -180,9 +243,16 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
 
   const onFile = async (f?: File) => {
     if (!f) return;
-    const text = await f.text();
-    setPasteText(text);
-    readPaste(text);
+    try {
+      let text: string;
+      if (/\.xlsx$/i.test(f.name)) text = await xlsxToText(await f.arrayBuffer());
+      else if (/\.xls$/i.test(f.name)) { setMsg('Los archivos .xls antiguos no se pueden leer. Guárdalo como .xlsx o CSV.'); return; }
+      else text = await csvToText(f);
+      setPasteText(text);
+      readPaste(text);
+    } catch (err: any) {
+      setMsg(err?.message || 'No pude leer el archivo. Prueba copiando las celdas y pegándolas en el cuadro.');
+    }
   };
 
   const downloadTemplate = () => {
@@ -252,8 +322,8 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => readPaste(pasteText)} className="px-4 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold cursor-pointer">Leer variantes</button>
                 <label className="px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                  <Upload className="w-3.5 h-3.5" /> Cargar CSV
-                  <input type="file" accept=".csv,.txt,.tsv" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
+                  <Upload className="w-3.5 h-3.5" /> Cargar Excel o CSV
+                  <input type="file" accept=".xlsx,.csv,.txt,.tsv" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
                 </label>
                 <button type="button" onClick={downloadTemplate} className="px-4 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
                   <Download className="w-3.5 h-3.5" /> Plantilla
