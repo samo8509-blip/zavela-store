@@ -33,7 +33,10 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
   onSaveSettings
 }) => {
   // Current values
-  const defaultNumber = '+573008784427';
+  // El número real nunca se muestra completo: solo una versión enmascarada.
+  const maskPhone = (p: string) => { if (String(p).includes('*')) return String(p); const d = String(p || '').replace(/\D/g, ''); return d.length >= 7 ? `+${d.slice(0, 2)} ${d.slice(2, 5)} *** ${d.slice(-4)}` : ''; };
+  const defaultNumber = '+57 300 *** 4427';
+  const realStoredNumber = settings.whatsappAlerts?.adminPhoneNumber || '';
   const initialAlerts = settings.whatsappAlerts || {
     enabled: true,
     adminPhoneNumber: defaultNumber,
@@ -43,7 +46,11 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
     lowStockThreshold: 5
   };
 
-  const [adminPhone, setAdminPhone] = useState(initialAlerts.adminPhoneNumber || defaultNumber);
+  const [adminPhone, setAdminPhone] = useState(maskPhone(initialAlerts.adminPhoneNumber) || defaultNumber);
+  const [alertEmail, setAlertEmail] = useState((initialAlerts as any).alertEmail || '');
+  const [emailStatus, setEmailStatus] = useState<{ smtpReady: boolean; hasRecipient: boolean; to: string } | null>(null);
+  const [emailMsg, setEmailMsg] = useState('');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [enabled, setEnabled] = useState(initialAlerts.enabled !== false);
   const [notifyNewSales, setNotifyNewSales] = useState(initialAlerts.notifyNewSales !== false);
   const [notifySecurity, setNotifySecurity] = useState(initialAlerts.notifySecurityAlerts !== false);
@@ -78,6 +85,37 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
     fetchLogs();
   }, []);
 
+  const loadEmailStatus = async () => {
+    try {
+      const r = await fetch('/api/alerts/config');
+      const j = await r.json();
+      if (j?.email) setEmailStatus(j.email);
+    } catch {}
+  };
+
+  useEffect(() => { loadEmailStatus(); }, []);
+
+  const sendTestEmail = async () => {
+    setIsTestingEmail(true);
+    setEmailMsg('');
+    try {
+      // Guarda primero el correo escrito para que la prueba use el correo actual.
+      await fetch('/api/alerts/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alertEmail: alertEmail.trim() })
+      });
+      const r = await fetch('/api/alerts/test-email', { method: 'POST' });
+      const j = await r.json();
+      setEmailMsg(j.message || (j.success ? 'Correo de prueba enviado.' : 'No se pudo enviar.'));
+      loadEmailStatus();
+    } catch {
+      setEmailMsg('No se pudo conectar con el servidor.');
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsSaving(true);
@@ -85,7 +123,9 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
 
     const updatedAlerts: WhatsAppAlertsSettings = {
       enabled,
-      adminPhoneNumber: adminPhone.trim() || defaultNumber,
+      // Si no editó el número (sigue enmascarado) se conserva el guardado.
+      adminPhoneNumber: adminPhone.includes('*') ? (realStoredNumber || adminPhone) : (adminPhone.trim() || realStoredNumber),
+      alertEmail: alertEmail.trim(),
       notifyNewSales,
       notifySecurityAlerts: notifySecurity,
       notifyLowStock,
@@ -97,7 +137,7 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
       await fetch('/api/alerts/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedAlerts)
+        body: JSON.stringify({ ...updatedAlerts, adminPhoneNumber: adminPhone.includes('*') ? '' : updatedAlerts.adminPhoneNumber })
       });
 
       // 2. Persist in global settings
@@ -279,7 +319,7 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
                 type="text"
                 value={adminPhone}
                 onChange={(e) => setAdminPhone(e.target.value)}
-                placeholder="+573008784427"
+                placeholder="+57 300 *** 4427"
                 className="w-full pl-10 pr-24 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                 required
               />
@@ -287,14 +327,45 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
                 type="button"
                 onClick={() => setAdminPhone(defaultNumber)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] text-slate-400 hover:text-emerald-300 font-semibold bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                title="Restablecer al número por defecto (+573008784427)"
+                title="Restablecer al número por defecto"
               >
                 Defecto
               </button>
             </div>
             <p className="text-[11px] text-slate-400">
-              Número por defecto: <strong className="text-emerald-400 font-mono">+573008784427</strong>. Los reportes y botones de aprobación se dirigirán a este chat.
+              Número protegido: <strong className="text-emerald-400 font-mono">{maskPhone(adminPhone) || defaultNumber}</strong>. Los reportes y botones de aprobación se dirigirán a este chat.
             </p>
+          </div>
+
+          {/* Correo donde llegan las alertas */}
+          <div className="space-y-2">
+            <label htmlFor="alert-email-input" className="block text-xs font-bold text-slate-300">
+              Correo para recibir las alertas
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="alert-email-input"
+                type="email"
+                value={alertEmail}
+                onChange={(e) => setAlertEmail(e.target.value)}
+                placeholder="tucorreo@gmail.com"
+                className="flex-1 px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={sendTestEmail}
+                disabled={isTestingEmail || !alertEmail.trim()}
+                className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+              >
+                {isTestingEmail ? 'Enviando...' : 'Enviar prueba'}
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Llegan por correo: compras nuevas, stock bajo, alertas de seguridad y clientes que piden hablar con una persona.
+              {emailStatus && !emailStatus.smtpReady && <span className="text-amber-400"> Falta configurar la cuenta de envío en el servidor (SMTP).</span>}
+              {emailStatus?.smtpReady && emailStatus.hasRecipient && <span className="text-emerald-400"> Envío listo hacia {emailStatus.to}.</span>}
+            </p>
+            {emailMsg && <p className="text-[11px] text-slate-200">{emailMsg}</p>}
           </div>
 
           {/* Switch de Activación: Alertas Automáticas del Copiloto */}
@@ -557,7 +628,7 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
                   </button>
 
                   <a
-                    href={item.waMeUrl || `https://wa.me/573008784427?text=${encodeURIComponent(item.message)}`}
+                    href={item.waMeUrl || `https://wa.me/?text=${encodeURIComponent(item.message)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"

@@ -15,6 +15,14 @@ import {
   buildLowStockAlertMessage
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
+import { sendHumanRequestAlert } from '../services/whatsappAlerts.ts';
+import { getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
+
+// Enmascara el número personal para que no viaje completo al navegador.
+const maskPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.length >= 7 ? `+${d.slice(0, 2)} ${d.slice(2, 5)} *** ${d.slice(-4)}` : ''; };
+
+// El resultado hacia el navegador nunca lleva el número real ni enlaces wa.me con él.
+const safeResult = (r: any) => ({ ...r, waMeUrl: '', recipientPhone: maskPhone(r?.recipientPhone), metaResponse: undefined });
 
 const router = Router();
 
@@ -40,15 +48,18 @@ router.get('/config', (req: Request, res: Response) => {
   res.json({
     success: true,
     channel: 'CANAL_PRIVADO_COPILOTO',
-    settings: alertSettings,
+    settings: { ...alertSettings, adminPhoneNumber: maskPhone(alertSettings.adminPhoneNumber || currentAdminPhone) },
     recipient: {
-      raw: currentAdminPhone,
-      formatted: `+${currentAdminPhone.replace(/^57/, '57 ')}`,
-      display: alertSettings.adminPhoneNumber || '+573008784427',
+      display: maskPhone(currentAdminPhone),
       isDefault: currentAdminPhone === ADMIN_WHATSAPP_NUMBER_RAW
     },
+    email: {
+      to: maskEmail(getAlertEmailTo()),
+      hasRecipient: Boolean(getAlertEmailTo()),
+      smtpReady: isSmtpConfigured()
+    },
     enabled: isCopilotAlertsEnabled(),
-    statusText: `Copiloto conectado para reportes privados a +${currentAdminPhone}`,
+    statusText: `Copiloto conectado para reportes privados a ${maskPhone(currentAdminPhone)}`,
     cloudApi: {
       isReady: hasToken && hasPhoneId,
       hasAccessToken: hasToken,
@@ -75,7 +86,8 @@ router.post('/config', (req: Request, res: Response) => {
       notifyNewSales, 
       notifySecurityAlerts, 
       notifyLowStock, 
-      lowStockThreshold 
+      lowStockThreshold,
+      alertEmail
     } = req.body;
 
     const settings = db.getSettings();
@@ -88,7 +100,12 @@ router.post('/config', (req: Request, res: Response) => {
       lowStockThreshold: 5
     };
 
-    const cleanPhone = adminPhoneNumber ? adminPhoneNumber.trim() : currentAlerts.adminPhoneNumber;
+    // Si llega el número enmascarado (con ***) se conserva el real.
+    const incomingPhone = adminPhoneNumber ? String(adminPhoneNumber).trim() : '';
+    const cleanPhone = incomingPhone && !incomingPhone.includes('*') ? incomingPhone : currentAlerts.adminPhoneNumber;
+    if (alertEmail !== undefined && String(alertEmail).trim() && !isValidEmail(alertEmail)) {
+      return res.status(400).json({ success: false, message: 'El correo de alertas no es válido.' });
+    }
 
     const updatedAlerts = {
       ...currentAlerts,
@@ -97,7 +114,8 @@ router.post('/config', (req: Request, res: Response) => {
       notifyNewSales: notifyNewSales !== undefined ? Boolean(notifyNewSales) : currentAlerts.notifyNewSales,
       notifySecurityAlerts: notifySecurityAlerts !== undefined ? Boolean(notifySecurityAlerts) : currentAlerts.notifySecurityAlerts,
       notifyLowStock: notifyLowStock !== undefined ? Boolean(notifyLowStock) : currentAlerts.notifyLowStock,
-      lowStockThreshold: Number(lowStockThreshold) || currentAlerts.lowStockThreshold || 5
+      lowStockThreshold: Number(lowStockThreshold) || currentAlerts.lowStockThreshold || 5,
+      alertEmail: alertEmail !== undefined ? String(alertEmail).trim() : (currentAlerts as any).alertEmail
     };
 
     db.saveSettings({
@@ -108,7 +126,7 @@ router.post('/config', (req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'Configuración del Canal Privado de Alertas actualizada exitosamente.',
-      data: updatedAlerts
+      data: { ...updatedAlerts, adminPhoneNumber: maskPhone(updatedAlerts.adminPhoneNumber) }
     });
   } catch (err: any) {
     res.status(500).json({
@@ -123,7 +141,7 @@ router.post('/config', (req: Request, res: Response) => {
  * Retrieves recent alerts sent or prepared for direct WhatsApp Web backup
  */
 router.get('/logs', (req: Request, res: Response) => {
-  const logs = getAlertLogs();
+  const logs = getAlertLogs().map(l => ({ ...l, recipientPhone: maskPhone(l.recipientPhone), waMeUrl: '' }));
   res.json({
     success: true,
     count: logs.length,
@@ -160,7 +178,7 @@ router.post('/send', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      ...result
+      ...safeResult(result)
     });
   } catch (error: any) {
     console.error('Error in /api/alerts/send:', error);
@@ -187,7 +205,7 @@ router.post('/test', async (req: Request, res: Response) => {
         id: `ord-test-${Date.now()}`,
         orderNumber: `NV-${Math.floor(1000 + Math.random() * 9000)}`,
         customerName: 'Santiago Morales',
-        customerPhone: '+57 300 878 4427',
+        customerPhone: '+57 300 000 0000',
         city: 'Bogotá D.C.',
         address: 'Carrera 15 # 93-60 Apto 402',
         total: 189900,
@@ -204,7 +222,7 @@ router.post('/test', async (req: Request, res: Response) => {
         ]
       });
     } else if (testType === 'SECURITY_ALERT') {
-      result = await sendSecurityAlert('admin@zavelastore.co / +573008784427', {
+      result = await sendSecurityAlert('admin@zavelastore.co', {
         eventType: 'Fuerza bruta en contraseñas',
         ip: '190.85.122.44 (Bogotá, Colombia - Red Tor / Nodo de Salida)',
         failedAttempts: 47,
@@ -224,7 +242,7 @@ router.post('/test', async (req: Request, res: Response) => {
         title: 'Verificación Canal Privado Copiloto',
         message: `🔔 VERIFICACIÓN DE CANAL PRIVADO - ZAVELA STORE
 ¡Hola Administrador! Tu Copiloto de Inteligencia Artificial está conectado y sincronizado con este chat privado.
-• Teléfono verificado: +${targetPhone}
+• Teléfono verificado: ${maskPhone(targetPhone)}
 • Estado: Operativo 24/7 para alertar sobre nuevas órdenes por aprobar, quiebres de inventario y eventos de seguridad.`
       });
     }
@@ -232,8 +250,8 @@ router.post('/test', async (req: Request, res: Response) => {
     res.json({
       success: true,
       testType,
-      targetPhone: `+${targetPhone}`,
-      ...result
+      targetPhone: maskPhone(targetPhone),
+      ...safeResult(result)
     });
   } catch (error: any) {
     res.status(500).json({
@@ -241,6 +259,40 @@ router.post('/test', async (req: Request, res: Response) => {
       message: error?.message || 'Error en prueba de alerta'
     });
   }
+});
+
+/**
+ * POST /api/alerts/human-request  (público)
+ * Un cliente pidió hablar con una persona. Avisa al administrador por correo.
+ * Limitado por IP para evitar abuso.
+ */
+const humanHits = new Map<string, number[]>();
+let humanGlobal: number[] = [];
+router.post('/human-request', async (req: Request, res: Response) => {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'x').split(',')[0].trim();
+  const now = Date.now();
+  const recent = (humanHits.get(ip) || []).filter(t => now - t < 10 * 60 * 1000);
+  humanGlobal = humanGlobal.filter(t => now - t < 60 * 60 * 1000);
+  if (recent.length >= 3 || humanGlobal.length >= 30) {
+    return res.json({ success: true, throttled: true });
+  }
+  recent.push(now); humanHits.set(ip, recent); humanGlobal.push(now);
+  try {
+    const { name, phone, message, page } = req.body || {};
+    await sendHumanRequestAlert({ name, phone, message, page });
+    res.json({ success: true });
+  } catch {
+    res.json({ success: true });
+  }
+});
+
+/**
+ * POST /api/alerts/test-email
+ * Envía un correo de prueba al destino configurado y dice si funcionó.
+ */
+router.post('/test-email', async (req: Request, res: Response) => {
+  const r = await sendAlertEmail('Prueba de alertas', '✅ Si lees esto, las alertas por correo de Zavela Store funcionan.\n\nRecibirás aquí: compras nuevas, stock bajo, alertas de seguridad y clientes que piden hablar con una persona.');
+  res.json({ success: r.sent, message: r.sent ? 'Correo de prueba enviado.' : (r.reason || 'No se pudo enviar.') });
 });
 
 export default router;

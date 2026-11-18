@@ -329,7 +329,7 @@ export interface WhatsAppCloudApiSettings {
   waiEnabled?: boolean; // Habilitar canal WAI
 }
 
-export type WhatsAppAlertType = 'NEW_SALE' | 'SECURITY_ALERT' | 'LOW_STOCK' | 'CUSTOM' | 'DAILY_SUMMARY';
+export type WhatsAppAlertType = 'NEW_SALE' | 'SECURITY_ALERT' | 'LOW_STOCK' | 'HUMAN_REQUEST' | 'CUSTOM' | 'DAILY_SUMMARY';
 
 export interface WhatsAppAlertLog {
   id: string;
@@ -351,6 +351,7 @@ export interface WhatsAppAlertsSettings {
   notifySecurityAlerts: boolean;
   notifyLowStock: boolean;
   lowStockThreshold: number;
+  alertEmail?: string; // correo donde llegan las alertas
 }
 
 export interface MaintenanceNotifyLead {

@@ -622,7 +622,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
         valid = true;
         detected = 'seguridad';
 
-        // Disparar Alerta Inmediata a WhatsApp Personal (+57 300 878 4427)
+        // Disparar Alerta Inmediata a WhatsApp Personal (+57 300 *** 4427)
         try {
           fetch('/api/alerts/send', {
             method: 'POST',
@@ -1469,7 +1469,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
               </div>
             </div>
 
-            {/* NOTIFICACIONES AUTOMÁTICAS A WHATSAPP PERSONAL (+57 300 878 4427) */}
+            {/* NOTIFICACIONES AUTOMÁTICAS A WHATSAPP PERSONAL (+57 300 *** 4427) */}
             <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/60 via-slate-950 to-slate-900 border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1479,7 +1479,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                     Canal Privado de Alertas del Copiloto
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/40">
-                    +57 300 878 4427
+                    +57 300 *** 4427
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed max-w-xl">
@@ -1522,11 +1522,11 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 </button>
 
                 <a
-                  href="https://wa.me/573008784427"
+                  href="https://web.whatsapp.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-extrabold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
-                  title="Abrir chat directo con +57 300 878 4427"
+                  title="Abrir chat directo con +57 300 *** 4427"
                 >
                   <MessageSquare className="w-3 h-3 fill-white" />
                   <span>Abrir WhatsApp</span>

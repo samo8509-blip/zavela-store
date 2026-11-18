@@ -259,7 +259,7 @@ export const AdminDailySummaryModal: React.FC<AdminDailySummaryModalProps> = ({
   };
 
   /**
-   * Genera el texto con la estructura exacta requerida y despacha la alerta a WhatsApp (+57 3008784427)
+   * Genera el texto con la estructura exacta requerida y despacha la alerta a WhatsApp (+57 300 *** 4427)
    */
   const buildReportWhatsAppMessage = (
     report: SimulatedDailyTrafficReport, 
@@ -316,15 +316,15 @@ Se acaban de registrar ${deltaSales} nuevas ventas.
           type: 'DAILY_SUMMARY',
           title: '🚨 Reporte de Ventas Enviado a WhatsApp',
           message,
-          destination: '+57 300 878 4427',
-          waMeUrl: `https://wa.me/573008784427?text=${encodeURIComponent(message)}`,
+          destination: '+57 300 *** 4427',
+          waMeUrl: `https://wa.me/?text=${encodeURIComponent(message)}`,
           timestamp: new Date().toISOString()
         }
       }));
     } catch {}
 
     // 3. Abrir automáticamente en una pestaña secundaria o ventana emergente el enlace directo de WhatsApp Web / API
-    const waUrl = `https://wa.me/573008784427?text=${encodeURIComponent(message)}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     try {
       window.open(waUrl, '_blank', 'noopener,noreferrer');
     } catch (e) {
@@ -338,7 +338,7 @@ Se acaban de registrar ${deltaSales} nuevas ventas.
   const handleResendReportToWhatsApp = () => {
     if (!trafficReport) return;
     const message = lastWaMessage || buildReportWhatsAppMessage(trafficReport, comparison);
-    const waUrl = `https://wa.me/573008784427?text=${encodeURIComponent(message)}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     
     // Disparar log interno
     fetch('/api/alerts/send', {
@@ -536,7 +536,7 @@ Se acaban de registrar ${deltaSales} nuevas ventas.
                 onClick={handleResendReportToWhatsApp}
                 disabled={isLoadingData || !trafficReport}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                title="Reenviar reporte a mi WhatsApp (+57 3008784427)"
+                title="Reenviar reporte a mi WhatsApp (+57 300 *** 4427)"
               >
                 <MessageSquare className="w-3.5 h-3.5 fill-white text-emerald-600" />
                 <span className="hidden md:inline">Reenviar reporte a mi WhatsApp</span>
@@ -580,7 +580,7 @@ Se acaban de registrar ${deltaSales} nuevas ventas.
                 <span className="w-2 h-2 rounded-full bg-emerald-200 animate-ping shrink-0" />
                 <MessageSquare className="w-4 h-4 shrink-0 fill-white text-emerald-600" />
                 <span className="font-bold">
-                  📲 Notificación generada y enviada a tu WhatsApp privado (+57 3008784427)
+                  📲 Notificación generada y enviada a tu WhatsApp privado (+57 300 *** 4427)
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1007,7 +1007,7 @@ Se acaban de registrar ${deltaSales} nuevas ventas.
                 onClick={handleResendReportToWhatsApp}
                 disabled={isLoadingData || !trafficReport}
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-                title="Reenviar balance actual al WhatsApp +573008784427"
+                title="Reenviar balance actual al WhatsApp +57 300 *** 4427"
               >
                 <MessageSquare className="w-3.5 h-3.5 fill-white text-emerald-600" />
                 <span>Reenviar reporte a mi WhatsApp</span>

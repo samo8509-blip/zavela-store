@@ -192,6 +192,25 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
     };
   }, [cleanPhone, advisorName]);
 
+  // Avisa al administrador (por correo) que un cliente pidió hablar con una persona.
+  const notifyHumanRequest = (note: string) => {
+    try {
+      const c: any = currentCustomer || {};
+      const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.name || '';
+      fetch('/api/alerts/human-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          name,
+          phone: c.phone || c.telefono || '',
+          message: `${note}${viewedProducts.length ? ` · Viendo: ${viewedProducts.slice(0, 3).join(', ')}` : ''}`,
+          page: typeof window !== 'undefined' ? window.location.pathname : ''
+        })
+      }).catch(() => {});
+    } catch {}
+  };
+
   const formatAdvisorWhatsAppUrl = (adv: any) => {
     let p = (adv.phone || adv.telefono || adv.whatsapp || '').replace(/[^\d]/g, '');
     if (p.length === 10 && p.startsWith('3')) p = `57${p}`;
@@ -502,6 +521,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
                           href={msg.whatsappUrl || `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hola Asesor Zavela, quiero consultar sobre un producto.')}`}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => notifyHumanRequest('Continuó la consulta con un asesor en WhatsApp')}
                           className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3.5 py-2 rounded-xl border border-emerald-300 transition-all w-full justify-center shadow-2xs"
                         >
                           <MessageCircle className="w-4 h-4 text-emerald-700 shrink-0" />
@@ -552,6 +572,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
                       href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent('¡Hola Zavela Store! Quiero asesoría sobre los productos con Pago Contra Entrega.')}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => notifyHumanRequest('Abrió el WhatsApp oficial para pedir asesoría')}
                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-2xs"
                     >
                       <span>Abrir</span>
@@ -584,6 +605,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
                           href={formatAdvisorWhatsAppUrl(adv)}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => notifyHumanRequest(`Quiere hablar con ${adv.name}`)}
                           className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition-all text-left group"
                         >
                           <div className="min-w-0 pr-2">

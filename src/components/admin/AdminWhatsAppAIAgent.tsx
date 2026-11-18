@@ -613,11 +613,11 @@ Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
         <div className="flex items-center gap-2.5">
           <Info className="w-4 h-4 text-sky-400 shrink-0" />
           <span>
-            <strong>Canal Comercial para Clientes:</strong> Este panel configura el bot de atención en tienda. Para tus alertas de ventas y ciberseguridad privadas dirigidas a <strong>+57 300 878 4427</strong>, consulta la sección <strong>"Canal Privado Copiloto WhatsApp"</strong>.
+            <strong>Canal Comercial para Clientes:</strong> Este panel configura el bot de atención en tienda. Para tus alertas de ventas y ciberseguridad privadas dirigidas a <strong>+57 300 *** 4427</strong>, consulta la sección <strong>"Canal Privado Copiloto WhatsApp"</strong>.
           </span>
         </div>
         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-          Privado: +57 300 878 4427
+          Privado: +57 300 *** 4427
         </span>
       </div>
 
