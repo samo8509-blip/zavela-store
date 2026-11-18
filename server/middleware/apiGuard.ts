@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Request, Response, NextFunction } from 'express';
+import { getPrivateConfig } from '../services/privateConfig.ts';
 
 const TOKEN_PREFIX = 'zavela_adm_';
 const ADVISOR_PREFIX = 'zavela_adv_';
@@ -19,6 +20,8 @@ function getSecret(): string {
   if (cachedSecret) return cachedSecret;
   const env = process.env.ADMIN_TOKEN_SECRET;
   if (env && env.length >= 16) return (cachedSecret = env);
+  const stored = getPrivateConfig().tokenSecret;
+  if (stored && stored.length >= 32) return (cachedSecret = stored);
   const file = path.join(process.cwd(), '.admin_token_secret');
   try {
     const v = fs.readFileSync(file, 'utf8').trim();

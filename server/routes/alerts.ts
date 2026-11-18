@@ -16,7 +16,8 @@ import {
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
 import { sendHumanRequestAlert } from '../services/whatsappAlerts.ts';
-import { getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
+import { savePrivateConfig, getPrivateConfig } from '../services/privateConfig.ts';
+import { getSmtp, getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
 
 // Enmascara el número personal para que no viaje completo al navegador.
 const maskPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.length >= 7 ? `+${d.slice(0, 2)} ${d.slice(2, 5)} *** ${d.slice(-4)}` : ''; };
@@ -57,7 +58,8 @@ router.get('/config', (req: Request, res: Response) => {
     email: {
       to: maskEmail(getAlertEmailTo()),
       hasRecipient: Boolean(getAlertEmailTo()),
-      smtpReady: isSmtpConfigured()
+      smtpReady: isSmtpConfigured(),
+      smtp: { host: getSmtp().host, port: getSmtp().port, user: getSmtp().user, hasPass: Boolean(getSmtp().pass) }
     },
     enabled: isCopilotAlertsEnabled(),
     statusText: `Copiloto conectado para reportes privados a ${maskPhone(currentAdminPhone)}`,
@@ -79,7 +81,7 @@ router.get('/config', (req: Request, res: Response) => {
  * POST /api/alerts/config
  * Updates and persists private copilot alert settings
  */
-router.post('/config', (req: Request, res: Response) => {
+router.post('/config', async (req: Request, res: Response) => {
   try {
     const { 
       adminPhoneNumber, 
@@ -123,6 +125,7 @@ router.post('/config', (req: Request, res: Response) => {
       ...settings,
       whatsappAlerts: updatedAlerts
     });
+    if (alertEmail !== undefined) await savePrivateConfig({ alertEmail: String(alertEmail).trim() });
 
     res.json({
       success: true,
@@ -134,6 +137,29 @@ router.post('/config', (req: Request, res: Response) => {
       success: false,
       message: err.message || 'Error guardando configuración de alertas.'
     });
+  }
+});
+
+/**
+ * POST /api/alerts/smtp  (solo administrador: lo exige apiGuard)
+ * Guarda la cuenta de envío de correo en MySQL. La contraseña vacía o enmascarada conserva la actual.
+ */
+router.post('/smtp', async (req: Request, res: Response) => {
+  try {
+    const host = String(req.body?.host || '').trim();
+    const user = String(req.body?.user || '').trim();
+    const port = Number(req.body?.port) || 465;
+    const passIn = String(req.body?.pass || '');
+    const prev = getPrivateConfig().smtp || {};
+    const pass = passIn && !passIn.includes('•') && !passIn.includes('*') ? passIn : (prev.pass || '');
+    if (!host || !isValidEmail(user)) {
+      return res.status(400).json({ success: false, message: 'Escribe el servidor y el correo de la cuenta de envío.' });
+    }
+    if (!pass) return res.status(400).json({ success: false, message: 'Falta la contraseña de la cuenta de correo.' });
+    const ok = await savePrivateConfig({ smtp: { host, port, user, pass } });
+    res.json({ success: true, persisted: ok, message: ok ? 'Cuenta de envío guardada.' : 'Guardada solo hasta que el servidor se reinicie: no se pudo escribir en la base de datos.' });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'Error guardando.' });
   }
 });
 
