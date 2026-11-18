@@ -509,6 +509,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       createdOrder.lastName = createdOrder.lastName || clientDetails.lastName;
       createdOrder.phone = createdOrder.phone || clientDetails.phone;
 
+      // Aviso privado al administrador (el pedido se crea en cPanel, así que el servidor debe enterarse aparte).
+      try {
+        const alertRef = String(createdOrder.id || createdOrder.orderNumber || '');
+        if (alertRef) {
+          fetch('/api/alerts/new-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: alertRef })
+          }).catch(() => {});
+        }
+      } catch {}
+
       if (formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online') {
         const customerName = customerFullName;
         const customerAddress = `${formData.address?.trim()}, ${formData.city?.trim()}`;

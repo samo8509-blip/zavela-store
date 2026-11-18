@@ -358,6 +358,16 @@ export async function sendSaleNotification(order: Partial<Order>): Promise<Dispa
   });
 }
 
+const alertedOrders = new Set<string>();
+/** Avisa de un pedido nuevo una sola vez por pedido (el pedido puede llegar por la API PHP o por este servidor). */
+export async function sendSaleNotificationOnce(order: Partial<Order>): Promise<DispatchAlertResult | null> {
+  const keys = [order.id, order.orderNumber].filter(Boolean).map(String);
+  if (keys.some(k => alertedOrders.has(k))) return null;
+  keys.forEach(k => alertedOrders.add(k));
+  if (alertedOrders.size > 2000) alertedOrders.clear();
+  return sendSaleNotification(order);
+}
+
 /**
  * Trigger: ALERTA CRÍTICA DE CIBERSEGURIDAD
  */

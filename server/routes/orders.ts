@@ -3,7 +3,7 @@ import { db } from '../db.ts';
 import { Order, OrderItem, PaymentMethod } from '../../src/types/index.ts';
 import { getDaneCode } from '../../src/data/colombiaGeo.ts';
 import { calculateShippingCost } from '../../src/data/shippingRates.ts';
-import { sendSaleNotification, sendLowStockAlert } from '../services/whatsappAlerts.ts';
+import { sendSaleNotificationOnce, sendLowStockAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { pool, nativePool } from '../mysqlPool.ts';
 import { publicOrderView, exactMatch, clientIp, tooManyHits } from '../services/publicOrder.ts';
@@ -258,7 +258,7 @@ router.post('/', async (req, res) => {
 
     db.saveOrder(newOrder);
     cpanelDbService.createOrder(newOrder).catch(() => {});
-    sendSaleNotification(newOrder).catch(() => {});
+    sendSaleNotificationOnce(newOrder).catch(() => {});
 
     res.status(201).json({ success: true, message: '¡Pedido creado exitosamente!', data: newOrder });
   } catch (error: any) {
