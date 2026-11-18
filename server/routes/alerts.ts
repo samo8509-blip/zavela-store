@@ -17,7 +17,7 @@ import {
 import { db } from '../db.ts';
 import { sendHumanRequestAlert } from '../services/whatsappAlerts.ts';
 import { savePrivateConfig, getPrivateConfig } from '../services/privateConfig.ts';
-import { getSmtp, getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
+import { getResendKey, getSmtp, getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
 
 // Enmascara el número personal para que no viaje completo al navegador.
 const maskPhone = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d.length >= 7 ? `+${d.slice(0, 2)} ${d.slice(2, 5)} *** ${d.slice(-4)}` : ''; };
@@ -59,6 +59,7 @@ router.get('/config', (req: Request, res: Response) => {
       to: maskEmail(getAlertEmailTo()),
       hasRecipient: Boolean(getAlertEmailTo()),
       smtpReady: isSmtpConfigured(),
+      hasResend: Boolean(getResendKey()),
       smtp: { host: getSmtp().host, port: getSmtp().port, user: getSmtp().user, hasPass: Boolean(getSmtp().pass) }
     },
     enabled: isCopilotAlertsEnabled(),
@@ -161,6 +162,16 @@ router.post('/smtp', async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ success: false, message: e?.message || 'Error guardando.' });
   }
+});
+
+/** POST /api/alerts/resend (solo administrador): guarda la clave de Resend en MySQL. */
+router.post('/resend', async (req: Request, res: Response) => {
+  const key = String(req.body?.key || '').trim();
+  if (!/^re_[A-Za-z0-9_\-]{10,}$/.test(key)) {
+    return res.status(400).json({ success: false, message: 'La clave de Resend debe empezar por "re_".' });
+  }
+  const ok = await savePrivateConfig({ resendKey: key });
+  res.json({ success: true, persisted: ok, message: ok ? 'Clave guardada.' : 'Guardada solo hasta que el servidor se reinicie.' });
 });
 
 /**

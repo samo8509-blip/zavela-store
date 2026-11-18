@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import { pool } from '../mysqlPool.ts';
 
 export interface SmtpConfig { host?: string; port?: number; user?: string; pass?: string }
-export interface PrivateConfig { smtp?: SmtpConfig; tokenSecret?: string; alertEmail?: string }
+export interface PrivateConfig { smtp?: SmtpConfig; resendKey?: string; tokenSecret?: string; alertEmail?: string }
 
 const KEY = 'private_config';
 let cache: PrivateConfig = {};
