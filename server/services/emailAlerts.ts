@@ -13,6 +13,7 @@
 import net from 'node:net';
 import tls from 'node:tls';
 import { db } from '../db.ts';
+import { getPrivateConfig } from './privateConfig.ts';
 
 export interface EmailResult {
   sent: boolean;
@@ -32,6 +33,8 @@ export function maskEmail(v: string): string {
 }
 
 export function getAlertEmailTo(): string {
+  const stored = getPrivateConfig().alertEmail;
+  if (stored && isValidEmail(stored)) return stored.trim();
   try {
     const cfg = (db.getSettings() as any).whatsappAlerts?.alertEmail;
     if (cfg && isValidEmail(cfg)) return String(cfg).trim();
@@ -40,8 +43,20 @@ export function getAlertEmailTo(): string {
   return isValidEmail(env) ? env.trim() : '';
 }
 
+/** Cuenta de envío: variables de entorno si existen; si no, la guardada desde el admin (MySQL). */
+export function getSmtp() {
+  const c = getPrivateConfig().smtp || {};
+  return {
+    host: process.env.SMTP_HOST || c.host || '',
+    port: Number(process.env.SMTP_PORT) || Number(c.port) || 465,
+    user: process.env.SMTP_USER || c.user || '',
+    pass: process.env.SMTP_PASS || c.pass || ''
+  };
+}
+
 export function isSmtpConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  const c = getSmtp();
+  return Boolean(c.host && c.user && c.pass);
 }
 
 const clean = (s: string) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
@@ -145,15 +160,16 @@ export async function sendAlertEmail(subject: string, text: string, toOverride?:
   const to = toOverride && isValidEmail(toOverride) ? toOverride.trim() : getAlertEmailTo();
   if (!to) return { sent: false, reason: 'No hay correo de destino configurado.' };
   if (!isSmtpConfigured()) return { sent: false, reason: 'El servidor de correo (SMTP) aún no está configurado.' };
-  const user = process.env.SMTP_USER as string;
+  const cfg = getSmtp();
+  const user = cfg.user;
   const from = (process.env.ALERT_EMAIL_FROM && isValidEmail(process.env.ALERT_EMAIL_FROM) ? process.env.ALERT_EMAIL_FROM : user).trim();
   try {
     await smtpSend({
-      host: process.env.SMTP_HOST as string,
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: (Number(process.env.SMTP_PORT) || 465) === 465 || process.env.SMTP_SECURE === 'true',
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.port === 465 || process.env.SMTP_SECURE === 'true',
       user,
-      pass: process.env.SMTP_PASS as string,
+      pass: cfg.pass,
       from,
       to,
       subject: `[Alertas Zavela] ${subject}`,

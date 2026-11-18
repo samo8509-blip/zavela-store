@@ -23,6 +23,7 @@ import { db, isTestProduct } from './server/db.ts';
 import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
 import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
 import { ssrService } from './server/services/ssrService.ts';
+import { loadPrivateConfig, ensureTokenSecret } from './server/services/privateConfig.ts';
 
 dotenv.config();
 
@@ -31,6 +32,10 @@ async function startServer() {
   await initDatabaseSchema().catch(err => {
     console.error('[Server Startup Auto-Migration Error]:', err.message);
   });
+
+  // 1b. Configuración privada (SMTP, clave de sesiones) guardada en MySQL
+  await loadPrivateConfig();
+  await ensureTokenSecret();
 
   // 2. Desactivación definitiva de seeders y limpieza de datos demo recurrentes
   await runCleanupAndDisableSeeders().catch(err => {

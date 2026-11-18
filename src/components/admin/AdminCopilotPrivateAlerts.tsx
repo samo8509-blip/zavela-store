@@ -48,7 +48,11 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
 
   const [adminPhone, setAdminPhone] = useState(maskPhone(initialAlerts.adminPhoneNumber) || defaultNumber);
   const [alertEmail, setAlertEmail] = useState((initialAlerts as any).alertEmail || '');
-  const [emailStatus, setEmailStatus] = useState<{ smtpReady: boolean; hasRecipient: boolean; to: string } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ smtpReady: boolean; hasRecipient: boolean; to: string; smtp?: { host: string; port: number; user: string; hasPass: boolean } } | null>(null);
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('465');
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [enabled, setEnabled] = useState(initialAlerts.enabled !== false);
@@ -89,7 +93,14 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
     try {
       const r = await fetch('/api/alerts/config');
       const j = await r.json();
-      if (j?.email) setEmailStatus(j.email);
+      if (j?.email) {
+        setEmailStatus(j.email);
+        if (j.email.smtp) {
+          setSmtpHost(h => h || j.email.smtp.host || '');
+          setSmtpPort(p => (j.email.smtp.host ? String(j.email.smtp.port || 465) : p));
+          setSmtpUser(u => u || j.email.smtp.user || '');
+        }
+      }
     } catch {}
   };
 
@@ -99,7 +110,17 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
     setIsTestingEmail(true);
     setEmailMsg('');
     try {
-      // Guarda primero el correo escrito para que la prueba use el correo actual.
+      // Guarda primero la cuenta de envío (si se escribió) y el correo para que la prueba use los datos actuales.
+      if (smtpHost.trim() && smtpUser.trim() && (smtpPass || emailStatus?.smtp?.hasPass)) {
+        const sr = await fetch('/api/alerts/smtp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host: smtpHost.trim(), port: Number(smtpPort) || 465, user: smtpUser.trim(), pass: smtpPass })
+        });
+        const sj = await sr.json();
+        if (!sj.success) { setEmailMsg(sj.message || 'No se pudo guardar la cuenta de envío.'); setIsTestingEmail(false); return; }
+        setSmtpPass('');
+      }
       await fetch('/api/alerts/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -362,9 +383,19 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
             </div>
             <p className="text-[11px] text-slate-400">
               Llegan por correo: compras nuevas, stock bajo, alertas de seguridad y clientes que piden hablar con una persona.
-              {emailStatus && !emailStatus.smtpReady && <span className="text-amber-400"> Falta configurar la cuenta de envío en el servidor (SMTP).</span>}
+              {emailStatus && !emailStatus.smtpReady && <span className="text-amber-400"> Falta la cuenta de envío: llénala abajo.</span>}
               {emailStatus?.smtpReady && emailStatus.hasRecipient && <span className="text-emerald-400"> Envío listo hacia {emailStatus.to}.</span>}
             </p>
+            <details className="rounded-xl border border-slate-700 bg-slate-950/60 p-3" open={!emailStatus?.smtpReady}>
+              <summary className="text-xs font-bold text-slate-300 cursor-pointer">Cuenta de envío (la que manda los correos)</summary>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="Servidor: mail.zavelastore.com.co" className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs" />
+                <input value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} placeholder="Puerto: 465" inputMode="numeric" className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs" />
+                <input value={smtpUser} onChange={(e) => setSmtpUser(e.target.value)} placeholder="Correo: alertas@zavelastore.com.co" className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs" />
+                <input type="password" autoComplete="new-password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder={emailStatus?.smtp?.hasPass ? 'Contraseña guardada (déjala vacía para conservarla)' : 'Contraseña de ese correo'} className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs" />
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">Se guarda en tu base de datos y nunca se muestra de nuevo. Al pulsar "Enviar prueba" se guarda y se prueba.</p>
+            </details>
             {emailMsg && <p className="text-[11px] text-slate-200">{emailMsg}</p>}
           </div>
 
