@@ -34,7 +34,45 @@ const toNum = (v: any) => {
   return s ? Number(s) : 0;
 };
 
-const TEMPLATE_HEAD = 'Color;Talla;Precio de venta;Stock;ID Dropi';
+const TEMPLATE_HEAD = 'Id;Descripción;Existencia;Precio del proveedor;Precio sugerido';
+
+/** De "Color: Negro Talla: 35" saca color y talla. */
+function splitDesc(desc: string): { color: string; size: string } {
+  const c = desc.match(/Color:\s*(.*?)(?=\s+Talla:|$)/i);
+  const t = desc.match(/Talla:\s*(.*)$/i);
+  const color = (c ? c[1] : desc.replace(/Talla:.*$/i, '')).trim();
+  return { color: color || 'Único', size: (t ? t[1] : '').trim() || 'Única' };
+}
+
+/** Tabla con los encabezados de Dropi (Id, Descripción, Existencia, Precio del proveedor, Precio sugerido), en celdas separadas por ; tabulador o coma. */
+function parseDropiTable(text: string): Draft[] {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const d = ['\t', ';', ','].reduce((b, c) => (lines[0].split(c).length > lines[0].split(b).length ? c : b), '\t');
+  const head = lines[0].split(d).map(x => norm(x.replace(/^"|"$/g, '')));
+  const f = (p: string) => head.findIndex(h => h.includes(p));
+  const iId = head.findIndex(h => h === 'id');
+  const iDesc = f('descrip');
+  if (iId < 0 || iDesc < 0) return [];
+  const iStock = f('existencia');
+  const iCost = f('proveedor');
+  const iSug = f('sugerido');
+  const out: Draft[] = [];
+  lines.slice(1).forEach((l, i) => {
+    const c = l.split(d).map(x => x.trim().replace(/^"|"$/g, ''));
+    const id = (c[iId] || '').replace(/\D/g, '');
+    if (!id || !c[iDesc]) return;
+    const { color, size } = splitDesc(c[iDesc]);
+    out.push({
+      key: `t-${id}-${i}`, color, size, dropiId: id,
+      dropiStock: iStock >= 0 && c[iStock] !== '' ? toNum(c[iStock]) : undefined,
+      dropiCost: iCost >= 0 ? toNum(c[iCost]) : undefined,
+      dropiSuggested: iSug >= 0 ? toNum(c[iSug]) || undefined : undefined,
+      include: true
+    });
+  });
+  return out;
+}
 
 /** Lee una tabla copiada de Dropi: Id, Descripción (Color: X Talla: Y), Existencia, Precio proveedor, Precio sugerido. */
 function parseDropi(text: string): Draft[] {
@@ -43,14 +81,11 @@ function parseDropi(text: string): Draft[] {
   const out: Draft[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(flat))) {
-    const desc = m[2];
-    const c = desc.match(/Color:\s*(.*?)(?=\s+Talla:|$)/i);
-    const t = desc.match(/Talla:\s*(.*)$/i);
-    const color = (c ? c[1] : desc.replace(/Talla:.*$/i, '')).trim();
+    const { color, size } = splitDesc(m[2]);
     out.push({
       key: `d-${m[1]}-${out.length}`,
-      color: color || 'Único',
-      size: (t ? t[1] : '').trim() || 'Única',
+      color,
+      size,
       dropiId: m[1],
       dropiStock: Number(m[3]),
       dropiCost: toNum(m[4]),
@@ -133,7 +168,7 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
 
   const readPaste = (text: string) => {
     setMsg('');
-    const dropi = parseDropi(text);
+    const dropi = parseDropiTable(text).length ? parseDropiTable(text) : parseDropi(text);
     const list = dropi.length ? dropi : parseSheet(text);
     if (!list.length) {
       setDrafts([]);
@@ -164,7 +199,7 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
   };
 
   const downloadTemplate = () => {
-    const csv = '﻿' + TEMPLATE_HEAD + '\nNegro;35;120000;20;2219544\nVerde;36;120000;20;2219551\nBeige;37;;;\n';
+    const csv = '\uFEFF' + TEMPLATE_HEAD + '\n2219544;Color: Negro Talla: 35;100;65000;100000\n2219551;Color: Verde Talla: 36;100;65000;100000\n';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'plantilla-variantes-zavela.csv';
@@ -225,7 +260,7 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
           {tab === 'paste' ? (
             <div className="space-y-2">
               <p className="text-xs text-slate-600">
-                En Dropi selecciona la tabla de variantes (desde "Id" hasta la última fila), cópiala y pégala aquí. También sirven las columnas de la plantilla: <b>Color, Talla, Precio de venta, Stock, ID Dropi</b>.
+                En Dropi selecciona la tabla de variantes (desde "Id" hasta la última fila), cópiala y pégala aquí. La plantilla de Excel usa las mismas columnas de Dropi (<b>Id, Descripción, Existencia, Precio del proveedor, Precio sugerido</b>); la tienda las reconoce y las acomoda sola en Color, Talla, Precio, Stock e ID Dropi. En Descripción escribe <b>Color: Negro Talla: 35</b>.
               </p>
               <textarea value={pasteText} onChange={e => setPasteText(e.target.value)} rows={6}
                 placeholder="Pega aquí la tabla..." className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono" />
