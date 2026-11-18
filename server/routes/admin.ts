@@ -8,6 +8,7 @@ import { sendSaleNotification, dispatchWhatsAppAlert } from '../services/whatsap
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { metaGraphService, isPlaceholderToken } from '../services/metaGraphService.ts';
 import { pool } from '../mysqlPool.ts';
+import { publicOrderView, exactMatch } from '../services/publicOrder.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
 
 const router = Router();
@@ -1460,7 +1461,7 @@ router.get('/orders', async (req, res) => {
       // Seguimiento público: solo con una búsqueda concreta y con pocos datos.
       const q = String(search || '').trim();
       if (q.length < 6) return res.json({ success: true, data: [] });
-      orders = orders.slice(0, 3);
+      orders = orders.filter(o => exactMatch(o, q)).slice(0, 3).map(publicOrderView) as any;
     }
     res.json({ success: true, data: orders });
   } catch (error: any) {
