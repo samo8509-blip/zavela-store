@@ -54,9 +54,36 @@ export function getSmtp() {
   };
 }
 
+/** Clave de Resend (envío por HTTPS, no necesita puertos de correo). */
+export function getResendKey(): string {
+  return process.env.RESEND_API_KEY || getPrivateConfig().resendKey || '';
+}
+
+/** Hay alguna vía de envío lista: Resend (HTTPS) o SMTP. */
 export function isSmtpConfigured(): boolean {
   const c = getSmtp();
-  return Boolean(c.host && c.user && c.pass);
+  return Boolean(getResendKey() || (c.host && c.user && c.pass));
+}
+
+const errText = (e: any): string => {
+  const parts = [e?.message, e?.code, ...(Array.isArray(e?.errors) ? e.errors.map((x: any) => x?.code || x?.message) : [])]
+    .filter(Boolean);
+  return Array.from(new Set(parts)).join(' / ') || 'sin detalle';
+};
+
+async function resendSend(key: string, to: string, subject: string, text: string): Promise<void> {
+  const from = process.env.ALERT_EMAIL_FROM || 'Alertas Zavela <onboarding@resend.dev>';
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, text }),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!r.ok) {
+    let msg = '';
+    try { msg = (await r.json())?.message || ''; } catch {}
+    throw new Error(`Resend ${r.status}: ${String(msg).slice(0, 160)}`);
+  }
 }
 
 const clean = (s: string) => String(s || '').replace(/[\r\n]+/g, ' ').trim();
@@ -159,7 +186,17 @@ function smtpSend(opts: {
 export async function sendAlertEmail(subject: string, text: string, toOverride?: string): Promise<EmailResult> {
   const to = toOverride && isValidEmail(toOverride) ? toOverride.trim() : getAlertEmailTo();
   if (!to) return { sent: false, reason: 'No hay correo de destino configurado.' };
-  if (!isSmtpConfigured()) return { sent: false, reason: 'El servidor de correo (SMTP) aún no está configurado.' };
+  if (!isSmtpConfigured()) return { sent: false, reason: 'Aún no hay cuenta de envío configurada.' };
+  const resendKey = getResendKey();
+  if (resendKey) {
+    try {
+      await resendSend(resendKey, to, `[Alertas Zavela] ${subject}`, text);
+      return { sent: true };
+    } catch (e: any) {
+      console.warn('[Alertas por correo] Resend falló:', errText(e));
+      return { sent: false, reason: `Error enviando con Resend: ${errText(e)}` };
+    }
+  }
   const cfg = getSmtp();
   const user = cfg.user;
   const from = (process.env.ALERT_EMAIL_FROM && isValidEmail(process.env.ALERT_EMAIL_FROM) ? process.env.ALERT_EMAIL_FROM : user).trim();
@@ -177,7 +214,7 @@ export async function sendAlertEmail(subject: string, text: string, toOverride?:
     });
     return { sent: true };
   } catch (e: any) {
-    console.warn('[Alertas por correo] No se pudo enviar:', e?.message);
-    return { sent: false, reason: e?.message || 'Error enviando el correo.' };
+    console.warn('[Alertas por correo] No se pudo enviar:', errText(e));
+    return { sent: false, reason: `Error enviando el correo: ${errText(e)}` };
   }
 }

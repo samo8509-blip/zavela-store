@@ -48,11 +48,12 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
 
   const [adminPhone, setAdminPhone] = useState(maskPhone(initialAlerts.adminPhoneNumber) || defaultNumber);
   const [alertEmail, setAlertEmail] = useState((initialAlerts as any).alertEmail || '');
-  const [emailStatus, setEmailStatus] = useState<{ smtpReady: boolean; hasRecipient: boolean; to: string; smtp?: { host: string; port: number; user: string; hasPass: boolean } } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ smtpReady: boolean; hasResend?: boolean; hasRecipient: boolean; to: string; smtp?: { host: string; port: number; user: string; hasPass: boolean } } | null>(null);
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('465');
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPass, setSmtpPass] = useState('');
+  const [resendKey, setResendKey] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [enabled, setEnabled] = useState(initialAlerts.enabled !== false);
@@ -111,7 +112,16 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
     setEmailMsg('');
     try {
       // Guarda primero la cuenta de envío (si se escribió) y el correo para que la prueba use los datos actuales.
-      if (smtpHost.trim() && smtpUser.trim() && (smtpPass || emailStatus?.smtp?.hasPass)) {
+      if (resendKey.trim()) {
+        const rr = await fetch('/api/alerts/resend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: resendKey.trim() })
+        });
+        const rj = await rr.json();
+        if (!rj.success) { setEmailMsg(rj.message || 'No se pudo guardar la clave.'); setIsTestingEmail(false); return; }
+        setResendKey('');
+      } else if (smtpHost.trim() && smtpUser.trim() && (smtpPass || emailStatus?.smtp?.hasPass)) {
         const sr = await fetch('/api/alerts/smtp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -386,6 +396,11 @@ export const AdminCopilotPrivateAlerts: React.FC<AdminCopilotPrivateAlertsProps>
               {emailStatus && !emailStatus.smtpReady && <span className="text-amber-400"> Falta la cuenta de envío: llénala abajo.</span>}
               {emailStatus?.smtpReady && emailStatus.hasRecipient && <span className="text-emerald-400"> Envío listo hacia {emailStatus.to}.</span>}
             </p>
+            <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 space-y-2">
+              <label className="block text-xs font-bold text-slate-300">Clave de Resend (recomendado: envía por internet, sin puertos de correo)</label>
+              <input type="password" autoComplete="new-password" value={resendKey} onChange={(e) => setResendKey(e.target.value)} placeholder={emailStatus?.hasResend ? 'Clave guardada (déjala vacía para conservarla)' : 're_...'} className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs" />
+              <p className="text-[11px] text-slate-400">Crea una cuenta gratis en resend.com con samo8509@gmail.com, entra a API Keys, crea una clave y pégala aquí. Luego pulsa "Enviar prueba".</p>
+            </div>
             <details className="rounded-xl border border-slate-700 bg-slate-950/60 p-3" open={!emailStatus?.smtpReady}>
               <summary className="text-xs font-bold text-slate-300 cursor-pointer">Cuenta de envío (la que manda los correos)</summary>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
