@@ -54,6 +54,7 @@ export const clearAdminAuthentication = () => {
   try {
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    try { sessionStorage.removeItem('zavela_admin_token'); localStorage.removeItem('zavela_admin_token'); } catch {}
   } catch (e) {
     console.error(e);
   }
@@ -85,6 +86,7 @@ export const clearAdvisorAuthentication = () => {
   try {
     sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
     localStorage.removeItem(ADVISOR_STORAGE_KEY);
+    try { sessionStorage.removeItem('zavela_advisor_token'); localStorage.removeItem('zavela_advisor_token'); } catch {}
   } catch (e) {
     console.error(e);
   }
@@ -187,6 +189,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
         if (json.success && json.data) {
           const advisor: Advisor = json.data;
+          if (json.token) {
+            try {
+              localStorage.setItem('zavela_advisor_token', json.token);
+              sessionStorage.setItem('zavela_advisor_token', json.token);
+            } catch {}
+          }
           setAdvisorAuthenticated(advisor, rememberMe);
           setIsLoading(false);
           if (onAdvisorSuccess) {

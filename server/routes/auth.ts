@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { signAdminToken, verifyAdminToken } from '../middleware/apiGuard.ts';
 import crypto from 'crypto';
 import { pool } from '../mysqlPool.ts';
 
 export const authRouter = Router();
+const loginHits = new Map<string, number[]>();
 
 // Helper para verificar contraseñas en texto plano o hashes comunes (SHA256, MD5)
 function verifyPassword(inputPass: string, storedPass: string): boolean {
@@ -27,6 +29,15 @@ function verifyPassword(inputPass: string, storedPass: string): boolean {
  */
 authRouter.post(['/admin-login', '/login'], async (req, res) => {
   try {
+  // Freno a intentos repetidos: 10 por IP cada 10 minutos.
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'x').split(',')[0].trim();
+  const nowTs = Date.now();
+  const hits = (loginHits.get(ip) || []).filter(t => nowTs - t < 10 * 60 * 1000);
+  if (hits.length >= 10) {
+    return res.status(429).json({ success: false, message: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.' });
+  }
+  hits.push(nowTs);
+  loginHits.set(ip, hits);
     const body = req.body || {};
     const rawIdentifier = body.identifier || body.username || body.email;
     const rawPassword = body.password;
@@ -60,7 +71,7 @@ authRouter.post(['/admin-login', '/login'], async (req, res) => {
         const isPasswordCorrect = verifyPassword(password, user.password);
 
         if (isPasswordCorrect) {
-          const sessionToken = `zavela_adm_${user.id}_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+          const sessionToken = signAdminToken({ id: user.id, email: user.email });
 
           return res.json({
             success: true,
@@ -91,7 +102,7 @@ authRouter.post(['/admin-login', '/login'], async (req, res) => {
       const isAliasMatch = cleanIdent === 'admin' || cleanIdent === 'master' || cleanIdent === 'sergio martinez';
 
       if ((isEmailMatch || isAliasMatch) && password === envPass.trim()) {
-        const sessionToken = `zavela_adm_env_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+        const sessionToken = signAdminToken({ id: 'env', email: envEmail.trim() });
 
         return res.json({
           success: true,
@@ -131,7 +142,7 @@ authRouter.get('/verify', (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token as string);
 
-  if (!token || !token.startsWith('zavela_adm_')) {
+  if (!token || !verifyAdminToken(token)) {
     return res.status(401).json({ success: false, authenticated: false, message: 'Sesión no válida o expirada' });
   }
 

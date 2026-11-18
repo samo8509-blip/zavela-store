@@ -11,6 +11,7 @@ import aiRouter from './server/routes/ai.ts';
 import whatsappRouter from './server/routes/whatsapp.ts';
 import wavyWebhookRouter from './server/routes/wavyWebhook.ts';
 import alertsRouter from './server/routes/alerts.ts';
+import { apiGuard } from './server/middleware/apiGuard.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
 import paymentsRouter from './server/routes/payments.ts';
@@ -52,6 +53,9 @@ async function startServer() {
       country: 'CO'
     });
   });
+
+  // Candado de la API (sesiones firmadas y rutas públicas permitidas)
+  app.use('/api', apiGuard);
 
   // Mount API Endpoints
   app.use('/api/auth', authRouter);
