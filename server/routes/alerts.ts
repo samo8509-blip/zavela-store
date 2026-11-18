@@ -7,6 +7,7 @@ import {
   isCopilotAlertsEnabled,
   dispatchWhatsAppAlert, 
   sendSaleNotification, 
+  sendSaleNotificationOnce,
   sendSecurityAlert, 
   sendLowStockAlert,
   generateWaMeLink,
@@ -15,6 +16,8 @@ import {
   buildLowStockAlertMessage
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
+import { cpanelDbService } from '../services/cpanelDbService.ts';
+import { clientIp, tooManyHits } from '../services/publicOrder.ts';
 import { sendHumanRequestAlert } from '../services/whatsappAlerts.ts';
 import { savePrivateConfig, getPrivateConfig } from '../services/privateConfig.ts';
 import { getResendKey, getSmtp, getAlertEmailTo, isSmtpConfigured, isValidEmail, maskEmail, sendAlertEmail } from '../services/emailAlerts.ts';
@@ -161,6 +164,36 @@ router.post('/smtp', async (req: Request, res: Response) => {
     res.json({ success: true, persisted: ok, message: ok ? 'Cuenta de envío guardada.' : 'Guardada solo hasta que el servidor se reinicie: no se pudo escribir en la base de datos.' });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e?.message || 'Error guardando.' });
+  }
+});
+
+/**
+ * POST /api/alerts/new-order  (público: lo llama la tienda tras crear un pedido)
+ * El pedido se guarda en cPanel (api.php), no en este servidor; aquí se confirma que existe y es reciente
+ * y se avisa una sola vez. No acepta datos del pedido desde el navegador, solo el número.
+ */
+router.post('/new-order', async (req: Request, res: Response) => {
+  try {
+    if (tooManyHits(`neworder:${clientIp(req)}`, 20, 10 * 60 * 1000)) {
+      return res.status(429).json({ success: false });
+    }
+    const ref = String(req.body?.orderId || '').trim().slice(0, 60);
+    if (ref.length < 4) return res.status(400).json({ success: false });
+
+    let order = db.getOrderById(ref);
+    if (!order) {
+      const remote = await cpanelDbService.fetchOrders().catch(() => null);
+      if (remote && remote.length) db.mergeRemoteOrders(remote);
+      order = db.getOrderById(ref);
+    }
+    if (!order) return res.json({ success: true, notified: false });
+    const age = Date.now() - new Date(order.createdAt || 0).getTime();
+    if (!(age >= -60000 && age < 60 * 60 * 1000)) return res.json({ success: true, notified: false });
+
+    const r = await sendSaleNotificationOnce(order);
+    res.json({ success: true, notified: Boolean(r) });
+  } catch {
+    res.json({ success: true, notified: false });
   }
 });
 
