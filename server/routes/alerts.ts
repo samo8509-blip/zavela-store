@@ -16,6 +16,7 @@ import {
   buildLowStockAlertMessage
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
+import { pool } from '../mysqlPool.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { clientIp, tooManyHits } from '../services/publicOrder.ts';
 import { sendHumanRequestAlert } from '../services/whatsappAlerts.ts';
@@ -180,17 +181,47 @@ router.post('/new-order', async (req: Request, res: Response) => {
     const ref = String(req.body?.orderId || '').trim().slice(0, 60);
     if (ref.length < 4) return res.status(400).json({ success: false });
 
-    let order = db.getOrderById(ref);
+    let order: any = db.getOrderById(ref);
     if (!order) {
       const remote = await cpanelDbService.fetchOrders().catch(() => null);
       if (remote && remote.length) db.mergeRemoteOrders(remote);
       order = db.getOrderById(ref);
     }
-    if (!order) return res.json({ success: true, notified: false });
-    const age = Date.now() - new Date(order.createdAt || 0).getTime();
-    if (!(age >= -60000 && age < 60 * 60 * 1000)) return res.json({ success: true, notified: false });
+    if (!order) {
+      // Respaldo: leer el pedido directo de MySQL (tablas orders / pedidos).
+      for (const table of ['orders', 'pedidos']) {
+        try {
+          const [rows]: any = await pool.query(`SELECT * FROM ${table} WHERE id = ? OR order_number = ? LIMIT 1`, [ref, ref]);
+          const r0 = Array.isArray(rows) ? rows[0] : null;
+          if (r0) {
+            let items: any[] = [];
+            try { items = typeof r0.items === 'string' ? JSON.parse(r0.items) : (r0.items || []); } catch {}
+            order = {
+              id: r0.id, orderNumber: r0.order_number || r0.numero_pedido, customerName: r0.customer_name || r0.nombre,
+              customerPhone: r0.customer_phone || r0.telefono, customerEmail: r0.customer_email || r0.email,
+              city: r0.city || r0.ciudad, department: r0.department || r0.departamento, address: r0.address || r0.direccion,
+              total: Number(r0.total) || 0, paymentMethod: r0.payment_method, items, createdAt: r0.created_at
+            };
+            break;
+          }
+        } catch {}
+      }
+    }
+    if (!order) {
+      console.warn('[Aviso pedido nuevo] No se encontró el pedido:', ref);
+      return res.json({ success: true, notified: false, reason: 'pedido_no_encontrado' });
+    }
+    // Reciente: el id trae la hora (ord-<ms>); la fecha guardada puede venir sin zona horaria.
+    const idTs = Number((String(order.id).match(/(\d{13})/) || [])[1]);
+    const createdTs = new Date(order.createdAt || 0).getTime();
+    const recent = (t: number) => Number.isFinite(t) && t > 0 && Date.now() - t < 60 * 60 * 1000 && Date.now() - t > -6 * 60 * 60 * 1000;
+    if (!(recent(idTs) || recent(createdTs))) {
+      console.warn('[Aviso pedido nuevo] Pedido no reciente, no se avisa:', ref);
+      return res.json({ success: true, notified: false, reason: 'pedido_no_reciente' });
+    }
 
     const r = await sendSaleNotificationOnce(order);
+    console.log('[Aviso pedido nuevo]', ref, r ? 'avisado' : 'ya avisado antes');
     res.json({ success: true, notified: Boolean(r) });
   } catch {
     res.json({ success: true, notified: false });
