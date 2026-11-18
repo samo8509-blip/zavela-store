@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, ProductVariant } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { BulkVariantsModal } from './BulkVariantsModal.tsx';
 import { saveCustomProductCost, getCustomProductCost } from '../../services/cpanelProducts.ts';
 
 // 🛡️ FUNCIÓN BLINDADA DEFINITIVA (SEPARA MILES Y DECIMALES DE FORMA INTELIGENTE) 🛡️
@@ -411,6 +412,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
   };
 
+  const [isBulkVariantsOpen, setIsBulkVariantsOpen] = useState(false);
+
   const handleAddVariant = () => {
     if (!newVarColor.trim()) { alert('Por favor especifica el Color o Nombre distintivo.'); return; }
     const color = newVarColor.trim();
@@ -746,9 +749,18 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 <label className="block text-xs font-bold text-slate-700">Variantes (Color, Talla, Precio, SKU)</label>
                 <p className="text-[11px] text-slate-400">Personaliza opciones con su propio precio de venta y stock individual.</p>
               </div>
-              <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                {formData.variants.length} {formData.variants.length === 1 ? 'variante' : 'variantes'}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkVariantsOpen(true)}
+                  className="text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded-full cursor-pointer flex items-center gap-1"
+                >
+                  <Layers className="w-3.5 h-3.5" /> Agregar en lote
+                </button>
+                <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+                  {formData.variants.length} {formData.variants.length === 1 ? 'variante' : 'variantes'}
+                </span>
+              </div>
             </div>
 
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2.5 items-end">
@@ -814,6 +826,15 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 <span>Agregar</span>
               </button>
             </div>
+
+            <BulkVariantsModal
+              isOpen={isBulkVariantsOpen}
+              onClose={() => setIsBulkVariantsOpen(false)}
+              existing={formData.variants}
+              basePrice={parseNumCOP(formData.precio)}
+              operatingCost={parseNumCOP(formData.costoProveedor) + parseNumCOP(formData.fleteEnvio) + parseNumCOP(formData.comisionDropi)}
+              onApply={(variants) => setFormData(prev => ({ ...prev, variants }))}
+            />
 
             {formData.variants.length > 0 && (
               <div className="space-y-1.5 pt-1">
