@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { signAdminToken, verifyAdminToken } from '../middleware/apiGuard.ts';
 import crypto from 'crypto';
 import { pool } from '../mysqlPool.ts';
+import { clientIp } from '../services/publicOrder.ts';
 
 export const authRouter = Router();
 const loginHits = new Map<string, number[]>();
@@ -30,7 +31,7 @@ function verifyPassword(inputPass: string, storedPass: string): boolean {
 authRouter.post(['/admin-login', '/login'], async (req, res) => {
   try {
   // Freno a intentos repetidos: 10 por IP cada 10 minutos.
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'x').split(',')[0].trim();
+  const ip = clientIp(req);
   const nowTs = Date.now();
   const hits = (loginHits.get(ip) || []).filter(t => nowTs - t < 10 * 60 * 1000);
   if (hits.length >= 10) {

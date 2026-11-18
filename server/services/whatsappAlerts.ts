@@ -218,7 +218,8 @@ async function sendViaMetaCloudApi(
           preview_url: true,
           body: message
         }
-      })
+      }),
+      signal: AbortSignal.timeout(12000)
     });
 
     const resJson = await res.json();
@@ -279,6 +280,10 @@ export async function dispatchWhatsAppAlert(params: {
     };
   }
 
+  // El correo sale primero y por separado: no depende de que WhatsApp (Meta) responda.
+  const emailPromise: Promise<EmailResult> = emailAlert(params.type, params.title, params.message)
+    .catch((e: any) => ({ sent: false, reason: e?.message || 'Error enviando el correo.' }));
+
   // Attempt Automated Meta Cloud API Send
   const apiResult = await sendViaMetaCloudApi(targetPhone, params.message);
 
@@ -290,7 +295,7 @@ export async function dispatchWhatsAppAlert(params: {
     console.log(`ℹ️ [CANAL PRIVADO COPILOTO] Respaldo Directo Activo para WhatsApp Web: ${waMeUrl}`);
   }
 
-  const emailResult = await emailAlert(params.type, params.title, params.message);
+  const emailResult = await emailPromise;
 
   const logEntry: WhatsAppAlertLog = {
     id: alertId,

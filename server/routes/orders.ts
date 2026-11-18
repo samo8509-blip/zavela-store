@@ -6,6 +6,7 @@ import { calculateShippingCost } from '../../src/data/shippingRates.ts';
 import { sendSaleNotification, sendLowStockAlert } from '../services/whatsappAlerts.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { pool, nativePool } from '../mysqlPool.ts';
+import { publicOrderView, exactMatch, clientIp, tooManyHits } from '../services/publicOrder.ts';
 
 const router = Router();
 
@@ -268,8 +269,17 @@ router.post('/', async (req, res) => {
 router.get('/track/:query', async (req, res) => {
   try {
     const rawQuery = String(req.params.query || '').trim();
+    const isAdmin = Boolean((res.locals as any).isAdmin);
     if (!rawQuery) {
       return res.status(400).json({ success: false, message: 'Parámetro de búsqueda requerido.' });
+    }
+    if (!isAdmin) {
+      if (rawQuery.length < 6) {
+        return res.status(400).json({ success: false, message: 'Escribe tu número de pedido, guía o celular completo.' });
+      }
+      if (tooManyHits(`track:${clientIp(req)}`, 30, 10 * 60 * 1000)) {
+        return res.status(429).json({ success: false, message: 'Demasiadas consultas. Intenta de nuevo en unos minutos.' });
+      }
     }
 
     // 1. Búsqueda en memoria local
@@ -285,7 +295,7 @@ router.get('/track/:query', async (req, res) => {
         const dbPool = pool || nativePool;
         const [rows]: any = await dbPool.query(
           'SELECT * FROM orders WHERE id = ? OR order_number = ? OR tracking_number = ? OR customer_phone LIKE ? LIMIT 5',
-          [rawQuery, rawQuery, rawQuery, `%${rawQuery}%`]
+          [rawQuery, rawQuery, rawQuery, rawQuery.replace(/\D/g, '').length >= 10 ? `%${rawQuery.replace(/\D/g, '').slice(-10)}` : '__sin_coincidencia__']
         );
         if (Array.isArray(rows) && rows.length > 0) {
           const dbOrders = rows.map((dbOrder: any) => ({
@@ -327,11 +337,13 @@ router.get('/track/:query', async (req, res) => {
       } catch {}
     }
 
+    if (!isAdmin) orders = orders.filter(o => exactMatch(o, rawQuery)).slice(0, 5);
+
     if (orders.length === 0) {
       return res.status(404).json({ success: false, message: 'No se encontraron pedidos con ese criterio de búsqueda.' });
     }
 
-    res.json({ success: true, data: orders });
+    res.json({ success: true, data: isAdmin ? orders : orders.map(publicOrderView) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -351,8 +363,13 @@ router.get('/calendar', async (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const order = db.getOrderById(req.params.id);
-  order ? res.json({ success: true, data: order }) : res.status(404).json({ success: false, message: 'No encontrado' });
+  const isAdmin = Boolean((res.locals as any).isAdmin);
+  if (!isAdmin && tooManyHits(`order:${clientIp(req)}`, 30, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, message: 'Demasiadas consultas. Intenta de nuevo en unos minutos.' });
+  }
+  const found = db.getOrderById(req.params.id);
+  const order = found && (isAdmin || exactMatch(found, req.params.id)) ? found : undefined;
+  order ? res.json({ success: true, data: isAdmin ? order : publicOrderView(order) }) : res.status(404).json({ success: false, message: 'No encontrado' });
 });
 
 router.delete('/:id', async (req, res) => {
