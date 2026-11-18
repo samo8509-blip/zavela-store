@@ -832,7 +832,6 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               onClose={() => setIsBulkVariantsOpen(false)}
               existing={formData.variants}
               basePrice={parseNumCOP(formData.precio)}
-              operatingCost={parseNumCOP(formData.costoProveedor) + parseNumCOP(formData.fleteEnvio) + parseNumCOP(formData.comisionDropi)}
               onApply={(variants) => setFormData(prev => ({ ...prev, variants }))}
             />
 

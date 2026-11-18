@@ -1,15 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { X, ClipboardPaste, Wand2, Upload, Plus, AlertTriangle, Download } from 'lucide-react';
 import { ProductVariant } from '../../types/index.ts';
-import { formatCOP } from '../../utils/formatters.ts';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   existing: ProductVariant[];
   basePrice: number;
-  /** Costo operativo base por unidad (proveedor + flete + comisión) para avisar de margen bajo. */
-  operatingCost: number;
   onApply: (variants: ProductVariant[]) => void;
 }
 
@@ -21,8 +18,6 @@ interface Draft {
   price?: number; // undefined = usar el predeterminado
   stock?: number; // undefined = usar el predeterminado
   dropiStock?: number;
-  dropiSuggested?: number;
-  dropiCost?: number;
   include: boolean;
 }
 
@@ -34,7 +29,41 @@ const toNum = (v: any) => {
   return s ? Number(s) : 0;
 };
 
-const TEMPLATE_HEAD = 'Color;Talla;Precio de venta;Stock;ID Dropi';
+const TEMPLATE_HEAD = 'Id;Descripción;Existencia;Precio del proveedor;Precio sugerido';
+
+/** De "Color: Negro Talla: 35" saca color y talla. */
+function splitDesc(desc: string): { color: string; size: string } {
+  const c = desc.match(/Color:\s*(.*?)(?=\s+Talla:|$)/i);
+  const t = desc.match(/Talla:\s*(.*)$/i);
+  const color = (c ? c[1] : desc.replace(/Talla:.*$/i, '')).trim();
+  return { color: color || 'Único', size: (t ? t[1] : '').trim() || 'Única' };
+}
+
+/** Tabla con los encabezados de Dropi (Id, Descripción, Existencia, Precio del proveedor, Precio sugerido), en celdas separadas por ; tabulador o coma. */
+function parseDropiTable(text: string): Draft[] {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const d = ['\t', ';', ','].reduce((b, c) => (lines[0].split(c).length > lines[0].split(b).length ? c : b), '\t');
+  const head = lines[0].split(d).map(x => norm(x.replace(/^"|"$/g, '')));
+  const f = (p: string) => head.findIndex(h => h.includes(p));
+  const iId = head.findIndex(h => h === 'id');
+  const iDesc = f('descrip');
+  if (iId < 0 || iDesc < 0) return [];
+  const iStock = f('existencia');
+  const out: Draft[] = [];
+  lines.slice(1).forEach((l, i) => {
+    const c = l.split(d).map(x => x.trim().replace(/^"|"$/g, ''));
+    const id = (c[iId] || '').replace(/\D/g, '');
+    if (!id || !c[iDesc]) return;
+    const { color, size } = splitDesc(c[iDesc]);
+    out.push({
+      key: `t-${id}-${i}`, color, size, dropiId: id,
+      dropiStock: iStock >= 0 && c[iStock] !== '' ? toNum(c[iStock]) : undefined,
+      include: true
+    });
+  });
+  return out;
+}
 
 /** Lee una tabla copiada de Dropi: Id, Descripción (Color: X Talla: Y), Existencia, Precio proveedor, Precio sugerido. */
 function parseDropi(text: string): Draft[] {
@@ -43,18 +72,13 @@ function parseDropi(text: string): Draft[] {
   const out: Draft[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(flat))) {
-    const desc = m[2];
-    const c = desc.match(/Color:\s*(.*?)(?=\s+Talla:|$)/i);
-    const t = desc.match(/Talla:\s*(.*)$/i);
-    const color = (c ? c[1] : desc.replace(/Talla:.*$/i, '')).trim();
+    const { color, size } = splitDesc(m[2]);
     out.push({
       key: `d-${m[1]}-${out.length}`,
-      color: color || 'Único',
-      size: (t ? t[1] : '').trim() || 'Única',
+      color,
+      size,
       dropiId: m[1],
       dropiStock: Number(m[3]),
-      dropiCost: toNum(m[4]),
-      dropiSuggested: toNum(m[5]),
       include: true
     });
   }
@@ -100,22 +124,21 @@ function expandSizes(text: string): string[] {
 
 const variantName = (color: string, size: string) => (size && size !== 'Única' ? `${color} / ${size}` : color);
 
-export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, basePrice, operatingCost, onApply }) => {
+export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, basePrice, onApply }) => {
   const [tab, setTab] = useState<'paste' | 'combo'>('paste');
   const [pasteText, setPasteText] = useState('');
   const [colors, setColors] = useState('');
   const [sizes, setSizes] = useState('');
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [priceMode, setPriceMode] = useState<'fijo' | 'sugerido'>('fijo');
   const [defaultPrice, setDefaultPrice] = useState<string>(String(basePrice || ''));
   const [stockMode, setStockMode] = useState<'fijo' | 'dropi'>('fijo');
   const [defaultStock, setDefaultStock] = useState<string>('20');
   const [msg, setMsg] = useState('');
 
-  const hasDropiData = drafts.some(d => d.dropiSuggested);
+  const hasDropiData = drafts.some(d => d.dropiStock !== undefined);
 
   const eff = (d: Draft) => {
-    const price = d.price ?? (priceMode === 'sugerido' && d.dropiSuggested ? d.dropiSuggested : toNum(defaultPrice));
+    const price = d.price ?? toNum(defaultPrice);
     const stock = d.stock ?? (stockMode === 'dropi' && d.dropiStock !== undefined ? d.dropiStock : toNum(defaultStock));
     return { price, stock };
   };
@@ -133,14 +156,13 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
 
   const readPaste = (text: string) => {
     setMsg('');
-    const dropi = parseDropi(text);
+    const dropi = parseDropiTable(text).length ? parseDropiTable(text) : parseDropi(text);
     const list = dropi.length ? dropi : parseSheet(text);
     if (!list.length) {
       setDrafts([]);
       setMsg('No pude leer variantes de ese texto. Pega la tabla de Dropi tal como sale, o las columnas: Color, Talla, Precio de venta, Stock, ID Dropi.');
       return;
     }
-    if (dropi.length) setPriceMode('fijo');
     setDrafts(list);
   };
 
@@ -164,7 +186,7 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
   };
 
   const downloadTemplate = () => {
-    const csv = '﻿' + TEMPLATE_HEAD + '\nNegro;35;120000;20;2219544\nVerde;36;120000;20;2219551\nBeige;37;;;\n';
+    const csv = '\uFEFF' + TEMPLATE_HEAD + '\n2219544;Color: Negro Talla: 35;100;65000;100000\n2219551;Color: Verde Talla: 36;100;65000;100000\n';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     a.download = 'plantilla-variantes-zavela.csv';
@@ -199,8 +221,6 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
     onClose();
   };
 
-  const lowMargin = (price: number) => operatingCost > 0 && price > 0 && price - operatingCost < 10000;
-
   return (
     <div className="fixed inset-0 z-[300] bg-slate-900/60 flex items-center justify-center p-3" onClick={onClose}>
       <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -225,7 +245,7 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
           {tab === 'paste' ? (
             <div className="space-y-2">
               <p className="text-xs text-slate-600">
-                En Dropi selecciona la tabla de variantes (desde "Id" hasta la última fila), cópiala y pégala aquí. También sirven las columnas de la plantilla: <b>Color, Talla, Precio de venta, Stock, ID Dropi</b>.
+                En Dropi selecciona la tabla de variantes (desde "Id" hasta la última fila), cópiala y pégala aquí. La plantilla de Excel usa las mismas columnas de Dropi (Id, Descripción, Existencia, Precio del proveedor, Precio sugerido); la tienda toma solo <b>Id, Color, Talla y Existencia</b> e ignora los precios de Dropi. En Descripción escribe <b>Color: Negro Talla: 35</b>.
               </p>
               <textarea value={pasteText} onChange={e => setPasteText(e.target.value)} rows={6}
                 placeholder="Pega aquí la tabla..." className="w-full border border-slate-200 rounded-xl p-3 text-xs font-mono" />
@@ -268,12 +288,6 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
                   <div className="flex items-center gap-2 flex-wrap">
                     <input value={defaultPrice} onChange={e => setDefaultPrice(e.target.value)} inputMode="numeric"
                       className="w-32 border border-slate-200 rounded-lg px-2 py-1.5 text-xs" />
-                    {hasDropiData && (
-                      <label className="text-[11px] text-slate-600 flex items-center gap-1 cursor-pointer">
-                        <input type="checkbox" checked={priceMode === 'sugerido'} onChange={e => setPriceMode(e.target.checked ? 'sugerido' : 'fijo')} />
-                        usar precio sugerido de Dropi
-                      </label>
-                    )}
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -315,7 +329,6 @@ export const BulkVariantsModal: React.FC<Props> = ({ isOpen, onClose, existing, 
                             <td className="p-2"><input value={d.dropiId} onChange={ev => update(d.key, { dropiId: ev.target.value })} placeholder="opcional" className="w-24 border border-slate-200 rounded px-1.5 py-1" /></td>
                             <td className="p-2">
                               <input value={e.price} onChange={ev => update(d.key, { price: toNum(ev.target.value) })} inputMode="numeric" className="w-24 border border-slate-200 rounded px-1.5 py-1" />
-                              {lowMargin(e.price) && <div className="text-[10px] text-amber-700 mt-0.5">Margen bajo ({formatCOP(e.price - operatingCost)})</div>}
                             </td>
                             <td className="p-2"><input value={e.stock} onChange={ev => update(d.key, { stock: toNum(ev.target.value) })} inputMode="numeric" className="w-16 border border-slate-200 rounded px-1.5 py-1" /></td>
                             <td className="p-2">
