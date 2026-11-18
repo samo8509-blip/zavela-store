@@ -25,6 +25,7 @@ const maskPhone = (p: string) => { const d = String(p || '').replace(/\D/g, '');
 const safeResult = (r: any) => ({ ...r, waMeUrl: '', recipientPhone: maskPhone(r?.recipientPhone), metaResponse: undefined });
 
 const router = Router();
+let sendHits: number[] = [];
 
 /**
  * GET /api/alerts/config
@@ -156,6 +157,16 @@ router.get('/logs', (req: Request, res: Response) => {
 router.post('/send', async (req: Request, res: Response) => {
   try {
     const { type, order, product, account, details, message, rawText, title } = req.body;
+
+    // Visitantes (sin sesión de admin) solo pueden disparar la alerta de seguridad del Centinela, con tope por hora.
+    if (!(res.locals as any).isAdmin) {
+      const nowTs = Date.now();
+      sendHits = sendHits.filter(t => nowTs - t < 60 * 60 * 1000);
+      if (type !== 'SECURITY_ALERT' || sendHits.length >= 10) {
+        return res.json({ success: true, throttled: true });
+      }
+      sendHits.push(nowTs);
+    }
 
     let result;
 

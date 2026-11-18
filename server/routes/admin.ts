@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { signAdvisorToken } from '../middleware/apiGuard.ts';
 import { db, isTestProduct } from '../db.ts';
 import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSettings } from '../../src/types/index.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -1451,10 +1452,16 @@ router.get('/orders', async (req, res) => {
     }
 
     // 2. Consulta y filtrado de pedidos con fallback transparente a la base de datos local
-    const orders = db.getOrders({
+    let orders = db.getOrders({
       status: status as OrderStatus,
       search: search as string
     });
+    if (!(res.locals as any).isAdmin) {
+      // Seguimiento público: solo con una búsqueda concreta y con pocos datos.
+      const q = String(search || '').trim();
+      if (q.length < 6) return res.json({ success: true, data: [] });
+      orders = orders.slice(0, 3);
+    }
     res.json({ success: true, data: orders });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -1795,6 +1802,25 @@ router.delete('/customers/:id', (req, res) => {
 // ==========================================
 // 6. SETTINGS & CMS - PERSISTENCIA REAL EN MYSQL CPANEL
 // ==========================================
+// Quita de la configuración todo lo privado antes de enviarla a visitantes.
+const PRIVATE_KEYS = /pass(word)?|secret|token|api_?key|credential/i;
+const PRIVATE_BLOCKS = new Set(['whatsappCloudApi', 'whatsappAlerts', 'maintenanceNotifyLeads', 'adminUsername']);
+function publicSettings(input: any): any {
+  const walk = (v: any): any => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const out: any = {};
+      for (const [k, val] of Object.entries(v)) {
+        if (PRIVATE_BLOCKS.has(k) || PRIVATE_KEYS.test(k)) continue;
+        out[k] = walk(val);
+      }
+      return out;
+    }
+    return v;
+  };
+  return walk(input);
+}
+
 router.get('/settings', async (req, res) => {
   try {
     let settings = db.getSettings();
@@ -1824,7 +1850,8 @@ router.get('/settings', async (req, res) => {
       console.warn('[MySQL cPanel Settings GET Warning]:', mysqlErr.message);
     }
 
-    res.json({ success: true, data: settings });
+    // Quien no es administrador solo recibe la versión pública, sin contraseñas, tokens ni datos privados.
+    res.json({ success: true, data: (res.locals as any).isAdmin ? settings : publicSettings(settings) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2440,7 +2467,8 @@ router.post('/advisors/login', (req, res) => {
     res.json({
       success: true,
       message: `¡Bienvenido ${advisor.name}!`,
-      data: advisor
+      data: advisor,
+      token: signAdvisorToken({ id: advisor.id })
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
