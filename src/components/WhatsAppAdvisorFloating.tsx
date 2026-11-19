@@ -33,6 +33,7 @@ interface ChatMessage {
   text: string;
   products?: Product[];
   whatsappUrl?: string;
+  advisorName?: string;
   suggestedQuestions?: string[];
   timestamp: string;
 }
@@ -269,6 +270,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: query.trim(),
+          page: typeof window !== 'undefined' ? window.location.pathname : '',
           customerContext: {
             customerName: currentCustomer ? (currentCustomer.firstName || currentCustomer.name) : 'Invitado',
             isRegistered: Boolean(currentCustomer),
@@ -300,6 +302,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
           text: data.reply,
           products: data.recommendedProducts || [],
           whatsappUrl: data.whatsappUrl || `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hola Asesor Zavela, quiero consultar sobre: ' + query.trim())}`,
+          advisorName: data.advisorName,
           suggestedQuestions: data.suggestedQuestions || [],
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
@@ -487,11 +490,11 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
                           href={msg.whatsappUrl || `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hola Asesor Zavela, quiero consultar sobre un producto.')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={() => notifyHumanRequest('Continuó la consulta con un asesor en WhatsApp')}
+                          onClick={() => { if (!msg.advisorName) notifyHumanRequest('Continuó la consulta con un asesor en WhatsApp'); }}
                           className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 px-3.5 py-2 rounded-xl border border-emerald-300 transition-all w-full justify-center shadow-2xs"
                         >
                           <MessageCircle className="w-4 h-4 text-emerald-700 shrink-0" />
-                          <span>Continuar consulta en WhatsApp Oficial (+{cleanPhone})</span>
+                          <span>{msg.advisorName ? `Chatear con ${msg.advisorName.split(' ')[0]} por WhatsApp` : `Continuar consulta en WhatsApp Oficial (+${cleanPhone})`}</span>
                         </a>
                       </div>
                     )}

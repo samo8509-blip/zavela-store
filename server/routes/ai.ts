@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db.ts';
+import { wantsHuman, handoffToAdvisor } from '../services/humanHandoff.ts';
 import { Product, StoreSettings, AIAgentSettings } from '../../src/types/index.ts';
 
 const router = Router();
@@ -298,6 +299,32 @@ Eres Elizabeth, la Asesora Ejecutiva de Zavela Store Colombia.
 
     const rawPhone = previewSettings?.whatsappNumber || previewSettings?.whatsappSettings?.phoneNumber || activeSettings.whatsappSettings?.phoneNumber || activeSettings.whatsappNumber || '573008784427';
     const whatsappNumber = formatWhatsAppNumber(rawPhone);
+
+    // ¿El cliente pide hablar con una persona? Se deriva al asesor conectado (antes del firewall y de la IA).
+    if (wantsHuman(message)) {
+      const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'x').split(',').pop()!.trim();
+      const h = await handoffToAdvisor({
+        ip,
+        customerName,
+        message: message.replace(/\[[A-Z_]+\]:[^\n]*/g, ' ').trim(),
+        page: typeof req.body?.page === 'string' ? req.body.page : '',
+        officialNumber: whatsappNumber,
+        viewedProducts
+      });
+      return res.json({
+        success: true,
+        provider: 'derivacion-asesor',
+        reply: h.reply,
+        recommendedProducts: [],
+        recommendedProductIds: [],
+        whatsappMessage: h.whatsappMessage,
+        whatsappUrl: h.whatsappUrl,
+        whatsappNumber,
+        advisorName: h.advisorName,
+        advisorConnected: h.connected,
+        timestamp: new Date().toISOString()
+      });
+    }
     const allProducts = db.getProducts({ onlyActive: true });
 
     // Filter products according to recommendationMode
