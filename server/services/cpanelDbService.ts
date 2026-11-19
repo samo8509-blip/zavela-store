@@ -1006,7 +1006,8 @@ export class CpanelDbService {
 
       if (!list) return null;
 
-      return list.map(item => this.normalizeAdvisor(item));
+      // api.php devuelve productos cuando no conoce "asesores": se descartan.
+      return list.filter((item: any) => !looksLikeProduct(item)).map(item => this.normalizeAdvisor(item));
     } catch (err: any) {
       console.warn(`[cPanel Advisors Fallback] Conexión no disponible para asesores en cPanel (${err?.message || err}).`);
       return null;
