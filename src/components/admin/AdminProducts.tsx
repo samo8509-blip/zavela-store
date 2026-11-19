@@ -87,7 +87,6 @@ interface AdminProductsProps {
   onRefresh: () => void;
   onEditProduct: (product: Product | null) => void;
   onDeleteProduct?: (id: string) => void;
-  onNavigateToDropiImporter?: () => void;
   onSave?: (productData: Partial<Product>) => Promise<void>;
 }
 
@@ -97,7 +96,6 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
   onRefresh,
   onEditProduct,
   onDeleteProduct,
-  onNavigateToDropiImporter,
   onSave
 }) => {
   const [localProducts, setLocalProducts] = useState<Product[]>(() => 
@@ -771,7 +769,6 @@ export const AdminProducts: React.FC<AdminProductsProps> = ({
           showToast('Sincronizando catálogo con cPanel MySQL...');
           onRefresh();
         }}
-        onNavigateToDropiImporter={onNavigateToDropiImporter}
         onCreateProduct={() => onEditProduct(null)}
       />
 

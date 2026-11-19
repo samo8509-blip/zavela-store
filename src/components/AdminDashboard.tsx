@@ -68,7 +68,6 @@ import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
 import { AdminProducts } from './admin/AdminProducts.tsx';
 import { AdminProductEditor } from './admin/AdminProductEditor.tsx';
-import { DropiBulkImporter } from './admin/DropiBulkImporter.tsx';
 import { AdminOrders } from './admin/AdminOrders.tsx';
 import { SalesCalendarSheet } from './admin/SalesCalendarSheet.tsx';
 import { AdminPendingDropiOrders } from './admin/AdminPendingDropiOrders.tsx';
@@ -1066,7 +1065,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onRefresh={fetchAdminData}
                     onEditProduct={(p) => setEditingProduct(p)}
                     onSave={handleSaveProduct}
-                    onNavigateToDropiImporter={() => setActiveSection('dropi_bulk_importer')}
                     onDeleteProduct={(deletedId) => {
                       setProducts(prev => prev.filter(p => String(p.id) !== String(deletedId) && (p as any).productId !== deletedId));
                     }}
@@ -1075,17 +1073,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
               )
-            )}
-
-            {activeSection === 'dropi_bulk_importer' && (
-              <DropiBulkImporter
-                onImportComplete={async () => {
-                  await fetchAdminData();
-                  setActiveSection('products');
-                  showToast('✅ Catálogo actualizado con los nuevos productos importados de Dropi.');
-                }}
-                onBackToProducts={() => setActiveSection('products')}
-              />
             )}
 
             {/* GRUPO 6: VENTAS & LOGÍSTICA */}
