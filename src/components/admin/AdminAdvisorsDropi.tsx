@@ -917,12 +917,9 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
               <Users className="w-4 h-4 text-purple-400" />
             </div>
             <div className="text-xl font-black text-white mt-1 font-mono">{advisors.length} Asesores</div>
-            <button 
-              onClick={handleOpenNewUserModal}
-              className="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold mt-1 flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="w-3 h-3" /> Crear Usuario (Admin / Asesor)
-            </button>
+            <p className="text-[11px] text-slate-400 mt-1 leading-tight">
+              Los usuarios se crean en <strong className="text-cyan-300">Seguridad &rarr; Crear Usuario</strong>
+            </p>
           </div>
 
           <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-500/30 p-4 rounded-2xl">
@@ -1051,13 +1048,6 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                   );
                 })}
 
-                <button
-                  onClick={handleOpenNewUserModal}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold border border-dashed border-slate-700 text-slate-400 hover:text-cyan-400 hover:border-cyan-500 transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>+ Crear Usuario</span>
-                </button>
               </div>
             </div>
 
@@ -1418,13 +1408,6 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
                       ? 'Deseleccionar Todos' 
                       : `Selección Múltiple (${selectedAdvisorIds.length})`}
                   </span>
-                </button>
-                <button
-                  onClick={handleOpenNewUserModal}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black transition-all cursor-pointer shadow-[0_0_15px_rgba(0,245,255,0.3)]"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Nuevo Usuario (Admin / Asesor)</span>
                 </button>
               </div>
             </div>

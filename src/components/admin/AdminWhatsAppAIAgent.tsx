@@ -43,7 +43,6 @@ interface AdminWhatsAppAIAgentProps {
   settings: StoreSettings;
   products?: Product[];
   onSaveSettings: (updated: Partial<StoreSettings>) => Promise<void>;
-  onGoToCreateUser?: () => void;
 }
 
 interface ChatMessage {
@@ -58,8 +57,7 @@ interface ChatMessage {
 export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   settings,
   products = [],
-  onSaveSettings,
-  onGoToCreateUser
+  onSaveSettings
 }) => {
   const [activeTab, setActiveTab] = useState<'whatsapp' | 'webhook' | 'ai_agent' | 'simulator' | 'tidio' | 'advisors'>('whatsapp');
   const [isSaving, setIsSaving] = useState(false);
@@ -2077,7 +2075,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Lista única guardada en tu base de datos MySQL. Un asesor aparece <strong>Conectado</strong> cuando activa &quot;Disponible&quot; en su portal.
+                    Para crear un asesor ve a <strong>Seguridad &rarr; Crear Usuario</strong>. Aquí aparece <strong>Conectado</strong> cuando activa &quot;Disponible&quot; en su portal.
                   </p>
                 </div>
               </div>
@@ -2102,14 +2100,6 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                 <span>Refrescar</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => onGoToCreateUser?.()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Crear asesor</span>
-              </button>
             </div>
           </div>
 
@@ -2169,7 +2159,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                           <Users className="w-8 h-8 text-slate-300" />
                           <p className="font-bold text-slate-700">No hay asesores registrados</p>
                           <p className="text-xs text-slate-400">
-                            Usa &quot;Crear asesor&quot; (Seguridad &rarr; Crear Usuario) para registrar al primero.
+                            Los asesores se crean en Seguridad &rarr; Crear Usuario.
                           </p>
                         </div>
                       </td>

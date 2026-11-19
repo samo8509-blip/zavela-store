@@ -923,7 +923,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 settings={settings}
                 products={products}
                 onSaveSettings={handleSaveSettings}
-                onGoToCreateUser={() => setActiveSection('system_security')}
               />
             )}
 
