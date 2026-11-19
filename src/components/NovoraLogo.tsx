@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { detectCalendarSeasonalTheme } from '../utils/seasonalThemes.ts';
+import { getLogoScheme, tintHex, logoGlow } from '../utils/logoTheme.ts';
 
 export type SupportedSeasonalTheme = 
   | 'halloween' 
@@ -53,6 +54,10 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
     return normalizeSeasonalTheme(seasonalTheme);
   }, [seasonalTheme]);
 
+  // Colores del logo según la temporada (estándar = original)
+  const logoScheme = getLogoScheme(currentSeason);
+  const tint = (hex: string) => tintHex(hex, logoScheme);
+
   // Dimensions based on size scale
   const iconDimensions = {
     xs: 'w-7 h-7',
@@ -102,9 +107,14 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
   }[size] || 'w-7 h-7 sm:w-8 sm:h-8';
 
   // Degradado de la palabra STORE: dorado/naranja en Black Friday, cian en el resto del año
-  const storeGradientClass = currentSeason === 'black-friday'
-    ? 'from-amber-500 via-orange-500 to-red-500'
-    : 'from-cyan-400 via-sky-400 to-indigo-400';
+  const storeGradientClass = ({
+    'black-friday': 'from-amber-500 via-orange-500 to-red-500',
+    'navidad-fin-ano': 'from-red-400 via-red-500 to-green-500',
+    'halloween': 'from-orange-400 via-orange-500 to-violet-500',
+    'san-valentin': 'from-rose-400 via-rose-500 to-rose-700',
+    'amor-amistad': 'from-amber-300 via-pink-400 to-violet-500',
+    'madre': 'from-pink-300 via-pink-500 to-purple-500'
+  } as Record<string, string>)[currentSeason] || 'from-cyan-400 via-sky-400 to-indigo-400';
 
   // Text color based on theme
   const textColorClass = 
@@ -142,50 +152,51 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
         viewBox="0 0 280 240" 
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full overflow-visible drop-shadow-[0_6px_20px_rgba(0,195,255,0.4)]"
+        className="w-full h-full overflow-visible"
+        style={{ filter: `drop-shadow(0 6px 20px ${logoGlow(logoScheme)}66)` }}
       >
         <defs>
           {/* Cyan to Electric Sky Top Gradient */}
           <linearGradient id="zavelaGradTopCyan" x1="40" y1="30" x2="200" y2="70" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00F5FF" />
-            <stop offset="40%" stopColor="#00D2FF" />
-            <stop offset="80%" stopColor="#0099FF" />
-            <stop offset="100%" stopColor="#0066FF" />
+            <stop offset="0%" stopColor={tint("#00F5FF")} />
+            <stop offset="40%" stopColor={tint("#00D2FF")} />
+            <stop offset="80%" stopColor={tint("#0099FF")} />
+            <stop offset="100%" stopColor={tint("#0066FF")} />
           </linearGradient>
 
           {/* Electric Blue to Indigo Diagonal Gradient */}
           <linearGradient id="zavelaGradDiag" x1="190" y1="50" x2="70" y2="200" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00E5FF" />
-            <stop offset="25%" stopColor="#0099FF" />
-            <stop offset="55%" stopColor="#2563EB" />
-            <stop offset="80%" stopColor="#6366F1" />
-            <stop offset="100%" stopColor="#7C3AED" />
+            <stop offset="0%" stopColor={tint("#00E5FF")} />
+            <stop offset="25%" stopColor={tint("#0099FF")} />
+            <stop offset="55%" stopColor={tint("#2563EB")} />
+            <stop offset="80%" stopColor={tint("#6366F1")} />
+            <stop offset="100%" stopColor={tint("#7C3AED")} />
           </linearGradient>
 
           {/* Purple to Magenta Bottom Loop Gradient */}
           <linearGradient id="zavelaGradPurpleLoop" x1="60" y1="140" x2="210" y2="210" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#4F46E5" />
-            <stop offset="35%" stopColor="#7C3AED" />
-            <stop offset="70%" stopColor="#9333EA" />
-            <stop offset="100%" stopColor="#C084FC" />
+            <stop offset="0%" stopColor={tint("#4F46E5")} />
+            <stop offset="35%" stopColor={tint("#7C3AED")} />
+            <stop offset="70%" stopColor={tint("#9333EA")} />
+            <stop offset="100%" stopColor={tint("#C084FC")} />
           </linearGradient>
 
           {/* Arrow Gradient */}
           <linearGradient id="zavelaGradArrow" x1="120" y1="120" x2="245" y2="135" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0077FF" />
-            <stop offset="50%" stopColor="#2563EB" />
-            <stop offset="100%" stopColor="#60A5FA" />
+            <stop offset="0%" stopColor={tint("#0077FF")} />
+            <stop offset="50%" stopColor={tint("#2563EB")} />
+            <stop offset="100%" stopColor={tint("#60A5FA")} />
           </linearGradient>
 
           {/* Speed Bars Gradients */}
           <linearGradient id="zavelaSpeedTopGrad" x1="30" y1="50" x2="105" y2="50" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00F5FF" />
-            <stop offset="100%" stopColor="#0099FF" />
+            <stop offset="0%" stopColor={tint("#00F5FF")} />
+            <stop offset="100%" stopColor={tint("#0099FF")} />
           </linearGradient>
           
           <linearGradient id="zavelaSpeedBottomGrad" x1="15" y1="95" x2="75" y2="95" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0088FF" />
-            <stop offset="100%" stopColor="#0055FF" />
+            <stop offset="0%" stopColor={tint("#0088FF")} />
+            <stop offset="100%" stopColor={tint("#0055FF")} />
           </linearGradient>
 
           {/* Specular Bevel Overlay (White reflection streak) */}
@@ -334,14 +345,14 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
                  L 188 174 
                  L 198 145 Z"
               fill="url(#zavelaGradArrow)"
-              stroke="#60A5FA"
+              stroke={tint("#60A5FA")}
               strokeWidth="1.5"
             />
 
             {/* Arrow Head Upper Facet Highlight */}
             <polygon
               points="188,116 236,145 198,145"
-              fill="#93C5FD"
+              fill={tint("#93C5FD")}
               opacity="0.6"
             />
           </g>

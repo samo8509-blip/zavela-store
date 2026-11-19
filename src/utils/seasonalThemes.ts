@@ -1,4 +1,5 @@
 import { SeasonalThemeId, SeasonalThemeConfig, StoreSettings } from '../types/index.ts';
+import { applyFavicon } from './logoTheme.ts';
 
 export type { SeasonalThemeId, SeasonalThemeConfig };
 
@@ -360,4 +361,5 @@ export function applyStorefrontPalette(themeId: SeasonalThemeId, style: 'marca' 
   s.setProperty('--zv-cta-ink', p.ctaInk);
   s.setProperty('--zv-badge-bg', p.badgeBg);
   s.setProperty('--zv-badge-ink', p.badgeInk);
+  applyFavicon(themeId);
 }
