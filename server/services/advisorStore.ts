@@ -120,6 +120,10 @@ export function saveAdvisor(input: Partial<Advisor>): Advisor {
   if (username && cache.some(a => a.id !== existing?.id && (a.username || '').toLowerCase() === username.toLowerCase())) {
     throw new Error(`El usuario "${username}" ya existe.`);
   }
+  const wantedCode = (input.sellerCode || '').trim().toUpperCase();
+  if (wantedCode && cache.some(x => x.id !== existing?.id && (x.sellerCode || '').toUpperCase() === wantedCode)) {
+    throw new Error(`El código de vendedor ${wantedCode} ya lo tiene otro asesor.`);
+  }
   let password = existing?.password;
   if (typeof input.password === 'string' && input.password.trim()) {
     if (input.password.trim().length < 6) throw new Error('La clave debe tener al menos 6 caracteres.');
@@ -129,7 +133,7 @@ export function saveAdvisor(input: Partial<Advisor>): Advisor {
     id: existing?.id || input.id || `AS-${Date.now().toString(36).toUpperCase()}`,
     name: (input.name ?? existing?.name ?? 'Asesor').toString().trim() || 'Asesor',
     role: input.role === 'admin' ? 'admin' : (existing?.role || 'advisor'),
-    sellerCode: existing?.sellerCode || input.sellerCode || nextSellerCode(),
+    sellerCode: wantedCode || existing?.sellerCode || nextSellerCode(),
     username, password,
     phone: (input.phone ?? existing?.phone ?? '').toString().replace(/[^\d+]/g, ''),
     email: input.email ?? existing?.email ?? '',

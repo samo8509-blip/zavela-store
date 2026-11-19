@@ -43,6 +43,7 @@ interface AdminWhatsAppAIAgentProps {
   settings: StoreSettings;
   products?: Product[];
   onSaveSettings: (updated: Partial<StoreSettings>) => Promise<void>;
+  onGoToCreateUser?: () => void;
 }
 
 interface ChatMessage {
@@ -57,7 +58,8 @@ interface ChatMessage {
 export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   settings,
   products = [],
-  onSaveSettings
+  onSaveSettings,
+  onGoToCreateUser
 }) => {
   const [activeTab, setActiveTab] = useState<'whatsapp' | 'webhook' | 'ai_agent' | 'simulator' | 'tidio' | 'advisors'>('whatsapp');
   const [isSaving, setIsSaving] = useState(false);
@@ -150,8 +152,6 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
         body: JSON.stringify({
           ...payload,
           id: editingAdvisorItem?.id,
-          username: advisorForm.usuario.trim() || undefined,
-          password: advisorForm.clave.trim() || undefined,
           commissionRate: Number(advisorForm.comision)
         })
       });
@@ -2104,11 +2104,11 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
 
               <button
                 type="button"
-                onClick={handleOpenNewAdvisorModal}
+                onClick={() => onGoToCreateUser?.()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>Agregar Asesor</span>
+                <span>Crear asesor</span>
               </button>
             </div>
           </div>
@@ -2169,7 +2169,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                           <Users className="w-8 h-8 text-slate-300" />
                           <p className="font-bold text-slate-700">No hay asesores registrados</p>
                           <p className="text-xs text-slate-400">
-                            Haz clic en &quot;Agregar Asesor&quot; para registrar al primer asesor.
+                            Usa &quot;Crear asesor&quot; (Seguridad &rarr; Crear Usuario) para registrar al primero.
                           </p>
                         </div>
                       </td>
@@ -2292,7 +2292,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                     </div>
                     <div>
                       <h4 className="font-extrabold text-base text-slate-900">
-                        {editingAdvisorItem ? 'Editar Asesor' : 'Registrar Nuevo Asesor'}
+                        {editingAdvisorItem ? 'Editar Asesor' : 'Editar Asesor'}
                       </h4>
                       <p className="text-xs text-slate-500">
                         Se guarda en tu base de datos MySQL
@@ -2345,31 +2345,6 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                       placeholder="Ej. Asesor de Ventas, Personal Shopper, Soporte"
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Usuario del portal</label>
-                      <input
-                        type="text"
-                        value={advisorForm.usuario}
-                        onChange={(e) => setAdvisorForm({ ...advisorForm, usuario: e.target.value })}
-                        placeholder="ej. jose.canas"
-                        autoComplete="off"
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">{editingAdvisorItem ? 'Nueva clave (opcional)' : 'Clave del portal'}</label>
-                      <input
-                        type="password"
-                        value={advisorForm.clave}
-                        onChange={(e) => setAdvisorForm({ ...advisorForm, clave: e.target.value })}
-                        placeholder="mínimo 6 caracteres"
-                        autoComplete="new-password"
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
-                      />
-                    </div>
                   </div>
 
                   <div>

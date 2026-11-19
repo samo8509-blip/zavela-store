@@ -96,6 +96,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [showCreatePass, setShowCreatePass] = useState(false);
   const [createPhone, setCreatePhone] = useState('');
   const [createSellerCode, setCreateSellerCode] = useState('');
+  const [createCommission, setCreateCommission] = useState(25);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
   const formatCleanUsername = (first: string, last: string) => {
@@ -129,6 +130,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
     setShowCreatePass(false);
     setCreatePhone('');
     setCreateSellerCode(generateSellerCode());
+    setCreateCommission(25);
     setIsCreateModalOpen(true);
   };
 
@@ -141,7 +143,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
     const fullName = `${createFirstName.trim()} ${createLastName.trim()}`.trim();
     const finalUsername = createUsername.trim() || formatCleanUsername(createFirstName, createLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const finalPassword = createPassword.trim() || generatePassword();
-    const finalSellerCode = createSellerCode.trim() || generateSellerCode();
+    const finalSellerCode = createSellerCode.trim(); // si queda vacío, el servidor asigna el siguiente VEN-###
 
     setIsSubmittingUser(true);
     try {
@@ -157,6 +159,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
           username: finalUsername,
           password: finalPassword,
           phone: createPhone.trim(),
+          commissionRate: createRole === 'admin' ? 0 : Number(createCommission),
           channel: createRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas',
           status: 'active'
         })
@@ -189,6 +192,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [editUsername, setEditUsername] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editSellerCode, setEditSellerCode] = useState('');
+  const [editCommission, setEditCommission] = useState(25);
   const [editPassword, setEditPassword] = useState('');
   const [showEditPass, setShowEditPass] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
@@ -214,7 +218,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       setEditUsername(adv.username || adv.id);
       setEditPhone(adv.phone || '');
       setEditSellerCode(adv.sellerCode || adv.id);
-      setEditPassword(adv.password || '');
+      setEditCommission(Number(adv.commissionRate ?? 25));
+      setEditPassword('');
     } else {
       setEditRole('advisor');
       setEditFirstName(target.name.split(' ')[0] || '');
@@ -266,7 +271,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
             role: editRole,
             phone: editPhone.trim(),
             sellerCode: editSellerCode.trim(),
-            password: editPassword.trim() || editTargetUser.advisorData?.password || 'zavela123',
+            commissionRate: editRole === 'admin' ? 0 : Number(editCommission),
+            // La clave solo se envía si se escribió una nueva; si no, se conserva la actual.
+            ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
             channel: editRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas'
           })
         });
@@ -1349,6 +1356,27 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                 </p>
               </div>
 
+              {createRole === 'advisor' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <span className="text-emerald-400">%</span>
+                    <span>Comisión (% de la rentabilidad neta de cada venta)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={createCommission}
+                    onChange={e => setCreateCommission(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono font-bold"
+                  />
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    Se paga sobre la ganancia neta real del pedido y solo cuando llega a <strong>Entregado</strong>.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
@@ -1517,6 +1545,23 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                     onChange={e => setEditSellerCode(e.target.value.toUpperCase())}
                     placeholder="Ej. VEN-005"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 font-mono font-bold tracking-wider"
+                  />
+                </div>
+              )}
+
+              {editTargetUser.id !== 'admin-master' && editRole === 'advisor' && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
+                    <span>% Comisión sobre la rentabilidad neta</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.5"
+                    value={editCommission}
+                    onChange={e => setEditCommission(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono font-bold"
                   />
                 </div>
               )}
