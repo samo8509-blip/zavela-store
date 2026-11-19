@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import { signAdvisorToken } from '../middleware/apiGuard.ts';
 import { db, isTestProduct } from '../db.ts';
@@ -2484,6 +2485,7 @@ router.get('/advisors', async (req, res) => {
     if (remote && remote.length > 0) {
       const merged = [...advisors];
       for (const r of remote) {
+        if (!r || !r.id || /^prod[-_]/i.test(String(r.id))) continue;
         const cleanPhone = (r.phone || r.telefono || '').replace(/\D/g, '');
         const exists = merged.find(m => m.id === r.id || (cleanPhone && m.phone?.replace(/\D/g, '') === cleanPhone));
         if (!exists) {
@@ -2491,7 +2493,7 @@ router.get('/advisors', async (req, res) => {
             id: r.id,
             name: r.name || r.nombre || 'Asesor',
             username: `asesor_${r.id.toLowerCase()}`,
-            password: 'demo',
+            password: crypto.randomBytes(24).toString('hex'), // sin acceso hasta que el administrador le asigne una clave
             role: r.role?.toLowerCase().includes('admin') ? 'admin' : 'advisor',
             status: r.status || (r.activo ? 'active' : 'inactive'),
             phone: r.phone || r.telefono || '',

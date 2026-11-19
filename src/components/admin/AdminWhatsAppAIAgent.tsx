@@ -1,3 +1,4 @@
+import { looksLikeProduct } from '../../utils/customerGuards.ts';
 import React, { useState, useEffect } from 'react';
 import { 
   Bot, 
@@ -93,8 +94,12 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json)) {
-          setCpanelAdvisors(json);
-          loaded = true;
+          const real = json.filter((a: any) => !looksLikeProduct(a));
+          // Si todo lo recibido eran productos, esta fuente no tiene asesores: se pasa a la siguiente.
+          if (real.length > 0 || json.length === 0 || !json.every(looksLikeProduct)) {
+            setCpanelAdvisors(real);
+            loaded = true;
+          }
         }
       }
     } catch {}
@@ -107,7 +112,7 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
           const json = await res.json();
           const list = json?.data?.advisors;
           if (Array.isArray(list) && list.length > 0) {
-            setCpanelAdvisors(list);
+            setCpanelAdvisors(list.filter((a: any) => !looksLikeProduct(a)));
             loaded = true;
           }
         }

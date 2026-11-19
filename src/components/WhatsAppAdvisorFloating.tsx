@@ -1,3 +1,4 @@
+import { looksLikeProduct } from '../utils/customerGuards.ts';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   MessageCircle, 
@@ -127,7 +128,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
           const list = await res.json();
           if (Array.isArray(list) && list.length > 0) {
             const active = list
-              .filter((a: any) => (a.activo === 1 || a.activo === true || a.status === 'active') && (a.telefono || a.phone || a.whatsapp))
+              .filter((a: any) => !looksLikeProduct(a) && (a.activo === 1 || a.activo === true || a.status === 'active') && (a.telefono || a.phone || a.whatsapp))
               .map((a: any) => ({
                 id: a.id,
                 name: a.nombre || a.name || 'Asesor Zavela',
