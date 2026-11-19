@@ -1,3 +1,4 @@
+import { looksLikeProduct } from './customerGuards.ts';
 import { Product, Order, ProductVariant } from '../../src/types/index.ts';
 import { db, isTestProduct } from '../db.ts';
 
@@ -916,6 +917,7 @@ export class CpanelDbService {
       return list
         .filter((item: any) => {
           if (!item) return false;
+          if (looksLikeProduct(item)) return false; // api.php devuelve productos si no conoce "clientes"
           const id = String(item.id || '');
           const email = String(item.email || '').trim().toLowerCase();
           const name = String(item.nombre || item.name || '').trim().toLowerCase();
