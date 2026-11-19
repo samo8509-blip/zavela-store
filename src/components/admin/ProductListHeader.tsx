@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, BookOpen, RefreshCw, Boxes, Plus, FileSpreadsheet } from 'lucide-react';
+import { Database, BookOpen, RefreshCw, Plus, FileSpreadsheet } from 'lucide-react';
 
 export interface ProductListHeaderProps {
   productsCount: number;
@@ -8,7 +8,6 @@ export interface ProductListHeaderProps {
   onDownloadPriceList?: () => void;
   onOpenBulkPrices?: () => void;
   onSync: () => void;
-  onNavigateToDropiImporter?: () => void;
   onCreateProduct: () => void;
 }
 
@@ -19,7 +18,6 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
   onDownloadPriceList,
   onOpenBulkPrices,
   onSync,
-  onNavigateToDropiImporter,
   onCreateProduct
 }) => {
   return (
@@ -106,19 +104,6 @@ export const ProductListHeader: React.FC<ProductListHeaderProps> = ({
           <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
           <span className="hidden sm:inline">Sincronizar</span>
         </button>
-
-        {onNavigateToDropiImporter && (
-          <button
-            onClick={onNavigateToDropiImporter}
-            type="button"
-            title="Importar catálogo masivo de Dropi con cotizador y ajuste de márgenes"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-blue-700 to-cyan-600 hover:from-blue-600 hover:to-cyan-500 text-white font-black text-xs shadow-md shadow-blue-600/20 transition-all cursor-pointer shrink-0"
-          >
-            <Boxes className="w-4 h-4 text-cyan-200" />
-            <span className="hidden md:inline">Importador Dropi (Masivo)</span>
-            <span className="md:hidden">Importar Dropi</span>
-          </button>
-        )}
 
         {/* Botón Principal: Siempre visible, destacado y sin desbordarse */}
         <button
