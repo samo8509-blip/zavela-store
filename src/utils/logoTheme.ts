@@ -63,20 +63,33 @@ export function logoGlow(scheme: LogoScheme | null): string {
   return (scheme ? scheme[1] : '#00C3FF');
 }
 
-/** Ícono de pestaña: Z de cristal neón sobre fondo azul noche, en los colores de la temporada. */
+const shade = (hex: string, k: number) => {
+  const [r, g, b] = hex2rgb(hex);
+  return rgb2hex(r * (1 - k), g * (1 - k), b * (1 - k));
+};
+
+/** Ícono de pestaña: Z de cristal en 3D (grosor, brillo y reflejo) sobre fondo claro, en los colores de la temporada. */
 export function buildFaviconSvg(scheme: LogoScheme | null = null): string {
   const [c1, c2, c3] = scheme || DEFAULT_SCHEME;
-  const path = 'M70 76 H190 L70 182 H196';
+  const path = 'M68 78 H186 L68 180 H194';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
 <defs>
-<linearGradient id="g" x1="60" y1="60" x2="200" y2="200" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c1}"/><stop offset=".5" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient>
-<radialGradient id="bg" cx=".5" cy=".42" r=".75"><stop offset="0" stop-color="#0B2A57"/><stop offset="1" stop-color="#050B1A"/></radialGradient>
-<filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9"/></filter>
+<linearGradient id="face" x1="60" y1="60" x2="200" y2="200" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c1}"/><stop offset=".5" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient>
+<linearGradient id="side" x1="60" y1="60" x2="200" y2="200" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${shade(c1, 0.45)}"/><stop offset=".5" stop-color="${shade(c2, 0.5)}"/><stop offset="1" stop-color="${shade(c3, 0.55)}"/></linearGradient>
+<linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".55" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6F0FB"/></linearGradient>
+<mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256"><path d="${path}" fill="none" stroke="#fff" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/></mask>
+<filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>
 </defs>
-<rect width="256" height="256" rx="58" fill="url(#bg)"/>
-<path d="${path}" fill="none" stroke="${c2}" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" opacity=".55" filter="url(#b)"/>
-<path d="${path}" fill="none" stroke="url(#g)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="${path}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" transform="translate(-4 -6)"/>
+<rect x="4" y="4" width="248" height="248" rx="56" fill="url(#bg)" stroke="#CBD9EC" stroke-width="3"/>
+<path d="${path}" fill="none" stroke="${c2}" stroke-opacity=".35" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" filter="url(#blur)" transform="translate(6 14)"/>
+<path d="${path}" fill="none" stroke="url(#side)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round" transform="translate(7 11)"/>
+<path d="${path}" fill="none" stroke="url(#face)" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+<g mask="url(#cut)">
+<path d="${path}" fill="none" stroke="#000" stroke-opacity=".16" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" transform="translate(7 9)"/>
+<path d="${path}" fill="none" stroke="url(#gloss)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" transform="translate(-4 -7)"/>
+<path d="${path}" fill="none" stroke="#fff" stroke-opacity=".9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" transform="translate(-9 -12)"/>
+</g>
 </svg>`;
 }
 
