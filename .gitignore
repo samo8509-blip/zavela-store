@@ -10,3 +10,5 @@ coverage/
 .env*
 !.env.example
 .admin_token_secret
+
+.advisors.json

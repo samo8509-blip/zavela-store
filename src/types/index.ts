@@ -734,6 +734,9 @@ export interface Advisor {
   email?: string;
   channel?: string; // ej. "WhatsApp de Ventas"
   commissionRate?: number; // % o valor opcional
+  available?: boolean; // el asesor activó "Disponible" en su portal
+  lastSeen?: string; // última señal de vida del portal (ISO)
+  lastAssignedAt?: string; // última vez que se le derivó un cliente (reparto rotativo)
   status: 'active' | 'inactive';
   settlementStatus: 'al_dia' | 'pendiente_liquidacion' | 'liquidado';
   lastSettlementDate?: string;

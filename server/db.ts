@@ -1,3 +1,4 @@
+import * as advisorStore from './services/advisorStore.ts';
 import fs from 'fs';
 import path from 'path';
 import { 
@@ -850,15 +851,18 @@ class DatabaseStore {
   simulateOrders(options?: any): Order[] { return []; }
   simulate3OrdersPerProduct(): Order[] { return []; }
   getMetrics() { return {} as any; }
-  getAdvisors(): Advisor[] { return this.data.advisors || []; }
-  getAdvisorById(id: string): Advisor | undefined { return (this.data.advisors || []).find(a => a.id === id); }
-  saveAllAdvisors(advisors: Advisor[]): void { this.data.advisors = advisors; this.saveData(this.data); }
+  getAdvisors(): Advisor[] { return advisorStore.listAdvisors(); }
+  getAdvisorById(id: string): Advisor | undefined { return advisorStore.getAdvisor(id); }
+  saveAllAdvisors(_advisors: Advisor[]): void { /* los asesores viven en MySQL (advisorStore) */ }
   saveAllProducts(products: Product[]): void { this.data.products = products; this.saveData(this.data); }
-  saveAdvisor(advisor: Partial<Advisor>): Advisor { return {} as any; }
-  authenticateAdvisor(identifier: string, password: string): Advisor | null { return null; }
-  deleteAdvisor(id: string): boolean { return false; }
-  deleteAdvisors(ids: string[]): number { return 0; }
-  settleAdvisor(id: string, notes?: string): Advisor | null { return null; }
+  saveAdvisor(advisor: Partial<Advisor>): Advisor { return advisorStore.saveAdvisor(advisor); }
+  authenticateAdvisor(identifier: string, password: string): Advisor | null { return advisorStore.authenticate(identifier, password); }
+  deleteAdvisor(id: string): boolean { return advisorStore.deleteAdvisors([id]) > 0; }
+  deleteAdvisors(ids: string[]): number { return advisorStore.deleteAdvisors(ids); }
+  settleAdvisor(id: string, notes?: string): Advisor | null {
+    const a = advisorStore.getAdvisor(id);
+    return a ? advisorStore.saveAdvisor({ id, settlementStatus: 'liquidado', lastSettlementDate: new Date().toISOString(), notes: notes ?? a.notes }) : null;
+  }
   getAdvisorSales(filter?: any): AdvisorSale[] { return []; }
   saveAdvisorSale(sale: Partial<AdvisorSale>): AdvisorSale { return {} as any; }
   deleteAdvisorSale(id: string): boolean { return false; }
