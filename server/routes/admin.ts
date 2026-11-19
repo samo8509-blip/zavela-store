@@ -1,6 +1,6 @@
-import crypto from 'node:crypto';
 import { Router } from 'express';
-import { signAdvisorToken } from '../middleware/apiGuard.ts';
+import { signAdvisorToken, verifyAdvisorToken } from '../middleware/apiGuard.ts';
+import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
 import { db, isTestProduct } from '../db.ts';
 import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSettings } from '../../src/types/index.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -1528,7 +1528,7 @@ router.post('/orders', (req, res) => {
       status: 'success'
     });
 
-    res.status(201).json({ success: true, data: saved });
+    res.status(201).json({ success: true, data: publicAdvisor(saved) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2456,7 +2456,7 @@ router.post('/advisors/login', (req, res) => {
 
     const advisor = db.authenticateAdvisor(username, password);
     if (!advisor) {
-      return res.status(401).json({ success: false, message: 'Credenciales inválidas o asesor inactivo. Contacta a Sergio Martínez.' });
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas o asesor inactivo. Contacta al administrador.' });
     }
 
     db.addLog({
@@ -2469,7 +2469,7 @@ router.post('/advisors/login', (req, res) => {
     res.json({
       success: true,
       message: `¡Bienvenido ${advisor.name}!`,
-      data: advisor,
+      data: publicAdvisor(advisor),
       token: signAdvisorToken({ id: advisor.id })
     });
   } catch (error: any) {
@@ -2477,47 +2477,24 @@ router.post('/advisors/login', (req, res) => {
   }
 });
 
-router.get('/advisors', async (req, res) => {
+router.get('/advisors', (req, res) => {
   try {
-    const remote = await cpanelDbService.fetchAdvisors();
-    let advisors = db.getAdvisors();
-
-    if (remote && remote.length > 0) {
-      const merged = [...advisors];
-      for (const r of remote) {
-        if (!r || !r.id || /^prod[-_]/i.test(String(r.id))) continue;
-        const cleanPhone = (r.phone || r.telefono || '').replace(/\D/g, '');
-        const exists = merged.find(m => m.id === r.id || (cleanPhone && m.phone?.replace(/\D/g, '') === cleanPhone));
-        if (!exists) {
-          merged.push({
-            id: r.id,
-            name: r.name || r.nombre || 'Asesor',
-            username: `asesor_${r.id.toLowerCase()}`,
-            password: crypto.randomBytes(24).toString('hex'), // sin acceso hasta que el administrador le asigne una clave
-            role: r.role?.toLowerCase().includes('admin') ? 'admin' : 'advisor',
-            status: r.status || (r.activo ? 'active' : 'inactive'),
-            phone: r.phone || r.telefono || '',
-            channel: 'WhatsApp Directo',
-            sellerCode: r.id.substring(0, 8).toUpperCase(),
-            commissionRate: 0.10,
-            settlementStatus: 'al_dia',
-            createdAt: r.created_at || r.createdAt || new Date().toISOString()
-          });
-        } else {
-          // Actualizar datos desde cPanel si cambiaron
-          exists.name = r.name || r.nombre || exists.name;
-          exists.phone = r.phone || r.telefono || exists.phone;
-          exists.status = r.status || (r.activo ? 'active' : 'inactive');
-        }
-      }
-      advisors = merged;
-    }
-
+    const advisors = db.getAdvisors().map(publicAdvisor);
     const performance = db.getAdvisorsPerformance();
     res.json({ success: true, data: { advisors, performance } });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+// Interruptor "Disponible" + señal de vida del portal del asesor
+router.post('/advisors/me/presence', (req, res) => {
+  const h = req.headers.authorization || '';
+  const tok = verifyAdvisorToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
+  if (!tok?.id) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
+  const updated = setPresence(String(tok.id), typeof req.body?.available === 'boolean' ? req.body.available : undefined);
+  if (!updated) return res.status(404).json({ success: false, message: 'Asesor no encontrado.' });
+  res.json({ success: true, data: publicAdvisor(updated) });
 });
 
 router.get('/cpanel-advisors', async (req, res) => {
@@ -2533,20 +2510,6 @@ router.post('/advisors', (req, res) => {
   try {
     const saved = db.saveAdvisor(req.body);
 
-    // Sincronización transparente con MySQL cPanel (POST action=asesores)
-    cpanelDbService.saveAdvisor({
-      id: saved.id,
-      nombre: saved.name,
-      name: saved.name,
-      telefono: saved.phone,
-      whatsapp: saved.phone,
-      phone: saved.phone,
-      rol: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
-      role: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
-      activo: saved.status === 'active' ? 1 : 0
-    }).catch(err => {
-      console.warn('[cPanel Advisor Sync Warning]:', err);
-    });
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
@@ -2564,20 +2527,6 @@ router.put('/advisors/:id', (req, res) => {
   try {
     const saved = db.saveAdvisor({ ...req.body, id: req.params.id });
 
-    // Sincronización transparente con MySQL cPanel (POST action=asesores)
-    cpanelDbService.saveAdvisor({
-      id: saved.id,
-      nombre: saved.name,
-      name: saved.name,
-      telefono: saved.phone,
-      whatsapp: saved.phone,
-      phone: saved.phone,
-      rol: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
-      role: saved.role === 'admin' ? 'Administrador' : 'Asesor de Ventas',
-      activo: saved.status === 'active' ? 1 : 0
-    }).catch(err => {
-      console.warn('[cPanel Advisor Sync Warning]:', err);
-    });
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
@@ -2585,7 +2534,7 @@ router.put('/advisors/:id', (req, res) => {
       details: `Asesor "${saved.name}" (${saved.id}) modificado.`,
       status: 'success'
     });
-    res.json({ success: true, data: saved });
+    res.json({ success: true, data: publicAdvisor(saved) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2599,10 +2548,6 @@ router.post('/advisors/batch-delete', (req, res) => {
     }
     const count = db.deleteAdvisors(ids);
 
-    // Sincronizar eliminación en cPanel
-    for (const id of ids) {
-      cpanelDbService.deleteAdvisor(id).catch(err => console.warn('[cPanel Batch Delete Warning]:', err));
-    }
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
@@ -2621,10 +2566,6 @@ router.delete('/advisors/:id', (req, res) => {
     const deleted = db.deleteAdvisor(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Asesor no encontrado' });
 
-    // Sincronizar eliminación en MySQL cPanel (DELETE action=asesores&id=...)
-    cpanelDbService.deleteAdvisor(req.params.id).catch(err => {
-      console.warn('[cPanel Advisor Delete Warning]:', err);
-    });
 
     db.addLog({
       type: 'SETTINGS_UPDATE',
@@ -2648,7 +2589,7 @@ router.post('/advisors/:id/settle', (req, res) => {
       details: `Liquidación confirmada para ${settled.name} (${settled.id}).`,
       status: 'success'
     });
-    res.json({ success: true, data: settled });
+    res.json({ success: true, data: publicAdvisor(settled) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

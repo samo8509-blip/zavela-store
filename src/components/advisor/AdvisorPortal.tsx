@@ -75,6 +75,29 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   onBackToStore
 }) => {
   const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog'>('register');
+  // Disponibilidad: mientras esté activa y el portal abierto, la tienda le deriva clientes
+  const [online, setOnline] = useState<boolean>(Boolean(advisor.available));
+  const sendPresence = async (available?: boolean) => {
+    try {
+      const token = sessionStorage.getItem('zavela_advisor_token') || localStorage.getItem('zavela_advisor_token') || '';
+      await fetch('/api/admin/advisors/me/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(typeof available === 'boolean' ? { available } : {})
+      });
+    } catch {}
+  };
+  const toggleOnline = () => {
+    const next = !online;
+    setOnline(next);
+    sendPresence(next);
+  };
+  useEffect(() => {
+    if (!online) return;
+    sendPresence(true);
+    const t = setInterval(() => sendPresence(true), 60000);
+    return () => clearInterval(t);
+  }, [online]);
   const [mySales, setMySales] = useState<AdvisorSale[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -342,6 +365,15 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                 ID: {advisor.id} • {advisor.channel}
               </span>
             </div>
+
+            <button
+              onClick={toggleOnline}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${online ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-500/10 text-slate-300 border-slate-500/30'}`}
+              title={online ? 'Estás recibiendo clientes. Toca para desconectarte.' : 'Toca para empezar a recibir clientes.'}
+            >
+              <span className={`w-2 h-2 rounded-full ${online ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+              <span>{online ? 'Disponible' : 'No disponible'}</span>
+            </button>
 
             <button
               onClick={onBackToStore}

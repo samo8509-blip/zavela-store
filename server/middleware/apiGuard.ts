@@ -86,6 +86,8 @@ const rules: Rule[] = [
   { method: 'POST', re: /^\/api\/customers\/?$/, access: 'public' },           // registro de clientes
   { method: 'POST', re: /^\/api\/alerts\/(send|human-request|new-order)$/, access: 'public' }, // la ruta limita qué se acepta
   // Portal de asesores
+  { method: 'POST', re: /^\/api\/admin\/advisors\/me\/presence$/, access: 'advisor' },
+  { method: 'GET', re: /^\/api\/advisors\/next$/, access: 'public' },
   { method: '*', re: /^\/api\/admin\/advisor-sales(\/.*)?$/, access: 'advisor' },
   // Protegido (administrador)
   { method: '*', re: /^\/api\/(admin|backups)(\/|$)/, access: 'admin' },

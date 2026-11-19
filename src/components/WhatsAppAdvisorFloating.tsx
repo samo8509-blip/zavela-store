@@ -1,4 +1,3 @@
-import { looksLikeProduct } from '../utils/customerGuards.ts';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   MessageCircle, 
@@ -114,29 +113,22 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
     const loadAdvisors = async () => {
       let loaded = false;
 
-      // 1. Consulta directa a la API de cPanel MySQL
+      // Solo se muestran los asesores CONECTADOS (activaron "Disponible" en su portal)
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
-          headers: { 'Accept': 'application/json' },
-          signal: controller.signal
-        });
-        clearTimeout(timeout);
-
+        const res = await fetch('/api/advisors');
         if (res.ok) {
-          const list = await res.json();
-          if (Array.isArray(list) && list.length > 0) {
+          const json = await res.json();
+          const list = json?.data?.activeAdvisors;
+          if (Array.isArray(list)) {
             const active = list
-              .filter((a: any) => !looksLikeProduct(a) && (a.activo === 1 || a.activo === true || a.status === 'active') && (a.telefono || a.phone || a.whatsapp))
+              .filter((a: any) => a.available && (a.phone || a.telefono))
               .map((a: any) => ({
                 id: a.id,
-                name: a.nombre || a.name || 'Asesor Zavela',
-                phone: a.telefono || a.phone || a.whatsapp,
-                role: a.rol || a.role || 'Asesor de Ventas',
-                sellerCode: a.id ? a.id.slice(-6).toUpperCase() : 'ZV-ADV'
+                name: a.name || 'Asesor Zavela',
+                phone: a.phone || a.telefono,
+                role: a.channel || 'Asesor de Ventas',
+                sellerCode: a.sellerCode || (a.id ? String(a.id).slice(-6).toUpperCase() : 'ZV-ADV')
               }));
-
             if (isMounted && active.length > 0) {
               setActiveAdvisors(active);
               loaded = true;
@@ -145,40 +137,13 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
         }
       } catch {}
 
-      // 2. Consulta al backend de la tienda (evita bloqueos HTTP vs HTTPS)
-      if (!loaded) {
-        try {
-          const res = await fetch('/api/advisors');
-          if (res.ok) {
-            const json = await res.json();
-            const list = json?.data?.activeAdvisors || json?.data?.advisors;
-            if (Array.isArray(list) && list.length > 0) {
-              const active = list
-                .filter((a: any) => (a.activo === 1 || a.activo === true || a.status === 'active') && (a.phone || a.telefono || a.whatsapp))
-                .map((a: any) => ({
-                  id: a.id,
-                  name: a.nombre || a.name || 'Asesor Zavela',
-                  phone: a.telefono || a.phone || a.whatsapp,
-                  role: a.rol || a.role || 'Asesor de Ventas',
-                  sellerCode: a.sellerCode || (a.id ? a.id.slice(-6).toUpperCase() : 'ZV-ADV')
-                }));
-
-              if (isMounted && active.length > 0) {
-                setActiveAdvisors(active);
-                loaded = true;
-              }
-            }
-          }
-        } catch {}
-      }
-
       // 3. Fallback a asesor local predeterminado
       if (!loaded && isMounted) {
         setActiveAdvisors([
           {
             id: 'adv-default',
             name: advisorName || 'Elizabeth - Asesora Ejecutiva Oficial',
-            phone: cleanPhone || '573008784427',
+            phone: cleanPhone,
             role: 'Atención al Cliente & Asesoría Ejecutiva',
             sellerCode: 'OFICIAL'
           }

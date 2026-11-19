@@ -1,119 +1,64 @@
 import { Router } from 'express';
 import { db } from '../db.ts';
-import { cpanelDbService } from '../services/cpanelDbService.ts';
+import * as store from '../services/advisorStore.ts';
 
 const router = Router();
 
 /**
- * GET /api/advisors
- * Retorna los asesores activos consultados desde MySQL cPanel vía GET action=asesores
- * con fallback local transparente.
+ * GET /api/advisors  (público: lo usa el botón flotante de WhatsApp)
+ * Solo expone lo necesario de los asesores activos (nombre, teléfono, canal, si están conectados).
+ * Si quien llama es el administrador (token válido) recibe además el resto de campos, sin clave.
  */
-router.get('/', async (req, res) => {
-  try {
-    // 1. Consulta directa a MySQL cPanel
-    const remote = await cpanelDbService.fetchAdvisors();
-    if (remote && remote.length > 0) {
-      const activeAdvisors = remote.filter(a => a.activo === 1 || a.status === 'active');
-      return res.json({
-        success: true,
-        source: 'cpanel',
-        count: remote.length,
-        data: {
-          advisors: remote,
-          activeAdvisors: activeAdvisors.length > 0 ? activeAdvisors : remote
-        }
-      });
-    }
-
-    // 2. Fallback a la base local en memoria
-    const localAdvisors = db.getAdvisors();
-    const activeLocal = localAdvisors.filter(a => a.status === 'active' && a.role !== 'admin');
-
-    res.json({
-      success: true,
-      source: 'local_fallback',
-      count: localAdvisors.length,
-      data: {
-        advisors: localAdvisors,
-        activeAdvisors: activeLocal.length > 0 ? activeLocal : localAdvisors
-      }
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, message: err?.message || 'Error consultando asesores' });
-  }
+router.get('/', (req, res) => {
+  const isAdmin = Boolean((res.locals as any).isAdmin);
+  const all = store.listAdvisors();
+  const activeAdvisors = all
+    .filter(a => a.status === 'active' && a.role !== 'admin')
+    .map(a => ({ id: a.id, name: a.name, phone: a.phone, channel: a.channel, status: a.status, available: store.isOnline(a) }));
+  res.json({
+    success: true,
+    source: 'mysql',
+    count: isAdmin ? all.length : activeAdvisors.length,
+    data: { advisors: isAdmin ? all.map(store.publicAdvisor) : activeAdvisors, activeAdvisors }
+  });
 });
 
 /**
- * POST /api/advisors
- * Registra o actualiza un asesor en cPanel MySQL (action=asesores) y en la base local.
+ * GET /api/advisors/next  (público)
+ * Entrega el siguiente asesor CONECTADO (reparto rotativo). Si nadie está conectado devuelve advisor:null
+ * y el cliente debe ser atendido por el canal general de la tienda.
  */
-router.post('/', async (req, res) => {
+router.get('/next', (_req, res) => {
+  const a = store.pickNextAvailable();
+  if (!a) return res.json({ success: true, advisor: null });
+  const phone = (a.phone || '').replace(/\D/g, '');
+  res.json({
+    success: true,
+    advisor: { id: a.id, name: a.name, phone, sellerCode: a.sellerCode, whatsappUrl: `https://wa.me/${phone.startsWith('57') ? phone : '57' + phone}` }
+  });
+});
+
+/** POST /api/advisors (administrador): crea o actualiza un asesor. */
+router.post('/', (req, res) => {
   try {
-    const body = req.body || {};
-    const nombre = body.nombre || body.name || 'Asesor Zavela';
-    const telefono = body.telefono || body.whatsapp || body.phone || '';
-    const rol = body.rol || body.role || 'Asesor de Ventas';
-    const activo = body.activo !== undefined ? (body.activo ? 1 : 0) : 1;
-
-    // Guardar en cPanel
-    const cpanelRes = await cpanelDbService.saveAdvisor({
-      id: body.id,
-      nombre,
-      name: nombre,
-      telefono,
-      whatsapp: telefono,
-      phone: telefono,
-      rol,
-      role: rol,
-      activo
-    });
-
-    // Guardar en BD local
-    const savedLocal = db.saveAdvisor({
-      id: cpanelRes?.id || body.id || `adv-${Date.now()}`,
-      name: nombre,
-      phone: telefono,
-      role: rol.toLowerCase().includes('admin') ? 'admin' : 'advisor',
-      channel: 'WhatsApp Directo',
-      status: activo ? 'active' : 'inactive'
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Asesor guardado exitosamente en cPanel y base local',
-      data: savedLocal,
-      cpanelSync: Boolean(cpanelRes)
-    });
+    const b = req.body || {};
+    const saved = store.saveAdvisor({
+      id: b.id, name: b.name || b.nombre, phone: b.phone || b.telefono || b.whatsapp,
+      role: b.role || b.rol, status: b.status !== undefined ? b.status : (b.activo === 0 || b.activo === false ? 'inactive' : 'active'),
+      username: b.username, password: b.password, email: b.email, channel: b.channel, commissionRate: b.commissionRate, notes: b.notes
+    } as any);
+    db.addLog({ type: 'SETTINGS_UPDATE', action: 'Asesor guardado', details: `Asesor "${saved.name}" (${saved.id}) guardado.`, status: 'success' });
+    res.status(201).json({ success: true, message: 'Asesor guardado', data: store.publicAdvisor(saved) });
   } catch (err: any) {
-    res.status(500).json({ success: false, message: err?.message || 'Error guardando asesor' });
+    res.status(400).json({ success: false, message: err?.message || 'Error guardando asesor' });
   }
 });
 
-/**
- * DELETE /api/advisors/:id
- * Elimina un asesor en cPanel MySQL (DELETE action=asesores&id=...) y en la base local.
- */
-router.delete('/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    db.deleteAdvisor(id);
-
-    let cpanelDeleted = null;
-    try {
-      cpanelDeleted = await cpanelDbService.deleteAdvisor(id);
-    } catch (e: any) {
-      console.warn('[cPanel Delete Advisor Warning]:', e);
-    }
-
-    res.json({
-      success: true,
-      message: 'Asesor eliminado correctamente',
-      cpanelSync: Boolean(cpanelDeleted)
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, message: err?.message || 'Error eliminando asesor' });
-  }
+/** DELETE /api/advisors/:id (administrador) */
+router.delete('/:id', (req, res) => {
+  const ok = store.deleteAdvisors([req.params.id]) > 0;
+  if (!ok) return res.status(404).json({ success: false, message: 'Asesor no encontrado' });
+  res.json({ success: true, message: 'Asesor eliminado correctamente' });
 });
 
 export default router;

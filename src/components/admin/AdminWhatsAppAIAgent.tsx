@@ -73,54 +73,26 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
     nombre: '',
     whatsapp: '',
     rol: 'Asesor de Ventas',
-    activo: true
+    activo: true,
+    usuario: '',
+    clave: '',
+    comision: 25
   });
   const [advisorSearch, setAdvisorSearch] = useState('');
   const [advisorSyncSuccess, setAdvisorSyncSuccess] = useState<string | null>(null);
 
   const loadCpanelAdvisors = async () => {
     setIsLoadingAdvisors(true);
-    let loaded = false;
-
-    // 1. Intento directo a la API de cPanel MySQL
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
-        headers: { 'Accept': 'application/json' },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
+      const res = await fetch('/api/advisors');
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json)) {
-          const real = json.filter((a: any) => !looksLikeProduct(a));
-          // Si todo lo recibido eran productos, esta fuente no tiene asesores: se pasa a la siguiente.
-          if (real.length > 0 || json.length === 0 || !json.every(looksLikeProduct)) {
-            setCpanelAdvisors(real);
-            loaded = true;
-          }
-        }
+        const list = json?.data?.advisors;
+        setCpanelAdvisors(Array.isArray(list) ? list.filter((a: any) => !looksLikeProduct(a)) : []);
       }
-    } catch {}
-
-    // 2. Intento vía backend (sin problemas de Mixed Content o CORS)
-    if (!loaded) {
-      try {
-        const res = await fetch('/api/advisors');
-        if (res.ok) {
-          const json = await res.json();
-          const list = json?.data?.advisors;
-          if (Array.isArray(list) && list.length > 0) {
-            setCpanelAdvisors(list.filter((a: any) => !looksLikeProduct(a)));
-            loaded = true;
-          }
-        }
-      } catch (err) {
-        console.warn('Error cargando asesores vía backend:', err);
-      }
+    } catch (err) {
+      console.warn('Error cargando asesores:', err);
     }
-
     setIsLoadingAdvisors(false);
   };
 
@@ -130,7 +102,10 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
       nombre: '',
       whatsapp: '',
       rol: 'Asesor de Ventas',
-      activo: true
+      activo: true,
+      usuario: '',
+      clave: '',
+      comision: 25
     });
     setIsAdvisorModalOpen(true);
   };
@@ -141,7 +116,10 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
       nombre: adv.nombre || adv.name || '',
       whatsapp: adv.telefono || adv.whatsapp || adv.phone || '',
       rol: adv.rol || adv.role || 'Asesor de Ventas',
-      activo: adv.activo !== undefined ? Boolean(Number(adv.activo)) : (adv.status === 'active')
+      activo: adv.activo !== undefined ? Boolean(Number(adv.activo)) : (adv.status === 'active'),
+      usuario: adv.username || '',
+      clave: '',
+      comision: Number(adv.commissionRate ?? 25)
     });
     setIsAdvisorModalOpen(true);
   };
@@ -166,21 +144,21 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
     };
 
     try {
-      // 1. Guardar vía backend
-      await fetch('/api/advisors', {
+      const r = await fetch('/api/advisors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...payload,
+          id: editingAdvisorItem?.id,
+          username: advisorForm.usuario.trim() || undefined,
+          password: advisorForm.clave.trim() || undefined,
+          commissionRate: Number(advisorForm.comision)
+        })
       });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok || out?.success === false) throw new Error(out?.message || 'No se pudo guardar el asesor');
 
-      // 2. Guardar directo a cPanel HTTPS
-      fetch('https://api.zavelastore.com.co/api.php?action=asesores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => null);
-
-      setAdvisorSyncSuccess('¡Asesor guardado exitosamente en cPanel MySQL!');
+      setAdvisorSyncSuccess('¡Asesor guardado correctamente!');
       setTimeout(() => setAdvisorSyncSuccess(null), 3000);
       setIsAdvisorModalOpen(false);
       setEditingAdvisorItem(null);
@@ -191,19 +169,14 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   };
 
   const handleDeleteAdvisor = async (id: string, nombre: string) => {
-    if (!confirm(`¿Estás seguro de eliminar al asesor "${nombre}" de cPanel MySQL?`)) return;
+    if (!confirm(`¿Estás seguro de eliminar al asesor "${nombre}" del sistema?`)) return;
 
     try {
-      // Direct delete to cPanel (DELETE /action=asesores&id=...)
-      fetch(`https://api.zavelastore.com.co/api.php?action=asesores&id=${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      }).catch(() => null);
-
-      // Backend delete
-      await fetch(`/api/advisors/${id}`, { method: 'DELETE' });
+      const r = await fetch(`/api/advisors/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('No se pudo eliminar el asesor');
 
       setCpanelAdvisors(prev => prev.filter(a => a.id !== id));
-      setAdvisorSyncSuccess(`Asesor "${nombre}" eliminado de cPanel correctamente.`);
+      setAdvisorSyncSuccess(`Asesor "${nombre}" eliminado correctamente.`);
       setTimeout(() => setAdvisorSyncSuccess(null), 3000);
     } catch (err: any) {
       alert(err?.message || 'Error al eliminar');
@@ -2104,7 +2077,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Conectado en tiempo real a la tabla <code className="text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded font-mono font-bold">asesores</code> en MySQL cPanel.
+                    Lista única guardada en tu base de datos MySQL. Un asesor aparece <strong>Conectado</strong> cuando activa &quot;Disponible&quot; en su portal.
                   </p>
                 </div>
               </div>
@@ -2123,7 +2096,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                 onClick={loadCpanelAdvisors}
                 disabled={isLoadingAdvisors}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
-                title="Refrescar desde cPanel"
+                title="Refrescar"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isLoadingAdvisors ? 'animate-spin' : ''}`} />
                 <span>Refrescar</span>
@@ -2185,7 +2158,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                       <td colSpan={5} className="px-5 py-12 text-center text-slate-400">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <RefreshCw className="w-6 h-6 text-amber-500 animate-spin" />
-                          <span className="font-bold text-slate-600">Consultando tabla &quot;asesores&quot; en cPanel MySQL...</span>
+                          <span className="font-bold text-slate-600">Cargando asesores...</span>
                         </div>
                       </td>
                     </tr>
@@ -2194,9 +2167,9 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                       <td colSpan={5} className="px-5 py-12 text-center text-slate-400">
                         <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                           <Users className="w-8 h-8 text-slate-300" />
-                          <p className="font-bold text-slate-700">No hay asesores registrados en cPanel</p>
+                          <p className="font-bold text-slate-700">No hay asesores registrados</p>
                           <p className="text-xs text-slate-400">
-                            Haz clic en &quot;Agregar Asesor&quot; para registrar al primer asesor en la base de datos MySQL.
+                            Haz clic en &quot;Agregar Asesor&quot; para registrar al primer asesor.
                           </p>
                         </div>
                       </td>
@@ -2255,8 +2228,8 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                             <td className="px-5 py-3.5">
                               {isActive ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  <span>Activo (En Línea)</span>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${adv.available ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                                  <span>{adv.available ? 'Conectado' : 'Activo (sin conexión)'}</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-bold">
@@ -2293,7 +2266,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                                   type="button"
                                   onClick={() => handleDeleteAdvisor(adv.id, nombre)}
                                   className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
-                                  title="Eliminar asesor de cPanel"
+                                  title="Eliminar asesor"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -2319,10 +2292,10 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                     </div>
                     <div>
                       <h4 className="font-extrabold text-base text-slate-900">
-                        {editingAdvisorItem ? 'Editar Asesor en cPanel' : 'Registrar Nuevo Asesor'}
+                        {editingAdvisorItem ? 'Editar Asesor' : 'Registrar Nuevo Asesor'}
                       </h4>
                       <p className="text-xs text-slate-500">
-                        Persistencia directa en MySQL (action=asesores)
+                        Se guarda en tu base de datos MySQL
                       </p>
                     </div>
                   </div>
@@ -2374,6 +2347,44 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Usuario del portal</label>
+                      <input
+                        type="text"
+                        value={advisorForm.usuario}
+                        onChange={(e) => setAdvisorForm({ ...advisorForm, usuario: e.target.value })}
+                        placeholder="ej. jose.canas"
+                        autoComplete="off"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">{editingAdvisorItem ? 'Nueva clave (opcional)' : 'Clave del portal'}</label>
+                      <input
+                        type="password"
+                        value={advisorForm.clave}
+                        onChange={(e) => setAdvisorForm({ ...advisorForm, clave: e.target.value })}
+                        placeholder="mínimo 6 caracteres"
+                        autoComplete="new-password"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Comisión (% de la rentabilidad neta de cada venta)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.5"
+                      value={advisorForm.comision}
+                      onChange={(e) => setAdvisorForm({ ...advisorForm, comision: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-amber-500 outline-hidden font-medium"
+                    />
+                  </div>
+
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <input
                       type="checkbox"
@@ -2400,7 +2411,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                       className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{editingAdvisorItem ? 'Actualizar en cPanel' : 'Guardar en cPanel'}</span>
+                      <span>{editingAdvisorItem ? 'Actualizar asesor' : 'Guardar asesor'}</span>
                     </button>
                   </div>
                 </form>

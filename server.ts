@@ -24,6 +24,7 @@ import { initDatabaseSchema, runAutoMigrations } from './server/mysqlPool.ts';
 import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
 import { ssrService } from './server/services/ssrService.ts';
 import { loadPrivateConfig, ensureTokenSecret } from './server/services/privateConfig.ts';
+import { loadAdvisors } from './server/services/advisorStore.ts';
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ async function startServer() {
   // 1b. Configuración privada (SMTP, clave de sesiones) guardada en MySQL
   await loadPrivateConfig();
   await ensureTokenSecret();
+  await loadAdvisors();
 
   // 2. Desactivación definitiva de seeders y limpieza de datos demo recurrentes
   await runCleanupAndDisableSeeders().catch(err => {
