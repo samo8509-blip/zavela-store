@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { detectCalendarSeasonalTheme } from '../utils/seasonalThemes.ts';
+import { getLogoScheme, getZImage, logoGlow } from '../utils/logoTheme.ts';
 
 export type SupportedSeasonalTheme = 
   | 'halloween' 
@@ -53,6 +54,9 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
     return normalizeSeasonalTheme(seasonalTheme);
   }, [seasonalTheme]);
 
+  // Colores del logo según la temporada (estándar = original)
+  const logoScheme = getLogoScheme(currentSeason);
+
   // Dimensions based on size scale
   const iconDimensions = {
     xs: 'w-7 h-7',
@@ -102,9 +106,14 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
   }[size] || 'w-7 h-7 sm:w-8 sm:h-8';
 
   // Degradado de la palabra STORE: dorado/naranja en Black Friday, cian en el resto del año
-  const storeGradientClass = currentSeason === 'black-friday'
-    ? 'from-amber-500 via-orange-500 to-red-500'
-    : 'from-cyan-400 via-sky-400 to-indigo-400';
+  const storeGradientClass = ({
+    'black-friday': 'from-amber-500 via-orange-500 to-red-500',
+    'navidad-fin-ano': 'from-red-400 via-red-500 to-green-500',
+    'halloween': 'from-orange-400 via-orange-500 to-violet-500',
+    'san-valentin': 'from-rose-400 via-rose-500 to-rose-700',
+    'amor-amistad': 'from-amber-300 via-pink-400 to-violet-500',
+    'madre': 'from-pink-300 via-pink-500 to-purple-500'
+  } as Record<string, string>)[currentSeason] || 'from-cyan-400 via-sky-400 to-indigo-400';
 
   // Text color based on theme
   const textColorClass = 
@@ -121,16 +130,7 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
         ? 'text-slate-300' 
         : 'text-slate-300';
 
-  /* 
-   * High-Precision Vector Recreation of the Official ZAVELA Monogram
-   * Matching the exact design in the brand image:
-   * 1. Top-left speed bar with rounded corner
-   * 2. Lower-left beveled speed bar
-   * 3. Distinct Cyan top loop (`#00F2FE` -> `#00A3FF`)
-   * 4. Central 3D diagonal tube with longitudinal lighting and bevels (`#00A3FF` -> `#3B82F6` -> `#7C3AED`)
-   * 5. Lower-left purple loop curving along the bottom to the right with rounded tip (`#6366F1` -> `#9333EA` -> `#C084FC`)
-   * 6. Inner angular chevron and forward logistics arrow pointing right (`#0077FF` -> `#2563EB`)
-   */
+  // Z oficial en 3D (PNG transparente). Cambia de color con la temporada activa.
   const LogoIcon = (
     <div 
       className={`relative ${iconDimensions[size]} shrink-0 flex items-center justify-center select-none group/logo ${
@@ -138,229 +138,15 @@ export const ZavelaLogo: React.FC<ZavelaLogoProps> = ({
       }`}
       title="Zavela Store Colombia - Descubre algo nuevo"
     >
-      <svg 
-        viewBox="0 0 280 240" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full overflow-visible drop-shadow-[0_6px_20px_rgba(0,195,255,0.4)]"
-      >
-        <defs>
-          {/* Cyan to Electric Sky Top Gradient */}
-          <linearGradient id="zavelaGradTopCyan" x1="40" y1="30" x2="200" y2="70" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00F5FF" />
-            <stop offset="40%" stopColor="#00D2FF" />
-            <stop offset="80%" stopColor="#0099FF" />
-            <stop offset="100%" stopColor="#0066FF" />
-          </linearGradient>
-
-          {/* Electric Blue to Indigo Diagonal Gradient */}
-          <linearGradient id="zavelaGradDiag" x1="190" y1="50" x2="70" y2="200" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00E5FF" />
-            <stop offset="25%" stopColor="#0099FF" />
-            <stop offset="55%" stopColor="#2563EB" />
-            <stop offset="80%" stopColor="#6366F1" />
-            <stop offset="100%" stopColor="#7C3AED" />
-          </linearGradient>
-
-          {/* Purple to Magenta Bottom Loop Gradient */}
-          <linearGradient id="zavelaGradPurpleLoop" x1="60" y1="140" x2="210" y2="210" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#4F46E5" />
-            <stop offset="35%" stopColor="#7C3AED" />
-            <stop offset="70%" stopColor="#9333EA" />
-            <stop offset="100%" stopColor="#C084FC" />
-          </linearGradient>
-
-          {/* Arrow Gradient */}
-          <linearGradient id="zavelaGradArrow" x1="120" y1="120" x2="245" y2="135" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0077FF" />
-            <stop offset="50%" stopColor="#2563EB" />
-            <stop offset="100%" stopColor="#60A5FA" />
-          </linearGradient>
-
-          {/* Speed Bars Gradients */}
-          <linearGradient id="zavelaSpeedTopGrad" x1="30" y1="50" x2="105" y2="50" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#00F5FF" />
-            <stop offset="100%" stopColor="#0099FF" />
-          </linearGradient>
-          
-          <linearGradient id="zavelaSpeedBottomGrad" x1="15" y1="95" x2="75" y2="95" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0088FF" />
-            <stop offset="100%" stopColor="#0055FF" />
-          </linearGradient>
-
-          {/* Specular Bevel Overlay (White reflection streak) */}
-          <linearGradient id="zavelaGleamTop" x1="70" y1="36" x2="200" y2="70" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.9" />
-            <stop offset="60%" stopColor="#FFFFFF" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-          </linearGradient>
-
-          {/* Specular Bevel for Lower Arm */}
-          <linearGradient id="zavelaGleamBottom" x1="70" y1="180" x2="190" y2="200" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
-          </linearGradient>
-
-          {/* 3D Drop Shadow */}
-          <filter id="zavelaDepthShadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#0F172A" floodOpacity="0.35" />
-            <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#00F0FF" floodOpacity="0.25" />
-          </filter>
-        </defs>
-
-        <g filter="url(#zavelaDepthShadow)">
-          {/* ========================================================
-              1. SPEED BARS ON THE LEFT
-             ======================================================== */}
-          {/* Upper Rounded Speed Bar */}
-          <path
-            d="M 62 46 C 50 46 42 54 42 66 L 42 66 C 42 78 50 86 62 86 L 100 86 C 96 74 96 58 100 46 Z"
-            fill="url(#zavelaSpeedTopGrad)"
-          />
-          {/* Upper Speed Bar Specular */}
-          <path
-            d="M 62 49 C 52 49 45 56 45 66 C 45 58 52 51 62 51 L 96 51 L 98 49 Z"
-            fill="#FFFFFF"
-            opacity="0.6"
-          />
-
-          {/* Lower Speed Bar (Beveled Trapezoid) */}
-          <polygon
-            points="30,100 78,100 66,118 18,118"
-            fill="url(#zavelaSpeedBottomGrad)"
-          />
-          <polygon
-            points="31,102 76,102 73,105 28,105"
-            fill="#FFFFFF"
-            opacity="0.45"
-          />
-
-          {/* ========================================================
-              2. TOP HORIZONTAL ARCH & OUTER UPPER-RIGHT CORNER OF 'Z'
-             ======================================================== */}
-          {/* Continuous Ribbon from Top-Left to Top-Right */}
-          <path
-            d="M 62 46 
-               C 48 46 38 56 38 70 
-               L 38 72 
-               C 38 58 48 48 62 48 
-               L 155 48 
-               C 176 48 194 66 194 88 
-               C 194 98 190 108 182 116 
-               L 164 136 
-               L 144 118 
-               L 160 102 
-               C 164 98 166 92 166 86 
-               C 166 74 156 64 144 64 
-               L 80 64 
-               C 68 64 60 56 68 46 Z"
-            fill="url(#zavelaGradTopCyan)"
-          />
-
-          {/* ========================================================
-              3. MAIN 3D DIAGONAL RIBBON (DOWN-LEFT)
-             ======================================================== */}
-          <path
-            d="M 194 84 
-               C 194 96 188 108 178 118 
-               L 92 204 
-               C 80 216 60 216 48 202 
-               C 36 188 38 168 52 154 
-               L 138 68 
-               C 146 60 156 56 166 56 
-               L 182 56 
-               C 190 64 194 74 194 84 Z"
-            fill="url(#zavelaGradDiag)"
-          />
-
-          {/* Diagonal Central Ridge / Bevel Highlight */}
-          <path
-            d="M 180 72 
-               L 98 154 
-               C 92 160 88 168 84 176 
-               L 82 170 
-               C 86 162 92 154 98 148 
-               L 174 72 Z"
-            fill="#FFFFFF"
-            opacity="0.3"
-          />
-
-          {/* ========================================================
-              4. BOTTOM PURPLE-MAGENTA LOOP & TERMINATING CAP
-             ======================================================== */}
-          <path
-            d="M 48 180 
-               C 42 170 44 156 54 146 
-               L 90 110 
-               C 100 100 114 96 128 96 
-               L 188 96 
-               L 188 114 
-               L 132 114 
-               C 122 114 114 118 108 124 
-               L 72 160 
-               C 66 166 66 174 72 180 
-               L 162 180 
-               C 182 180 198 164 198 144 
-               L 198 136 
-               L 216 136 
-               L 216 144 
-               C 216 174 190 198 160 198 
-               L 72 198 
-               C 58 198 50 190 48 180 Z"
-            fill="url(#zavelaGradPurpleLoop)"
-          />
-
-          {/* ========================================================
-              5. INNER CHEVRON & FORWARD LOGISTICS ARROW (RIGHT)
-             ======================================================== */}
-          <g>
-            {/* Inner Diagonal to Horizontal Arrow Shaft */}
-            <path
-              d="M 134 84 
-                 L 86 142 
-                 C 82 146 84 154 90 154 
-                 L 196 154 
-                 L 196 136 
-                 L 118 136 
-                 L 146 102 
-                 L 134 84 Z"
-              fill="url(#zavelaGradArrow)"
-            />
-
-            {/* 3D Arrow Head Pointing Right */}
-            <path
-              d="M 188 116 
-                 L 236 145 
-                 L 188 174 
-                 L 198 145 Z"
-              fill="url(#zavelaGradArrow)"
-              stroke="#60A5FA"
-              strokeWidth="1.5"
-            />
-
-            {/* Arrow Head Upper Facet Highlight */}
-            <polygon
-              points="188,116 236,145 198,145"
-              fill="#93C5FD"
-              opacity="0.6"
-            />
-          </g>
-
-          {/* ========================================================
-              6. SPECULAR BEVELS AND GLOSS STREAKS
-             ======================================================== */}
-          {/* Top arch gloss streak */}
-          <path
-            d="M 68 49 L 152 49 C 168 49 182 61 184 76 C 178 66 166 57 150 57 L 68 57 C 56 57 50 51 68 49 Z"
-            fill="url(#zavelaGleamTop)"
-          />
-          {/* Bottom purple loop gloss */}
-          <path
-            d="M 72 196 L 160 196 C 182 196 196 182 198 164 C 194 176 180 188 158 188 L 72 188 Z"
-            fill="url(#zavelaGleamBottom)"
-          />
-        </g>
-      </svg>
+      <img
+        src={getZImage(currentSeason, 256)}
+        alt="Zavela Store"
+        width={256}
+        height={256}
+        draggable={false}
+        className="w-full h-full object-contain"
+        style={{ filter: `drop-shadow(0 6px 14px ${logoGlow(logoScheme)}55)` }}
+      />
 
       {/* Dynamic Seasonal Accessories on Z Monogram */}
       {showSeasonalAccessories && (
