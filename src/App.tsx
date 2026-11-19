@@ -764,7 +764,7 @@ export default function App() {
         const skipped = resolved.filter(r => !buyable.includes(r));
 
         if (buyable.length === 0) {
-          setSelectedProduct(skipped[0].product); // que el cliente elija variante o vea que no hay stock
+          handleSelectProduct(skipped[0].product); // que el cliente elija variante o vea que no hay stock
           return;
         }
 
@@ -1514,10 +1514,7 @@ export default function App() {
             products={products}
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             onExploreCatalog={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}
-            onSelectProduct={(p) => {
-              setSelectedProduct(p);
-              trackProductVisit(p);
-            }}
+            onSelectProduct={handleSelectProduct}
           />
 
           <CategoryTiles
@@ -1712,10 +1709,7 @@ export default function App() {
                     <ProductCard
                       key={product.id || product.slug}
                       product={product}
-                      onSelectProduct={(p) => {
-                        setSelectedProduct(p);
-                        trackProductVisit(p);
-                      }}
+                      onSelectProduct={handleSelectProduct}
                       onAddToCart={(p, e) => handleAddToCart(p, p.variants?.[0], 1)}
                       onBuyNow={(p, e) => handleBuyNow(p, p.variants?.[0], 1)}
                     />
@@ -1729,7 +1723,7 @@ export default function App() {
                 products={products}
                 currentProduct={selectedProduct}
                 cartItems={cartItems}
-                onSelectProduct={setSelectedProduct}
+                onSelectProduct={handleSelectProduct}
                 onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
               />
             </div>
@@ -1804,10 +1798,7 @@ export default function App() {
         <WhatsAppAdvisorFloating 
           settings={settings}
           whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'} 
-          onSelectProduct={(p) => {
-            setSelectedProduct(p);
-            trackProductVisit(p);
-          }}
+          onSelectProduct={handleSelectProduct}
         />
       )}
 
