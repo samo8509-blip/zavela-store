@@ -1,3 +1,4 @@
+import { looksLikeProduct } from '../../utils/customerGuards.ts';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -106,11 +107,14 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
         } catch {}
 
         if (Array.isArray(json)) {
-          const cleanList = json.filter(item => !isTestCustomerItem(item)).map(normalizeCpanelItem);
-          setCpanelCustomers(cleanList);
-          setDataSource('cpanel_direct');
-          setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-          loaded = true;
+          const cleanList = json.filter(item => !looksLikeProduct(item) && !isTestCustomerItem(item)).map(normalizeCpanelItem);
+          // Si todo lo recibido eran productos, esta fuente no tiene clientes: se pasa a la siguiente.
+          if (cleanList.length > 0 || json.length === 0 || !json.every(looksLikeProduct)) {
+            setCpanelCustomers(cleanList);
+            setDataSource('cpanel_direct');
+            setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            loaded = true;
+          }
         }
       }
     } catch {
@@ -124,11 +128,13 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
-            const cleanList = json.data.filter((item: any) => !isTestCustomerItem(item)).map(normalizeCpanelItem);
-            setCpanelCustomers(cleanList);
-            setDataSource('cpanel_backend');
-            setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-            loaded = true;
+            const cleanList = json.data.filter((item: any) => !looksLikeProduct(item) && !isTestCustomerItem(item)).map(normalizeCpanelItem);
+            if (cleanList.length > 0 || json.data.length === 0 || !json.data.every(looksLikeProduct)) {
+              setCpanelCustomers(cleanList);
+              setDataSource('cpanel_backend');
+              setLastSyncTime(new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+              loaded = true;
+            }
           }
         }
       } catch (err) {
