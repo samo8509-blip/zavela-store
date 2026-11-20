@@ -882,7 +882,7 @@ class DatabaseStore {
       unitPrice: Number(first?.unitPrice || 0), totalAmount: Number(o.total ?? o.totalAmount ?? 0),
       clientName: o.customerName || '', clientPhone: o.customerPhone || '', clientCity: o.city || '', clientDepartment: o.department,
       clientAddress: o.address || '', additionalNotes: o.additionalNotes, dropiStatus, dropiOrderId: o.dropi_order_id ? String(o.dropi_order_id) : undefined,
-      trackingNumber: o.dropi_guia || o.trackingNumber, paymentMethod: 'contra_entrega',
+      trackingNumber: o.dropi_guia || o.trackingNumber, paymentMethod: (o.paymentMethod === 'epayco' || o.paymentMethod === 'pago_online') ? 'pse' : 'contra_entrega', paymentStatus: String(o.paymentStatus || ''), clientEmail: o.customerEmail || '',
       commissionRate: a.commissionRate, commissionAmount: sales.estimatedCommission(o, a), commissionFrozen: a.commissionAmount != null,
       commissionStatus: status, dropiPaidAt: a.dropiPaidAt, paidAt: a.paidAt, createdAt: o.createdAt, updatedAt: o.updatedAt
     };
@@ -935,6 +935,9 @@ class DatabaseStore {
       const stock = Number(product.stock ?? 0);
       if (qty > stock) throw new Error(stock <= 0 ? `"${product.title}" está agotado.` : `De "${product.title}" solo quedan ${stock} unidad(es).`);
     }
+    const isPse = sale.paymentMethod === 'pse';
+    const clientEmail = String(sale.clientEmail || '').trim().toLowerCase();
+    if (clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) throw new Error('El correo del cliente no es válido.');
     const stamp = Date.now();
     const orderItems: any[] = [];
     let subtotal = 0, costTotal = 0, shipTotal = 0, feeTotal = 0;
@@ -957,18 +960,19 @@ class DatabaseStore {
       id, orderNumber,
       customerName: String(sale.clientName || 'Cliente').slice(0, 120),
       customerPhone: String(sale.clientPhone || '').replace(/\D/g, '').slice(0, 15),
-      customerEmail: '',
+      customerEmail: clientEmail,
       department: String(sale.clientDepartment || '').slice(0, 80), city: String(sale.clientCity || '').slice(0, 80),
       address: String(sale.clientAddress || '').slice(0, 250), additionalNotes: note,
       subtotal, shippingCost: 0, total: subtotal,
       productCostTotal: costTotal, carrierFee: shipTotal, dropiFee: feeTotal,
-      paymentMethod: 'contra_entrega' as any, paymentStatus: 'CASH_ON_DELIVERY' as any,
-      status: 'PENDIENTE_REVISION' as any,
+      paymentMethod: (isPse ? 'epayco' : 'contra_entrega') as any, paymentStatus: (isPse ? 'PENDING' : 'CASH_ON_DELIVERY') as any,
+      status: (isPse ? 'PENDIENTE_PAGO' : 'PENDIENTE_REVISION') as any,
+      stock_deducted: !isPse,
       items: orderItems,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     } as Order;
-    // Se descuenta el inventario al registrar la venta (igual que en la compra de la tienda).
-    for (const { product, qty } of lines.values()) {
+    // Contra entrega: se descuenta el inventario al registrar. Con PSE se descuenta cuando el pago es aprobado.
+    if (!isPse) for (const { product, qty } of lines.values()) {
       product.stock = Math.max(0, Number(product.stock || 0) - qty);
       this.saveProduct(product);
       import('./services/cpanelDbService.ts').then(m => m.cpanelDbService.decrementProductStock(String(product.id), qty)).catch(() => {});
@@ -986,9 +990,9 @@ class DatabaseStore {
     const a = sales.getAttribution(id);
     if (!o || !a) return false;
     const s = String(o.status || '').toLowerCase();
-    if (!(s === 'pendiente' || s === 'pendiente_revision')) return false; // solo si aún no se autorizó
-    // Al borrar una venta que nunca se autorizó, las unidades vuelven al inventario.
-    for (const it of (o.items || []) as any[]) {
+    if (!(s === 'pendiente' || s === 'pendiente_revision' || (s === 'pendiente_pago' && o.paymentStatus !== 'APPROVED'))) return false; // solo si aún no se autorizó ni se pagó
+    // Al borrar una venta que nunca se autorizó, las unidades vuelven al inventario (solo si se habían descontado).
+    if (o.stock_deducted !== false) for (const it of (o.items || []) as any[]) {
       const p = this.getProducts().find(x => String(x.id) === String(it.productId));
       if (p) { p.stock = Number(p.stock || 0) + Number(it.quantity || 0); this.saveProduct(p); }
     }

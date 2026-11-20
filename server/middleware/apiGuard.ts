@@ -66,6 +66,11 @@ const RESET_PREFIX = 'zavela_rst_';
 export const signResetToken = (advisorId: string, fp: string) => make(RESET_PREFIX, { id: advisorId, fp }, 60 * 60 * 1000);
 export const verifyResetToken = (t: string) => check(RESET_PREFIX, t);
 
+// Enlace de pago que se le envía al cliente (vence en 7 días).
+const PAY_PREFIX = 'zavela_pay_';
+export const signPayToken = (orderId: string) => make(PAY_PREFIX, { id: orderId }, 7 * 24 * 60 * 60 * 1000);
+export const verifyPayToken = (t: string) => check(PAY_PREFIX, t);
+
 function readToken(req: Request): string {
   const h = req.headers.authorization;
   if (h && h.startsWith('Bearer ')) return h.slice(7).trim();

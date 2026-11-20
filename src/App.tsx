@@ -31,6 +31,7 @@ import { CheckoutModal } from './components/CheckoutModal.tsx';
 import { OrderSuccessModal } from './components/OrderSuccessModal.tsx';
 import { OrderTrackingView } from './components/OrderTrackingView.tsx';
 import { OrderConfirmation } from './components/OrderConfirmation.tsx';
+import { PayLinkPage } from './components/PayLinkPage.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdvisorPortal } from './components/advisor/AdvisorPortal.tsx';
 import { 
@@ -132,6 +133,7 @@ export default function App() {
 
   const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [payToken] = useState(() => { try { return new URLSearchParams(window.location.search).get('pagar') || ''; } catch { return ''; } });
   // Enlaces de asesores: ?ref=VEN-001 (guarda la referencia 30 días) y ?reset=TOKEN (abre la recuperación de clave).
   useEffect(() => {
     try {
@@ -1128,6 +1130,8 @@ export default function App() {
       />
     );
   }
+
+  if (payToken) return <PayLinkPage token={payToken} />;
 
   if (currentView === 'order-confirmation') {
     return (

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken } from '../middleware/apiGuard.ts';
+import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
 import * as payouts from '../services/payouts.ts';
@@ -2634,7 +2634,7 @@ router.get('/advisor-sales', (req, res) => {
   }
 });
 
-router.post('/advisor-sales', (req, res) => {
+router.post('/advisor-sales', async (req, res) => {
   try {
     const isAdmin = Boolean((res.locals as any).isAdmin);
     const own = isAdmin ? null : callerAdvisorId(req);
@@ -2653,10 +2653,45 @@ router.post('/advisor-sales', (req, res) => {
       details: `${saved.advisorName} registró venta ${saved.orderNumber} para ${saved.clientName} (${saved.clientCity}) por $${saved.totalAmount.toLocaleString()} COP.`,
       status: 'success'
     });
-    res.status(201).json({ success: true, data: saved });
+    const extra = saved.paymentMethod === 'pse' ? await buildPaymentLink(saved.id, true) : {};
+    res.status(201).json({ success: true, data: saved, ...extra });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message });
   }
+});
+
+/** Genera el enlace de pago (PSE/ePayco) de una venta y, si hay correo del cliente, se lo envía. */
+async function buildPaymentLink(orderId: string, sendEmail: boolean) {
+  const o: any = db.getOrderById(orderId);
+  if (!o) return {};
+  const paymentLink = `${SITE}/?pagar=${encodeURIComponent(signPayToken(o.id))}`;
+  let emailSent = false, emailNote = '';
+  if (sendEmail) {
+    if (!o.customerEmail) emailNote = 'No se indicó correo del cliente.';
+    else {
+      const first = String(o.customerName || '').split(' ')[0] || 'cliente';
+      const r = await sendAlertEmail(`Tu pedido ${o.orderNumber} en Zavela Store: paga aquí`,
+        `Hola ${first},\n\nTu pedido ${o.orderNumber} por ${payouts.cop(Number(o.total || 0))} está listo para pagarse en línea (PSE, tarjeta y otros medios).\n\nPaga de forma segura aquí:\n${paymentLink}\n\nEl enlace vence en 7 días. Si ya pagaste, ignora este mensaje.\n\nZavela Store`, o.customerEmail, { rawSubject: true });
+      emailSent = r.sent; emailNote = r.sent ? '' : (r.reason || 'No se pudo enviar.');
+    }
+  }
+  return { paymentLink, emailSent, emailNote };
+}
+
+// Reenviar / obtener de nuevo el enlace de pago de una venta PSE (asesor dueño o administrador)
+router.post('/advisor-sales/:id/payment-link', async (req, res) => {
+  try {
+    const isAdmin = Boolean((res.locals as any).isAdmin);
+    const own = isAdmin ? null : callerAdvisorId(req);
+    if (!isAdmin && !own) return res.status(401).json({ success: false, message: 'Sesión no válida.' });
+    const a = advisorSales.getAttribution(req.params.id);
+    const o: any = db.getOrderById(req.params.id);
+    if (!a || !o || (own && a.advisorId !== own)) return res.status(404).json({ success: false, message: 'Venta no encontrada.' });
+    if (o.paymentMethod !== 'epayco' || o.paymentStatus === 'APPROVED') return res.status(400).json({ success: false, message: 'Esta venta no tiene un pago PSE pendiente.' });
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { o.customerEmail = email; db.saveOrder(o); }
+    res.json({ success: true, ...(await buildPaymentLink(o.id, Boolean(email) || Boolean(req.body?.sendEmail))) });
+  } catch (e: any) { res.status(500).json({ success: false, message: e.message }); }
 });
 
 router.put('/advisor-sales/:id', adminOnly, (req, res) => {

@@ -6,6 +6,7 @@ import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { epaycoConfig } from '../config/epayco.ts';
 import { Order, OrderItem } from '../../src/types/index.ts';
 import { sendSaleNotification } from '../services/whatsappAlerts.ts';
+import { verifyPayToken } from '../middleware/apiGuard.ts';
 
 const router = Router();
 
@@ -154,6 +155,25 @@ export async function applyApprovedPayment(
 
   return savedOrder;
 }
+
+/**
+ * GET /api/payments/pay-info?token=...
+ * Datos mínimos para la página de pago que recibe el cliente por correo/WhatsApp (enlace firmado, vence en 7 días).
+ */
+router.get('/pay-info', (req, res) => {
+  const tok = verifyPayToken(String(req.query.token || ''));
+  const order: any = tok?.id ? db.getOrderById(String(tok.id)) : undefined;
+  if (!order || (order.paymentMethod !== 'epayco' && order.paymentMethod !== 'pago_online')) {
+    return res.status(404).json({ success: false, message: 'Este enlace no es válido o ya venció.' });
+  }
+  if (order.paymentStatus === 'APPROVED') return res.json({ success: true, paid: true, orderNumber: order.orderNumber });
+  res.json({
+    success: true, paid: false, orderNumber: order.orderNumber, total: Number(order.total || 0),
+    customerName: order.customerName || '', customerPhone: order.customerPhone || '', customerEmail: order.customerEmail || '',
+    address: [order.address, order.city].filter(Boolean).join(', '),
+    items: (order.items || []).map((it: any) => ({ title: it.title, quantity: Number(it.quantity || 1) }))
+  });
+});
 
 /**
  * GET /api/payments/config
