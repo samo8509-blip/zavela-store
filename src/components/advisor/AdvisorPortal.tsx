@@ -30,6 +30,8 @@ import { Advisor, AdvisorSale, Product, DropiStatus } from '../../types/index.ts
 import { formatCOP } from '../../utils/formatters.ts';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { AdvisorStatement } from './AdvisorStatement.tsx';
+import { AdvisorCalendar } from './AdvisorCalendar.tsx';
+import { AdvisorPasswordForm } from './AdvisorPasswordForm.tsx';
 import { SalePaymentPicker, PaymentLinkCard, SalePay, PayLinkInfo } from '../SalePaymentPicker.tsx';
 import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, linesTotal, useCatalog } from '../SaleItemsPicker.tsx';
 
@@ -77,7 +79,11 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   onLogout,
   onBackToStore
 }) => {
-  const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog'>('register');
+  useEffect(() => {
+    (window as any).__zavelaRole = 'advisor';
+    return () => { (window as any).__zavelaRole = undefined; };
+  }, []);
+  const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog' | 'account'>('register');
   // Disponibilidad: mientras esté activa y el portal abierto, la tienda le deriva clientes
   const [online, setOnline] = useState<boolean>(Boolean(advisor.available));
   const sendPresence = async (available?: boolean) => {
@@ -482,8 +488,6 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
           </div>
         </div>
 
-        <AdvisorStatement refreshKey={mySales.length} />
-
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-[#27154A] pb-3 overflow-x-auto">
           <button
@@ -520,6 +524,18 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
           >
             <Package className="w-4 h-4" />
             <span>Catálogo & Precios de Referencia</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('account')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'account'
+                ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,255,0.4)]'
+                : 'bg-[#140B2E] text-violet-300 hover:text-white hover:bg-[#1C0F3E] border border-[#2C1752]'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            <span>Mi Cuenta</span>
           </button>
         </div>
 
@@ -782,7 +798,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         {/* ========================================================= */}
         {activeTab === 'my_sales' && (
           <div className="space-y-4">
-            
+            <AdvisorCalendar sales={mySales} />
+
             {/* Filter toolbar */}
             <div className="bg-[#13092A] border border-[#2D1854] rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative w-full sm:w-80">
@@ -911,6 +928,13 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         {/* ========================================================= */}
         {/* TAB 3: CATÁLOGO & PRECIOS DE REFERENCIA */}
         {/* ========================================================= */}
+        {activeTab === 'account' && (
+          <div className="space-y-4">
+            <AdvisorStatement refreshKey={mySales.length} />
+            <AdvisorPasswordForm />
+          </div>
+        )}
+
         {activeTab === 'catalog' && (
           <div className="space-y-4">
             <div className="bg-[#13092A] border border-[#2D1854] rounded-2xl p-4 flex items-center justify-between">

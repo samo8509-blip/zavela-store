@@ -3,6 +3,7 @@ import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken,
 import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
 import * as payouts from '../services/payouts.ts';
+import { verifyPassword } from '../services/advisorStore.ts';
 import { findByEmail, passwordFingerprint, saveAdvisor as saveAdvisorRecord, getAdvisor as getAdvisorRecord, listAdvisors as listAdvisorRecords } from '../services/advisorStore.ts';
 import { sendAlertEmail } from '../services/emailAlerts.ts';
 import { sendSaleNotificationOnce } from '../services/whatsappAlerts.ts';
@@ -2868,6 +2869,22 @@ router.get('/advisors/me/statement', (req, res) => {
       settlements: payouts.listSettlements(adv.id).map(({ orderIds, ...rest }) => rest)
     }
   });
+});
+
+/** El asesor cambia su propia clave (necesita la actual). */
+router.post('/advisors/me/password', (req, res) => {
+  try {
+    const h = req.headers.authorization || '';
+    const tok = verifyAdvisorToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
+    const adv: any = tok?.id ? getAdvisorRecord(String(tok.id)) : null;
+    if (!adv) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida. Vuelve a ingresar.' });
+    const { currentPassword, newPassword } = req.body || {};
+    if (!verifyPassword(String(currentPassword || ''), adv.password)) return res.status(400).json({ success: false, message: 'La clave actual no es correcta.' });
+    if (String(newPassword || '').length < 6) return res.status(400).json({ success: false, message: 'La clave nueva debe tener al menos 6 caracteres.' });
+    saveAdvisorRecord({ id: adv.id, password: String(newPassword) } as any);
+    db.addLog({ type: 'SETTINGS_UPDATE', action: 'Clave de asesor cambiada', details: `${adv.name} cambió su propia clave.`, status: 'success' });
+    res.json({ success: true });
+  } catch (e: any) { res.status(400).json({ success: false, message: e.message }); }
 });
 
 // ---------- Recuperación de clave del asesor (público) ----------

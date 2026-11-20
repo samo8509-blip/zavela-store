@@ -14,9 +14,10 @@ try {
       const path = url.startsWith('http') ? new URL(url).pathname : url;
       const sameOrigin = !url.startsWith('http') || new URL(url).origin === window.location.origin;
       if (sameOrigin && path.startsWith('/api/')) {
-        const token =
-          sessionStorage.getItem('zavela_admin_token') || localStorage.getItem('zavela_admin_token') ||
-          sessionStorage.getItem('zavela_advisor_token') || localStorage.getItem('zavela_advisor_token');
+        const adminTok = sessionStorage.getItem('zavela_admin_token') || localStorage.getItem('zavela_admin_token');
+        const advisorTok = sessionStorage.getItem('zavela_advisor_token') || localStorage.getItem('zavela_advisor_token');
+        // Dentro del portal del asesor se usa SIEMPRE la sesión del asesor (así solo ve sus propias ventas).
+        const token = (window as any).__zavelaRole === 'advisor' ? (advisorTok || adminTok) : (adminTok || advisorTok);
         if (token) {
           const headers = new Headers(init?.headers || (typeof input === 'object' && 'headers' in input ? (input as Request).headers : undefined));
           if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
