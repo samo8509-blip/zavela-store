@@ -2953,7 +2953,8 @@ router.post('/advisors/reset-password', (req, res) => {
 // Intelligent Unstructured Text Parser for Sales WhatsApp/Chat messages
 router.post('/advisor-sales/parse-text', (req, res) => {
   try {
-    const { rawText } = req.body;
+    // El portal envía `text`; se acepta también `rawText` por compatibilidad.
+    const rawText = req.body?.text ?? req.body?.rawText;
     if (!rawText || typeof rawText !== 'string') {
       return res.status(400).json({ success: false, message: 'Texto requerido' });
     }
@@ -2984,9 +2985,9 @@ router.post('/advisor-sales/parse-text', (req, res) => {
     }
 
     // 2. Detect Product & Quantity
-    let detectedProduct = products[0]?.title || 'Inflador de Llantas Compresor Portátil y Arrancador 4 en 1';
+    let detectedProduct = '';
     let detectedQuantity = 1;
-    let detectedPrice = products[0]?.price || 140000;
+    let detectedPrice = 0;
 
     const productMatch = text.match(/(?:producto|artículo|item)\s*[:#-]?\s*([^\n$]+)/i);
     if (productMatch) {
@@ -3024,11 +3025,14 @@ router.post('/advisor-sales/parse-text', (req, res) => {
       clientPhone = phoneMatch[1].replace(/[^\d]/g, '');
     }
 
-    let clientCity = 'Bogotá D.C.';
-    let clientDepartment = 'Cundinamarca';
+    let clientCity = '';
+    let clientDepartment = '';
     const cityMatch = text.match(/(?:ciudad|municipio|destino)\s*[:#-]?\s*([^\n,]+)/i);
     if (cityMatch) {
       clientCity = cityMatch[1].trim();
+      // "Ciudad: Medellín, Antioquia" → también se toma el departamento si viene después de la coma
+      const deptMatch = text.match(/(?:ciudad|municipio|destino)\s*[:#-]?\s*[^\n,]+,\s*([^\n,]+)/i);
+      if (deptMatch) clientDepartment = deptMatch[1].trim();
     } else {
       // Look for common Colombian cities in text
       const knownCities = [
@@ -3088,12 +3092,12 @@ router.post('/advisor-sales/parse-text', (req, res) => {
         quantity: detectedQuantity,
         unitPrice: Math.round(detectedPrice / (detectedQuantity || 1)),
         totalAmount: detectedPrice,
-        clientName: clientName || 'Cliente No Identificado',
+        clientName: clientName,
         clientPhone: clientPhone || '',
         clientCity,
         clientDepartment,
         clientAddress: clientAddress || '',
-        additionalNotes: 'Cargado vía parsing inteligente de WhatsApp',
+        additionalNotes: (text.match(/(?:notas?|observaci[oó]n(?:es)?|referencias?)\s*[:#-]?\s*([^\n]+)/i)?.[1] || '').trim(),
         dropiStatus: 'pendiente_bolsa',
         paymentMethod: 'contra_entrega'
       }

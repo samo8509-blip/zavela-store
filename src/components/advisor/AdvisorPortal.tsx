@@ -201,10 +201,11 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
       if (json.success && json.data) {
         const d = json.data;
+        let productFound = false;
         if (d.productTitle) {
           const t = String(d.productTitle).trim().toLowerCase();
           const m = catalog.find(p => (p.title || '').trim().toLowerCase() === t) || catalog.find(p => (p.title || '').toLowerCase().includes(t) || t.includes((p.title || '').toLowerCase()));
-          if (m && Number((m as any).stock ?? 0) > 0) setLines([lineFromProduct(m, Math.max(1, Math.min(Number((m as any).stock), Number(d.quantity) || 1)))]);
+          if (m && Number((m as any).stock ?? 0) > 0) { setLines([lineFromProduct(m, Math.max(1, Math.min(Number((m as any).stock), Number(d.quantity) || 1)))]); productFound = true; }
         }
         if (d.clientName) setClientName(d.clientName);
         if (d.clientPhone) setClientPhone(d.clientPhone);
@@ -215,7 +216,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         if (d.clientAddress) setClientAddress(d.clientAddress);
         if (d.additionalNotes) setAdditionalNotes(d.additionalNotes);
 
-        showToast('✨ ¡Datos extraídos del chat con éxito!');
+        showToast(productFound ? '✨ ¡Datos extraídos del chat con éxito!' : 'Datos del cliente cargados. El producto no se encontró en el catálogo o no tiene stock: agrégalo con el buscador.');
       } else {
         showToast('No se pudieron detectar todos los datos. Completa el formulario manualmente.');
       }
