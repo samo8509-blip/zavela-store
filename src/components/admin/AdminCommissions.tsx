@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, RefreshCw, CheckCircle2, Clock, Truck, BadgeDollarSign, Undo2, Loader2, AlertTriangle } from 'lucide-react';
 import { AdvisorSale } from '../../types/index.ts';
+import { AdminSettlements } from './AdminSettlements.tsx';
 import { formatCOP } from '../../utils/formatters.ts';
 
 type CStatus = NonNullable<AdvisorSale['commissionStatus']>;
@@ -183,7 +184,7 @@ export const AdminCommissions: React.FC<Props> = ({ onGoToOrders }) => {
         </div>
       </div>
 
-      <p className="text-[11px] text-slate-500">Próximamente en esta misma pantalla: cortes quincenales o mensuales, botón &quot;Liquidar&quot; y envío del detalle por correo al asesor.</p>
+      <AdminSettlements onChanged={load} />
     </div>
   );
 };

@@ -183,14 +183,15 @@ function smtpSend(opts: {
 }
 
 /** Envía una alerta por correo al destinatario configurado. Nunca lanza: devuelve el resultado. */
-export async function sendAlertEmail(subject: string, text: string, toOverride?: string): Promise<EmailResult> {
+export async function sendAlertEmail(subject: string, text: string, toOverride?: string, opts?: { rawSubject?: boolean }): Promise<EmailResult> {
+  const fullSubject = opts?.rawSubject ? subject : `[Alertas Zavela] ${subject}`;
   const to = toOverride && isValidEmail(toOverride) ? toOverride.trim() : getAlertEmailTo();
   if (!to) return { sent: false, reason: 'No hay correo de destino configurado.' };
   if (!isSmtpConfigured()) return { sent: false, reason: 'Aún no hay cuenta de envío configurada.' };
   const resendKey = getResendKey();
   if (resendKey) {
     try {
-      await resendSend(resendKey, to, `[Alertas Zavela] ${subject}`, text);
+      await resendSend(resendKey, to, fullSubject, text);
       return { sent: true };
     } catch (e: any) {
       console.warn('[Alertas por correo] Resend falló:', errText(e));
@@ -209,7 +210,7 @@ export async function sendAlertEmail(subject: string, text: string, toOverride?:
       pass: cfg.pass,
       from,
       to,
-      subject: `[Alertas Zavela] ${subject}`,
+      subject: fullSubject,
       text
     });
     return { sent: true };

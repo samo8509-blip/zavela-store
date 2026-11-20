@@ -35,8 +35,8 @@ function getSecret(): string {
 const b64u = (s: string) => Buffer.from(s, 'utf8').toString('base64url');
 const sign = (body: string) => crypto.createHmac('sha256', getSecret()).update(body).digest('base64url');
 
-function make(prefix: string, payload: Record<string, any>): string {
-  const body = b64u(JSON.stringify({ ...payload, exp: Date.now() + TTL_MS }));
+function make(prefix: string, payload: Record<string, any>, ttl: number = TTL_MS): string {
+  const body = b64u(JSON.stringify({ ...payload, exp: Date.now() + ttl }));
   return `${prefix}${body}.${sign(prefix + body)}`;
 }
 
@@ -61,6 +61,11 @@ export const signAdvisorToken = (advisor: { id: any }) => make(ADVISOR_PREFIX, {
 export const verifyAdminToken = (t: string) => check(TOKEN_PREFIX, t);
 export const verifyAdvisorToken = (t: string) => check(ADVISOR_PREFIX, t);
 
+// Enlace de recuperación de clave: firmado, vence en 1 hora y deja de servir cuando la clave cambia (fp).
+const RESET_PREFIX = 'zavela_rst_';
+export const signResetToken = (advisorId: string, fp: string) => make(RESET_PREFIX, { id: advisorId, fp }, 60 * 60 * 1000);
+export const verifyResetToken = (t: string) => check(RESET_PREFIX, t);
+
 function readToken(req: Request): string {
   const h = req.headers.authorization;
   if (h && h.startsWith('Bearer ')) return h.slice(7).trim();
@@ -79,6 +84,7 @@ const rules: Rule[] = [
   { method: 'POST', re: /^\/api\/admin\/maintenance\/notify-lead$/, access: 'public' },
   { method: 'POST', re: /^\/api\/admin\/newsletter\/generate-template$/, access: 'public' },
   { method: 'POST', re: /^\/api\/admin\/advisors\/login$/, access: 'public' },
+  { method: 'POST', re: /^\/api\/admin\/advisors\/(forgot|reset)-password$/, access: 'public' },
   { method: 'GET', re: /^\/api\/(advisors|products)\/?$/, access: 'public' },
   { method: 'GET', re: /^\/api\/products\/[^/]+$/, access: 'public' },
   { method: 'GET', re: /^\/api\/orders\/(track\/[^/]+|(?!calendar$)[^/]+)$/, access: 'public' },
@@ -87,6 +93,7 @@ const rules: Rule[] = [
   { method: 'POST', re: /^\/api\/alerts\/(send|human-request|new-order)$/, access: 'public' }, // la ruta limita qué se acepta
   // Portal de asesores
   { method: 'POST', re: /^\/api\/admin\/advisors\/me\/presence$/, access: 'advisor' },
+  { method: 'GET', re: /^\/api\/admin\/advisors\/me\/statement$/, access: 'advisor' },
   { method: 'GET', re: /^\/api\/advisors\/next$/, access: 'public' },
   { method: '*', re: /^\/api\/admin\/advisor-sales(\/.*)?$/, access: 'advisor' },
   // Protegido (administrador)

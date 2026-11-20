@@ -740,6 +740,8 @@ export interface Advisor {
   email?: string;
   channel?: string; // ej. "WhatsApp de Ventas"
   commissionRate?: number; // % o valor opcional
+  payoutCycle?: 'quincenal' | 'mensual'; // cada cuánto se liquidan sus comisiones
+  payoutDelayDays?: number; // días después del corte en que se paga
   available?: boolean; // el asesor activó "Disponible" en su portal
   lastSeen?: string; // última señal de vida del portal (ISO)
   lastAssignedAt?: string; // última vez que se le derivó un cliente (reparto rotativo)

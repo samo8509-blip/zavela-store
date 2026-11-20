@@ -168,3 +168,17 @@ export function undoDropiPaid(orderIds: string[]): string[] {
   }
   return done;
 }
+
+/** Marca como pagadas al asesor las comisiones "por pagar" indicadas (liquidación). */
+export function markPaid(orderIds: string[], advisorId: string, settlementRef: string): string[] {
+  const done: string[] = [];
+  for (const id of orderIds) {
+    const a = cache.get(id);
+    if (!a || a.advisorId !== advisorId || a.paidAt || !a.dropiPaidAt || a.commissionAmount == null) continue;
+    a.paidAt = new Date().toISOString();
+    a.settlementRef = settlementRef;
+    void persist(a);
+    done.push(id);
+  }
+  return done;
+}
