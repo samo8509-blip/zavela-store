@@ -654,6 +654,12 @@ export interface Order {
   dropi_approved_at?: string;
   dropi_response?: any;
 
+  // Venta de asesor (lo agrega el servidor)
+  advisorId?: string;
+  advisorName?: string;
+  sellerCode?: string;
+  advisorCommissionRate?: number;
+
   // Supplier & Fulfillment Flags
   esDeRocha?: boolean;
   isDropi?: boolean;
@@ -773,6 +779,14 @@ export interface AdvisorSale {
   dropiOrderId?: string;
   trackingNumber?: string;
   paymentMethod: 'contra_entrega';
+  // Comisión (sobre la rentabilidad neta real del pedido)
+  sellerCode?: string;
+  commissionRate?: number;
+  commissionAmount?: number | null;      // valor (congelado si ya está por pagar / pagada; si no, estimado)
+  commissionFrozen?: boolean;
+  commissionStatus?: 'en_proceso' | 'esperando_dropi' | 'por_pagar' | 'pagada' | 'anulada';
+  dropiPaidAt?: string;
+  paidAt?: string;
   createdAt: string;
   updatedAt?: string;
 }

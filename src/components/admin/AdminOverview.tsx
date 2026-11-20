@@ -403,7 +403,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         
         <button
-          onClick={() => onNavigate('pending_dropi_orders')}
+          onClick={() => onNavigate('orders')}
           className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 rounded-2xl border border-amber-300 shadow-2xs flex items-center justify-between hover:scale-101 hover:border-amber-400 transition-all cursor-pointer text-left group"
         >
           <div className="space-y-0.5">

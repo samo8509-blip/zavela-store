@@ -39,7 +39,8 @@ import {
   Gem,
   Star,
   MessageSquare,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Wallet
 } from 'lucide-react';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { SergioMartinezSignature } from '../SergioMartinezSignature.tsx';
@@ -50,7 +51,7 @@ export type AdminViewKey =
   | 'commercemind_ai'
   | 'copilot_private_alerts'
   | 'sales_calendar'
-  | 'pending_dropi_orders'
+  | 'advisor_commissions'
   | 'advisors_sales'
   | 'orders'
   | 'customers'
@@ -136,13 +137,6 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           badgeColor: 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black'
         },
         { 
-          key: 'pending_dropi_orders', 
-          label: 'Pedidos Pendientes por Revisión y Autorizar', 
-          icon: Send,
-          badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Por Autorizar` : 'Dropi Directo',
-          badgeColor: pendingOrdersCount > 0 ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black' : 'bg-cyan-500 text-slate-950 font-bold'
-        },
-        { 
           key: 'advisors_sales', 
           label: 'Ventas por Asesor & Bolsa Dropi', 
           icon: Users,
@@ -153,8 +147,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           key: 'orders', 
           label: 'Centro de Despachos & Envíos', 
           icon: ShoppingCart, 
-          badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Totales` : undefined, 
-          badgeColor: 'bg-emerald-500 text-slate-950 font-bold' 
+          badge: pendingOrdersCount > 0 ? `${pendingOrdersCount} Por Autorizar` : undefined, 
+          badgeColor: 'bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 font-black' 
         },
         { 
           key: 'sales_calendar', 
@@ -162,6 +156,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: FileSpreadsheet, 
           badge: 'Hoja de Cálculo', 
           badgeColor: 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black' 
+        },
+        { 
+          key: 'advisor_commissions', 
+          label: 'Liquidación de Comisiones', 
+          icon: Wallet, 
+          badge: 'Asesores', 
+          badgeColor: 'bg-gradient-to-r from-violet-400 to-fuchsia-400 text-slate-950 font-black' 
         },
         { 
           key: 'customers', 

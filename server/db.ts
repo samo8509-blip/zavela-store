@@ -1,4 +1,5 @@
 import * as advisorStore from './services/advisorStore.ts';
+import * as sales from './services/advisorSalesStore.ts';
 import fs from 'fs';
 import path from 'path';
 import { 
@@ -863,12 +864,117 @@ class DatabaseStore {
     const a = advisorStore.getAdvisor(id);
     return a ? advisorStore.saveAdvisor({ id, settlementStatus: 'liquidado', lastSettlementDate: new Date().toISOString(), notes: notes ?? a.notes }) : null;
   }
-  getAdvisorSales(filter?: any): AdvisorSale[] { return []; }
-  saveAdvisorSale(sale: Partial<AdvisorSale>): AdvisorSale { return {} as any; }
-  deleteAdvisorSale(id: string): boolean { return false; }
-  deleteAdvisorSales(ids: string[]): number { return 0; }
-  markAdvisorSalesDropiStatus(ids: string[], status: DropiStatus): number { return 0; }
-  getAdvisorsPerformance(): AdvisorPerformance[] { return []; }
+  // ---- Ventas de asesores: cada venta es un pedido normal + una marca de asesor (advisorSalesStore) ----
+  private orderToAdvisorSale(o: Order, a: sales.SaleAttribution): AdvisorSale {
+    const s = String((o as any).status || '').toLowerCase().trim();
+    let dropiStatus: DropiStatus = 'pendiente_bolsa';
+    if (['cancelado', 'rechazado', 'error_dropi', 'devuelto'].includes(s)) dropiStatus = 'cancelado';
+    else if (s === 'entregado') dropiStatus = 'entregado';
+    else if (s === 'enviado') dropiStatus = 'enviado';
+    else if (o.dropi_guia || o.trackingNumber) dropiStatus = 'guia_generada';
+    else if (['aprobado_dropi', 'aprobado', 'procesando', 'pago_confirmado', 'pagado'].includes(s)) dropiStatus = 'montado_dropi';
+    const first = (o.items || [])[0];
+    const qty = (o.items || []).reduce((n, it) => n + Number(it.quantity || 1), 0) || 1;
+    const status = sales.statusOf(o, a);
+    return {
+      id: o.id, orderNumber: o.orderNumber, advisorId: a.advisorId, advisorName: a.advisorName, advisorChannel: a.channel,
+      sellerCode: a.sellerCode, productId: first?.productId, productTitle: first?.title || 'Producto', quantity: qty,
+      unitPrice: Number(first?.unitPrice || 0), totalAmount: Number(o.total ?? o.totalAmount ?? 0),
+      clientName: o.customerName || '', clientPhone: o.customerPhone || '', clientCity: o.city || '', clientDepartment: o.department,
+      clientAddress: o.address || '', additionalNotes: o.additionalNotes, dropiStatus, dropiOrderId: o.dropi_order_id ? String(o.dropi_order_id) : undefined,
+      trackingNumber: o.dropi_guia || o.trackingNumber, paymentMethod: 'contra_entrega',
+      commissionRate: a.commissionRate, commissionAmount: sales.estimatedCommission(o, a), commissionFrozen: a.commissionAmount != null,
+      commissionStatus: status, dropiPaidAt: a.dropiPaidAt, paidAt: a.paidAt, createdAt: o.createdAt, updatedAt: o.updatedAt
+    };
+  }
+
+  getAdvisorSales(filter?: any): AdvisorSale[] {
+    const out: AdvisorSale[] = [];
+    for (const a of sales.listAttributions()) {
+      const o = this.data.orders.find(x => x.id === a.orderId);
+      if (!o) continue;
+      out.push(this.orderToAdvisorSale(o, a));
+    }
+    let res = out;
+    if (filter?.advisorId) res = res.filter(x => x.advisorId === filter.advisorId);
+    if (filter?.dropiStatus) res = res.filter(x => x.dropiStatus === filter.dropiStatus);
+    if (filter?.search) {
+      const q = String(filter.search).toLowerCase();
+      res = res.filter(x => [x.clientName, x.clientPhone, x.clientCity, x.productTitle, x.orderNumber].some(v => String(v || '').toLowerCase().includes(q)));
+    }
+    return res.sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime());
+  }
+
+  /** Un asesor registra una venta: se crea un pedido "Pendiente de autorizar" marcado con su código. */
+  saveAdvisorSale(sale: Partial<AdvisorSale>): AdvisorSale {
+    const existing = sale.id ? this.data.orders.find(o => o.id === sale.id) : undefined;
+    const attrExisting = existing ? sales.getAttribution(existing.id) : undefined;
+    if (existing && attrExisting) return this.orderToAdvisorSale(existing, attrExisting); // las ventas ya registradas se gestionan desde el Centro de Despachos
+
+    const adv = sale.advisorId ? advisorStore.getAdvisor(sale.advisorId) : undefined;
+    if (!adv) throw new Error('Asesor no válido.');
+    const title = String(sale.productTitle || '').trim();
+    const products = this.getProducts();
+    const product = products.find(p => p.id === sale.productId) ||
+      products.find(p => (p.title || '').trim().toLowerCase() === title.toLowerCase());
+    const qty = Math.max(1, Math.min(50, Math.floor(Number(sale.quantity) || 1)));
+    // Con producto del catálogo, el precio y los costos salen del catálogo (no del navegador).
+    const unitPrice = product ? Number(product.price) : Math.max(0, Number(sale.unitPrice) || 0);
+    const unitCost = product ? Number(product.costPrice || 0) : 0;
+    const ship = product ? Number(product.shippingCost ?? product.estimatedShippingCost ?? product.shipping_cost ?? 0) : 0;
+    const fee = product ? Number(product.dropiFee ?? product.dropi_fee ?? 0) : 0;
+    const subtotal = unitPrice * qty;
+    const id = `ord-${Date.now()}`;
+    let orderNumber = `ZV-${Math.floor(1000 + Math.random() * 9000)}`;
+    while (this.data.orders.some(o => o.orderNumber === orderNumber)) orderNumber = `ZV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const note = `Venta del asesor ${adv.name} (${adv.sellerCode}) por ${sale.advisorChannel || adv.channel || 'WhatsApp'}.${sale.additionalNotes ? ' ' + String(sale.additionalNotes).slice(0, 300) : ''}`;
+    const order: Order = {
+      id, orderNumber,
+      customerName: String(sale.clientName || 'Cliente').slice(0, 120),
+      customerPhone: String(sale.clientPhone || '').replace(/\D/g, '').slice(0, 15),
+      customerEmail: '',
+      department: String(sale.clientDepartment || '').slice(0, 80), city: String(sale.clientCity || '').slice(0, 80),
+      address: String(sale.clientAddress || '').slice(0, 250), additionalNotes: note,
+      subtotal, shippingCost: 0, total: subtotal,
+      productCostTotal: unitCost * qty, carrierFee: ship * qty, dropiFee: fee * qty,
+      paymentMethod: 'contra_entrega' as any, paymentStatus: 'CASH_ON_DELIVERY' as any,
+      status: 'PENDIENTE_REVISION' as any,
+      items: [{ id: `item-${Date.now()}`, orderId: id, productId: product?.id || '', title: product?.title || title || 'Producto',
+        quantity: qty, unitPrice, unitCost, subtotal } as any],
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+    } as Order;
+    const saved = this.saveOrder(order);
+    const attr = sales.attributeOrder(saved.id, {
+      advisorId: adv.id, sellerCode: adv.sellerCode || '', advisorName: adv.name,
+      channel: String(sale.advisorChannel || adv.channel || 'WhatsApp'), commissionRate: Number(adv.commissionRate ?? 25)
+    });
+    return this.orderToAdvisorSale(saved, attr);
+  }
+
+  deleteAdvisorSale(id: string): boolean {
+    const o = this.data.orders.find(x => x.id === id);
+    const a = sales.getAttribution(id);
+    if (!o || !a) return false;
+    const s = String(o.status || '').toLowerCase();
+    if (!(s === 'pendiente' || s === 'pendiente_revision')) return false; // solo si aún no se autorizó
+    sales.removeAttribution(id);
+    return this.deleteOrder(id);
+  }
+  deleteAdvisorSales(ids: string[]): number { return ids.filter(id => this.deleteAdvisorSale(id)).length; }
+  markAdvisorSalesDropiStatus(_ids: string[], _status: DropiStatus): number { return 0; } // el estado lo maneja el Centro de Despachos
+
+  getAdvisorsPerformance(): AdvisorPerformance[] {
+    return advisorStore.listAdvisors().filter(a => a.role !== 'admin').map(a => {
+      const list = this.getAdvisorSales({ advisorId: a.id }).filter(x => x.dropiStatus !== 'cancelado');
+      const pending = list.filter(x => x.commissionStatus === 'por_pagar').reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
+      return {
+        advisorId: a.id, advisorName: a.name, channel: a.channel || '',
+        totalSalesCOP: list.reduce((n, x) => n + x.totalAmount, 0), unitsSold: list.reduce((n, x) => n + x.quantity, 0), orderCount: list.length,
+        settlementStatus: pending > 0 ? 'pendiente_liquidacion' : (a.settlementStatus || 'al_dia'),
+        pendingSettlementAmountCOP: pending, recentSales: list.slice(0, 5)
+      } as AdvisorPerformance;
+    });
+  }
   getSocialMarketingSettings(): SocialMarketingSettings { return this.data.socialSettings || DEFAULT_SOCIAL_SETTINGS; }
   saveSocialMarketingSettings(settings: Partial<SocialMarketingSettings>): SocialMarketingSettings {
     const current = this.data.socialSettings || DEFAULT_SOCIAL_SETTINGS;

@@ -283,8 +283,28 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const validSales = mySales.filter(s => s.dropiStatus !== 'cancelado');
   const totalSalesCOP = validSales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
   const totalUnits = validSales.reduce((sum, s) => sum + (s.quantity || 1), 0);
-  const commissionRate = advisor.commissionRate || 10;
-  const estimatedCommissionCOP = Math.round((totalSalesCOP * commissionRate) / 100);
+  // La comisión es un % de la rentabilidad NETA real de cada pedido (no del precio de venta)
+  const commissionRate = advisor.commissionRate ?? 25;
+  const sumCommission = (st: string) =>
+    mySales.filter(s => s.commissionStatus === st).reduce((n, s) => n + Number(s.commissionAmount || 0), 0);
+  const commissionToPay = sumCommission('por_pagar');
+  const commissionWaitingDropi = sumCommission('esperando_dropi');
+  const commissionInProcess = sumCommission('en_proceso');
+  const commissionPaid = sumCommission('pagada');
+  // Ganancia neta estimada de un producto del catálogo (precio − costo − flete − tarifa Dropi)
+  const netProfitOfProduct = (p: any): number | null => {
+    if (typeof p?.realNetProfit === 'number' && p.realNetProfit > 0) return p.realNetProfit;
+    const cost = Number(p?.costPrice || 0);
+    if (!cost) return null;
+    return Math.max(0, Number(p.price || 0) - cost - Number(p.shippingCost ?? p.estimatedShippingCost ?? p.shipping_cost ?? 0) - Number(p.dropiFee ?? p.dropi_fee ?? 0));
+  };
+  const commissionOfProduct = (p: any, qty = 1): number | null => {
+    const net = netProfitOfProduct(p);
+    return net == null ? null : Math.round((net * qty * commissionRate) / 100);
+  };
+  const COMMISSION_LABEL: Record<string, string> = {
+    en_proceso: 'En proceso', esperando_dropi: 'Esperando pago de Dropi', por_pagar: 'Por pagar', pagada: 'Pagada', anulada: 'Anulada'
+  };
 
   // Filtered sales list
   const filteredSales = mySales.filter(s => {
@@ -305,7 +325,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const getStatusBadge = (status: DropiStatus) => {
     switch (status) {
       case 'pendiente_bolsa':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 En Bolsa de Despacho</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Pendiente de autorizar</span>;
       case 'montado_dropi':
         return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Despacho Confirmado</span>;
       case 'guia_generada':
@@ -414,7 +434,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                 ¡Bienvenido(a), {advisor.name}!
               </h1>
               <p className="text-xs text-violet-200/80 max-w-xl">
-                Registra aquí manualmente cada venta que cierres por WhatsApp o redes sociales. Cada pedido se consolidará automáticamente en la <strong className="text-cyan-300">Bolsa de Despachos de Sergio Martínez</strong> para su envío con pago contra entrega.
+                Registra aquí manualmente cada venta que cierres por WhatsApp o redes sociales. Cada venta queda <strong className="text-cyan-300">pendiente de autorización</strong> del administrador y, una vez autorizada, se despacha con pago contra entrega. Tu comisión es un % de la ganancia neta y se paga cuando el pedido se entrega y Dropi ya pagó.
               </p>
             </div>
 
@@ -442,9 +462,12 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
               </div>
 
               <div className="bg-[#0C061C]/80 border border-[#2B1754] rounded-2xl p-3 text-center">
-                <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block">Mi Comisión ({commissionRate}%)</span>
+                <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block">Por pagar ({commissionRate}% de la ganancia)</span>
                 <span className="text-sm sm:text-base font-mono font-black text-amber-300">
-                  {formatCOP(estimatedCommissionCOP)}
+                  {formatCOP(commissionToPay)}
+                </span>
+                <span className="text-[9px] font-mono text-violet-300 block mt-0.5 leading-tight">
+                  En camino: {formatCOP(commissionWaitingDropi + commissionInProcess)} · Pagado: {formatCOP(commissionPaid)}
                 </span>
               </div>
             </div>
@@ -791,9 +814,13 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] font-mono text-cyan-300 uppercase font-bold block">Tu Comisión Estimada ({commissionRate}%)</span>
+                    <span className="text-[10px] font-mono text-cyan-300 uppercase font-bold block">Tu Comisión Estimada ({commissionRate}% de la ganancia)</span>
                     <span className="text-base font-mono font-black text-emerald-400">
-                      {formatCOP(Math.round(((unitPrice * quantity) * commissionRate) / 100))} COP
+                      {(() => {
+                        const match = products.find(p => (p.title || '').trim().toLowerCase() === productTitle.trim().toLowerCase());
+                        const c = match ? commissionOfProduct(match, Number(quantity) || 1) : null;
+                        return c == null ? 'Se calcula al entregar' : `${formatCOP(c)} COP`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -840,7 +867,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                   className="w-full sm:w-auto bg-[#0C061C] border border-[#2D1854] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400"
                 >
                   <option value="all">Todos los estados</option>
-                  <option value="pendiente_bolsa">🟡 En Bolsa de Despacho</option>
+                  <option value="pendiente_bolsa">🟡 Pendiente de autorizar</option>
                   <option value="montado_dropi">🔵 Despacho Confirmado</option>
                   <option value="guia_generada">🟣 Guía Generada</option>
                   <option value="enviado">🚚 En Ruta</option>
@@ -900,7 +927,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                       </tr>
                     ) : (
                       filteredSales.map((s, index) => {
-                        const sComm = Math.round(((s.totalAmount || 0) * commissionRate) / 100);
+                        const sComm = s.commissionAmount;
                         return (
                           <tr key={s.id} className="hover:bg-[#1A0E3C]/60 transition-colors">
                             <td className="p-3.5 font-mono text-violet-400">{index + 1}</td>
@@ -916,7 +943,10 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                               {s.clientAddress}
                             </td>
                             <td className="p-3.5 font-mono font-black text-white">{formatCOP(s.totalAmount)}</td>
-                            <td className="p-3.5 font-mono font-bold text-amber-300">{formatCOP(sComm)}</td>
+                            <td className="p-3.5 font-mono font-bold text-amber-300">
+                              {sComm == null ? '—' : formatCOP(sComm)}
+                              <span className="block text-[9px] font-sans font-semibold text-violet-300">{COMMISSION_LABEL[s.commissionStatus || 'en_proceso']}</span>
+                            </td>
                             <td className="p-3.5">{getStatusBadge(s.dropiStatus)}</td>
                             <td className="p-3.5 text-right">
                               <a
@@ -959,7 +989,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {products.filter(p => p.active).map(prod => {
-                const prodComm = Math.round((prod.price * commissionRate) / 100);
+                const prodComm = commissionOfProduct(prod);
                 return (
                   <div 
                     key={prod.id} 
@@ -984,8 +1014,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                     </div>
 
                     <div className="bg-[#0C061C] p-2.5 rounded-xl border border-[#27154A] flex items-center justify-between text-xs font-mono">
-                      <span className="text-violet-300">Tu Comisión ({commissionRate}%):</span>
-                      <span className="text-amber-300 font-bold">{formatCOP(prodComm)}</span>
+                      <span className="text-violet-300">Tu Comisión ({commissionRate}% de la ganancia):</span>
+                      <span className="text-amber-300 font-bold">{prodComm == null ? '—' : formatCOP(prodComm)}</span>
                     </div>
 
                     <button
