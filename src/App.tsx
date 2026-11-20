@@ -1183,6 +1183,8 @@ export default function App() {
             setCurrentView('advisor');
             navigate('/asesor');
             showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+            // Recarga limpia en el portal: la sesión ya quedó guardada y así no depende de cambios de pantalla en curso.
+            setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
           }}
         />
         {toastMessage && (
@@ -1964,6 +1966,7 @@ export default function App() {
           setCurrentView('advisor');
           navigate('/asesor');
           showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+          setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
         }}
       />
 
