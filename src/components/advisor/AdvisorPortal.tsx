@@ -80,6 +80,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   onLogout,
   onBackToStore
 }) => {
+  // Se marca ya en el primer render: así ni siquiera las primeras consultas usan la sesión de administrador.
+  (window as any).__zavelaRole = 'advisor';
   useEffect(() => {
     (window as any).__zavelaRole = 'advisor';
     return () => { (window as any).__zavelaRole = undefined; };
