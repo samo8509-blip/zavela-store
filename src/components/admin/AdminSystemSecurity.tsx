@@ -100,6 +100,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [createEmail, setCreateEmail] = useState('');
   const [createCycle, setCreateCycle] = useState<'quincenal' | 'mensual'>('quincenal');
   const [createDelay, setCreateDelay] = useState(3);
+  const [createGoal, setCreateGoal] = useState(0);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
   const formatCleanUsername = (first: string, last: string) => {
@@ -170,6 +171,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
           email: emailClean,
           payoutCycle: createCycle,
           payoutDelayDays: Number(createDelay),
+          monthlyGoal: Number(createGoal) || 0,
           commissionRate: createRole === 'admin' ? 0 : Number(createCommission),
           channel: createRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas',
           status: 'active'
@@ -207,6 +209,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [editEmail, setEditEmail] = useState('');
   const [editCycle, setEditCycle] = useState<'quincenal' | 'mensual'>('quincenal');
   const [editDelay, setEditDelay] = useState(3);
+  const [editGoal, setEditGoal] = useState(0);
   const [editPassword, setEditPassword] = useState('');
   const [showEditPass, setShowEditPass] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
@@ -236,6 +239,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       setEditEmail(adv.email || '');
       setEditCycle(adv.payoutCycle === 'mensual' ? 'mensual' : 'quincenal');
       setEditDelay(Number(adv.payoutDelayDays ?? 3));
+      setEditGoal(Number(adv.monthlyGoal ?? 0));
       setEditPassword('');
     } else {
       setEditRole('advisor');
@@ -293,6 +297,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
             email: editEmailClean,
             payoutCycle: editCycle,
             payoutDelayDays: Number(editDelay),
+            monthlyGoal: Number(editGoal) || 0,
             sellerCode: editSellerCode.trim(),
             commissionRate: editRole === 'admin' ? 0 : Number(editCommission),
             // La clave solo se envía si se escribió una nueva; si no, se conserva la actual.
@@ -1419,6 +1424,11 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   <input type="number" min={0} max={30} value={createDelay} onChange={e => setCreateDelay(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
                 </div>
               </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Meta mensual de ventas (COP, opcional)</label>
+                <input type="number" min={0} step={100000} value={createGoal} onChange={e => setCreateGoal(Number(e.target.value))} placeholder="Ej. 5000000" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
+              </div>
                 </>
               )}
 
@@ -1629,6 +1639,11 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   <label className="text-xs font-bold text-slate-300">Se paga X días después del corte</label>
                   <input type="number" min={0} max={30} value={editDelay} onChange={e => setEditDelay(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Meta mensual de ventas (COP, opcional)</label>
+                <input type="number" min={0} step={100000} value={editGoal} onChange={e => setEditGoal(Number(e.target.value))} placeholder="Ej. 5000000" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
               </div>
                 </>
               )}

@@ -2871,6 +2871,30 @@ router.get('/advisors/me/statement', (req, res) => {
   });
 });
 
+/** Meta del mes y puesto del asesor frente a los demás (sin mostrar montos ajenos). */
+router.get('/advisors/me/ranking', (req, res) => {
+  const h = req.headers.authorization || '';
+  const tok = verifyAdvisorToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
+  const me: any = tok?.id ? getAdvisorRecord(String(tok.id)) : null;
+  if (!me) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
+  const month = payouts.ymd(payouts.bogotaNow()).slice(0, 7);
+  const all = db.getAdvisorSales({}).filter(x => x.dropiStatus !== 'cancelado' && payouts.ymd(new Date(new Date(x.createdAt).getTime() - 5 * 3600 * 1000)).startsWith(month));
+  const board = listAdvisorRecords().filter((a: any) => a.role !== 'admin' && a.status !== 'inactive').map((a: any) => {
+    const mine = all.filter(x => x.advisorId === a.id);
+    return { id: a.id, name: String(a.name).split(' ')[0], count: mine.length, total: mine.reduce((n, x) => n + Number(x.totalAmount || 0), 0) };
+  }).sort((a, b) => b.total - a.total || b.count - a.count);
+  const pos = Math.max(1, board.findIndex(b => b.id === me.id) + 1);
+  const mineRow = board.find(b => b.id === me.id);
+  res.json({
+    success: true,
+    data: {
+      month, goal: Number(me.monthlyGoal || 0), monthTotal: mineRow?.total || 0, monthCount: mineRow?.count || 0,
+      position: pos, advisors: board.length,
+      leaderboard: board.slice(0, 5).map((b, i) => ({ position: i + 1, name: b.name, count: b.count, isMe: b.id === me.id }))
+    }
+  });
+});
+
 /** El asesor cambia su propia clave (necesita la actual). */
 router.post('/advisors/me/password', (req, res) => {
   try {

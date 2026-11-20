@@ -882,7 +882,7 @@ class DatabaseStore {
       unitPrice: Number(first?.unitPrice || 0), totalAmount: Number(o.total ?? o.totalAmount ?? 0),
       clientName: o.customerName || '', clientPhone: o.customerPhone || '', clientCity: o.city || '', clientDepartment: o.department,
       clientAddress: o.address || '', additionalNotes: o.additionalNotes, dropiStatus, dropiOrderId: o.dropi_order_id ? String(o.dropi_order_id) : undefined,
-      trackingNumber: o.dropi_guia || o.trackingNumber, paymentMethod: (o.paymentMethod === 'epayco' || o.paymentMethod === 'pago_online') ? 'pse' : 'contra_entrega', paymentStatus: String(o.paymentStatus || ''), clientEmail: o.customerEmail || '',
+      trackingNumber: o.dropi_guia || o.trackingNumber, carrier: o.carrier, carrierTrackingUrl: o.carrierTrackingUrl, paymentMethod: (o.paymentMethod === 'epayco' || o.paymentMethod === 'pago_online') ? 'pse' : 'contra_entrega', paymentStatus: String(o.paymentStatus || ''), clientEmail: o.customerEmail || '',
       commissionRate: a.commissionRate, commissionAmount: sales.estimatedCommission(o, a), commissionFrozen: a.commissionAmount != null,
       commissionStatus: status, dropiPaidAt: a.dropiPaidAt, paidAt: a.paidAt, createdAt: o.createdAt, updatedAt: o.updatedAt
     };

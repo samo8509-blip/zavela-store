@@ -36,7 +36,7 @@ const toRow = (a: Advisor) => [
   a.lastSeen ? new Date(a.lastSeen) : null, a.lastAssignedAt ? new Date(a.lastAssignedAt) : null,
   a.notes || null, a.settlementStatus || 'al_dia', a.lastSettlementDate ? new Date(a.lastSettlementDate) : null,
   a.role || 'advisor', a.createdAt ? new Date(a.createdAt) : new Date(),
-  a.payoutCycle === 'mensual' ? 'mensual' : 'quincenal', Number(a.payoutDelayDays ?? 3)
+  a.payoutCycle === 'mensual' ? 'mensual' : 'quincenal', Number(a.payoutDelayDays ?? 3), Math.max(0, Math.round(Number(a.monthlyGoal || 0)))
 ];
 const fromRow = (r: any): Advisor => ({
   id: r.id, name: r.nombre, sellerCode: r.codigo || undefined, username: r.usuario || undefined,
@@ -48,7 +48,7 @@ const fromRow = (r: any): Advisor => ({
   notes: r.notas || '', settlementStatus: r.liquidacion || 'al_dia',
   lastSettlementDate: r.fecha_liquidacion ? new Date(r.fecha_liquidacion).toISOString() : undefined,
   role: r.rol === 'admin' ? 'admin' : 'advisor',
-  payoutCycle: r.ciclo === 'mensual' ? 'mensual' : 'quincenal', payoutDelayDays: Number(r.dias_pago ?? 3),
+  payoutCycle: r.ciclo === 'mensual' ? 'mensual' : 'quincenal', payoutDelayDays: Number(r.dias_pago ?? 3), monthlyGoal: Number(r.meta_mensual ?? 0),
   createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
 });
 
@@ -66,7 +66,7 @@ export async function loadAdvisors(): Promise<void> {
         UNIQUE KEY uq_usuario (usuario), UNIQUE KEY uq_codigo (codigo)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
       // Columnas agregadas después (se ignora el error si ya existen)
-      for (const ddl of ["ALTER TABLE zavela_asesores ADD COLUMN ciclo VARCHAR(12) NOT NULL DEFAULT 'quincenal'", "ALTER TABLE zavela_asesores ADD COLUMN dias_pago INT NOT NULL DEFAULT 3"]) {
+      for (const ddl of ["ALTER TABLE zavela_asesores ADD COLUMN ciclo VARCHAR(12) NOT NULL DEFAULT 'quincenal'", "ALTER TABLE zavela_asesores ADD COLUMN dias_pago INT NOT NULL DEFAULT 3", "ALTER TABLE zavela_asesores ADD COLUMN meta_mensual BIGINT NOT NULL DEFAULT 0"]) {
         try { await p.query(ddl); } catch {}
       }
       const [rows]: any = await p.query('SELECT * FROM zavela_asesores ORDER BY created_at');
@@ -84,12 +84,12 @@ async function persist(a: Advisor): Promise<void> {
   if (mysqlOk) {
     try {
       const p = await getPool();
-      await p!.query(`INSERT INTO zavela_asesores (id,nombre,codigo,usuario,clave_hash,telefono,email,canal,comision_pct,activo,disponible,ultima_senal,ultima_asignacion,notas,liquidacion,fecha_liquidacion,rol,created_at,ciclo,dias_pago)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      await p!.query(`INSERT INTO zavela_asesores (id,nombre,codigo,usuario,clave_hash,telefono,email,canal,comision_pct,activo,disponible,ultima_senal,ultima_asignacion,notas,liquidacion,fecha_liquidacion,rol,created_at,ciclo,dias_pago,meta_mensual)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON DUPLICATE KEY UPDATE nombre=VALUES(nombre),codigo=VALUES(codigo),usuario=VALUES(usuario),clave_hash=VALUES(clave_hash),
         telefono=VALUES(telefono),email=VALUES(email),canal=VALUES(canal),comision_pct=VALUES(comision_pct),activo=VALUES(activo),
         disponible=VALUES(disponible),ultima_senal=VALUES(ultima_senal),ultima_asignacion=VALUES(ultima_asignacion),notas=VALUES(notas),
-        liquidacion=VALUES(liquidacion),fecha_liquidacion=VALUES(fecha_liquidacion),rol=VALUES(rol),ciclo=VALUES(ciclo),dias_pago=VALUES(dias_pago)`, toRow(a));
+        liquidacion=VALUES(liquidacion),fecha_liquidacion=VALUES(fecha_liquidacion),rol=VALUES(rol),ciclo=VALUES(ciclo),dias_pago=VALUES(dias_pago),meta_mensual=VALUES(meta_mensual)`, toRow(a));
     } catch (e: any) { console.warn('[Asesores] No se pudo guardar en MySQL:', e?.message); }
     return;
   }
@@ -156,6 +156,7 @@ export function saveAdvisor(input: Partial<Advisor>): Advisor {
     notes: input.notes ?? existing?.notes ?? '',
     payoutCycle: (input.payoutCycle ?? existing?.payoutCycle ?? 'quincenal') === 'mensual' ? 'mensual' : 'quincenal',
     payoutDelayDays: Math.min(30, Math.max(0, Number(input.payoutDelayDays ?? existing?.payoutDelayDays ?? 3))),
+    monthlyGoal: Math.max(0, Math.round(Number(input.monthlyGoal ?? existing?.monthlyGoal ?? 0))),
     createdAt: existing?.createdAt || new Date().toISOString()
   };
   if (merged.status === 'inactive') merged.available = false;

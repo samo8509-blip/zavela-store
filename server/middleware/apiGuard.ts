@@ -99,7 +99,7 @@ const rules: Rule[] = [
   // Portal de asesores
   { method: 'POST', re: /^\/api\/admin\/advisors\/me\/presence$/, access: 'advisor' },
   { method: 'POST', re: /^\/api\/admin\/advisors\/me\/password$/, access: 'advisor' },
-  { method: 'GET', re: /^\/api\/admin\/advisors\/me\/(statement|password)$/, access: 'advisor' },
+  { method: 'GET', re: /^\/api\/admin\/advisors\/me\/(statement|ranking)$/, access: 'advisor' },
   { method: 'GET', re: /^\/api\/advisors\/next$/, access: 'public' },
   { method: '*', re: /^\/api\/admin\/advisor-sales(\/.*)?$/, access: 'advisor' },
   // Protegido (administrador)
