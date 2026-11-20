@@ -132,6 +132,15 @@ export default function App() {
 
   const [trackingInitialQuery, setTrackingInitialQuery] = useState('');
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  // Enlaces de asesores: ?ref=VEN-001 (guarda la referencia 30 días) y ?reset=TOKEN (abre la recuperación de clave).
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const ref = (q.get('ref') || '').trim().toUpperCase();
+      if (/^[A-Z0-9-]{3,20}$/.test(ref)) localStorage.setItem('zavela_ref', JSON.stringify({ code: ref, t: Date.now() }));
+      if (q.get('reset')) setIsAdminLoginOpen(true);
+    } catch {}
+  }, []);
   const [isCustomerOrdersOpen, setIsCustomerOrdersOpen] = useState(false);
   const [isAuthorCertModalOpen, setIsAuthorCertModalOpen] = useState(false);
   const [authenticatedAdvisor, setAuthenticatedAdvisor] = useState<Advisor | null>(() => getStoredAdvisor());

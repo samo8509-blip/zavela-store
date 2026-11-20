@@ -1,7 +1,10 @@
 import { Router } from 'express';
-import { signAdvisorToken, verifyAdvisorToken } from '../middleware/apiGuard.ts';
+import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
+import * as payouts from '../services/payouts.ts';
+import { findByEmail, passwordFingerprint, saveAdvisor as saveAdvisorRecord, getAdvisor as getAdvisorRecord, listAdvisors as listAdvisorRecords } from '../services/advisorStore.ts';
+import { sendAlertEmail } from '../services/emailAlerts.ts';
 import { sendSaleNotificationOnce } from '../services/whatsappAlerts.ts';
 import { db, isTestProduct } from '../db.ts';
 import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSettings } from '../../src/types/index.ts';
@@ -2751,6 +2754,119 @@ router.post('/advisor-commissions/dropi-paid', adminOnly, (req, res) => {
 router.post('/advisor-commissions/undo-dropi-paid', adminOnly, (req, res) => {
   const ids: string[] = Array.isArray(req.body?.orderIds) ? req.body.orderIds.map(String) : [];
   res.json({ success: true, undone: advisorSales.undoDropiPaid(ids) });
+});
+
+// ---------- Liquidación de comisiones ----------
+const SITE = 'https://zavelastore.com.co';
+
+/** Resumen por asesor: por pagar (ya cobrado a Dropi), esperando a Dropi, pagado y ciclo de pago. */
+router.get('/advisor-settlements/summary', adminOnly, (_req, res) => {
+  try {
+    const all = db.getAdvisorSales({});
+    const rows = listAdvisorRecords().filter((a: any) => a.role !== 'admin').map((a: any) => {
+      const mine = all.filter(x => x.advisorId === a.id);
+      const sum = (st: string) => mine.filter(x => x.commissionStatus === st).reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
+      const cnt = (st: string) => mine.filter(x => x.commissionStatus === st).length;
+      const c = payouts.cycleInfo(a);
+      return {
+        advisorId: a.id, name: a.name, email: a.email || '', sellerCode: a.sellerCode, rate: a.commissionRate ?? 25,
+        cycle: c.cycle, nextCutoff: c.nextCutoff, payDate: c.payDate, daysToCutoff: c.daysToCutoff, payoutDelayDays: a.payoutDelayDays ?? 3,
+        porPagar: sum('por_pagar'), porPagarCount: cnt('por_pagar'),
+        esperandoDropi: sum('esperando_dropi'), enProceso: sum('en_proceso'), pagada: sum('pagada'), pagadaCount: cnt('pagada'),
+        orderIds: mine.filter(x => x.commissionStatus === 'por_pagar').map(x => x.id)
+      };
+    });
+    res.json({ success: true, data: rows });
+  } catch (e: any) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.get('/advisor-settlements', adminOnly, (req, res) => {
+  res.json({ success: true, data: payouts.listSettlements(req.query.advisorId as string | undefined) });
+});
+
+/** Liquidar: paga todas las comisiones "por pagar" del asesor (o las indicadas) y le envía el estado de cuenta por correo. */
+router.post('/advisor-settlements', adminOnly, async (req, res) => {
+  try {
+    const { advisorId, method, reference, notes } = req.body || {};
+    const adv: any = getAdvisorRecord(String(advisorId || ''));
+    if (!adv) return res.status(404).json({ success: false, message: 'Asesor no encontrado.' });
+    const wanted: string[] | null = Array.isArray(req.body?.orderIds) ? req.body.orderIds.map(String) : null;
+    const payable = db.getAdvisorSales({ advisorId: adv.id }).filter(x => x.commissionStatus === 'por_pagar' && (!wanted || wanted.includes(x.id)));
+    if (!payable.length) return res.status(400).json({ success: false, message: 'No hay comisiones por pagar para este asesor. Primero marca "Dropi ya pagó" en sus pedidos entregados.' });
+    const c = payouts.cycleInfo(adv);
+    const dates = payable.map(x => String(x.createdAt || '').slice(0, 10)).filter(Boolean).sort();
+    const total = payable.reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
+    const s = payouts.createSettlement({
+      advisorId: adv.id, advisorName: adv.name, sellerCode: adv.sellerCode || '', orderIds: payable.map(x => x.id),
+      count: payable.length, total, periodFrom: dates[0] || c.periodFrom, periodTo: payouts.ymd(payouts.bogotaNow()),
+      method: String(method || '').slice(0, 60), reference: String(reference || '').slice(0, 80), notes: String(notes || '').slice(0, 300)
+    });
+    advisorSales.markPaid(s.orderIds, adv.id, s.id);
+    db.addLog({ type: 'SETTINGS_UPDATE', action: 'Comisiones liquidadas', details: `${s.id}: ${payable.length} venta(s) de ${adv.name} por ${payouts.cop(total)}.`, status: 'success' });
+    let emailed = false, emailNote = '';
+    if (adv.email) {
+      const text = payouts.statementText(adv, s, db.getAdvisorSales({ advisorId: adv.id }));
+      const r = await sendAlertEmail(`Liquidación de comisiones ${s.id} — Zavela Store`, text, adv.email, { rawSubject: true });
+      emailed = r.sent; emailNote = r.sent ? '' : (r.reason || '');
+      if (r.sent) payouts.markEmailed(s.id);
+    } else emailNote = 'El asesor no tiene correo registrado.';
+    res.json({ success: true, data: { ...s, emailed }, emailNote });
+  } catch (e: any) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+/** Estado de cuenta del propio asesor (portal). */
+router.get('/advisors/me/statement', (req, res) => {
+  const h = req.headers.authorization || '';
+  const tok = verifyAdvisorToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
+  const adv: any = tok?.id ? getAdvisorRecord(String(tok.id)) : null;
+  if (!adv) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
+  const mine = db.getAdvisorSales({ advisorId: adv.id });
+  const sum = (st: string) => mine.filter(x => x.commissionStatus === st).reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
+  const est = (st: string) => mine.filter(x => x.commissionStatus === st).reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
+  const c = payouts.cycleInfo(adv);
+  res.json({
+    success: true,
+    data: {
+      cycle: c.cycle, periodFrom: c.periodFrom, periodTo: c.periodTo, nextCutoff: c.nextCutoff, payDate: c.payDate, daysToCutoff: c.daysToCutoff,
+      porPagar: sum('por_pagar'), esperandoDropi: est('esperando_dropi'), enProceso: est('en_proceso'), pagada: sum('pagada'),
+      refLink: `${SITE}/?ref=${encodeURIComponent(adv.sellerCode || '')}`,
+      settlements: payouts.listSettlements(adv.id).map(({ orderIds, ...rest }) => rest)
+    }
+  });
+});
+
+// ---------- Recuperación de clave del asesor (público) ----------
+const resetLimiter = new Map<string, number>();
+router.post('/advisors/forgot-password', async (req, res) => {
+  const generic = { success: true, message: 'Si el correo está registrado, te enviamos un enlace para crear una clave nueva (vence en 1 hora).' };
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.json(generic);
+    const last = resetLimiter.get(email) || 0;
+    if (Date.now() - last < 60_000) return res.json(generic);
+    resetLimiter.set(email, Date.now());
+    const adv: any = findByEmail(email);
+    if (adv && adv.active !== false) {
+      const token = signResetToken(adv.id, passwordFingerprint(adv));
+      const link = `${SITE}/?reset=${encodeURIComponent(token)}`;
+      void sendAlertEmail('Recupera tu clave — Zavela Store', `Hola ${String(adv.name).split(' ')[0]},\n\nRecibimos una solicitud para crear una clave nueva en tu portal de asesor.\n\nEntra a este enlace (vence en 1 hora y sirve una sola vez):\n${link}\n\nSi no fuiste tú, ignora este mensaje: tu clave actual sigue igual.`, adv.email, { rawSubject: true });
+    }
+    res.json(generic);
+  } catch { res.json(generic); }
+});
+
+router.post('/advisors/reset-password', (req, res) => {
+  try {
+    const tok = verifyResetToken(String(req.body?.token || ''));
+    const password = String(req.body?.password || '');
+    if (!tok?.id) return res.status(400).json({ success: false, message: 'El enlace no es válido o ya venció. Solicita uno nuevo.' });
+    if (password.length < 6) return res.status(400).json({ success: false, message: 'La clave debe tener al menos 6 caracteres.' });
+    const adv: any = getAdvisorRecord(String(tok.id));
+    if (!adv || passwordFingerprint(adv) !== tok.fp) return res.status(400).json({ success: false, message: 'El enlace ya fue usado o venció. Solicita uno nuevo.' });
+    saveAdvisorRecord({ id: adv.id, password } as any);
+    db.addLog({ type: 'SETTINGS_UPDATE', action: 'Clave de asesor restablecida', details: `${adv.name} creó una clave nueva por enlace de correo.`, status: 'success' });
+    res.json({ success: true, message: 'Listo, ya puedes iniciar sesión con tu clave nueva.' });
+  } catch (e: any) { res.status(400).json({ success: false, message: e.message }); }
 });
 
 // Intelligent Unstructured Text Parser for Sales WhatsApp/Chat messages

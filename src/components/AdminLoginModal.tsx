@@ -107,6 +107,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [mode, setMode] = useState<'login' | 'forgot' | 'reset'>('login');
+  const [resetToken, setResetToken] = useState('');
+  const [email, setEmail] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [info, setInfo] = useState<string | null>(null);
 
   // Guarantee fields remain 100% blank upon opening with no browser autofill
   useEffect(() => {
@@ -116,9 +121,39 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       setPassword('');
       setIsReadOnly(true);
       setError(null);
+      setInfo(null);
       setShowPassword(false);
+      setMode('login');
+      try {
+        const t = new URLSearchParams(window.location.search).get('reset');
+        if (t) { setResetToken(t); setRole('advisor'); setMode('reset'); }
+      } catch {}
     }
   }, [isOpen, defaultRole]);
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(null); setInfo(null); setIsLoading(true);
+    try {
+      const r = await fetch('/api/admin/advisors/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const j = await r.json().catch(() => ({}));
+      setInfo(j.message || 'Si el correo está registrado, te enviamos un enlace.');
+    } catch { setError('No se pudo conectar. Intenta de nuevo.'); }
+    setIsLoading(false);
+  };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(null); setInfo(null); setIsLoading(true);
+    try {
+      const r = await fetch('/api/admin/advisors/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resetToken, password: newPass }) });
+      const j = await r.json().catch(() => ({}));
+      if (j.success) {
+        setInfo(j.message); setNewPass(''); setResetToken('');
+        try { const u = new URL(window.location.href); u.searchParams.delete('reset'); window.history.replaceState({}, '', u.toString()); } catch {}
+        setMode('login');
+      } else setError(j.message || 'No se pudo cambiar la clave.');
+    } catch { setError('No se pudo conectar. Intenta de nuevo.'); }
+    setIsLoading(false);
+  };
 
   const handleRoleChange = (newRole: 'admin' | 'advisor') => {
     setRole(newRole);
@@ -249,6 +284,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
         </div>
 
+        {mode === 'login' ? (
+        <>
         {/* Role Toggle Selector */}
         <div className="grid grid-cols-2 gap-2 p-1 bg-[#0A1128] rounded-2xl border border-[#2A3A60] mb-5">
           <button
@@ -278,6 +315,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </button>
         </div>
 
+        {info && mode === 'login' && <div className="mb-4 p-3 rounded-xl bg-emerald-950/60 border border-emerald-600/60 text-emerald-300 text-xs">{info}</div>}
         {/* Error Notification */}
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-rose-950/60 border border-rose-600/60 text-rose-300 text-xs flex items-start gap-2.5 animate-in slide-in-from-top-2">
@@ -295,7 +333,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           {/* Username Field */}
           <div>
             <label className="block text-xs font-bold text-slate-200 mb-1.5 uppercase tracking-wider font-mono">
-              {role === 'admin' ? 'Usuario de Administrador' : 'Usuario o ID del Asesor'}
+              {role === 'admin' ? 'Usuario de Administrador' : 'Correo del Asesor'}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -307,7 +345,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={role === 'admin' ? 'Ingresa tu usuario...' : 'Ingresa usuario o ID de asesor...'}
+                placeholder={role === 'admin' ? 'Ingresa tu usuario...' : 'Ingresa tu correo...'}
                 required
                 autoComplete="off"
                 autoCorrect="off"
@@ -374,7 +412,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               <span>Recordar sesión</span>
             </label>
 
-            {role === 'admin' ? (
+            {role === 'advisor' ? (
+              <button type="button" onClick={() => { setMode('forgot'); setError(null); setInfo(null); }} className="text-[11px] text-[#48CAE4] hover:text-white underline cursor-pointer">¿Olvidaste tu clave?</button>
+            ) : role === 'admin' ? (
               <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
                 <Terminal className="w-3 h-3 text-[#48CAE4]" />
                 <span>Acceso Seguro Master</span>
@@ -407,6 +447,27 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </button>
           </div>
         </form>
+        </>
+        ) : (
+          <form onSubmit={mode === 'forgot' ? submitForgot : submitReset} className="space-y-4">
+            {error && <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-600/60 text-rose-300 text-xs">{error}</div>}
+            {info && <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-600/60 text-emerald-300 text-xs">{info}</div>}
+            <p className="text-xs text-slate-300">
+              {mode === 'forgot' ? 'Escribe el correo con el que te registraron y te enviaremos un enlace para crear una clave nueva.' : 'Crea tu clave nueva (mínimo 6 caracteres).'}
+            </p>
+            {mode === 'forgot' ? (
+              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@ejemplo.com"
+                className="w-full px-4 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] rounded-xl text-sm text-white placeholder:text-slate-500 outline-hidden" />
+            ) : (
+              <input type="password" required minLength={6} value={newPass} onChange={(e) => setNewPass(e.target.value)} placeholder="Clave nueva" autoComplete="new-password"
+                className="w-full px-4 py-2.5 bg-[#0E1838] border border-[#2A3A60] focus:border-[#48CAE4] rounded-xl text-sm text-white placeholder:text-slate-500 outline-hidden" />
+            )}
+            <button type="submit" disabled={isLoading} className="w-full py-3 rounded-xl bg-gradient-to-r from-[#FF5A36] to-[#FF3366] text-white font-black text-sm uppercase tracking-wider disabled:opacity-50 cursor-pointer">
+              {isLoading ? 'Enviando...' : mode === 'forgot' ? 'Enviar enlace' : 'Guardar clave nueva'}
+            </button>
+            <button type="button" onClick={() => { setMode('login'); setError(null); setInfo(null); }} className="w-full text-xs text-slate-300 hover:text-white underline cursor-pointer">Volver a iniciar sesión</button>
+          </form>
+        )}
 
         {/* Security badge at bottom */}
         <div className="mt-6 pt-4 border-t border-[#243356] flex items-center justify-center gap-2 text-[10px] font-mono text-slate-400">

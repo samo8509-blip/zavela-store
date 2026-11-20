@@ -97,6 +97,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [createPhone, setCreatePhone] = useState('');
   const [createSellerCode, setCreateSellerCode] = useState('');
   const [createCommission, setCreateCommission] = useState(25);
+  const [createEmail, setCreateEmail] = useState('');
+  const [createCycle, setCreateCycle] = useState<'quincenal' | 'mensual'>('quincenal');
+  const [createDelay, setCreateDelay] = useState(3);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
   const formatCleanUsername = (first: string, last: string) => {
@@ -141,7 +144,12 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       return;
     }
     const fullName = `${createFirstName.trim()} ${createLastName.trim()}`.trim();
-    const finalUsername = createUsername.trim() || formatCleanUsername(createFirstName, createLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const emailClean = createEmail.trim().toLowerCase();
+    if (createRole === 'advisor' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
+      alert('El asesor necesita un correo válido: es su usuario para entrar y donde recibirá su liquidación y la recuperación de clave.');
+      return;
+    }
+    const finalUsername = (createRole === 'advisor' ? emailClean : '') || createUsername.trim() || formatCleanUsername(createFirstName, createLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const finalPassword = createPassword.trim() || generatePassword();
     const finalSellerCode = createSellerCode.trim(); // si queda vacío, el servidor asigna el siguiente VEN-###
 
@@ -159,6 +167,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
           username: finalUsername,
           password: finalPassword,
           phone: createPhone.trim(),
+          email: emailClean,
+          payoutCycle: createCycle,
+          payoutDelayDays: Number(createDelay),
           commissionRate: createRole === 'admin' ? 0 : Number(createCommission),
           channel: createRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas',
           status: 'active'
@@ -193,6 +204,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [editPhone, setEditPhone] = useState('');
   const [editSellerCode, setEditSellerCode] = useState('');
   const [editCommission, setEditCommission] = useState(25);
+  const [editEmail, setEditEmail] = useState('');
+  const [editCycle, setEditCycle] = useState<'quincenal' | 'mensual'>('quincenal');
+  const [editDelay, setEditDelay] = useState(3);
   const [editPassword, setEditPassword] = useState('');
   const [showEditPass, setShowEditPass] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
@@ -219,6 +233,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       setEditPhone(adv.phone || '');
       setEditSellerCode(adv.sellerCode || adv.id);
       setEditCommission(Number(adv.commissionRate ?? 25));
+      setEditEmail(adv.email || '');
+      setEditCycle(adv.payoutCycle === 'mensual' ? 'mensual' : 'quincenal');
+      setEditDelay(Number(adv.payoutDelayDays ?? 3));
       setEditPassword('');
     } else {
       setEditRole('advisor');
@@ -228,6 +245,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       setEditPhone('');
       setEditSellerCode(target.id);
       setEditPassword('');
+      setEditEmail('');
     }
 
     setShowEditPass(false);
@@ -241,7 +259,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
 
     try {
       const fullName = `${editFirstName.trim()} ${editLastName.trim()}`.trim() || editTargetUser.name;
-      const cleanUser = editUsername.trim() || editTargetUser.username;
+      const editEmailClean = editEmail.trim().toLowerCase();
+      if (editRole === 'advisor' && editTargetUser.id !== 'admin-master' && editEmailClean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmailClean)) { alert('El correo no es válido.'); setIsSubmittingEdit(false); return; }
+      const cleanUser = (editRole === 'advisor' && editEmailClean) || editUsername.trim() || editTargetUser.username;
 
       if (editTargetUser.id === 'admin-master') {
         // Guardar ajustes para Master Admin
@@ -270,6 +290,9 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
             username: cleanUser,
             role: editRole,
             phone: editPhone.trim(),
+            email: editEmailClean,
+            payoutCycle: editCycle,
+            payoutDelayDays: Number(editDelay),
             sellerCode: editSellerCode.trim(),
             commissionRate: editRole === 'admin' ? 0 : Number(editCommission),
             // La clave solo se envía si se escribió una nueva; si no, se conserva la actual.
@@ -1357,6 +1380,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
               </div>
 
               {createRole === 'advisor' && (
+                <>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
                     <span className="text-emerald-400">%</span>
@@ -1375,6 +1399,27 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                     Se paga sobre la ganancia neta real del pedido y solo cuando llega a <strong>Entregado</strong>.
                   </p>
                 </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">Correo del asesor (su usuario) *</label>
+                <input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="asesor@correo.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" />
+                <p className="text-[11px] text-slate-400 leading-tight">Con este correo entra al portal, recupera su clave y recibe sus liquidaciones.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Liquidación</label>
+                  <select value={createCycle} onChange={e => setCreateCycle(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                    <option value="quincenal">Cada 15 días</option>
+                    <option value="mensual">Cada 30 días (mensual)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Se paga X días después del corte</label>
+                  <input type="number" min={0} max={30} value={createDelay} onChange={e => setCreateDelay(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
+                </div>
+              </div>
+                </>
               )}
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
@@ -1550,6 +1595,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
               )}
 
               {editTargetUser.id !== 'admin-master' && editRole === 'advisor' && (
+                <>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
                     <span>% Comisión sobre la rentabilidad neta</span>
@@ -1564,6 +1610,27 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono font-bold"
                   />
                 </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">Correo del asesor (su usuario) *</label>
+                <input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="asesor@correo.com"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" />
+                <p className="text-[11px] text-slate-400 leading-tight">Con este correo entra al portal, recupera su clave y recibe sus liquidaciones.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Liquidación</label>
+                  <select value={editCycle} onChange={e => setEditCycle(e.target.value as any)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white">
+                    <option value="quincenal">Cada 15 días</option>
+                    <option value="mensual">Cada 30 días (mensual)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-300">Se paga X días después del corte</label>
+                  <input type="number" min={0} max={30} value={editDelay} onChange={e => setEditDelay(Number(e.target.value))} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
+                </div>
+              </div>
+                </>
               )}
 
               {/* Contraseña Opcional */}

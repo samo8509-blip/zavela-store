@@ -16,6 +16,8 @@ import {
   buildLowStockAlertMessage
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
+import { listAdvisors } from '../services/advisorStore.ts';
+import * as advisorSales from '../services/advisorSalesStore.ts';
 import { pool } from '../mysqlPool.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { clientIp, tooManyHits } from '../services/publicOrder.ts';
@@ -219,6 +221,21 @@ router.post('/new-order', async (req: Request, res: Response) => {
       console.warn('[Aviso pedido nuevo] Pedido no reciente, no se avisa:', ref);
       return res.json({ success: true, notified: false, reason: 'pedido_no_reciente' });
     }
+
+    // Venta por el enlace personal de un asesor (?ref=VEN-001): se le atribuye la comisión si el código es de un asesor activo.
+    try {
+      const code = String(req.body?.advisorRef || '').trim().toUpperCase().slice(0, 20);
+      if (/^[A-Z0-9-]{3,20}$/.test(code) && !advisorSales.getAttribution(String(order.id))) {
+        const adv: any = listAdvisors().find((x: any) => x.role !== 'admin' && x.status !== 'inactive' && String(x.sellerCode || '').toUpperCase() === code);
+        if (adv) {
+          advisorSales.attributeOrder(String(order.id), {
+            advisorId: adv.id, sellerCode: adv.sellerCode, advisorName: adv.name, channel: 'Enlace personal',
+            commissionRate: Number(adv.commissionRate ?? 25)
+          });
+          console.log('[Venta por enlace de asesor]', order.id, '→', adv.sellerCode);
+        }
+      }
+    } catch (e: any) { console.warn('[Venta por enlace] No se pudo atribuir:', e?.message); }
 
     const r = await sendSaleNotificationOnce(order);
     console.log('[Aviso pedido nuevo]', ref, r ? 'avisado' : 'ya avisado antes');

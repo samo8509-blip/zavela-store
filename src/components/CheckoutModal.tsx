@@ -516,7 +516,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           fetch('/api/alerts/new-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: alertRef })
+            body: JSON.stringify({ orderId: alertRef, advisorRef: (() => { try { const r = JSON.parse(localStorage.getItem('zavela_ref') || 'null'); return r && Date.now() - r.t < 30 * 86400000 ? r.code : undefined; } catch { return undefined; } })() })
           }).catch(() => {});
         }
       } catch {}

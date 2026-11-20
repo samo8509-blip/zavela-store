@@ -29,6 +29,7 @@ import {
 import { Advisor, AdvisorSale, Product, DropiStatus } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
+import { AdvisorStatement } from './AdvisorStatement.tsx';
 
 interface AdvisorPortalProps {
   advisor: Advisor;
@@ -474,6 +475,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
           </div>
         </div>
+
+        <AdvisorStatement refreshKey={mySales.length} />
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-[#27154A] pb-3 overflow-x-auto">
