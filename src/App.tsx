@@ -451,6 +451,24 @@ export default function App() {
     }
   };
 
+  // Mantiene al día las categorías de la tienda: al volver a la pestaña y cada 2 minutos se vuelven a leer,
+  // así una categoría nueva (o cambiada) en el panel aparece sin tener que recargar.
+  useEffect(() => {
+    const refreshCategories = () => {
+      fetch('/api/admin/categories', { cache: 'no-store' })
+        .then(r => r.json())
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data?.data || []);
+          if (Array.isArray(list) && list.length > 0) setCategories(list);
+        })
+        .catch(() => {});
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshCategories(); };
+    document.addEventListener('visibilitychange', onVisible);
+    const t = setInterval(refreshCategories, 120000);
+    return () => { document.removeEventListener('visibilitychange', onVisible); clearInterval(t); };
+  }, []);
+
   useEffect(() => {
     loadStoreData();
 
