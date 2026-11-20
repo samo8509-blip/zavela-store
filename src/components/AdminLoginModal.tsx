@@ -220,7 +220,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: cleanUser, password: cleanPass })
         });
-        const json = await res.json();
+        const json = await res.json().catch(() => null);
+
+        if (!json) {
+          setIsLoading(false);
+          setError(`El servidor no respondió bien (código ${res.status}). Espera unos segundos e intenta de nuevo.`);
+          return;
+        }
 
         if (json.success && json.data) {
           const advisor: Advisor = json.data;
@@ -239,7 +245,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           }
         } else {
           setIsLoading(false);
-          setError(json.message || 'Usuario o contraseña de asesor incorrectos.');
+          setError(json.message || `No se pudo ingresar (código ${res.status}).`);
         }
       }
     } catch (err: any) {

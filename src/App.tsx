@@ -650,6 +650,7 @@ export default function App() {
     clearAdvisorAuthentication();
     setAuthenticatedAdvisor(null);
     setCurrentView('store');
+    navigate('/');
     showToast('Sesión de asesor cerrada correctamente.');
   };
 
@@ -1180,6 +1181,7 @@ export default function App() {
             setAuthenticatedAdvisor(adv);
             setIsAdminLoginOpen(false);
             setCurrentView('advisor');
+            navigate('/asesor');
             showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
           }}
         />
@@ -1960,6 +1962,7 @@ export default function App() {
           setAuthenticatedAdvisor(adv);
           setIsAdminLoginOpen(false);
           setCurrentView('advisor');
+          navigate('/asesor');
           showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
         }}
       />
