@@ -969,6 +969,11 @@ export const AdminPendingDropiOrders: React.FC<AdminPendingDropiOrdersProps> = (
                       <div className="space-y-1.5">
                         <div>
                           <div className="font-bold text-slate-900 text-sm">{order.customerName}</div>
+                        {(order as any).advisorName && (
+                          <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-800 border border-violet-200 text-[10px] font-bold" title="Venta registrada por un asesor">
+                            👤 {(order as any).advisorName}{(order as any).sellerCode ? ` · ${(order as any).sellerCode}` : ''}
+                          </div>
+                        )}
                           <div className="text-slate-500 font-mono text-[11px]">{order.customerPhone}</div>
                           
                           {/* Correo Electrónico del Comprador */}

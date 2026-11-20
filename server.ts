@@ -25,6 +25,7 @@ import { runCleanupAndDisableSeeders } from './server/services/seeder.ts';
 import { ssrService } from './server/services/ssrService.ts';
 import { loadPrivateConfig, ensureTokenSecret } from './server/services/privateConfig.ts';
 import { loadAdvisors } from './server/services/advisorStore.ts';
+import { loadSales } from './server/services/advisorSalesStore.ts';
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ async function startServer() {
   await loadPrivateConfig();
   await ensureTokenSecret();
   await loadAdvisors();
+  await loadSales();
 
   // 2. Desactivación definitiva de seeders y limpieza de datos demo recurrentes
   await runCleanupAndDisableSeeders().catch(err => {

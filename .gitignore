@@ -12,3 +12,4 @@ coverage/
 .admin_token_secret
 
 .advisors.json
+.advisor_sales.json

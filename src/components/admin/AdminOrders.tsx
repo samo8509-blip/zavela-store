@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { AdminPendingDropiOrders } from './AdminPendingDropiOrders.tsx';
 import { 
   Search, 
   Truck, 
@@ -195,6 +196,9 @@ export const AdminOrders: React.FC<AdminOrdersProps> = ({
   onNavigate
 }) => {
   const [search, setSearch] = useState('');
+  // Una sola pantalla: "Por autorizar" (revisión y envío a Dropi) y "Todos los pedidos"
+  const [ordersView, setOrdersView] = useState<'authorize' | 'all'>('all');
+  const autoPickedView = useRef(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'month'>('all');
   const [isSimulating, setIsSimulating] = useState(false);
@@ -1109,11 +1113,55 @@ Por favor confirmar disponibilidad y alistamiento de la mercancía. ¡Muchas gra
     return st === 'pendiente_revision' || st === 'pendiente';
   }).length;
 
+  // Al entrar, si hay pedidos por autorizar se abre directamente esa pestaña (una sola vez)
+  useEffect(() => {
+    if (!autoPickedView.current && pendingDropiCount > 0) {
+      autoPickedView.current = true;
+      setOrdersView('authorize');
+    }
+  }, [pendingDropiCount]);
+
+  const viewTabs = (
+    <div className="flex flex-wrap gap-2">
+      <button
+        onClick={() => setOrdersView('authorize')}
+        className={`px-4 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center gap-2 ${ordersView === 'authorize' ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-400'}`}
+      >
+        <Clock className="w-4 h-4" />
+        <span>Por autorizar</span>
+        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${pendingDropiCount > 0 ? 'bg-slate-950 text-amber-300' : 'bg-slate-100 text-slate-500'}`}>{pendingDropiCount}</span>
+      </button>
+      <button
+        onClick={() => setOrdersView('all')}
+        className={`px-4 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center gap-2 ${ordersView === 'all' ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+      >
+        <Truck className="w-4 h-4" />
+        <span>Todos los pedidos y despachos</span>
+        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-slate-100 text-slate-500">{orders.length}</span>
+      </button>
+    </div>
+  );
+
+  if (ordersView === 'authorize') {
+    return (
+      <div className="space-y-5">
+        {viewTabs}
+        <AdminPendingDropiOrders
+          orders={orders}
+          products={products}
+          onRefresh={onRefresh}
+          onEditProduct={onEditProduct}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {viewTabs}
 
-      {/* Dropi Pending Orders Dedicated Section Banner */}
-      {pendingDropiCount > 0 && onNavigate && (
+      {/* Aviso: pedidos por autorizar */}
+      {pendingDropiCount > 0 && (
         <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 p-4 rounded-2xl text-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-bold shrink-0">
@@ -1122,16 +1170,15 @@ Por favor confirmar disponibilidad y alistamiento de la mercancía. ¡Muchas gra
             <div>
               <div className="font-black text-xs sm:text-sm text-slate-950 flex items-center gap-2">
                 <span>Tienes {pendingDropiCount} pedido{pendingDropiCount > 1 ? 's' : ''} pendiente{pendingDropiCount > 1 ? 's' : ''} por revisión y autorizar para Dropi</span>
-                <span className="bg-slate-950 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">NUEVA SECCIÓN</span>
               </div>
               <p className="text-[11px] text-slate-900 font-medium">
-                Accede al nuevo centro de control con validación de códigos DANE y mapeo de IDs de Dropi.
+                Revísalos y envíalos a Dropi en la pestaña "Por autorizar".
               </p>
             </div>
           </div>
 
           <button
-            onClick={() => onNavigate('pending_dropi_orders')}
+            onClick={() => setOrdersView('authorize')}
             className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 shadow-xs"
           >
             <span>Ir a Revisión & Autorizar Dropi</span>
@@ -1357,6 +1404,11 @@ Por favor confirmar disponibilidad y alistamiento de la mercancía. ¡Muchas gra
                       {/* 2. Customer Info */}
                       <td className="px-2.5 py-3 break-words whitespace-normal">
                         <div className="font-bold text-slate-800 break-words leading-tight">{order.customerName}</div>
+                        {(order as any).advisorName && (
+                          <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-800 border border-violet-200 text-[10px] font-bold" title="Venta registrada por un asesor">
+                            👤 {(order as any).advisorName}{(order as any).sellerCode ? ` · ${(order as any).sellerCode}` : ''}
+                          </div>
+                        )}
                         <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                           <Phone className="w-3 h-3 text-cyan-600 shrink-0" />
                           <a 

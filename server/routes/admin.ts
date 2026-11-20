@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
+import * as advisorSales from '../services/advisorSalesStore.ts';
+import { sendSaleNotificationOnce } from '../services/whatsappAlerts.ts';
 import { db, isTestProduct } from '../db.ts';
 import { Product, OrderStatus, Category, Customer, Order, SocialMarketingSettings } from '../../src/types/index.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -1463,6 +1465,11 @@ router.get('/orders', async (req, res) => {
       const q = String(search || '').trim();
       if (q.length < 6) return res.json({ success: true, data: [] });
       orders = orders.filter(o => exactMatch(o, q)).slice(0, 3).map(publicOrderView) as any;
+    } else {
+      orders = orders.map(o => {
+        const a = advisorSales.getAttribution(o.id);
+        return a ? { ...o, advisorId: a.advisorId, advisorName: a.advisorName, sellerCode: a.sellerCode, advisorCommissionRate: a.commissionRate } : o;
+      }) as any;
     }
     res.json({ success: true, data: orders });
   } catch (error: any) {
@@ -1528,7 +1535,7 @@ router.post('/orders', (req, res) => {
       status: 'success'
     });
 
-    res.status(201).json({ success: true, data: publicAdvisor(saved) });
+    res.status(201).json({ success: true, data: saved });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2517,7 +2524,7 @@ router.post('/advisors', (req, res) => {
       details: `Asesor "${saved.name}" (${saved.id}) registrado con canal ${saved.channel}.`,
       status: 'success'
     });
-    res.status(201).json({ success: true, data: saved });
+    res.status(201).json({ success: true, data: publicAdvisor(saved) });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2596,11 +2603,25 @@ router.post('/advisors/:id/settle', (req, res) => {
 });
 
 // Advisor Sales
+// Un asesor solo ve y registra SUS ventas; todo lo demás es del administrador.
+const callerAdvisorId = (req: any): string | null => {
+  const h = req.headers.authorization || '';
+  const t = verifyAdvisorToken(h.startsWith('Bearer ') ? h.slice(7).trim() : '');
+  return t?.id ? String(t.id) : null;
+};
+const adminOnly = (req: any, res: any, next: any) => {
+  if ((res.locals as any).isAdmin) return next();
+  return res.status(403).json({ success: false, message: 'Esta acción es solo del administrador.' });
+};
+
 router.get('/advisor-sales', (req, res) => {
   try {
     const { advisorId, dropiStatus, search } = req.query;
+    const isAdmin = Boolean((res.locals as any).isAdmin);
+    const own = isAdmin ? null : callerAdvisorId(req);
+    if (!isAdmin && !own) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
     const sales = db.getAdvisorSales({
-      advisorId: advisorId as string,
+      advisorId: (own || advisorId) as string,
       dropiStatus: dropiStatus as any,
       search: search as string
     });
@@ -2612,7 +2633,16 @@ router.get('/advisor-sales', (req, res) => {
 
 router.post('/advisor-sales', (req, res) => {
   try {
-    const saved = db.saveAdvisorSale(req.body);
+    const isAdmin = Boolean((res.locals as any).isAdmin);
+    const own = isAdmin ? null : callerAdvisorId(req);
+    if (!isAdmin && !own) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
+    const saved = db.saveAdvisorSale({ ...req.body, id: undefined, ...(own ? { advisorId: own } : {}) });
+    // El pedido se guarda también en la base de cPanel (para que no se pierda) y se avisa al administrador.
+    const createdOrder = db.getOrderById(saved.id);
+    if (createdOrder) {
+      cpanelDbService.createOrder(createdOrder).catch(() => {});
+      sendSaleNotificationOnce(createdOrder).catch(() => {});
+    }
     db.addLog({
       type: 'ORDER_CREATED',
       orderId: saved.id,
@@ -2622,11 +2652,11 @@ router.post('/advisor-sales', (req, res) => {
     });
     res.status(201).json({ success: true, data: saved });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 
-router.put('/advisor-sales/:id', (req, res) => {
+router.put('/advisor-sales/:id', adminOnly, (req, res) => {
   try {
     const saved = db.saveAdvisorSale({ ...req.body, id: req.params.id });
     res.json({ success: true, data: saved });
@@ -2635,17 +2665,17 @@ router.put('/advisor-sales/:id', (req, res) => {
   }
 });
 
-router.delete('/advisor-sales/:id', (req, res) => {
+router.delete('/advisor-sales/:id', adminOnly, (req, res) => {
   try {
     const deleted = db.deleteAdvisorSale(req.params.id);
-    if (!deleted) return res.status(404).json({ success: false, message: 'Venta no encontrada' });
-    res.json({ success: true, message: 'Venta eliminada de la bolsa' });
+    if (!deleted) return res.status(404).json({ success: false, message: 'Solo se pueden eliminar ventas que aún no han sido autorizadas.' });
+    res.json({ success: true, message: 'Venta eliminada' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-router.post('/advisor-sales/batch-delete', (req, res) => {
+router.post('/advisor-sales/batch-delete', adminOnly, (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -2664,39 +2694,11 @@ router.post('/advisor-sales/batch-delete', (req, res) => {
   }
 });
 
-router.post('/advisor-sales/:id/execute', (req, res) => {
-  try {
-    const sale = db.getAdvisorSales().find(s => s.id === req.params.id);
-    if (!sale) return res.status(404).json({ success: false, message: 'Pedido no encontrado' });
-
-    const dropiOrderId = sale.dropiOrderId || `DROPI-${Math.floor(100000 + Math.random() * 900000)}`;
-    const trackingNumber = sale.trackingNumber || `ENV-${Math.floor(100000000 + Math.random() * 900000000)}`;
-
-    const saved = db.saveAdvisorSale({
-      id: sale.id,
-      dropiStatus: 'montado_dropi',
-      dropiOrderId,
-      trackingNumber
-    });
-
-    db.addLog({
-      type: 'SETTINGS_UPDATE',
-      action: 'Orden Ejecutada en Dropi',
-      details: `Pedido "${saved.orderNumber}" (${saved.id}) ejecutado para despacho Dropi con guía ${trackingNumber}.`,
-      status: 'success'
-    });
-
-    res.json({
-      success: true,
-      message: `¡Orden ${saved.orderNumber} ejecutada y montada exitosamente en Dropi!`,
-      data: saved
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+router.post('/advisor-sales/:id/execute', adminOnly, (_req, res) => {
+  res.status(400).json({ success: false, message: 'Las ventas de asesores se autorizan y envían a Dropi desde el Centro de Despachos (pestaña "Por autorizar").' });
 });
 
-router.post('/advisor-sales/batch-status', (req, res) => {
+router.post('/advisor-sales/batch-status', adminOnly, (req, res) => {
   try {
     const { ids, status } = req.body;
     if (!Array.isArray(ids) || !status) {
@@ -2713,6 +2715,42 @@ router.post('/advisor-sales/batch-status', (req, res) => {
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
+});
+
+// ---------- Comisiones de asesores (administrador) ----------
+router.get('/advisor-commissions', adminOnly, (req, res) => {
+  try {
+    const { advisorId, status } = req.query;
+    let rows = db.getAdvisorSales({ advisorId: advisorId as string });
+    if (status) rows = rows.filter(r => r.commissionStatus === status);
+    const sum = (st: string) => db.getAdvisorSales({}).filter(r => r.commissionStatus === st).reduce((n, r) => n + Number(r.commissionAmount || 0), 0);
+    res.json({
+      success: true,
+      data: rows,
+      totals: { en_proceso: sum('en_proceso'), esperando_dropi: sum('esperando_dropi'), por_pagar: sum('por_pagar'), pagada: sum('pagada') }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// "Dropi ya pagó" (uno o varios pedidos): congela la comisión y la pasa a "por pagar"
+router.post('/advisor-commissions/dropi-paid', adminOnly, (req, res) => {
+  try {
+    const ids: string[] = Array.isArray(req.body?.orderIds) ? req.body.orderIds.map(String) : [];
+    if (!ids.length) return res.status(400).json({ success: false, message: 'Selecciona al menos un pedido.' });
+    const orders = ids.map(id => db.getOrderById(id)).filter(Boolean) as any[];
+    const result = advisorSales.markDropiPaid(orders);
+    db.addLog({ type: 'SETTINGS_UPDATE', action: 'Dropi pagó pedidos de asesores', details: `${result.ok.length} pedido(s) marcados como pagados por Dropi; comisión lista para liquidar.`, status: 'success' });
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/advisor-commissions/undo-dropi-paid', adminOnly, (req, res) => {
+  const ids: string[] = Array.isArray(req.body?.orderIds) ? req.body.orderIds.map(String) : [];
+  res.json({ success: true, undone: advisorSales.undoDropiPaid(ids) });
 });
 
 // Intelligent Unstructured Text Parser for Sales WhatsApp/Chat messages

@@ -68,9 +68,9 @@ import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
 import { AdminProducts } from './admin/AdminProducts.tsx';
 import { AdminProductEditor } from './admin/AdminProductEditor.tsx';
+import { AdminCommissions } from './admin/AdminCommissions.tsx';
 import { AdminOrders } from './admin/AdminOrders.tsx';
 import { SalesCalendarSheet } from './admin/SalesCalendarSheet.tsx';
-import { AdminPendingDropiOrders } from './admin/AdminPendingDropiOrders.tsx';
 import { AdminCustomers } from './admin/AdminCustomers.tsx';
 import { AdminAdvisorsDropi } from './admin/AdminAdvisorsDropi.tsx';
 import { AdminShippingRates } from './admin/AdminShippingRates.tsx';
@@ -899,18 +899,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               />
             )}
 
-            {activeSection === 'pending_dropi_orders' && (
-              <AdminPendingDropiOrders
-                orders={orders}
-                products={products}
-                onRefresh={fetchAdminData}
-                onEditProduct={(p) => {
-                  setEditingProduct(p);
-                  setActiveSection('products');
-                }}
-              />
-            )}
-
             {activeSection === 'advisors_sales' && (
               <AdminAdvisorsDropi
                 products={products}
@@ -1098,6 +1086,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 products={products}
                 onRefresh={fetchAdminData}
               />
+            )}
+
+            {activeSection === 'advisor_commissions' && (
+              <AdminCommissions onGoToOrders={() => setActiveSection('orders')} />
             )}
 
             {activeSection === 'customers' && (
