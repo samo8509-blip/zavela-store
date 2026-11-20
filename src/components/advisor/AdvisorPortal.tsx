@@ -30,6 +30,7 @@ import { Advisor, AdvisorSale, Product, DropiStatus } from '../../types/index.ts
 import { formatCOP } from '../../utils/formatters.ts';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { AdvisorStatement } from './AdvisorStatement.tsx';
+import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, linesTotal, useCatalog } from '../SaleItemsPicker.tsx';
 
 interface AdvisorPortalProps {
   advisor: Advisor;
@@ -108,9 +109,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const [lastCreatedOrder, setLastCreatedOrder] = useState<AdvisorSale | null>(null);
 
   // Form state
-  const [productTitle, setProductTitle] = useState<string>('Reloj Smartwatch Ultra');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unitPrice, setUnitPrice] = useState<number>(80000);
+  const [lines, setLines] = useState<SaleLine[]>([]);
+  const catalog = useCatalog(products);
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
   const [clientCity, setClientCity] = useState<string>('Medellín');
@@ -149,8 +149,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
   // Handle product selection from store list
   const handleSelectProduct = (prod: Product) => {
-    setProductTitle(prod.title);
-    setUnitPrice(prod.price);
+    if (Number((prod as any).stock ?? 0) <= 0) { showToast('Ese producto está agotado.'); return; }
+    setLines(prev => prev.some(l => l.productId === String(prod.id)) ? prev : [...prev, lineFromProduct(prod)]);
   };
 
   // Handle city selection
@@ -180,9 +180,11 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
       if (json.success && json.data) {
         const d = json.data;
-        if (d.productTitle) setProductTitle(d.productTitle);
-        if (d.quantity) setQuantity(d.quantity);
-        if (d.unitPrice) setUnitPrice(d.unitPrice);
+        if (d.productTitle) {
+          const t = String(d.productTitle).trim().toLowerCase();
+          const m = catalog.find(p => (p.title || '').trim().toLowerCase() === t) || catalog.find(p => (p.title || '').toLowerCase().includes(t) || t.includes((p.title || '').toLowerCase()));
+          if (m && Number((m as any).stock ?? 0) > 0) setLines([lineFromProduct(m, Math.max(1, Math.min(Number((m as any).stock), Number(d.quantity) || 1)))]);
+        }
         if (d.clientName) setClientName(d.clientName);
         if (d.clientPhone) setClientPhone(d.clientPhone);
         if (d.clientCity) {
@@ -220,24 +222,18 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
       showToast('Ingresa la dirección completa de entrega.');
       return;
     }
-    if (!productTitle.trim()) {
-      showToast('Indica el nombre del producto vendido.');
+    if (!lines.length) {
+      showToast('Agrega al menos un producto a la venta.');
       return;
     }
 
     const cleanPhone = clientPhone.replace(/\D/g, '');
-    const finalQuantity = Number(quantity) || 1;
-    const finalUnitPrice = Number(unitPrice) || 0;
-    const finalTotal = finalUnitPrice * finalQuantity;
 
     const payload: Partial<AdvisorSale> = {
       advisorId: advisor.id,
       advisorName: advisor.name,
       advisorChannel: advisor.channel,
-      productTitle: productTitle.trim(),
-      quantity: finalQuantity,
-      unitPrice: finalUnitPrice,
-      totalAmount: finalTotal,
+      items: linesPayload(lines),
       clientName: clientName.trim(),
       clientPhone: cleanPhone,
       clientCity: clientCity.trim(),
@@ -267,6 +263,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         setClientAddress('');
         setAdditionalNotes('');
         setChatText('');
+        setLines([]);
         
         await loadMySales();
       } else {
@@ -631,91 +628,10 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                   </div>
                 </div>
 
-                {/* Section: Product & Price */}
+                {/* Section: Productos de la venta (catálogo + inventario) */}
                 <div className="space-y-3 pt-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-violet-200">
-                      Producto Vendido *
-                    </label>
-                    {products.length > 0 && (
-                      <div className="text-[11px] text-cyan-400 font-medium">
-                        Selecciona o escribe el producto
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Pills of Store Products */}
-                  {products.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pb-1">
-                      {products.filter(p => p.active).map(prod => (
-                        <button
-                          key={prod.id}
-                          type="button"
-                          onClick={() => handleSelectProduct(prod)}
-                          className={`text-[11px] px-2.5 py-1 rounded-xl border transition-all cursor-pointer truncate max-w-[200px] ${
-                            productTitle.toLowerCase() === prod.title.toLowerCase()
-                              ? 'bg-cyan-500 text-slate-950 font-bold border-cyan-400'
-                              : 'bg-[#0C061C] text-violet-300 hover:text-white border-[#2E1857] hover:border-cyan-400/40'
-                          }`}
-                        >
-                          {prod.title} ({formatCOP(prod.price)})
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  <input
-                    type="text"
-                    value={productTitle}
-                    onChange={e => setProductTitle(e.target.value)}
-                    placeholder="Ej. Reloj Smartwatch Ultra Serie 9"
-                    className="w-full bg-[#0C061C] border border-[#2D1854] rounded-2xl px-3.5 py-2.5 text-xs text-white placeholder:text-violet-400/50 focus:outline-none focus:border-cyan-400 font-semibold"
-                    required
-                  />
-
-                  {/* Quantity & Unit Price */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-violet-200">Cantidad (Unidades) *</label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="w-9 h-9 rounded-xl bg-[#0C061C] border border-[#2D1854] text-white font-black hover:border-cyan-400 flex items-center justify-center cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={quantity}
-                          onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="flex-1 bg-[#0C061C] border border-[#2D1854] rounded-xl px-3 py-2 text-xs text-white text-center font-mono font-black focus:outline-none focus:border-cyan-400"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(quantity + 1)}
-                          className="w-9 h-9 rounded-xl bg-[#0C061C] border border-[#2D1854] text-white font-black hover:border-cyan-400 flex items-center justify-center cursor-pointer"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-violet-200">Precio Unitario ($ COP) *</label>
-                      <input
-                        type="number"
-                        step="1000"
-                        value={unitPrice}
-                        onChange={e => setUnitPrice(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-[#0C061C] border border-[#2D1854] rounded-xl px-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-400"
-                        required
-                      />
-                    </div>
-                  </div>
+                  <label className="text-xs font-bold text-violet-200">Productos Vendidos *</label>
+                  <SaleItemsPicker products={products} lines={lines} onChange={setLines} />
                 </div>
 
                 {/* Section: Customer Details */}
@@ -812,7 +728,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                   <div>
                     <span className="text-[10px] font-mono text-violet-400 uppercase font-bold block">Total a Cobrar Contra Entrega</span>
                     <span className="text-lg sm:text-xl font-mono font-black text-amber-300">
-                      {formatCOP(unitPrice * quantity)} COP
+                      {formatCOP(linesTotal(lines))} COP
                     </span>
                   </div>
 
@@ -820,9 +736,15 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                     <span className="text-[10px] font-mono text-cyan-300 uppercase font-bold block">Tu Comisión Estimada ({commissionRate}% de la ganancia)</span>
                     <span className="text-base font-mono font-black text-emerald-400">
                       {(() => {
-                        const match = products.find(p => (p.title || '').trim().toLowerCase() === productTitle.trim().toLowerCase());
-                        const c = match ? commissionOfProduct(match, Number(quantity) || 1) : null;
-                        return c == null ? 'Se calcula al entregar' : `${formatCOP(c)} COP`;
+                        if (!lines.length) return '—';
+                        let total = 0;
+                        for (const l of lines) {
+                          const match = catalog.find(p => String(p.id) === l.productId);
+                          const c = match ? commissionOfProduct(match, l.quantity) : null;
+                          if (c == null) return 'Se calcula al entregar';
+                          total += c;
+                        }
+                        return `${formatCOP(total)} COP`;
                       })()}
                     </span>
                   </div>

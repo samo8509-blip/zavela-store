@@ -878,7 +878,7 @@ class DatabaseStore {
     const status = sales.statusOf(o, a);
     return {
       id: o.id, orderNumber: o.orderNumber, advisorId: a.advisorId, advisorName: a.advisorName, advisorChannel: a.channel,
-      sellerCode: a.sellerCode, productId: first?.productId, productTitle: first?.title || 'Producto', quantity: qty,
+      sellerCode: a.sellerCode, productId: first?.productId, productTitle: (o.items || []).length > 1 ? (o.items || []).map(it => `${it.title} x${it.quantity}`).join(' + ') : (first?.title || 'Producto'), items: (o.items || []).map((it: any) => ({ productId: it.productId, title: it.title, quantity: Number(it.quantity || 1), unitPrice: Number(it.unitPrice || 0) })), quantity: qty,
       unitPrice: Number(first?.unitPrice || 0), totalAmount: Number(o.total ?? o.totalAmount ?? 0),
       clientName: o.customerName || '', clientPhone: o.customerPhone || '', clientCity: o.city || '', clientDepartment: o.department,
       clientAddress: o.address || '', additionalNotes: o.additionalNotes, dropiStatus, dropiOrderId: o.dropi_order_id ? String(o.dropi_order_id) : undefined,
@@ -913,18 +913,43 @@ class DatabaseStore {
 
     const adv = sale.advisorId ? advisorStore.getAdvisor(sale.advisorId) : undefined;
     if (!adv) throw new Error('Asesor no válido.');
-    const title = String(sale.productTitle || '').trim();
+    // Lista de productos de la venta (acepta el formato antiguo de un solo producto).
+    const rawItems: any[] = Array.isArray((sale as any).items) && (sale as any).items.length
+      ? (sale as any).items
+      : [{ productId: sale.productId, title: sale.productTitle, quantity: sale.quantity, unitPrice: sale.unitPrice }];
     const products = this.getProducts();
-    const product = products.find(p => p.id === sale.productId) ||
-      products.find(p => (p.title || '').trim().toLowerCase() === title.toLowerCase());
-    const qty = Math.max(1, Math.min(50, Math.floor(Number(sale.quantity) || 1)));
-    // Con producto del catálogo, el precio y los costos salen del catálogo (no del navegador).
-    const unitPrice = product ? Number(product.price) : Math.max(0, Number(sale.unitPrice) || 0);
-    const unitCost = product ? Number(product.costPrice || 0) : 0;
-    const ship = product ? Number(product.shippingCost ?? product.estimatedShippingCost ?? product.shipping_cost ?? 0) : 0;
-    const fee = product ? Number(product.dropiFee ?? product.dropi_fee ?? 0) : 0;
-    const subtotal = unitPrice * qty;
-    const id = `ord-${Date.now()}`;
+    const lines = new Map<string, { product: Product; qty: number }>();
+    for (const it of rawItems) {
+      const title = String(it.title || it.productTitle || '').trim().toLowerCase();
+      const product = products.find(p => String(p.id) === String(it.productId)) ||
+        (title ? products.find(p => (p.title || '').trim().toLowerCase() === title) : undefined);
+      if (!product) throw new Error(`Selecciona el producto de la lista del catálogo${it.title ? ` ("${it.title}" no está)` : ''}.`);
+      if ((product as any).active === false) throw new Error(`"${product.title}" no está disponible para la venta.`);
+      const qty = Math.max(1, Math.min(50, Math.floor(Number(it.quantity) || 1)));
+      const key = String(product.id);
+      lines.set(key, { product, qty: (lines.get(key)?.qty || 0) + qty });
+    }
+    if (!lines.size) throw new Error('Agrega al menos un producto a la venta.');
+    // Control de inventario: no se vende más de lo que hay.
+    for (const { product, qty } of lines.values()) {
+      const stock = Number(product.stock ?? 0);
+      if (qty > stock) throw new Error(stock <= 0 ? `"${product.title}" está agotado.` : `De "${product.title}" solo quedan ${stock} unidad(es).`);
+    }
+    const stamp = Date.now();
+    const orderItems: any[] = [];
+    let subtotal = 0, costTotal = 0, shipTotal = 0, feeTotal = 0;
+    let n = 0;
+    for (const { product, qty } of lines.values()) {
+      // El precio y los costos salen del catálogo (no del navegador).
+      const unitPrice = Number(product.price) || 0;
+      const unitCost = Number(product.costPrice || 0);
+      const ship = Number(product.shippingCost ?? product.estimatedShippingCost ?? product.shipping_cost ?? 0);
+      const fee = Number(product.dropiFee ?? product.dropi_fee ?? 0);
+      subtotal += unitPrice * qty; costTotal += unitCost * qty; shipTotal += ship * qty; feeTotal += fee * qty;
+      orderItems.push({ id: `item-${stamp}-${++n}`, orderId: '', productId: String(product.id), title: product.title, quantity: qty, unitPrice, unitCost, subtotal: unitPrice * qty });
+    }
+    const id = `ord-${stamp}`;
+    orderItems.forEach(it => { it.orderId = id; });
     let orderNumber = `ZV-${Math.floor(1000 + Math.random() * 9000)}`;
     while (this.data.orders.some(o => o.orderNumber === orderNumber)) orderNumber = `ZV-${Math.floor(1000 + Math.random() * 9000)}`;
     const note = `Venta del asesor ${adv.name} (${adv.sellerCode}) por ${sale.advisorChannel || adv.channel || 'WhatsApp'}.${sale.additionalNotes ? ' ' + String(sale.additionalNotes).slice(0, 300) : ''}`;
@@ -936,13 +961,18 @@ class DatabaseStore {
       department: String(sale.clientDepartment || '').slice(0, 80), city: String(sale.clientCity || '').slice(0, 80),
       address: String(sale.clientAddress || '').slice(0, 250), additionalNotes: note,
       subtotal, shippingCost: 0, total: subtotal,
-      productCostTotal: unitCost * qty, carrierFee: ship * qty, dropiFee: fee * qty,
+      productCostTotal: costTotal, carrierFee: shipTotal, dropiFee: feeTotal,
       paymentMethod: 'contra_entrega' as any, paymentStatus: 'CASH_ON_DELIVERY' as any,
       status: 'PENDIENTE_REVISION' as any,
-      items: [{ id: `item-${Date.now()}`, orderId: id, productId: product?.id || '', title: product?.title || title || 'Producto',
-        quantity: qty, unitPrice, unitCost, subtotal } as any],
+      items: orderItems,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
     } as Order;
+    // Se descuenta el inventario al registrar la venta (igual que en la compra de la tienda).
+    for (const { product, qty } of lines.values()) {
+      product.stock = Math.max(0, Number(product.stock || 0) - qty);
+      this.saveProduct(product);
+      import('./services/cpanelDbService.ts').then(m => m.cpanelDbService.decrementProductStock(String(product.id), qty)).catch(() => {});
+    }
     const saved = this.saveOrder(order);
     const attr = sales.attributeOrder(saved.id, {
       advisorId: adv.id, sellerCode: adv.sellerCode || '', advisorName: adv.name,
@@ -957,6 +987,11 @@ class DatabaseStore {
     if (!o || !a) return false;
     const s = String(o.status || '').toLowerCase();
     if (!(s === 'pendiente' || s === 'pendiente_revision')) return false; // solo si aún no se autorizó
+    // Al borrar una venta que nunca se autorizó, las unidades vuelven al inventario.
+    for (const it of (o.items || []) as any[]) {
+      const p = this.getProducts().find(x => String(x.id) === String(it.productId));
+      if (p) { p.stock = Number(p.stock || 0) + Number(it.quantity || 0); this.saveProduct(p); }
+    }
     sales.removeAttribution(id);
     return this.deleteOrder(id);
   }

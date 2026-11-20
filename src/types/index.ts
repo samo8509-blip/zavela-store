@@ -768,6 +768,7 @@ export interface AdvisorSale {
   advisorChannel?: string;
   productId?: string;
   productTitle: string;
+  items?: { productId?: string; title: string; quantity: number; unitPrice?: number }[];
   quantity: number;
   unitPrice: number;
   totalAmount: number;
