@@ -781,7 +781,9 @@ export interface AdvisorSale {
   dropiStatus: DropiStatus;
   dropiOrderId?: string;
   trackingNumber?: string;
-  paymentMethod: 'contra_entrega';
+  paymentMethod: 'contra_entrega' | 'pse';
+  clientEmail?: string;
+  paymentStatus?: string;
   // Comisión (sobre la rentabilidad neta real del pedido)
   sellerCode?: string;
   commissionRate?: number;

@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { Advisor, AdvisorSale, DropiStatus, AdvisorPerformance, Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { SalePaymentPicker, PaymentLinkCard, SalePay, PayLinkInfo } from '../SalePaymentPicker.tsx';
 import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, useCatalog } from '../SaleItemsPicker.tsx';
 
 interface AdminAdvisorsDropiProps {
@@ -67,6 +68,9 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
   // Form State for manual registration
   const [formAdvisorId, setFormAdvisorId] = useState<string>('AS-001');
   const [formLines, setFormLines] = useState<SaleLine[]>([]);
+  const [formPay, setFormPay] = useState<SalePay>('contra_entrega');
+  const [formEmail, setFormEmail] = useState('');
+  const [payInfo, setPayInfo] = useState<PayLinkInfo | null>(null);
   const catalogForParse = useCatalog(products);
   const [formClientName, setFormClientName] = useState<string>('');
   const [formClientPhone, setFormClientPhone] = useState<string>('');
@@ -317,6 +321,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       advisorName: advisor?.name || 'Asesor Asignado',
       advisorChannel: advisor?.channel || 'WhatsApp Directo',
       items: linesPayload(formLines),
+      clientEmail: formEmail.trim(),
       clientName: formClientName,
       clientPhone: formClientPhone,
       clientCity: formClientCity,
@@ -324,7 +329,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       clientAddress: formClientAddress,
       additionalNotes: formNotes,
       dropiStatus: 'pendiente_bolsa',
-      paymentMethod: 'contra_entrega'
+      paymentMethod: formPay
     };
 
     try {
@@ -342,7 +347,8 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
         setFormClientAddress('');
         setFormNotes('');
         setRawWhatsAppText('');
-        setFormLines([]);
+        if (json.paymentLink) setPayInfo({ link: json.paymentLink, orderNumber: json.data.orderNumber, total: json.data.totalAmount, clientName: formClientName, clientPhone: formClientPhone, emailSent: json.emailSent, emailNote: json.emailNote });
+        setFormLines([]); setFormEmail(''); setFormPay('contra_entrega');
         await loadData();
         setActiveTab('sales');
       } else {
@@ -826,7 +832,8 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
 
   return (
     <div className="space-y-6 text-slate-100">
-      
+      {payInfo && <PaymentLinkCard info={payInfo} onClose={() => setPayInfo(null)} />}
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-cyan-500/40 text-cyan-200 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
@@ -1776,6 +1783,8 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                 <label className="text-xs font-bold text-slate-300">Productos Vendidos *</label>
                 <SaleItemsPicker products={products} lines={formLines} onChange={setFormLines} />
               </div>
+
+              <SalePaymentPicker value={formPay} onChange={setFormPay} email={formEmail} onEmail={setFormEmail} />
 
               {/* Fila 3: Datos del Cliente */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">

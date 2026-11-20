@@ -30,6 +30,7 @@ import { Advisor, AdvisorSale, Product, DropiStatus } from '../../types/index.ts
 import { formatCOP } from '../../utils/formatters.ts';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { AdvisorStatement } from './AdvisorStatement.tsx';
+import { SalePaymentPicker, PaymentLinkCard, SalePay, PayLinkInfo } from '../SalePaymentPicker.tsx';
 import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, linesTotal, useCatalog } from '../SaleItemsPicker.tsx';
 
 interface AdvisorPortalProps {
@@ -110,6 +111,9 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
   // Form state
   const [lines, setLines] = useState<SaleLine[]>([]);
+  const [pay, setPay] = useState<SalePay>('contra_entrega');
+  const [clientEmail, setClientEmail] = useState('');
+  const [payInfo, setPayInfo] = useState<PayLinkInfo | null>(null);
   const catalog = useCatalog(products);
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
@@ -234,6 +238,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
       advisorName: advisor.name,
       advisorChannel: advisor.channel,
       items: linesPayload(lines),
+      clientEmail: clientEmail.trim(),
       clientName: clientName.trim(),
       clientPhone: cleanPhone,
       clientCity: clientCity.trim(),
@@ -241,7 +246,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
       clientAddress: clientAddress.trim(),
       additionalNotes: additionalNotes.trim(),
       dropiStatus: 'pendiente_bolsa',
-      paymentMethod: 'contra_entrega'
+      paymentMethod: pay
     };
 
     try {
@@ -255,6 +260,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
 
       if (json.success && json.data) {
         setLastCreatedOrder(json.data);
+        if (json.paymentLink) setPayInfo({ link: json.paymentLink, orderNumber: json.data.orderNumber, total: json.data.totalAmount, clientName: clientName.trim(), clientPhone: cleanPhone, emailSent: json.emailSent, emailNote: json.emailNote });
+        setPay('contra_entrega'); setClientEmail('');
         showToast(`🎉 ¡Venta registrada exitosamente! Orden ${json.data.orderNumber}`);
         
         // Reset form
@@ -342,6 +349,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   return (
     <div id="advisor-portal-root" className="min-h-screen bg-[#0A0518] text-slate-100 flex flex-col font-sans selection:bg-cyan-400 selection:text-black">
       
+      {payInfo && <PaymentLinkCard info={payInfo} onClose={() => setPayInfo(null)} />}
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#160B30] text-white px-4 py-3 rounded-2xl shadow-[0_0_30px_rgba(0,245,255,0.4)] flex items-center gap-2.5 border border-cyan-400/60 animate-in slide-in-from-bottom-4 duration-200">
@@ -633,6 +642,8 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                   <label className="text-xs font-bold text-violet-200">Productos Vendidos *</label>
                   <SaleItemsPicker products={products} lines={lines} onChange={setLines} />
                 </div>
+
+                <SalePaymentPicker value={pay} onChange={setPay} email={clientEmail} onEmail={setClientEmail} />
 
                 {/* Section: Customer Details */}
                 <div className="space-y-3 pt-2 border-t border-[#27154A]">
