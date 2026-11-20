@@ -8,7 +8,7 @@ import { clientIp } from '../services/publicOrder.ts';
  * Enlace fijo para agentes externos (WAI) que solo pueden entregar un link:
  * al abrirlo se envía al cliente al WhatsApp del siguiente asesor CONECTADO (reparto rotativo).
  * Si no hay nadie conectado muestra una página amable con la línea oficial.
- * Parámetros opcionales: ?n=NombreDelCliente&p=ProductoDeInteres
+ * Parámetros opcionales: ?n=NombreDelCliente&p=ProductoDeInteres&asesor=NombreDeLaAsesoraQuePidioElCliente
  */
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
     const product = String(req.query.p || '').slice(0, 100);
     const r = await handoffToAdvisor({
       ip: clientIp(req), customerName: name, message: 'Cliente pidió una persona desde el chat de la tienda (enlace).',
-      page: 'Chat WAI', officialNumber: official, viewedProducts: product ? [product] : []
+      page: 'Chat WAI', officialNumber: official, preferAdvisor: String(req.query.asesor || '').slice(0, 40), viewedProducts: product ? [product] : []
     });
     if (r.connected) return res.redirect(302, r.whatsappUrl);
     const link = official ? r.whatsappUrl : '';

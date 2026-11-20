@@ -4,7 +4,7 @@
  * conectado (reparto rotativo). Si no hay nadie conectado, se le indica el canal oficial.
  * Se avisa al administrador y, si tiene correo, al asesor.
  */
-import { pickNextAvailable, getAdvisor, isOnline } from './advisorStore.ts';
+import { pickNextAvailable, getAdvisor, isOnline, listAdvisors } from './advisorStore.ts';
 import { sendHumanRequestAlert } from './whatsappAlerts.ts';
 import { sendAlertEmail } from './emailAlerts.ts';
 
@@ -41,6 +41,7 @@ export interface HandoffResult {
 
 export async function handoffToAdvisor(opts: {
   ip: string; customerName?: string; message: string; page?: string; officialNumber: string; viewedProducts?: string[];
+  preferAdvisor?: string; // nombre o código de la asesora que pidió el cliente (si está conectada, se prefiere)
 }): Promise<HandoffResult> {
   const now = Date.now();
   const customer = opts.customerName && opts.customerName !== 'Invitado' ? opts.customerName : '';
@@ -54,6 +55,16 @@ export async function handoffToAdvisor(opts: {
     }
     return null;
   })();
+  // El cliente pidió a una asesora por nombre: si está conectada, va con ella.
+  const wanted = (opts.preferAdvisor || '').trim().toLowerCase();
+  if (wanted.length >= 3) {
+    const named = listAdvisors().find(a => a.role !== 'admin' && isOnline(a) && a.phone &&
+      [a.name, a.sellerCode, a.username].some(v => (v || '').toLowerCase().includes(wanted)));
+    if (named) {
+      advisor = named;
+      sticky.set(opts.ip, { advisorId: named.id, at: now });
+    }
+  }
   const isRepeat = Boolean(advisor);
   globalHits = globalHits.filter(t => now - t < 60 * 60 * 1000);
   if (!advisor && globalHits.length < 40) {
