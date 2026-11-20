@@ -58,18 +58,18 @@ export const AdvisorCalendar: React.FC<{ sales: AdvisorSale[] }> = ({ sales }) =
       </div>
       <div className="text-[11px] text-violet-300">Este mes: <strong className="text-white">{monthSales.length}</strong> venta{monthSales.length === 1 ? '' : 's'} · <strong className="text-emerald-300 font-mono">{formatCOP(monthTotal)}</strong></div>
 
-      <div className="grid grid-cols-7 gap-1 text-center">
+      <div className="grid grid-cols-7 gap-1 text-center max-w-md mx-auto">
         {DOW.map(d => <div key={d} className="text-[10px] font-bold text-violet-400 uppercase py-1">{d}</div>)}
         {cells.map((d, i) => {
           if (d == null) return <div key={`e${i}`} />;
           const k = key(d); const list = byDay.get(k) || []; const isSel = k === selected; const isToday = k === todayKey;
           return (
             <button key={k} onClick={() => setSelected(k)}
-              className={`aspect-square sm:aspect-auto sm:h-14 rounded-lg border text-xs flex flex-col items-center justify-center cursor-pointer transition-all ${
+              className={`h-11 rounded-lg border text-xs flex flex-col items-center justify-center cursor-pointer transition-all ${
                 isSel ? 'bg-cyan-500 text-slate-950 border-cyan-300 font-black' : list.length ? 'bg-emerald-500/15 border-emerald-500/40 text-white' : 'bg-[#0C061C] border-[#2D1854] text-violet-300 hover:border-cyan-400/50'
               } ${isToday && !isSel ? 'ring-1 ring-cyan-400' : ''}`}>
-              <span>{d}</span>
-              {list.length > 0 && <span className={`text-[9px] font-mono ${isSel ? 'text-slate-900' : 'text-emerald-300'}`}>{list.length} venta{list.length === 1 ? '' : 's'}</span>}
+              <span className="leading-none">{d}</span>
+              {list.length > 0 && <span className={`text-[10px] font-mono leading-none mt-0.5 ${isSel ? 'text-slate-900' : 'text-emerald-300'}`}>{list.length}</span>}
             </button>
           );
         })}

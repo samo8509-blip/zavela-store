@@ -347,19 +347,19 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const getStatusBadge = (status: DropiStatus) => {
     switch (status) {
       case 'pendiente_bolsa':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Pendiente de autorizar</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-amber-500/20 text-amber-300 border border-amber-500/30">🟡 Pendiente de autorizar</span>;
       case 'montado_dropi':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Despacho Confirmado</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-blue-500/20 text-blue-300 border border-blue-500/30">🔵 Despacho Confirmado</span>;
       case 'guia_generada':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">🟣 Guía Generada</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-purple-500/20 text-purple-300 border border-purple-500/30">🟣 Guía Generada</span>;
       case 'enviado':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">🚚 En Ruta a Entrega</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">🚚 En Ruta a Entrega</span>;
       case 'entregado':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Entregado</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">🟢 Entregado</span>;
       case 'cancelado':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">🔴 Cancelado</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-rose-500/20 text-rose-300 border border-rose-500/30">🔴 Cancelado</span>;
       default:
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-700 text-slate-300">Pendiente</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap inline-block bg-slate-700 text-slate-300">Pendiente</span>;
     }
   };
 
@@ -892,18 +892,18 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                 <table className="w-full text-left text-xs text-slate-300">
                   <thead className="bg-[#0C061C] text-violet-300 font-mono uppercase text-[10px] tracking-wider border-b border-[#27154A]">
                     <tr>
-                      <th className="p-3.5">#</th>
-                      <th className="p-3.5">ID Pedido</th>
-                      <th className="p-3.5">Producto</th>
-                      <th className="p-3.5 font-mono text-center">Cant.</th>
-                      <th className="p-3.5">Cliente</th>
-                      <th className="p-3.5">Teléfono</th>
-                      <th className="p-3.5">Ciudad</th>
-                      <th className="p-3.5">Dirección</th>
-                      <th className="p-3.5 font-mono">Total ($)</th>
-                      <th className="p-3.5 font-mono text-amber-300">Comisión</th>
-                      <th className="p-3.5">Estado de Despacho</th>
-                      <th className="p-3.5 text-right">WhatsApp</th>
+                      <th className="p-2.5">#</th>
+                      <th className="p-2.5">ID Pedido</th>
+                      <th className="p-2.5">Producto</th>
+                      <th className="p-2.5 font-mono text-center">Cant.</th>
+                      <th className="p-2.5">Cliente</th>
+                      <th className="p-2.5">Teléfono</th>
+                      <th className="p-2.5">Ciudad</th>
+                      <th className="p-2.5">Dirección</th>
+                      <th className="p-2.5 font-mono">Total ($)</th>
+                      <th className="p-2.5 font-mono text-amber-300">Comisión</th>
+                      <th className="p-2.5">Estado de Despacho</th>
+                      <th className="p-2.5 text-right">WhatsApp</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#241345] font-sans">
@@ -931,25 +931,25 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                         const sComm = s.commissionAmount;
                         return (
                           <tr key={s.id} className="hover:bg-[#1A0E3C]/60 transition-colors">
-                            <td className="p-3.5 font-mono text-violet-400">{index + 1}</td>
-                            <td className="p-3.5 font-mono font-bold text-amber-300">{s.orderNumber}</td>
-                            <td className="p-3.5 font-medium text-white max-w-[160px] truncate" title={s.productTitle}>
+                            <td className="p-2.5 font-mono text-violet-400">{index + 1}</td>
+                            <td className="p-2.5 font-mono font-bold text-amber-300">{s.orderNumber}</td>
+                            <td className="p-2.5 font-medium text-white max-w-[160px] truncate" title={s.productTitle}>
                               {s.productTitle}
                             </td>
-                            <td className="p-3.5 font-mono font-black text-cyan-400 text-center">{s.quantity}</td>
-                            <td className="p-3.5 font-bold text-white">{s.clientName}</td>
-                            <td className="p-3.5 font-mono text-emerald-400">{s.clientPhone}</td>
-                            <td className="p-3.5">{s.clientCity}</td>
-                            <td className="p-3.5 text-violet-300 max-w-[180px] truncate" title={s.clientAddress}>
+                            <td className="p-2.5 font-mono font-black text-cyan-400 text-center">{s.quantity}</td>
+                            <td className="p-2.5 font-bold text-white">{s.clientName}</td>
+                            <td className="p-2.5 font-mono text-emerald-400">{s.clientPhone}</td>
+                            <td className="p-2.5">{s.clientCity}</td>
+                            <td className="p-2.5 text-violet-300 max-w-[180px] truncate" title={s.clientAddress}>
                               {s.clientAddress}
                             </td>
-                            <td className="p-3.5 font-mono font-black text-white">{formatCOP(s.totalAmount)}</td>
-                            <td className="p-3.5 font-mono font-bold text-amber-300">
+                            <td className="p-2.5 font-mono font-black text-white">{formatCOP(s.totalAmount)}</td>
+                            <td className="p-2.5 font-mono font-bold text-amber-300">
                               {sComm == null ? '—' : formatCOP(sComm)}
                               <span className="block text-[9px] font-sans font-semibold text-violet-300">{COMMISSION_LABEL[s.commissionStatus || 'en_proceso']}</span>
                             </td>
-                            <td className="p-3.5">{getStatusBadge(s.dropiStatus)}</td>
-                            <td className="p-3.5 text-right">
+                            <td className="p-2.5">{getStatusBadge(s.dropiStatus)}</td>
+                            <td className="p-2.5 text-right">
                               <a
                                 href={`https://wa.me/57${s.clientPhone}?text=${encodeURIComponent(`Hola ${s.clientName}, te saluda ${advisor.name} de Zavela Store. Te escribo respecto a tu pedido ${s.orderNumber} (${s.productTitle}).${s.trackingNumber ? ` Tu guía de seguimiento${s.carrier ? ' de ' + s.carrier : ''} es ${s.trackingNumber}.${s.carrierTrackingUrl ? ' Puedes rastrearlo aquí: ' + s.carrierTrackingUrl : ''}` : ''}`)}`}
                                 target="_blank"
