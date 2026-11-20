@@ -137,6 +137,12 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const [chatText, setChatText] = useState<string>('');
   const [isParsingChat, setIsParsingChat] = useState<boolean>(false);
 
+  // Enlace personal del asesor al producto: lo que se compre por él se le atribuye (?ref=CODIGO).
+  const productShareLink = (prod: any) => {
+    const slug = prod.slug || prod.id;
+    const code = advisor.sellerCode ? `?ref=${encodeURIComponent(advisor.sellerCode)}` : '';
+    return `${window.location.origin}/producto/${encodeURIComponent(slug)}${code}`;
+  };
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -1022,6 +1028,29 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                     <div className="bg-[#0C061C] p-2.5 rounded-xl border border-[#27154A] flex items-center justify-between text-xs font-mono">
                       <span className="text-violet-300">Tu Comisión ({commissionRate}% de la ganancia):</span>
                       <span className="text-amber-300 font-bold">{prodComm == null ? '—' : formatCOP(prodComm)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={async () => {
+                          const link = productShareLink(prod);
+                          try { await navigator.clipboard.writeText(link); showToast('Enlace copiado. Pégalo en tus redes: las compras por él quedan a tu nombre.'); }
+                          catch { window.prompt('Copia este enlace:', link); }
+                        }}
+                        className="py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500 hover:text-white text-violet-200 border border-violet-400/40 text-[11px] font-black transition-all cursor-pointer"
+                      >
+                        🔗 Copiar enlace
+                      </button>
+                      <button
+                        onClick={() => {
+                          const link = productShareLink(prod);
+                          const text = `${prod.title} - ${formatCOP(prod.price)} con pago contra entrega 🚚\n${link}`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+                        }}
+                        className="py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-400/40 text-[11px] font-black transition-all cursor-pointer"
+                      >
+                        📲 Compartir
+                      </button>
                     </div>
 
                     <button
