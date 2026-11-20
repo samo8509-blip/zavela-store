@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { Advisor, AdvisorSale, DropiStatus, AdvisorPerformance, Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, useCatalog } from '../SaleItemsPicker.tsx';
 
 interface AdminAdvisorsDropiProps {
   products?: Product[];
@@ -65,9 +66,8 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
 
   // Form State for manual registration
   const [formAdvisorId, setFormAdvisorId] = useState<string>('AS-001');
-  const [formProductTitle, setFormProductTitle] = useState<string>('Reloj Smartwatch Ultra');
-  const [formQuantity, setFormQuantity] = useState<number>(1);
-  const [formUnitPrice, setFormUnitPrice] = useState<number>(80000);
+  const [formLines, setFormLines] = useState<SaleLine[]>([]);
+  const catalogForParse = useCatalog(products);
   const [formClientName, setFormClientName] = useState<string>('');
   const [formClientPhone, setFormClientPhone] = useState<string>('');
   const [formClientCity, setFormClientCity] = useState<string>('Medellín');
@@ -275,9 +275,11 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       if (json.success && json.data) {
         const parsed = json.data;
         if (parsed.advisorId) setFormAdvisorId(parsed.advisorId);
-        if (parsed.productTitle) setFormProductTitle(parsed.productTitle);
-        if (parsed.quantity) setFormQuantity(parsed.quantity);
-        if (parsed.unitPrice) setFormUnitPrice(parsed.unitPrice);
+        if (parsed.productTitle) {
+          const t = String(parsed.productTitle).trim().toLowerCase();
+          const m = catalogForParse.find(p => (p.title || '').trim().toLowerCase() === t) || catalogForParse.find(p => (p.title || '').toLowerCase().includes(t) || t.includes((p.title || '').toLowerCase()));
+          if (m && Number((m as any).stock ?? 0) > 0) setFormLines([lineFromProduct(m, Math.max(1, Math.min(Number((m as any).stock), Number(parsed.quantity) || 1)))]);
+        }
         if (parsed.clientName) setFormClientName(parsed.clientName);
         if (parsed.clientPhone) setFormClientPhone(parsed.clientPhone);
         if (parsed.clientCity) setFormClientCity(parsed.clientCity);
@@ -305,15 +307,16 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       return;
     }
 
+    if (!formLines.length) {
+      showToast('Agrega al menos un producto a la venta.');
+      return;
+    }
     const advisor = advisors.find(a => a.id === formAdvisorId);
     const salePayload = {
       advisorId: formAdvisorId,
       advisorName: advisor?.name || 'Asesor Asignado',
       advisorChannel: advisor?.channel || 'WhatsApp Directo',
-      productTitle: formProductTitle,
-      quantity: Number(formQuantity) || 1,
-      unitPrice: Number(formUnitPrice) || 0,
-      totalAmount: (Number(formUnitPrice) || 0) * (Number(formQuantity) || 1),
+      items: linesPayload(formLines),
       clientName: formClientName,
       clientPhone: formClientPhone,
       clientCity: formClientCity,
@@ -339,6 +342,7 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
         setFormClientAddress('');
         setFormNotes('');
         setRawWhatsAppText('');
+        setFormLines([]);
         await loadData();
         setActiveTab('sales');
       } else {
@@ -1765,53 +1769,12 @@ Dirección: Calle 10 # 40-20 Apto 301`}
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Producto Vendido *</label>
-                  <input
-                    type="text"
-                    value={formProductTitle}
-                    onChange={e => setFormProductTitle(e.target.value)}
-                    placeholder="Ej. Reloj Smartwatch Ultra"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-medium"
-                    required
-                  />
-                </div>
               </div>
 
-              {/* Fila 2: Cantidad y Precio Unitario */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Cantidad (Unidades) *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formQuantity}
-                    onChange={e => setFormQuantity(parseInt(e.target.value) || 1)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono font-bold"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Precio Unitario ($ COP) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    value={formUnitPrice}
-                    onChange={e => setFormUnitPrice(parseInt(e.target.value) || 0)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-400">Total a Cobrar ($ COP)</label>
-                  <div className="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-emerald-400 font-mono font-black">
-                    {formatCOP(formUnitPrice * formQuantity)}
-                  </div>
-                </div>
+              {/* Fila 2: Productos de la venta (del catálogo, con inventario) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300">Productos Vendidos *</label>
+                <SaleItemsPicker products={products} lines={formLines} onChange={setFormLines} />
               </div>
 
               {/* Fila 3: Datos del Cliente */}
