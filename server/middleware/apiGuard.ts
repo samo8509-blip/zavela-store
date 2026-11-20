@@ -16,19 +16,21 @@ const ADVISOR_PREFIX = 'zavela_adv_';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 let cachedSecret = '';
+export let secretSource: 'env' | 'mysql' | 'archivo' | 'temporal (se pierde al reiniciar)' | 'sin usar aún' = 'sin usar aún';
 function getSecret(): string {
   if (cachedSecret) return cachedSecret;
   const env = process.env.ADMIN_TOKEN_SECRET;
-  if (env && env.length >= 16) return (cachedSecret = env);
+  if (env && env.length >= 16) { secretSource = 'env'; return (cachedSecret = env); }
   const stored = getPrivateConfig().tokenSecret;
-  if (stored && stored.length >= 32) return (cachedSecret = stored);
+  if (stored && stored.length >= 32) { secretSource = 'mysql'; return (cachedSecret = stored); }
   const file = path.join(process.cwd(), '.admin_token_secret');
   try {
     const v = fs.readFileSync(file, 'utf8').trim();
-    if (v.length >= 32) return (cachedSecret = v);
+    if (v.length >= 32) { secretSource = 'archivo'; return (cachedSecret = v); }
   } catch {}
   const fresh = crypto.randomBytes(32).toString('hex');
   try { fs.writeFileSync(file, fresh, { mode: 0o600 }); } catch {}
+  secretSource = 'temporal (se pierde al reiniciar)';
   return (cachedSecret = fresh);
 }
 

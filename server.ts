@@ -11,7 +11,7 @@ import aiRouter from './server/routes/ai.ts';
 import whatsappRouter from './server/routes/whatsapp.ts';
 import wavyWebhookRouter from './server/routes/wavyWebhook.ts';
 import alertsRouter from './server/routes/alerts.ts';
-import { apiGuard } from './server/middleware/apiGuard.ts';
+import { apiGuard, secretSource } from './server/middleware/apiGuard.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
 import handoffLinkRouter from './server/routes/handoffLink.ts';
@@ -62,7 +62,9 @@ async function startServer() {
       status: 'ok',
       service: 'Zavela Store API',
       timestamp: new Date().toISOString(),
-      country: 'CO'
+      country: 'CO',
+      uptimeSeconds: Math.round(process.uptime()),
+      tokenSecretSource: secretSource
     });
   });
 
