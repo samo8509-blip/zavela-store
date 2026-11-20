@@ -31,6 +31,7 @@ import { formatCOP } from '../../utils/formatters.ts';
 import { ZavelaLogo } from '../ZavelaLogo.tsx';
 import { AdvisorStatement } from './AdvisorStatement.tsx';
 import { AdvisorCalendar } from './AdvisorCalendar.tsx';
+import { AdvisorGoals, AdvisorTemplates, AdvisorClients, AdvisorBell, clientsFrom } from './AdvisorExtras.tsx';
 import { AdvisorPasswordForm } from './AdvisorPasswordForm.tsx';
 import { SalePaymentPicker, PaymentLinkCard, SalePay, PayLinkInfo } from '../SalePaymentPicker.tsx';
 import { SaleItemsPicker, SaleLine, lineFromProduct, linesPayload, linesTotal, useCatalog } from '../SaleItemsPicker.tsx';
@@ -83,7 +84,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
     (window as any).__zavelaRole = 'advisor';
     return () => { (window as any).__zavelaRole = undefined; };
   }, []);
-  const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog' | 'account'>('register');
+  const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog' | 'goals' | 'clients' | 'templates' | 'account'>('register');
   // Disponibilidad: mientras esté activa y el portal abierto, la tienda le deriva clientes
   const [online, setOnline] = useState<boolean>(Boolean(advisor.available));
   const sendPresence = async (available?: boolean) => {
@@ -489,7 +490,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#27154A] pb-3 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-[#27154A] pb-3 flex-wrap">
           <button
             onClick={() => setActiveTab('register')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
@@ -527,6 +528,42 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('goals')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'goals'
+                ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,255,0.4)]'
+                : 'bg-[#140B2E] text-violet-300 hover:text-white hover:bg-[#1C0F3E] border border-[#2C1752]'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            <span>Metas y Ranking</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('clients')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'clients'
+                ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,255,0.4)]'
+                : 'bg-[#140B2E] text-violet-300 hover:text-white hover:bg-[#1C0F3E] border border-[#2C1752]'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            <span>Mis Clientes</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'templates'
+                ? 'bg-gradient-to-r from-cyan-400 to-cyan-500 text-slate-950 font-black shadow-[0_0_20px_rgba(0,245,255,0.4)]'
+                : 'bg-[#140B2E] text-violet-300 hover:text-white hover:bg-[#1C0F3E] border border-[#2C1752]'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Plantillas WhatsApp</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('account')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'account'
@@ -537,6 +574,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
             <User className="w-4 h-4" />
             <span>Mi Cuenta</span>
           </button>
+          <div className="ml-auto"><AdvisorBell advisorId={advisor.id} sales={mySales} /></div>
         </div>
 
         {/* ========================================================= */}
@@ -903,7 +941,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                             <td className="p-3.5">{getStatusBadge(s.dropiStatus)}</td>
                             <td className="p-3.5 text-right">
                               <a
-                                href={`https://wa.me/57${s.clientPhone}?text=${encodeURIComponent(`Hola ${s.clientName}, te saluda ${advisor.name} de Zavela Store. Te escribo respecto a tu pedido ${s.orderNumber} (${s.productTitle}).`)}`}
+                                href={`https://wa.me/57${s.clientPhone}?text=${encodeURIComponent(`Hola ${s.clientName}, te saluda ${advisor.name} de Zavela Store. Te escribo respecto a tu pedido ${s.orderNumber} (${s.productTitle}).${s.trackingNumber ? ` Tu guía de seguimiento${s.carrier ? ' de ' + s.carrier : ''} es ${s.trackingNumber}.${s.carrierTrackingUrl ? ' Puedes rastrearlo aquí: ' + s.carrierTrackingUrl : ''}` : ''}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-lg text-[11px] font-bold transition-all border border-emerald-500/30 cursor-pointer"
@@ -928,6 +966,10 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
         {/* ========================================================= */}
         {/* TAB 3: CATÁLOGO & PRECIOS DE REFERENCIA */}
         {/* ========================================================= */}
+        {activeTab === 'goals' && <AdvisorGoals refreshKey={mySales.length} />}
+        {activeTab === 'clients' && <AdvisorClients sales={mySales} />}
+        {activeTab === 'templates' && <AdvisorTemplates clients={clientsFrom(mySales).map(c => ({ name: c.name, phone: c.phone }))} />}
+
         {activeTab === 'account' && (
           <div className="space-y-4">
             <AdvisorStatement refreshKey={mySales.length} />

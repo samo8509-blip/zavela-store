@@ -84,6 +84,7 @@ export const AdvisorCalendar: React.FC<{ sales: AdvisorSale[] }> = ({ sales }) =
             <div className="min-w-0">
               <div className="font-bold text-white">{s.orderNumber} · {s.clientName}</div>
               <div className="text-violet-300 truncate max-w-[320px]">{s.productTitle}</div>
+              {s.trackingNumber && <div className="text-[10px] text-cyan-300">Guía{s.carrier ? ` ${s.carrier}` : ''}: <span className="font-mono">{s.trackingNumber}</span>{s.carrierTrackingUrl && <> · <a href={s.carrierTrackingUrl} target="_blank" rel="noreferrer" className="underline">Rastrear</a></>}</div>}
             </div>
             <div className="text-right">
               <div className="font-mono font-bold text-emerald-300">{formatCOP(s.totalAmount)}</div>
