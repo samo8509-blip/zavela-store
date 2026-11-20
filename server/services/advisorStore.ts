@@ -13,6 +13,8 @@ const FILE = path.join(process.cwd(), '.advisors.json');
 const ONLINE_WINDOW_MS = 3 * 60 * 1000; // sin señal de vida en 3 min => desconectado
 let cache: Advisor[] = [];
 let mysqlOk = false;
+let loadedAt = 0;
+let reloading: Promise<void> | null = null;
 
 const getPool = async () => (await import('../mysqlPool.ts')).nativePool;
 
@@ -72,6 +74,7 @@ export async function loadAdvisors(): Promise<void> {
       const [rows]: any = await p.query('SELECT * FROM zavela_asesores ORDER BY created_at');
       cache = (rows || []).map(fromRow);
       mysqlOk = true;
+      loadedAt = Date.now();
       return;
     }
   } catch (e: any) {
@@ -207,3 +210,12 @@ export const findByEmail = (email: string) => {
 };
 /** Huella de la clave actual: el enlace de recuperación deja de servir apenas la clave cambia. */
 export const passwordFingerprint = (a: Advisor) => crypto.createHash('sha256').update(a.password || 'sin-clave').digest('hex').slice(0, 16);
+
+/** Si el arranque no pudo leer MySQL (o la lista quedó vacía), la vuelve a leer. Devuelve true si la lista cambió. */
+export async function refreshAdvisorsIfStale(): Promise<boolean> {
+  if (mysqlOk && cache.length && Date.now() - loadedAt < 60_000) return false;
+  const before = JSON.stringify(cache.map(a => [a.id, a.password, a.status]));
+  reloading = reloading || loadAdvisors().finally(() => { reloading = null; });
+  await reloading;
+  return before !== JSON.stringify(cache.map(a => [a.id, a.password, a.status]));
+}

@@ -15,6 +15,7 @@ export interface PrivateConfig { smtp?: SmtpConfig; resendKey?: string; tokenSec
 
 const KEY = 'private_config';
 let cache: PrivateConfig = {};
+let loadedOk = false; // true solo si se leyó (o se confirmó que no existe) en MySQL
 
 export const getPrivateConfig = (): PrivateConfig => cache;
 
@@ -25,6 +26,7 @@ export async function loadPrivateConfig(): Promise<void> {
   try {
     const [rows]: any = await withTimeout(pool.query('SELECT valor FROM configuraciones WHERE clave = ?', [KEY]), 8000);
     if (Array.isArray(rows) && rows[0]?.valor) cache = JSON.parse(rows[0].valor) || {};
+    loadedOk = true;
   } catch (e: any) {
     console.warn('[PrivateConfig] No se pudo leer de MySQL:', e?.message);
   }
@@ -49,5 +51,12 @@ export async function savePrivateConfig(patch: PrivateConfig): Promise<boolean> 
 export async function ensureTokenSecret(): Promise<void> {
   if ((process.env.ADMIN_TOKEN_SECRET || '').length >= 16) return;
   if ((cache.tokenSecret || '').length >= 32) return;
+  // Si MySQL no respondió al arrancar NO se crea una clave nueva: sobrescribiría la guardada
+  // (y borraría el correo/SMTP) y cerraría todas las sesiones. Se reintenta unos segundos después.
+  if (!loadedOk) {
+    console.warn('[PrivateConfig] MySQL no respondió; no se crea clave nueva (se reintenta).');
+    setTimeout(async () => { await loadPrivateConfig(); if (loadedOk) await ensureTokenSecret(); }, 15000);
+    return;
+  }
   await savePrivateConfig({ tokenSecret: crypto.randomBytes(32).toString('hex') });
 }
