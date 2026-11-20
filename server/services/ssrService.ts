@@ -1095,7 +1095,13 @@ Sitemap: ${baseUrl}/sitemap.xml
       ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100) 
       : 0;
 
-    const waOrderText = encodeURIComponent(`¡Hola Zavela Store! Quiero ordenar con Pago Contra Entrega el producto:\n\n• *${product.title}*\n• *Precio:* ${formatCOP(product.price)}\n\nPor favor indícame los datos para formalizar mi despacho.`);
+    // Enlace personal de un asesor (?ref=VEN-001): se conserva en la compra y abre directo el pedido.
+    const rawRef = String((req.query as any)?.ref || '').trim().toUpperCase();
+    const advisorRef = /^[A-Z0-9-]{3,20}$/.test(rawRef) ? rawRef : '';
+    const refQuery = advisorRef ? `&ref=${encodeURIComponent(advisorRef)}` : '';
+    const buyUrl = `/?producto=${encodeURIComponent(product.slug || product.id)}&comprar=1${refQuery}`;
+
+    const waOrderText = encodeURIComponent(`¡Hola Zavela Store! Quiero ordenar con Pago Contra Entrega el producto:\n\n• *${product.title}*\n• *Precio:* ${formatCOP(product.price)}${advisorRef ? `\n• *Asesora:* ${advisorRef}` : ''}\n\nPor favor indícame los datos para formalizar mi despacho.`);
     const waOrderUrl = `https://wa.me/${whatsappNum}?text=${waOrderText}`;
 
     // Schema.org Product JSON-LD
@@ -1144,6 +1150,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(titleText)}</title>
   <meta name="description" content="${escapeHtml(cleanDesc)}">
+  ${advisorRef ? `<script>try{location.replace(${JSON.stringify(buyUrl)});}catch(e){}</script>` : ''}
   <link rel="canonical" href="${canonicalUrl}">
   
   <!-- OpenGraph / Facebook / WhatsApp -->
@@ -1700,7 +1707,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         <a href="${waOrderUrl}" target="_blank" rel="noopener" class="btn-big btn-wa">
           <span>💬 Pedir por WhatsApp (Contra Entrega)</span>
         </a>
-        <a href="/?producto=${encodeURIComponent(product.slug || product.id)}" class="btn-big btn-interactive">
+        <a href="${buyUrl}" class="btn-big btn-interactive">
           <span>🛍️ Comprar en Tienda Interactiva</span>
         </a>
       </div>
