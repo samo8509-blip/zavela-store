@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
-import { publicAdvisor, setPresence } from '../services/advisorStore.ts';
+import { publicAdvisor, setPresence, refreshAdvisorsIfStale } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
 import * as payouts from '../services/payouts.ts';
 import { verifyPassword } from '../services/advisorStore.ts';
@@ -2458,15 +2458,20 @@ router.post('/simulate-order', async (req, res) => {
 // ==========================================
 // 8. ADVISORS & DROPI BAG (Sergio Martínez Profile)
 // ==========================================
-router.post('/advisors/login', (req, res) => {
+router.post('/advisors/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos' });
     }
 
-    const advisor = db.authenticateAdvisor(username, password);
+    let advisor = db.authenticateAdvisor(username, password);
     if (!advisor) {
+      // Puede que la lista en memoria esté desactualizada (reinicio de Render, MySQL lento): se relee y se reintenta.
+      try { if (await refreshAdvisorsIfStale()) advisor = db.authenticateAdvisor(username, password); } catch {}
+    }
+    if (!advisor) {
+      console.warn(`[Asesores] Ingreso rechazado para "${String(username).slice(0, 60)}" (usuario inexistente, inactivo o clave incorrecta).`);
       return res.status(401).json({ success: false, message: 'Credenciales inválidas o asesor inactivo. Contacta al administrador.' });
     }
 

@@ -90,11 +90,13 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const sendPresence = async (available?: boolean) => {
     try {
       const token = sessionStorage.getItem('zavela_advisor_token') || localStorage.getItem('zavela_advisor_token') || '';
-      await fetch('/api/admin/advisors/me/presence', {
+      const r = await fetch('/api/admin/advisors/me/presence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(typeof available === 'boolean' ? { available } : {})
       });
+      // Sesión vencida (p. ej. el servidor se reinició): se cierra limpio para que ingrese de nuevo.
+      if (r.status === 401) { alert('Tu sesión venció. Ingresa de nuevo.'); onLogout(); }
     } catch {}
   };
   const toggleOnline = () => {
