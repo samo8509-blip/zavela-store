@@ -1167,8 +1167,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       {/* MODAL: CREAR USUARIO (ADMINISTRADOR O ASESOR DE VENTAS)   */}
       {/* ========================================================= */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl px-5 pt-5 pb-0 w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl space-y-3 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-white text-base flex items-center gap-2">
@@ -1422,7 +1422,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                 </>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 sticky bottom-0 z-10 bg-slate-900 py-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
@@ -1448,8 +1448,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       {/* MODAL: MODIFICAR DATOS DEL USUARIO                       */}
       {/* ========================================================= */}
       {isEditModalOpen && editTargetUser && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl px-5 pt-5 pb-0 w-full max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl space-y-3 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="font-black text-white text-base flex items-center gap-2">
@@ -1666,7 +1666,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 sticky bottom-0 z-10 bg-slate-900 py-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
