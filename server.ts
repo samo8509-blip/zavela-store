@@ -361,7 +361,14 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Los archivos con huella en el nombre (/assets/...) se guardan un año; el resto (index.html, etc.)
+    // siempre se revalida para que cada despliegue llegue a los navegadores sin Ctrl+F5.
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (/[\\/]assets[\\/]/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        else res.setHeader('Cache-Control', 'no-cache');
+      }
+    }));
     app.get('*', async (req, res, next) => {
       if (req.path.startsWith('/api') || req.path.startsWith('/webhook')) {
         return next();
@@ -372,6 +379,7 @@ async function startServer() {
           const rawHtml = await fs.promises.readFile(indexPath, 'utf-8');
           const html = await injectInitialCategoriesIntoHtml(rawHtml);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           return res.status(200).send(html);
         }
       } catch (e) {
