@@ -1044,7 +1044,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
                       <button
                         onClick={() => {
                           const link = productShareLink(prod);
-                          const text = `${prod.title} - ${formatCOP(prod.price)} con pago contra entrega 🚚\n${link}`;
+                          const text = `${prod.title} - ${formatCOP(prod.price)} con pago contra entrega\n${link}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
                         }}
                         className="py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-400/40 text-[11px] font-black transition-all cursor-pointer"
