@@ -184,6 +184,9 @@ export const AdminWhatsAppAIAgent: React.FC<AdminWhatsAppAIAgentProps> = ({
   // Cargar asesores al inicio y al cambiar a la pestaña de asesores
   useEffect(() => {
     loadCpanelAdvisors();
+    // El estado Conectado se actualiza solo cada 20 segundos
+    const t = setInterval(loadCpanelAdvisors, 20000);
+    return () => clearInterval(t);
   }, []);
 
   // WhatsApp State
@@ -2228,7 +2231,7 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                               {isActive ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black">
                                   <span className={`w-1.5 h-1.5 rounded-full ${adv.available ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
-                                  <span>{adv.available ? 'Conectado' : 'Activo (sin conexión)'}</span>
+                                  <span>{adv.available ? 'Conectado' : 'Activo (sin conexión)'}{!adv.available && adv.lastSeen ? ` · visto ${Math.max(1, Math.round((Date.now() - new Date(adv.lastSeen).getTime()) / 60000))} min` : ''}</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 text-[11px] font-bold">

@@ -86,7 +86,12 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   }, []);
   const [activeTab, setActiveTab] = useState<'register' | 'my_sales' | 'catalog' | 'goals' | 'clients' | 'templates' | 'account'>('register');
   // Disponibilidad: mientras esté activa y el portal abierto, la tienda le deriva clientes
-  const [online, setOnline] = useState<boolean>(Boolean(advisor.available));
+  // Se recuerda la elección: si recargas la página sigues "Disponible" sin tener que volver a activarlo.
+  const onlineKey = `zavela_adv_online_${advisor.id}`;
+  const [online, setOnline] = useState<boolean>(() => {
+    try { const v = localStorage.getItem(onlineKey); if (v !== null) return v === '1'; } catch {}
+    return Boolean(advisor.available);
+  });
   const sendPresence = async (available?: boolean) => {
     try {
       const token = sessionStorage.getItem('zavela_advisor_token') || localStorage.getItem('zavela_advisor_token') || '';
@@ -100,6 +105,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
   const toggleOnline = () => {
     const next = !online;
     setOnline(next);
+    try { localStorage.setItem(onlineKey, next ? '1' : '0'); } catch {}
     sendPresence(next);
   };
   useEffect(() => {
@@ -418,7 +424,7 @@ export const AdvisorPortal: React.FC<AdvisorPortalProps> = ({
             </button>
 
             <button
-              onClick={onLogout}
+              onClick={async () => { try { localStorage.setItem(onlineKey, '0'); } catch {} await sendPresence(false); onLogout(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer"
               title="Cerrar Sesión"
             >
