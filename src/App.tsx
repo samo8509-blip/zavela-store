@@ -1087,9 +1087,21 @@ export default function App() {
 
   if (currentView === 'admin') {
     if (!checkIsAdminAuthenticated()) {
-      setIsAdminLoginOpen(true);
-      setCurrentView('store');
-      return null;
+      // Pantalla de ingreso fija (sin saltar a la tienda y volver): así los mensajes y los campos no se borran solos.
+      return (
+        <div className="min-h-screen bg-[#070514]">
+          <AdminLoginModal
+            isOpen={true}
+            defaultRole="admin"
+            onClose={() => { setCurrentView('store'); navigate('/'); }}
+            onSuccess={() => { setCurrentView('admin'); showToast('¡Bienvenido! Panel Master de Despachos activado.'); }}
+            onAdvisorSuccess={(adv) => {
+              setAuthenticatedAdvisor(adv);
+              setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
+            }}
+          />
+        </div>
+      );
     }
 
     return (
@@ -1113,10 +1125,20 @@ export default function App() {
   if (currentView === 'advisor') {
     const activeAdv = authenticatedAdvisor || getStoredAdvisor();
     if (!activeAdv) {
-      setIsAdminLoginOpen(true);
-      setCurrentView('store');
-      navigate('/');
-      return null;
+      return (
+        <div className="min-h-screen bg-[#070514]">
+          <AdminLoginModal
+            isOpen={true}
+            defaultRole="advisor"
+            onClose={() => { setCurrentView('store'); navigate('/'); }}
+            onSuccess={() => { navigate('/admin'); setCurrentView('admin'); }}
+            onAdvisorSuccess={(adv) => {
+              setAuthenticatedAdvisor(adv);
+              setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
+            }}
+          />
+        </div>
+      );
     }
 
     return (
