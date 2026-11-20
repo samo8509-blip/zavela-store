@@ -2077,6 +2077,15 @@ o solo la URL: //code.tidio.co/a1b2c3d4e5f6.js'
                   <p className="text-xs text-slate-500 mt-0.5">
                     Para crear un asesor ve a <strong>Seguridad &rarr; Crear Usuario</strong>. Aquí aparece <strong>Conectado</strong> cuando activa &quot;Disponible&quot; en su portal.
                   </p>
+                  <div className="mt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 space-y-1">
+                    <div className="font-bold">Enlace para el agente WAI (deriva al asesor conectado):</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="px-2 py-1 rounded bg-white border border-emerald-200 font-mono select-all">https://zavelastore.com.co/hablar-con-asesor</code>
+                      <button type="button" onClick={() => { try { navigator.clipboard.writeText('https://zavelastore.com.co/hablar-con-asesor'); } catch {} }} className="px-2 py-1 rounded bg-emerald-600 text-white font-bold cursor-pointer">Copiar</button>
+                      <a href="/hablar-con-asesor" target="_blank" rel="noreferrer" className="px-2 py-1 rounded bg-white border border-emerald-300 font-bold">Probar</a>
+                    </div>
+                    <div>En las instrucciones de WAI: &quot;Si el cliente pide hablar con un asesor o una persona, envíale este enlace&quot;.</div>
+                  </div>
                 </div>
               </div>
             </div>

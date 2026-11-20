@@ -14,6 +14,7 @@ import alertsRouter from './server/routes/alerts.ts';
 import { apiGuard } from './server/middleware/apiGuard.ts';
 import customersRouter from './server/routes/customers.ts';
 import advisorsRouter from './server/routes/advisors.ts';
+import handoffLinkRouter from './server/routes/handoffLink.ts';
 import paymentsRouter from './server/routes/payments.ts';
 import dropiRouter from './server/routes/dropi.ts';
 import backupsRouter from './server/routes/backups.ts';
@@ -94,6 +95,7 @@ async function startServer() {
   app.use('/api/alerts', alertsRouter);
   app.use('/api/customers', customersRouter);
   app.use('/api/advisors', advisorsRouter);
+  app.use('/hablar-con-asesor', handoffLinkRouter);
   app.use('/api/payments', paymentsRouter);
   app.use('/api/dropi', dropiRouter);
 
