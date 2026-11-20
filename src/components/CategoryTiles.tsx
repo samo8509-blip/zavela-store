@@ -28,8 +28,7 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({ categories, select
     .filter(c => c.active !== false)
     .filter(c => !/sex|adult|er[oó]tic|\+18/i.test(c.name || ''))
     .map(c => ({ cat: c, count: getCount(c.id) }))
-    .filter(x => x.count > 0)
-    .slice(0, 8);
+    .filter(x => x.count > 0);
 
   if (visible.length === 0) return null;
 
