@@ -38,6 +38,44 @@ interface AdminSystemSecurityProps {
   onRefreshAll?: () => void;
 }
 
+type UserRoleId = 'advisor' | 'admin' | 'auxiliar' | 'contador';
+const ROLE_LABEL: Record<UserRoleId, string> = {
+  advisor: 'Asesor de Ventas',
+  admin: 'Administrador',
+  auxiliar: 'Auxiliar contable',
+  contador: 'Contador'
+};
+const toRoleId = (r?: string): UserRoleId => (r === 'admin' || r === 'auxiliar' || r === 'contador' ? r : 'advisor');
+const isAcctRole = (r?: string) => r === 'auxiliar' || r === 'contador';
+
+const ROLE_CARDS: { id: UserRoleId; icon: string; title: string; desc: string; on: string; text: string }[] = [
+  { id: 'advisor', icon: '💼', title: 'Asesor de Ventas', desc: 'Ventas, código de vendedor y comisión.', on: 'bg-cyan-950/60 border-cyan-500 shadow-cyan-500/10', text: 'text-cyan-300' },
+  { id: 'admin', icon: '🛡️', title: 'Administrador', desc: 'Acceso total a ajustes, catálogo, seguridad y reportes.', on: 'bg-purple-950/60 border-purple-500 shadow-purple-500/10', text: 'text-purple-300' },
+  { id: 'auxiliar', icon: '🧾', title: 'Auxiliar contable', desc: 'Apoya la contabilidad con los módulos básicos.', on: 'bg-amber-950/50 border-amber-500 shadow-amber-500/10', text: 'text-amber-300' },
+  { id: 'contador', icon: '📊', title: 'Contador', desc: 'Todo lo del auxiliar contable y además los módulos propios del contador.', on: 'bg-emerald-950/50 border-emerald-500 shadow-emerald-500/10', text: 'text-emerald-300' }
+];
+
+const RoleSelector: React.FC<{ value: UserRoleId; onChange: (r: UserRoleId) => void }> = ({ value, onChange }) => (
+  <div className="grid grid-cols-2 gap-2.5">
+    {ROLE_CARDS.map(c => (
+      <button
+        key={c.id}
+        type="button"
+        onClick={() => onChange(c.id)}
+        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
+          value === c.id ? `${c.on} text-white shadow-md` : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">{c.icon}</span>
+          <span className={`font-black text-xs ${c.text}`}>{c.title}</span>
+        </div>
+        <span className="text-[10px] text-slate-400 leading-tight">{c.desc}</span>
+      </button>
+    ))}
+  </div>
+);
+
 export interface SystemUserOption {
   id: string; // 'admin-master', 'AS-001', 'cust-xxx'
   type: 'admin' | 'advisor' | 'customer';
@@ -88,7 +126,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
 
   // New User Creation Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createRole, setCreateRole] = useState<'advisor' | 'admin'>('advisor');
+  const [createRole, setCreateRole] = useState<UserRoleId>('advisor');
   const [createFirstName, setCreateFirstName] = useState('');
   const [createLastName, setCreateLastName] = useState('');
   const [createUsername, setCreateUsername] = useState('');
@@ -146,13 +184,15 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
     }
     const fullName = `${createFirstName.trim()} ${createLastName.trim()}`.trim();
     const emailClean = createEmail.trim().toLowerCase();
-    if (createRole === 'advisor' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
-      alert('El asesor necesita un correo válido: es su usuario para entrar y donde recibirá su liquidación y la recuperación de clave.');
+    if (createRole !== 'admin' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
+      alert(isAcctRole(createRole)
+        ? 'El usuario contable necesita un correo válido: es su usuario para entrar y donde recibirá la recuperación de clave.'
+        : 'El asesor necesita un correo válido: es su usuario para entrar y donde recibirá su liquidación y la recuperación de clave.');
       return;
     }
-    const finalUsername = (createRole === 'advisor' ? emailClean : '') || createUsername.trim() || formatCleanUsername(createFirstName, createLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const finalUsername = (createRole !== 'admin' ? emailClean : '') || createUsername.trim() || formatCleanUsername(createFirstName, createLastName) || fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const finalPassword = createPassword.trim() || generatePassword();
-    const finalSellerCode = createSellerCode.trim(); // si queda vacío, el servidor asigna el siguiente VEN-###
+    const finalSellerCode = isAcctRole(createRole) ? '' : createSellerCode.trim(); // si queda vacío, el servidor asigna el siguiente VEN-###
 
     setIsSubmittingUser(true);
     try {
@@ -172,8 +212,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
           payoutCycle: createCycle,
           payoutDelayDays: Number(createDelay),
           monthlyGoal: Number(createGoal) || 0,
-          commissionRate: createRole === 'admin' ? 0 : Number(createCommission),
-          channel: createRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas',
+          commissionRate: createRole === 'advisor' ? Number(createCommission) : 0,
+          channel: createRole === 'admin' ? 'Administración General' : isAcctRole(createRole) ? 'Contabilidad' : 'WhatsApp de Ventas',
           status: 'active'
         })
       });
@@ -183,7 +223,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
         await loadSystemUsers();
         setSelectedUserId(createdUser.id);
         setIsCreateModalOpen(false);
-        setPassSuccessMsg(`¡Usuario "${fullName}" (${createRole === 'admin' ? 'Administrador' : 'Asesor de Ventas'}) creado exitosamente! Está seleccionado para cambiar su contraseña o consultar sus datos.`);
+        setPassSuccessMsg(`¡Usuario "${fullName}" (${ROLE_LABEL[createRole]}) creado exitosamente! Está seleccionado para cambiar su contraseña o consultar sus datos.`);
       } else {
         alert(json.message || 'Error al crear usuario.');
       }
@@ -199,7 +239,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   // ==========================================
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editTargetUser, setEditTargetUser] = useState<SystemUserOption | null>(null);
-  const [editRole, setEditRole] = useState<'advisor' | 'admin'>('advisor');
+  const [editRole, setEditRole] = useState<UserRoleId>('advisor');
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editUsername, setEditUsername] = useState('');
@@ -229,7 +269,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
       setEditPassword('');
     } else if (target.advisorData) {
       const adv = target.advisorData;
-      setEditRole(adv.role === 'admin' ? 'admin' : 'advisor');
+      setEditRole(toRoleId(adv.role));
       setEditFirstName(adv.firstName || adv.name.split(' ')[0] || '');
       setEditLastName(adv.lastName || adv.name.split(' ').slice(1).join(' ') || '');
       setEditUsername(adv.username || adv.id);
@@ -264,8 +304,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
     try {
       const fullName = `${editFirstName.trim()} ${editLastName.trim()}`.trim() || editTargetUser.name;
       const editEmailClean = editEmail.trim().toLowerCase();
-      if (editRole === 'advisor' && editTargetUser.id !== 'admin-master' && editEmailClean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmailClean)) { alert('El correo no es válido.'); setIsSubmittingEdit(false); return; }
-      const cleanUser = (editRole === 'advisor' && editEmailClean) || editUsername.trim() || editTargetUser.username;
+      if (editRole !== 'admin' && editTargetUser.id !== 'admin-master' && editEmailClean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmailClean)) { alert('El correo no es válido.'); setIsSubmittingEdit(false); return; }
+      const cleanUser = (editRole !== 'admin' && editEmailClean) || editUsername.trim() || editTargetUser.username;
 
       if (editTargetUser.id === 'admin-master') {
         // Guardar ajustes para Master Admin
@@ -298,11 +338,11 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
             payoutCycle: editCycle,
             payoutDelayDays: Number(editDelay),
             monthlyGoal: Number(editGoal) || 0,
-            sellerCode: editSellerCode.trim(),
-            commissionRate: editRole === 'admin' ? 0 : Number(editCommission),
+            sellerCode: isAcctRole(editRole) ? '' : editSellerCode.trim(),
+            commissionRate: editRole === 'advisor' ? Number(editCommission) : 0,
             // La clave solo se envía si se escribió una nueva; si no, se conserva la actual.
             ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
-            channel: editRole === 'admin' ? 'Administración General' : 'WhatsApp de Ventas'
+            channel: editRole === 'admin' ? 'Administración General' : isAcctRole(editRole) ? 'Contabilidad' : 'WhatsApp de Ventas'
           })
         });
         const json = await res.json();
@@ -490,13 +530,18 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
     // Asesores y Administradores Creados
     advisors.forEach(adv => {
       const isAdvAdmin = adv.role === 'admin';
+      const isAcct = isAcctRole(adv.role);
       list.push({
         id: adv.id,
         type: isAdvAdmin ? 'admin' : 'advisor',
         name: adv.name || `Usuario ${adv.id}`,
         username: adv.username || adv.id,
-        roleBadge: isAdvAdmin ? 'Administrador' : (adv.sellerCode ? `Asesor • ${adv.sellerCode}` : 'Asesor de Ventas'),
-        badgeStyle: isAdvAdmin ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-sky-100 text-sky-800 border-sky-300',
+        roleBadge: isAdvAdmin ? 'Administrador' : isAcct ? ROLE_LABEL[toRoleId(adv.role)] : (adv.sellerCode ? `Asesor • ${adv.sellerCode}` : 'Asesor de Ventas'),
+        badgeStyle: isAdvAdmin
+          ? 'bg-purple-100 text-purple-800 border-purple-300'
+          : isAcct
+            ? (adv.role === 'contador' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300')
+            : 'bg-sky-100 text-sky-800 border-sky-300',
         avatarLetter: (adv.name || 'A')[0].toUpperCase(),
         advisorData: adv
       });
@@ -887,11 +932,21 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   ))}
                 </optgroup>
 
-                {advisors.filter(a => a.role !== 'admin').length > 0 && (
-                  <optgroup label={`💼 Asesores de Ventas (${advisors.filter(a => a.role !== 'admin').length})`}>
-                    {advisors.filter(a => a.role !== 'admin').map((adv) => (
+                {advisors.filter(a => toRoleId(a.role) === 'advisor').length > 0 && (
+                  <optgroup label={`💼 Asesores de Ventas (${advisors.filter(a => toRoleId(a.role) === 'advisor').length})`}>
+                    {advisors.filter(a => toRoleId(a.role) === 'advisor').map((adv) => (
                       <option key={adv.id} value={adv.id}>
                         {adv.sellerCode || adv.id} • {adv.name} (Usuario: {adv.username || adv.id})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {advisors.filter(a => isAcctRole(a.role)).length > 0 && (
+                  <optgroup label={`🧾 Contabilidad (${advisors.filter(a => isAcctRole(a.role)).length})`}>
+                    {advisors.filter(a => isAcctRole(a.role)).map((adv) => (
+                      <option key={adv.id} value={adv.id}>
+                        {ROLE_LABEL[toRoleId(adv.role)]} • {adv.name} (Usuario: {adv.username || adv.id})
                       </option>
                     ))}
                   </optgroup>
@@ -1181,7 +1236,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   <span>Crear Usuario del Sistema</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Registra un Administrador o un Asesor de Ventas con código de vendedor.
+                  Registra un Administrador, un Asesor de Ventas, un Auxiliar contable o un Contador.
                 </p>
               </div>
               <button
@@ -1197,46 +1252,13 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
               {/* Selector de Rol */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300">Rol del Usuario *</label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCreateRole('advisor');
-                      if (!createSellerCode) setCreateSellerCode(generateSellerCode());
-                    }}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      createRole === 'advisor'
-                        ? 'bg-cyan-950/60 border-cyan-500 text-white shadow-md shadow-cyan-500/10'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">💼</span>
-                      <span className="font-black text-xs text-cyan-300">Asesor de Ventas</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 leading-tight">
-                      Ventas Dropi, código vendedor y enrutamiento WhatsApp.
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCreateRole('admin')}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      createRole === 'admin'
-                        ? 'bg-purple-950/60 border-purple-500 text-white shadow-md shadow-purple-500/10'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🛡️</span>
-                      <span className="font-black text-xs text-purple-300">Administrador</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 leading-tight">
-                      Acceso total a ajustes, catálogo, seguridad y reportes.
-                    </span>
-                  </button>
-                </div>
+                <RoleSelector
+                  value={createRole}
+                  onChange={(r) => {
+                    setCreateRole(r);
+                    if (r === 'advisor' && !createSellerCode) setCreateSellerCode(generateSellerCode());
+                  }}
+                />
               </div>
 
               {/* Nombre y Apellido */}
@@ -1346,16 +1368,20 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   onChange={e => setCreatePhone(e.target.value)}
                   placeholder="Ej. 3201234567"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                  required
+                  required={createRole === 'advisor'}
                 />
+                {createRole === 'advisor' && (
                 <p className="text-[11px] text-slate-400 flex items-start gap-1.5 bg-emerald-950/20 border border-emerald-900/30 p-2 rounded-xl">
                   <span className="text-emerald-400 text-xs">💬</span>
                   <span>
                     <strong>Enrutamiento WhatsApp Rápido:</strong> Cuando un cliente pregunte en la tienda por WhatsApp, se enrutará a este número para que el asesor responda de primero y cierre la venta.
                   </span>
                 </p>
+                )}
               </div>
 
+              {!isAcctRole(createRole) && (
+              <>
               {/* Código de Vendedor */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -1383,6 +1409,8 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   Este código único identifica las ventas de este usuario para llevar el <strong>control y ranking del asesor que más venda</strong> en la tienda.
                 </p>
               </div>
+              </>
+              )}
 
               {createRole === 'advisor' && (
                 <>
@@ -1432,6 +1460,19 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                 </>
               )}
 
+              {isAcctRole(createRole) && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Correo (su usuario) *</label>
+                  <input type="email" value={createEmail} onChange={e => setCreateEmail(e.target.value)} placeholder="nombre@correo.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" required />
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    Con este correo entra al módulo contable y recupera su clave. {createRole === 'contador'
+                      ? 'El Contador ve todo lo del Auxiliar contable y además sus módulos propios.'
+                      : 'El Auxiliar contable solo ve los módulos básicos de contabilidad.'}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 sticky bottom-0 z-10 bg-slate-900 py-3 border-t border-slate-800">
                 <button
                   type="button"
@@ -1446,7 +1487,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                   className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-60"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>{isSubmittingUser ? 'Creando...' : `Crear ${createRole === 'admin' ? 'Administrador' : 'Asesor de Ventas'}`}</span>
+                  <span>{isSubmittingUser ? 'Creando...' : `Crear ${ROLE_LABEL[createRole]}`}</span>
                 </button>
               </div>
             </form>
@@ -1489,43 +1530,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                     <span>Administrador Master Principal (Rol fijo por seguridad)</span>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setEditRole('advisor')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                        editRole === 'advisor'
-                          ? 'bg-cyan-950/60 border-cyan-500 text-white shadow-md shadow-cyan-500/10'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">💼</span>
-                        <span className="font-black text-xs text-cyan-300">Asesor de Ventas</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 leading-tight">
-                        Ventas Dropi y código vendedor.
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setEditRole('admin')}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                        editRole === 'admin'
-                          ? 'bg-purple-950/60 border-purple-500 text-white shadow-md shadow-purple-500/10'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🛡️</span>
-                        <span className="font-black text-xs text-purple-300">Administrador</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 leading-tight">
-                        Acceso administrativo completo.
-                      </span>
-                    </button>
-                  </div>
+                  <RoleSelector value={editRole} onChange={setEditRole} />
                 )}
               </div>
 
@@ -1589,7 +1594,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
               </div>
 
               {/* Código de Vendedor */}
-              {editTargetUser.id !== 'admin-master' && (
+              {editTargetUser.id !== 'admin-master' && !isAcctRole(editRole) && (
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-300 flex items-center gap-1">
                     <span>🏷️ Código de Vendedor</span>
@@ -1646,6 +1651,15 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                 <input type="number" min={0} step={100000} value={editGoal} onChange={e => setEditGoal(Number(e.target.value))} placeholder="Ej. 5000000" className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
               </div>
                 </>
+              )}
+
+              {editTargetUser.id !== 'admin-master' && isAcctRole(editRole) && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Correo (su usuario) *</label>
+                  <input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="nombre@correo.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400" />
+                  <p className="text-[11px] text-slate-400 leading-tight">Con este correo entra al módulo contable y recupera su clave.</p>
+                </div>
               )}
 
               {/* Contraseña Opcional */}
@@ -1814,9 +1828,11 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
                             <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
                               isAdvAdmin
                                 ? 'bg-purple-900/60 text-purple-300 border border-purple-500/30'
-                                : 'bg-cyan-900/60 text-cyan-300 border border-cyan-500/30'
+                                : isAcctRole(adv.role)
+                                  ? 'bg-amber-900/50 text-amber-300 border border-amber-500/30'
+                                  : 'bg-cyan-900/60 text-cyan-300 border border-cyan-500/30'
                             }`}>
-                              {isAdvAdmin ? 'Administrador' : 'Asesor de Ventas'}
+                              {ROLE_LABEL[toRoleId(adv.role)]}
                             </span>
                             {adv.sellerCode && (
                               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-900/40 text-amber-300 border border-amber-500/30">

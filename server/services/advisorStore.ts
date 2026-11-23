@@ -16,6 +16,16 @@ let mysqlOk = false;
 let loadedAt = 0;
 let reloading: Promise<void> | null = null;
 
+export type UserRole = 'admin' | 'advisor' | 'auxiliar' | 'contador';
+/** Interpreta un rol; si no se reconoce devuelve undefined (se conserva el que ya tenía). */
+export const parseRole = (v: unknown): UserRole | undefined => {
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === 'admin' || s === 'advisor' || s === 'auxiliar' || s === 'contador' ? s : undefined;
+};
+export const isAccountingRole = (r?: string) => r === 'auxiliar' || r === 'contador';
+/** Asesor de ventas de verdad (los administradores y el equipo contable no venden ni cobran comisión). */
+export const isSalesAdvisor = (a: { role?: string }) => !a.role || a.role === 'advisor';
+
 const getPool = async () => (await import('../mysqlPool.ts')).nativePool;
 
 export const hashPassword = (plain: string): string => {
@@ -49,7 +59,7 @@ const fromRow = (r: any): Advisor => ({
   lastAssignedAt: r.ultima_asignacion ? new Date(r.ultima_asignacion).toISOString() : undefined,
   notes: r.notas || '', settlementStatus: r.liquidacion || 'al_dia',
   lastSettlementDate: r.fecha_liquidacion ? new Date(r.fecha_liquidacion).toISOString() : undefined,
-  role: r.rol === 'admin' ? 'admin' : 'advisor',
+  role: parseRole(r.rol) || 'advisor',
   payoutCycle: r.ciclo === 'mensual' ? 'mensual' : 'quincenal', payoutDelayDays: Number(r.dias_pago ?? 3), monthlyGoal: Number(r.meta_mensual ?? 0),
   createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString()
 });
@@ -143,8 +153,8 @@ export function saveAdvisor(input: Partial<Advisor>): Advisor {
   const merged: Advisor = {
     id: existing?.id || input.id || `AS-${Date.now().toString(36).toUpperCase()}`,
     name: (input.name ?? existing?.name ?? 'Asesor').toString().trim() || 'Asesor',
-    role: input.role === 'admin' ? 'admin' : (existing?.role || 'advisor'),
-    sellerCode: wantedCode || existing?.sellerCode || nextSellerCode(),
+    role: parseRole(input.role) ?? existing?.role ?? 'advisor',
+    sellerCode: wantedCode || existing?.sellerCode || (isAccountingRole(parseRole(input.role) ?? existing?.role) ? undefined : nextSellerCode()),
     username, password,
     phone: (input.phone ?? existing?.phone ?? '').toString().replace(/[^\d+]/g, ''),
     email: emailIn,
@@ -195,7 +205,7 @@ export function setPresence(id: string, available?: boolean): Advisor | null {
 
 /** Siguiente asesor conectado (reparto rotativo: el que lleva más tiempo sin recibir un cliente). */
 export function pickNextAvailable(): Advisor | null {
-  const online = cache.filter(a => a.role !== 'admin' && isOnline(a) && a.phone);
+  const online = cache.filter(a => isSalesAdvisor(a) && isOnline(a) && a.phone);
   if (!online.length) return null;
   online.sort((x, y) => new Date(x.lastAssignedAt || 0).getTime() - new Date(y.lastAssignedAt || 0).getTime());
   const a = online[0];

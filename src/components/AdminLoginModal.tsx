@@ -317,7 +317,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Asesor de Ventas</span>
+            <span>Asesor / Contabilidad</span>
           </button>
         </div>
 
@@ -339,7 +339,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           {/* Username Field */}
           <div>
             <label className="block text-xs font-bold text-slate-200 mb-1.5 uppercase tracking-wider font-mono">
-              {role === 'admin' ? 'Usuario de Administrador' : 'Correo del Asesor'}
+              {role === 'admin' ? 'Usuario de Administrador' : 'Correo (asesor o contabilidad)'}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">

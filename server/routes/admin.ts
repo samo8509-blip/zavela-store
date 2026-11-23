@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
-import { publicAdvisor, setPresence, refreshAdvisorsIfStale } from '../services/advisorStore.ts';
+import { publicAdvisor, setPresence, refreshAdvisorsIfStale, isSalesAdvisor, isAccountingRole } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
 import * as payouts from '../services/payouts.ts';
 import { verifyPassword } from '../services/advisorStore.ts';
@@ -2486,7 +2486,7 @@ router.post('/advisors/login', async (req, res) => {
       success: true,
       message: `¡Bienvenido ${advisor.name}!`,
       data: publicAdvisor(advisor),
-      token: signAdvisorToken({ id: advisor.id })
+      token: signAdvisorToken({ id: advisor.id }, isAccountingRole(advisor.role) ? advisor.role : undefined)
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -2804,7 +2804,7 @@ const SITE = 'https://zavelastore.com.co';
 router.get('/advisor-settlements/summary', adminOnly, (_req, res) => {
   try {
     const all = db.getAdvisorSales({});
-    const rows = listAdvisorRecords().filter((a: any) => a.role !== 'admin').map((a: any) => {
+    const rows = listAdvisorRecords().filter((a: any) => isSalesAdvisor(a)).map((a: any) => {
       const mine = all.filter(x => x.advisorId === a.id);
       const sum = (st: string) => mine.filter(x => x.commissionStatus === st).reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
       const cnt = (st: string) => mine.filter(x => x.commissionStatus === st).length;
@@ -2884,7 +2884,7 @@ router.get('/advisors/me/ranking', (req, res) => {
   if (!me) return res.status(401).json({ success: false, message: 'Sesión de asesor no válida.' });
   const month = payouts.ymd(payouts.bogotaNow()).slice(0, 7);
   const all = db.getAdvisorSales({}).filter(x => x.dropiStatus !== 'cancelado' && payouts.ymd(new Date(new Date(x.createdAt).getTime() - 5 * 3600 * 1000)).startsWith(month));
-  const board = listAdvisorRecords().filter((a: any) => a.role !== 'admin' && a.status !== 'inactive').map((a: any) => {
+  const board = listAdvisorRecords().filter((a: any) => isSalesAdvisor(a) && a.status !== 'inactive').map((a: any) => {
     const mine = all.filter(x => x.advisorId === a.id);
     return { id: a.id, name: String(a.name).split(' ')[0], count: mine.length, total: mine.reduce((n, x) => n + Number(x.totalAmount || 0), 0) };
   }).sort((a, b) => b.total - a.total || b.count - a.count);
@@ -2960,7 +2960,7 @@ router.post('/advisor-sales/parse-text', (req, res) => {
     }
 
     const text = rawText.trim();
-    const advisors = db.getAdvisors();
+    const advisors = db.getAdvisors().filter((a: any) => !isAccountingRole(a.role));
     const products = db.getProducts();
 
     // 1. Detect Advisor

@@ -191,7 +191,8 @@ export const AdminAdvisorsDropi: React.FC<AdminAdvisorsDropiProps> = ({ products
       if (advRes.success) {
         // 🛡️ FILTRO DE SEGURIDAD: Limpia los asesores "fantasma" que el backend genera por error con IDs de productos
         const realAdvisors = (advRes.data.advisors || []).filter(
-          (a: Advisor) => !a.id.toLowerCase().includes('prod-')
+          // El equipo contable (auxiliar/contador) se administra en Seguridad y no cuenta como asesor de ventas.
+          (a: Advisor) => !a.id.toLowerCase().includes('prod-') && a.role !== 'auxiliar' && a.role !== 'contador'
         );
         const realPerformance = (advRes.data.performance || []).filter(
           (p: AdvisorPerformance) => !p.advisorId.toLowerCase().includes('prod-')
