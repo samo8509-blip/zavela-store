@@ -34,6 +34,8 @@ import { OrderConfirmation } from './components/OrderConfirmation.tsx';
 import { PayLinkPage } from './components/PayLinkPage.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AdvisorPortal } from './components/advisor/AdvisorPortal.tsx';
+import { AccountingPortal } from './components/accounting/AccountingPortal.tsx';
+import { isAccountingUser } from './components/accounting/accountingModules.ts';
 import { 
   AdminLoginModal, 
   checkIsAdminAuthenticated, 
@@ -113,12 +115,13 @@ export function ScrollToTop() {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'exclusividad' | 'subpage' | 'order-confirmation' | 'quienes-somos'>(() => {
+  const [currentView, setCurrentView] = useState<'store' | 'tracking' | 'admin' | 'advisor' | 'accounting' | 'exclusividad' | 'subpage' | 'order-confirmation' | 'quienes-somos'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path === '/admin' || path.startsWith('/admin/')) return 'admin';
       if (path === '/tracking' || path.startsWith('/rastreo')) return 'tracking';
       if (path === '/asesor' || path.startsWith('/advisor')) return 'advisor';
+      if (path === '/contabilidad' || path.startsWith('/contabilidad/')) return 'accounting';
       if (path === '/zavelastoresex') return 'subpage'; 
       if (path === '/quienes-somos' || path === '/nosotros' || path === '/quienessomos') return 'quienes-somos';
     }
@@ -371,6 +374,8 @@ export default function App() {
         setCurrentView('tracking');
       } else if (path === '/asesor' || path.startsWith('/advisor')) {
         setCurrentView('advisor');
+      } else if (path === '/contabilidad' || path.startsWith('/contabilidad/')) {
+        setCurrentView('accounting');
       } else if (path === '/zavelastoresex') {
         setCurrentView('subpage');
         setActiveSubpageSlug('zavelastoresex');
@@ -635,8 +640,8 @@ export default function App() {
             setCurrentView('admin');
             showToast('Acceso Administrativo verificado (Sergio Martínez)');
           } else if (authenticatedAdvisor) {
-            setCurrentView('advisor');
-            showToast(`Acceso Asesor verificado (${authenticatedAdvisor.name})`);
+            setCurrentView(isAccountingUser(authenticatedAdvisor) ? 'accounting' : 'advisor');
+            showToast(`Acceso verificado (${authenticatedAdvisor.name})`);
           } else {
             setIsAdminLoginOpen(true);
             showToast('⚡ Acceso secreto activado: ↑ ↓ ↑ ↑ 1985');
@@ -662,7 +667,7 @@ export default function App() {
     if (checkIsAdminAuthenticated()) {
       setCurrentView('admin');
     } else if (authenticatedAdvisor) {
-      setCurrentView('advisor');
+      setCurrentView(isAccountingUser(authenticatedAdvisor) ? 'accounting' : 'advisor');
     } else {
       setIsAdminLoginOpen(true);
     }
@@ -1193,7 +1198,7 @@ export default function App() {
             onSuccess={() => { setCurrentView('admin'); showToast('¡Bienvenido! Panel Master de Despachos activado.'); }}
             onAdvisorSuccess={(adv) => {
               setAuthenticatedAdvisor(adv);
-              setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
+              setTimeout(() => { try { window.location.assign(isAccountingUser(adv) ? '/contabilidad' : '/asesor'); } catch {} }, 150);
             }}
           />
         </div>
@@ -1218,6 +1223,36 @@ export default function App() {
     );
   }
 
+  if (currentView === 'accounting' || (currentView === 'advisor' && isAccountingUser(authenticatedAdvisor || getStoredAdvisor()))) {
+    const acctUser = authenticatedAdvisor || getStoredAdvisor();
+    if (!acctUser || !isAccountingUser(acctUser)) {
+      return (
+        <div className="min-h-screen bg-[#070514]">
+          <AdminLoginModal
+            isOpen={true}
+            defaultRole="advisor"
+            onClose={() => { setCurrentView('store'); navigate('/'); }}
+            onSuccess={() => { navigate('/admin'); setCurrentView('admin'); }}
+            onAdvisorSuccess={(adv) => {
+              setAuthenticatedAdvisor(adv);
+              setTimeout(() => { try { window.location.assign(isAccountingUser(adv) ? '/contabilidad' : '/asesor'); } catch {} }, 150);
+            }}
+          />
+        </div>
+      );
+    }
+    return (
+      <AccountingPortal
+        user={acctUser}
+        onBackToStore={() => {
+          setCurrentView('store');
+          navigate('/');
+        }}
+        onLogout={handleAdvisorLogout}
+      />
+    );
+  }
+
   if (currentView === 'advisor') {
     const activeAdv = authenticatedAdvisor || getStoredAdvisor();
     if (!activeAdv) {
@@ -1230,7 +1265,7 @@ export default function App() {
             onSuccess={() => { navigate('/admin'); setCurrentView('admin'); }}
             onAdvisorSuccess={(adv) => {
               setAuthenticatedAdvisor(adv);
-              setTimeout(() => { try { window.location.assign('/asesor'); } catch {} }, 150);
+              setTimeout(() => { try { window.location.assign(isAccountingUser(adv) ? '/contabilidad' : '/asesor'); } catch {} }, 150);
             }}
           />
         </div>
@@ -1296,11 +1331,12 @@ export default function App() {
             showToast('¡Bienvenido! Has accedido a la tienda en Modo de Pruebas Privado.');
           }}
           onAdvisorSuccess={(adv) => {
+            const acct = isAccountingUser(adv);
             setAuthenticatedAdvisor(adv);
             setIsAdminLoginOpen(false);
-            setCurrentView('advisor');
-            navigate('/asesor');
-            showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+            setCurrentView(acct ? 'accounting' : 'advisor');
+            navigate(acct ? '/contabilidad' : '/asesor');
+            showToast(acct ? `¡Bienvenido(a), ${adv.name}! Módulo de contabilidad activado.` : `¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
           }}
         />
         {toastMessage && (
@@ -1344,16 +1380,16 @@ export default function App() {
         <div className="bg-[#0B1528] border-b border-sky-500/40 px-4 py-2 flex items-center justify-between text-xs text-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#10B981]" />
-            <span className="font-mono text-[11px] text-sky-400 font-bold uppercase">Sesión de Asesor Activa:</span>
+            <span className="font-mono text-[11px] text-sky-400 font-bold uppercase">{isAccountingUser(authenticatedAdvisor) ? 'Sesión de Contabilidad Activa:' : 'Sesión de Asesor Activa:'}</span>
             <span className="font-bold text-white">{authenticatedAdvisor.name}</span>
             <span className="hidden sm:inline text-slate-400 font-mono text-[10px]">({authenticatedAdvisor.id} • {authenticatedAdvisor.channel})</span>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setCurrentView('advisor')}
+              onClick={() => setCurrentView(isAccountingUser(authenticatedAdvisor) ? 'accounting' : 'advisor')}
               className="px-2.5 py-1 bg-sky-500 hover:bg-sky-600 text-white font-black rounded-lg text-[11px] transition-all cursor-pointer shadow-sm"
             >
-              💼 Mi Portal de Ventas
+              {isAccountingUser(authenticatedAdvisor) ? '🧾 Mi módulo contable' : '💼 Mi Portal de Ventas'}
             </button>
             <button
               onClick={handleAdvisorLogout}
@@ -2097,11 +2133,12 @@ export default function App() {
           showToast('¡Bienvenido! Panel Master de Despachos activado.');
         }}
         onAdvisorSuccess={(adv) => {
+          const acct = isAccountingUser(adv);
           setAuthenticatedAdvisor(adv);
           setIsAdminLoginOpen(false);
-          setCurrentView('advisor');
-          navigate('/asesor');
-          showToast(`¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
+          setCurrentView(acct ? 'accounting' : 'advisor');
+          navigate(acct ? '/contabilidad' : '/asesor');
+          showToast(acct ? `¡Bienvenido(a), ${adv.name}! Módulo de contabilidad activado.` : `¡Bienvenido(a), ${adv.name}! Portal de Asesor activado.`);
         }}
       />
 

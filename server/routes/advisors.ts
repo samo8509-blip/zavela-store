@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
   const isAdmin = Boolean((res.locals as any).isAdmin);
   const all = store.listAdvisors();
   const activeAdvisors = all
-    .filter(a => a.status === 'active' && a.role !== 'admin')
+    .filter(a => a.status === 'active' && store.isSalesAdvisor(a))
     .map(a => ({ id: a.id, name: a.name, phone: a.phone, channel: a.channel, status: a.status, available: store.isOnline(a) }));
   res.json({
     success: true,

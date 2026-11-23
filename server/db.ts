@@ -1003,7 +1003,7 @@ class DatabaseStore {
   markAdvisorSalesDropiStatus(_ids: string[], _status: DropiStatus): number { return 0; } // el estado lo maneja el Centro de Despachos
 
   getAdvisorsPerformance(): AdvisorPerformance[] {
-    return advisorStore.listAdvisors().filter(a => a.role !== 'admin').map(a => {
+    return advisorStore.listAdvisors().filter(a => advisorStore.isSalesAdvisor(a)).map(a => {
       const list = this.getAdvisorSales({ advisorId: a.id }).filter(x => x.dropiStatus !== 'cancelado');
       const pending = list.filter(x => x.commissionStatus === 'por_pagar').reduce((n, x) => n + Number(x.commissionAmount || 0), 0);
       return {

@@ -16,7 +16,7 @@ import {
   buildLowStockAlertMessage
 } from '../services/whatsappAlerts.ts';
 import { db } from '../db.ts';
-import { listAdvisors } from '../services/advisorStore.ts';
+import { listAdvisors, isSalesAdvisor } from '../services/advisorStore.ts';
 import * as advisorSales from '../services/advisorSalesStore.ts';
 import { pool } from '../mysqlPool.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
@@ -226,7 +226,7 @@ router.post('/new-order', async (req: Request, res: Response) => {
     try {
       const code = String(req.body?.advisorRef || '').trim().toUpperCase().slice(0, 20);
       if (/^[A-Z0-9-]{3,20}$/.test(code) && !advisorSales.getAttribution(String(order.id))) {
-        const adv: any = listAdvisors().find((x: any) => x.role !== 'admin' && x.status !== 'inactive' && String(x.sellerCode || '').toUpperCase() === code);
+        const adv: any = listAdvisors().find((x: any) => isSalesAdvisor(x) && x.status !== 'inactive' && String(x.sellerCode || '').toUpperCase() === code);
         if (adv) {
           advisorSales.attributeOrder(String(order.id), {
             advisorId: adv.id, sellerCode: adv.sellerCode, advisorName: adv.name, channel: 'Enlace personal',

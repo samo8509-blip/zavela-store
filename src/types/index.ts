@@ -732,7 +732,8 @@ export interface Advisor {
   name: string; // ej. "Juan Pérez"
   firstName?: string;
   lastName?: string;
-  role?: 'admin' | 'advisor'; // 'admin' o 'advisor'
+  /** 'admin' | 'advisor' (ventas) | 'auxiliar' (auxiliar contable) | 'contador' (incluye todo lo del auxiliar). */
+  role?: 'admin' | 'advisor' | 'auxiliar' | 'contador';
   sellerCode?: string; // ej. "VEN-001", código de vendedor para control del que más vende
   username?: string; // ej. "juan.perez"
   password?: string; // ej. "juan123"

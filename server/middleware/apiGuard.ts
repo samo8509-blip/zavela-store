@@ -59,7 +59,8 @@ function check(prefix: string, token: string): Record<string, any> | null {
 }
 
 export const signAdminToken = (user: { id: any; email?: string }) => make(TOKEN_PREFIX, { id: user.id, email: user.email || '' });
-export const signAdvisorToken = (advisor: { id: any }) => make(ADVISOR_PREFIX, { id: advisor.id });
+/** `acct` marca a un usuario contable ('auxiliar' | 'contador'): su token NO sirve en las rutas de ventas de asesores. */
+export const signAdvisorToken = (advisor: { id: any }, acct?: 'auxiliar' | 'contador') => make(ADVISOR_PREFIX, acct ? { id: advisor.id, acct } : { id: advisor.id });
 export const verifyAdminToken = (t: string) => check(TOKEN_PREFIX, t);
 export const verifyAdvisorToken = (t: string) => check(ADVISOR_PREFIX, t);
 
@@ -125,9 +126,11 @@ export function apiGuard(req: Request, res: Response, next: NextFunction) {
 
   const token = readToken(req);
   const admin = verifyAdminToken(token);
-  const advisor = verifyAdvisorToken(token);
+  const advisorTok = verifyAdvisorToken(token);
+  const advisor = advisorTok && !advisorTok.acct ? advisorTok : null;
   (res.locals as any).isAdmin = Boolean(admin);
   (res.locals as any).isAdvisor = Boolean(advisor);
+  (res.locals as any).accountingLevel = advisorTok?.acct || (admin ? 'contador' : undefined);
 
   if (access === 'public') return next();
   if (access === 'advisor' && (admin || advisor)) return next();
