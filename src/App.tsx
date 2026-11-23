@@ -71,6 +71,7 @@ import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.ts
 import { resolveActiveSeasonalTheme, applyStorefrontPalette } from './utils/seasonalThemes.ts';
 import { HomeHero } from './components/HomeHero.tsx';
 import { CategoryTiles } from './components/CategoryTiles.tsx';
+import { CategoryRows, CategoryRowSection } from './components/CategoryRows.tsx';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
 import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
 import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
@@ -169,6 +170,9 @@ export default function App() {
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'discount'>('featured');
+  const CATALOG_PAGE_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
+  const categoryPathRef = useRef<string>('/');
 
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const seasonalThemeInfo = resolveActiveSeasonalTheme(settings);
@@ -388,7 +392,7 @@ export default function App() {
 
   const handleCloseProductDetail = useCallback(() => {
     setSelectedProduct(null);
-    navigate('/');
+    navigate(categoryPathRef.current || '/');
   }, [navigate]);
 
   const handleCloseProductNotFound = useCallback(() => {
@@ -1000,18 +1004,10 @@ export default function App() {
     }).length;
   }, [products, effectiveCategories]);
 
-  const filteredProducts = products.filter(p => {
-    if (p.active === false) return false;
-
-    const pCatNameCheck = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
-    if (pCatNameCheck === 'sexshop' || pCatNameCheck === 'adultos') {
-      return false; 
-    }
-
-    if (selectedCategoryId !== 'all') {
-      const catObj = effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId);
-      const targetSlug = (catObj?.slug || selectedCategoryId).toLowerCase();
-      const targetId = (catObj?.id || selectedCategoryId).toLowerCase();
+  const matchesCategoryKey = (p: Product, categoryKey: string): boolean => {
+      const catObj = effectiveCategories.find(c => c.id === categoryKey || c.slug === categoryKey);
+      const targetSlug = (catObj?.slug || categoryKey).toLowerCase();
+      const targetId = (catObj?.id || categoryKey).toLowerCase();
       const targetName = (catObj?.name || '').toLowerCase().replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
       
       const pCatId = (p.categoryId || (p as any).category_id || '').toLowerCase();
@@ -1046,10 +1042,52 @@ export default function App() {
         p.title.toLowerCase().includes('navidad')
       );
 
-      if (!isDirectMatch && !isNameMatch && !isCategorySlugMatch && !isHalloweenMatch && !isAmorMatch && !isNavidadMatch) {
-        return false;
+      return Boolean(isDirectMatch || isNameMatch || isCategorySlugMatch || isHalloweenMatch || isAmorMatch || isNavidadMatch);
+  };
+
+  useEffect(() => {
+    setVisibleCount(CATALOG_PAGE_SIZE);
+  }, [selectedCategoryId, selectedSubcategoryId, sortBy, searchQuery]);
+
+  const prevPathRef = useRef(location.pathname);
+  useEffect(() => {
+    const path = location.pathname;
+    const lower = path.toLowerCase();
+    if (lower.startsWith('/categoria/')) {
+      let slug = '';
+      try { slug = decodeURIComponent(path.slice('/categoria/'.length)).replace(/\/+$/, ''); } catch { slug = ''; }
+      if (slug) {
+        setSelectedCategoryId(slug);
+        setSelectedSubcategoryId('all');
+        setCurrentView('store');
       }
+    } else if ((lower === '/' || lower === '') && prevPathRef.current.toLowerCase().startsWith('/categoria/')) {
+      setSelectedCategoryId('all');
+      setSelectedSubcategoryId('all');
     }
+    prevPathRef.current = path;
+  }, [location.pathname]);
+
+  const goToCategory = (categoryKey: string) => {
+    setSelectedCategoryId(categoryKey);
+    setSelectedSubcategoryId('all');
+    if (categoryKey === 'all') {
+      navigate('/');
+      return;
+    }
+    const cat = effectiveCategories.find(c => c.id === categoryKey || c.slug === categoryKey);
+    navigate(`/categoria/${encodeURIComponent(cat?.slug || categoryKey)}`);
+  };
+
+  const filteredProducts = products.filter(p => {
+    if (p.active === false) return false;
+
+    const pCatNameCheck = (p.categoryName || (p as any).categoria || '').toLowerCase().trim();
+    if (pCatNameCheck === 'sexshop' || pCatNameCheck === 'adultos') {
+      return false; 
+    }
+
+    if (selectedCategoryId !== 'all' && !matchesCategoryKey(p, selectedCategoryId)) return false;
     
     if (selectedCategoryId !== 'all' && selectedSubcategoryId !== 'all') {
       const targetSub = selectedSubcategoryId.toLowerCase();
@@ -1099,6 +1137,46 @@ export default function App() {
     if (sortBy === 'discount') return b.discountPercentage - a.discountPercentage;
     return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
   });
+
+  {
+    const activeCat = selectedCategoryId !== 'all'
+      ? effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)
+      : undefined;
+    categoryPathRef.current = selectedCategoryId !== 'all'
+      ? `/categoria/${encodeURIComponent(activeCat?.slug || selectedCategoryId)}`
+      : '/';
+  }
+
+  const showCategoryRows = selectedCategoryId === 'all' && !searchQuery.trim();
+  const categorySections: CategoryRowSection[] = [];
+  if (showCategoryRows) {
+    const stripEmoji = (t: string) => (t || '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+    const covered = new Set<string>();
+    const catSections: CategoryRowSection[] = [];
+    effectiveCategories
+      .filter(c => c.active !== false && !/sex|adult|er[oó]tic|\+18/i.test(c.name || ''))
+      .forEach(c => {
+        const items = filteredProducts.filter(p => matchesCategoryKey(p, c.id));
+        if (items.length === 0) return;
+        items.forEach(p => covered.add(String(p.id || p.slug)));
+        catSections.push({ key: `cat-${c.id || c.slug}`, title: stripEmoji(c.name), products: items, onViewAll: () => goToCategory(c.id || c.slug) });
+      });
+    const orphans = filteredProducts.filter(p => !covered.has(String(p.id || p.slug)));
+    const featuredRow = filteredProducts.filter(p => p.featured);
+    const offersRow = filteredProducts
+      .filter(p => (p.discountPercentage || 0) > 0)
+      .sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0));
+    if (featuredRow.length > 0 && featuredRow.length < filteredProducts.length) {
+      categorySections.push({ key: 'featured', title: 'Destacados Zavela', products: featuredRow });
+    }
+    if (offersRow.length > 0 && offersRow.length < filteredProducts.length) {
+      categorySections.push({ key: 'offers', title: 'Ofertas', products: offersRow });
+    }
+    categorySections.push(...catSections);
+    if (orphans.length > 0) {
+      categorySections.push({ key: 'others', title: 'Más productos', products: orphans });
+    }
+  }
 
   const featuredProducts = products.filter(p => p.featured && p.active);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
@@ -1577,8 +1655,7 @@ export default function App() {
             selectedCategoryId={selectedCategoryId}
             getCount={getCategoryProductCount}
             onSelect={(catId) => {
-              setSelectedCategoryId(catId);
-              setSelectedSubcategoryId('all');
+              goToCategory(catId);
               setTimeout(() => {
                 document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
               }, 50);
@@ -1593,10 +1670,7 @@ export default function App() {
                 <button
                   id="cat-pill-all"
                   type="button"
-                  onClick={() => {
-                    setSelectedCategoryId('all');
-                    setSelectedSubcategoryId('all');
-                  }}
+                  onClick={() => goToCategory('all')}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     selectedCategoryId === 'all'
                       ? 'bg-slate-900 text-white shadow-xs'
@@ -1615,10 +1689,7 @@ export default function App() {
                       key={cat.id || cat.slug}
                       id={`cat-pill-${cat.id}`}
                       type="button"
-                      onClick={() => {
-                        setSelectedCategoryId(cat.id);
-                        setSelectedSubcategoryId('all');
-                      }}
+                      onClick={() => goToCategory(cat.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-sky-600 text-white shadow-xs'
@@ -1642,13 +1713,10 @@ export default function App() {
                 {selectedCategoryId !== 'all' && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedCategoryId('all');
-                      setSelectedSubcategoryId('all');
-                    }}
-                    className="text-[11px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                    onClick={() => goToCategory('all')}
+                    className="text-[11px] font-bold text-slate-600 hover:text-sky-700 px-2 py-1 rounded-lg hover:bg-sky-50 transition-colors cursor-pointer"
                   >
-                    ✕ Quitar Filtro
+                    ← Volver al inicio
                   </button>
                 )}
                 <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full border border-slate-200 text-slate-700">
@@ -1724,7 +1792,9 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-xs animate-pulse" />
                   <h2 className="text-sm sm:text-base font-black text-slate-900 uppercase tracking-wider">
-                    CATÁLOGO DISPONIBLE CON PAGO CONTRA ENTREGA
+                    {selectedCategoryId !== 'all'
+                      ? ((effectiveCategories.find(c => c.id === selectedCategoryId || c.slug === selectedCategoryId)?.name || 'Categoría').replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim())
+                      : 'CATÁLOGO DISPONIBLE CON PAGO CONTRA ENTREGA'}
                   </h2>
                 </div>
                 <span className="text-[11px] font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
@@ -1758,18 +1828,46 @@ export default function App() {
                     Ver todos los productos
                   </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                  {filteredProducts.map((product) => (
+              ) : showCategoryRows ? (
+                <CategoryRows
+                  sections={categorySections}
+                  renderProduct={(product) => (
                     <ProductCard
-                      key={product.id || product.slug}
                       product={product}
                       onSelectProduct={handleSelectProduct}
                       onAddToCart={(p, e) => handleAddToCart(p, p.variants?.[0], 1)}
                       onBuyNow={(p, e) => handleBuyNow(p, p.variants?.[0], 1)}
                     />
-                  ))}
-                </div>
+                  )}
+                />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                    {filteredProducts.slice(0, visibleCount).map((product) => (
+                      <ProductCard
+                        key={product.id || product.slug}
+                        product={product}
+                        onSelectProduct={handleSelectProduct}
+                        onAddToCart={(p, e) => handleAddToCart(p, p.variants?.[0], 1)}
+                        onBuyNow={(p, e) => handleBuyNow(p, p.variants?.[0], 1)}
+                      />
+                    ))}
+                  </div>
+                  {filteredProducts.length > visibleCount && (
+                    <div className="flex flex-col items-center gap-1.5 pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCount(c => c + CATALOG_PAGE_SIZE)}
+                        className="bg-slate-900 hover:bg-slate-700 text-white font-bold text-xs px-6 py-2.5 rounded-full cursor-pointer transition-colors"
+                      >
+                        Cargar más productos
+                      </button>
+                      <span className="text-[11px] text-slate-500">
+                        Mostrando {Math.min(visibleCount, filteredProducts.length)} de {filteredProducts.length}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
