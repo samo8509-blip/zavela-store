@@ -38,16 +38,16 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
     <div id="flash-sale-boom-banner" className="relative overflow-hidden py-1.5 px-3 sm:px-6" style={{ background: 'var(--zv-topbar, #0A192F)', color: 'var(--zv-topbar-ink, #22D3EE)' }}>
       {/* Subtle animated background shimmer */}
 
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-xs">
+      <div className="max-w-7xl mx-auto flex flex-row items-center justify-between gap-2 text-xs">
         
         {/* Left: Explosive Offer Badge & Headline */}
-        <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap text-center md:text-left">
+        <div className="flex items-center justify-start gap-2 md:flex-wrap text-left">
           <div className="flex items-center gap-1.5 bg-black/25 px-2.5 py-1 rounded-full text-yellow-300 font-medium uppercase text-[10px] sm:text-[11px] shrink-0">
             <Flame className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
             <span>{isCampaign ? 'BLACK FRIDAY' : 'ENVÍO GRATIS'}</span>
           </div>
 
-          <span className="font-medium text-xs sm:text-sm" style={{ letterSpacing: '-0.01em' }}>
+          <span className="hidden md:inline font-medium text-xs sm:text-sm" style={{ letterSpacing: '-0.01em' }}>
             {isCampaign && (
               <>
                 <strong className="font-semibold text-sm sm:text-base">Precios especiales</strong> +{' '}
@@ -58,10 +58,10 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
         </div>
 
         {/* Right: Live Countdown Timer & CTA */}
-        <div className="flex items-center justify-center gap-2.5 shrink-0">
+        <div className="flex items-center justify-end gap-2 md:gap-2.5 shrink-0">
           {isCampaign && (
           <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-white/20 font-mono text-[11px]">
-            <Clock className="w-3.5 h-3.5 text-yellow-300 animate-spin" style={{ animationDuration: '6s' }} />
+            <Clock className="hidden md:block w-3.5 h-3.5 text-yellow-300 animate-spin" style={{ animationDuration: '6s' }} />
             <span className="text-white/80 text-[10px] hidden xs:inline">Termina en:</span>
             <div className="flex items-center gap-1 font-black text-yellow-300 text-xs sm:text-sm tracking-wider">
               {timeLeft.days > 0 && <span className="bg-white/15 px-1 rounded">{timeLeft.days}d</span>}
