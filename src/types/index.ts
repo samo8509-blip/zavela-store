@@ -1121,7 +1121,7 @@ export interface HomePromoSettings {
     title: string;
     maxDiscount: number;
     buttonText: string;
-    color: 'coral' | 'violeta' | 'verde' | 'amarillo';
+    color: 'temporada' | 'coral' | 'violeta' | 'verde' | 'amarillo';
     /** Fecha (AAAA-MM-DD) hasta la que se muestra; vacío = sin fecha de fin */
     endsAt?: string;
   };
@@ -1142,7 +1142,7 @@ export const DEFAULT_HOME_PROMO: HomePromoSettings = {
     title: 'Hasta -{n}% en regalos de Navidad',
     maxDiscount: 40,
     buttonText: 'Ver ofertas',
-    color: 'coral',
+    color: 'temporada',
     endsAt: ''
   },
   shelf: {

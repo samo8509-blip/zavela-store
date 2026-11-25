@@ -2,6 +2,7 @@ import React from 'react';
 import { HomePromoSettings } from '../types/index.ts';
 
 const COLORS: Record<HomePromoSettings['band']['color'], { bg: string; ink: string; btnBg: string; btnInk: string }> = {
+  temporada: { bg: 'var(--shop-violet)', ink: '#ffffff', btnBg: '#ffffff', btnInk: '#000000' },
   coral: { bg: '#ff5a4f', ink: '#ffffff', btnBg: '#ffffff', btnInk: '#000000' },
   violeta: { bg: '#5433eb', ink: '#ffffff', btnBg: '#ffffff', btnInk: '#000000' },
   verde: { bg: '#0f3d2e', ink: '#ffffff', btnBg: '#ffffff', btnInk: '#000000' },
@@ -24,7 +25,7 @@ interface Props {
 }
 
 export const HomePromoBand: React.FC<Props> = ({ band, onClick }) => {
-  const c = COLORS[band.color] || COLORS.coral;
+  const c = COLORS[band.color] || COLORS.temporada;
   const title = String(band.title || '').replace(/\{n\}/g, String(Math.round(Number(band.maxDiscount) || 0)));
   return (
     <section

@@ -361,5 +361,55 @@ export function applyStorefrontPalette(themeId: SeasonalThemeId, style: 'marca' 
   s.setProperty('--zv-cta-ink', p.ctaInk);
   s.setProperty('--zv-badge-bg', p.badgeBg);
   s.setProperty('--zv-badge-ink', p.badgeInk);
+  applyShopAccent(themeId, style);
   applyFavicon(themeId);
+}
+
+/**
+ * Diseño "Shop" (maduro): lienzo claro, tarjetas blancas y UN acento. La temporada solo cambia ese acento,
+ * el color del botón de compra y un tinte muy leve del fondo; la estructura y el tono no cambian.
+ */
+export interface ShopAccent {
+  accent: string;
+  cta: string;
+  ctaInk: string;
+  canvas: string;
+}
+
+const hexToRgb = (hex: string): [number, number, number] => {
+  const h = hex.replace('#', '');
+  const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h.slice(0, 6);
+  return [parseInt(f.slice(0, 2), 16) || 0, parseInt(f.slice(2, 4), 16) || 0, parseInt(f.slice(4, 6), 16) || 0];
+};
+const mixHex = (base: string, tint: string, amount: number): string => {
+  const a = hexToRgb(base), b = hexToRgb(tint);
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * amount));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+};
+
+export function getShopAccent(themeId: SeasonalThemeId, style: 'marca' | 'mercado-vivo' = 'marca'): ShopAccent {
+  const BASE = '#f2f4f5';
+  if (themeId === 'black-friday') return { accent: '#111111', cta: '#facc15', ctaInk: '#0b0b0b', canvas: mixHex(BASE, '#facc15', 0.05) };
+  if (themeId === 'navidad-fin-ano') return { accent: '#0f5132', cta: '#dc2626', ctaInk: '#ffffff', canvas: mixHex(BASE, '#0f5132', 0.05) };
+  if (themeId === 'standard-light' || themeId === 'standard-cyber') {
+    return style === 'mercado-vivo'
+      ? { accent: '#0b1f4b', cta: '#ff5a4e', ctaInk: '#ffffff', canvas: mixHex(BASE, '#ffd23f', 0.06) }
+      : { accent: '#5433eb', cta: '#ff5a4f', ctaInk: '#ffffff', canvas: BASE };
+  }
+  const def = SEASONAL_THEMES.find(t => t.id === themeId);
+  if (!def) return { accent: '#5433eb', cta: '#ff5a4f', ctaInk: '#ffffff', canvas: BASE };
+  return { accent: def.secondaryColor, cta: def.primaryColor, ctaInk: '#ffffff', canvas: mixHex(BASE, def.primaryColor, 0.05) };
+}
+
+export function applyShopAccent(themeId: SeasonalThemeId, style: 'marca' | 'mercado-vivo' = 'marca'): void {
+  if (typeof document === 'undefined') return;
+  const a = getShopAccent(themeId, style);
+  const s = document.documentElement.style;
+  const [r, g, b] = hexToRgb(a.accent);
+  s.setProperty('--shop-violet', a.accent);
+  s.setProperty('--shop-canvas', a.canvas);
+  s.setProperty('--shop-shadow-violet', `0 4px 24px rgba(${r}, ${g}, ${b}, 0.34)`);
+  // Botón de compra sólido (sin degradados) con el color de la temporada
+  s.setProperty('--zv-cta', a.cta);
+  s.setProperty('--zv-cta-ink', a.ctaInk);
 }
