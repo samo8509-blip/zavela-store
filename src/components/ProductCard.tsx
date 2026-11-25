@@ -85,31 +85,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }, 150);
   };
 
+  const stripEmoji = (t: string) => String(t || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').replace(/[?!¡¿]{2,}/g, '').replace(/\s{2,}/g, ' ').trim();
+  const price = Number(product.price) || 0;
+  const compareAt = Number(product.compareAtPrice) || 0;
+  const hasDiscount = compareAt > price && price > 0;
+  const stock = Number(product.stock);
+
   return (
-    <div 
+    <div
       id={`product-card-${product.id}`}
       onClick={handleNavigateToProduct}
-      className="group zs-card flex flex-col overflow-visible cursor-pointer relative"
+      className="group zs-card zs-font flex flex-col overflow-visible cursor-pointer relative"
     >
-      {/* Window-like Header bar with High-Visibility Category Tag */}
-      <div className="px-4 pt-4 pb-1 flex items-center justify-between">
-        <span className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${categoryStyle.bg}`}>
-          <span>{categoryStyle.emoji}</span>
-          <span className="truncate max-w-[140px]">{categoryLabel}</span>
-        </span>
-        <div className="flex gap-1.5 items-center">
-          <span className="text-[10px] font-mono text-slate-500 font-semibold truncate max-w-[90px]">
-            {product.brand || 'Zavela'}
-          </span>
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs shrink-0" />
-        </div>
-      </div>
-
-      {/* Image & Badges Container */}
-      <div 
-        onClick={handleNavigateToProduct}
-        className="relative aspect-square w-full overflow-hidden flex items-center justify-center p-3 cursor-pointer"
-      >
+      {/* Imagen: la foto manda, con marco blanco de 12px y esquinas de 20px */}
+      <div className="relative aspect-square w-full overflow-hidden p-3">
         <img
           src={mainImage}
           alt={product.title}
@@ -117,268 +106,85 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="w-full h-full object-cover rounded-[20px] group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
         />
-
-        {/* Discount Badge with Fire Gradient BOOM style */}
-        {product.discountPercentage > 0 ? (
-          <div className="absolute top-2.5 right-2.5 bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-white text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-md flex items-center gap-1 border border-yellow-300/40 animate-pulse">
-            <Zap className="w-3 h-3 fill-yellow-300 text-yellow-300" />
-            <span>-{product.discountPercentage}% BOOM</span>
-          </div>
+        {hasDiscount && product.discountPercentage > 0 && (
+          <span className="absolute top-5 right-5 bg-white text-[color:var(--shop-violet)] text-xs font-semibold px-2.5 py-1 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+            -{product.discountPercentage}%
+          </span>
+        )}
+        {stock <= 0 ? (
+          <span className="absolute top-5 left-5 bg-black/80 text-white text-xs font-medium px-2.5 py-1 rounded-full">Agotado</span>
+        ) : stock <= 5 ? (
+          <span className="absolute top-5 left-5 bg-white text-black text-xs font-medium px-2.5 py-1 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.12)]">Quedan {stock}</span>
         ) : null}
-
-        {/* Warehouse Tag */}
-        <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs text-slate-700 text-[10px] font-mono font-semibold px-2 py-0.5 rounded border border-slate-200 shadow-2xs flex items-center gap-1">
-          <Truck className="w-3 h-3 text-sky-600" />
-          <span>{product.warehouseCity || 'Bogotá D.C.'}</span>
-        </div>
-
-        {/* Commercial Low Stock Alert / Badges */}
-        {product.stock <= 5 && product.stock > 0 ? (
-          <div className="absolute top-2.5 left-2.5 bg-gradient-to-r from-red-600 to-amber-600 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-wider shadow-md flex items-center gap-1 border border-yellow-300/40 animate-pulse z-10">
-            <Zap className="w-3 h-3 fill-yellow-300 text-yellow-300" />
-            <span>¡ÚLTIMAS {product.stock} UNIDADES!</span>
-          </div>
-        ) : product.stock <= 0 ? (
-          <div className="absolute top-2.5 left-2.5 bg-slate-900/90 text-slate-200 text-[10px] font-mono font-bold px-2 py-1 rounded-lg uppercase tracking-wider shadow-md border border-slate-700 z-10">
-            Agotado temporalmente
-          </div>
-        ) : product.stock <= 10 ? (
-          <div className="absolute top-2.5 left-2.5 bg-amber-500 text-slate-950 text-[10px] font-mono font-black px-2 py-0.5 rounded-md shadow-xs border border-amber-300 z-10">
-            Quedan {product.stock} un.
-          </div>
-        ) : null}
-
-        {/* Quick View Button on Image Hover */}
-        <div 
-          onClick={handleNavigateToProduct}
-          className="absolute inset-3 rounded-[20px] bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer"
-        >
-          <button
-            type="button"
-            onClick={handleNavigateToProduct}
-            className="bg-white hover:bg-sky-50 text-slate-900 border border-slate-200 font-black text-xs px-3.5 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 uppercase tracking-wider transform translate-y-2 group-hover:translate-y-0 transition-all duration-200 cursor-pointer pointer-events-auto"
-          >
-            <Eye className="w-3.5 h-3.5 text-sky-600" />
-            Ver Ficha Completa
-          </button>
-        </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3 bg-white rounded-b-[28px] relative">
-        <div className="space-y-2">
-          {/* Top Status & Review stars */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-            <div className="flex items-center gap-1 text-amber-500">
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-              <span className="text-slate-600 font-bold ml-0.5">5.0</span>
-            </div>
-            <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold border border-emerald-200">Verificado</span>
-          </div>
-
-          {/* Title with stronger hierarchy */}
-          <h3 
-            onClick={handleNavigateToProduct}
-            className="font-semibold text-base tracking-tight text-slate-900 line-clamp-2 leading-snug group-hover:text-[color:var(--shop-violet)] transition-colors cursor-pointer"
+      {/* Contenido: nombre, estrellas, precio y un solo botón de compra */}
+      <div className="px-4 pb-4 pt-1 flex-1 flex flex-col gap-3">
+        <div className="space-y-1.5">
+          <h3
+            className="font-semibold text-sm sm:text-base text-black line-clamp-2 leading-snug group-hover:text-[color:var(--shop-violet)] transition-colors"
+            style={{ letterSpacing: '-0.031em' }}
           >
-            {product.title}
+            {stripEmoji(product.title)}
           </h3>
-
-          {/* INTERACTIVE FEATURES HOVER TRIGGER & QUICK RESUME */}
-          <div 
-            className="relative"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            {/* Interactive Feature Pill Button */}
-            <div 
-              id={`features-trigger-${product.id}`}
-              className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50/70 border border-slate-200 hover:border-sky-300 transition-all cursor-pointer group/feat"
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                <span className="text-[11px] font-extrabold text-slate-700 group-hover/feat:text-sky-700 truncate">
-                  ⚡ Características & Beneficios
-                </span>
-              </div>
-              <span className="text-[10px] font-mono font-bold text-sky-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
-                Pasa el cursor 💡
-              </span>
-            </div>
-
-            {/* Quick highlight tags */}
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {keyHighlights.map((hl, idx) => (
-                <span 
-                  key={`${product.id}-hl-${idx}`}
-                  className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200"
-                >
-                  ✓ {hl}
-                </span>
-              ))}
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                🚚 Paga al recibir
-              </span>
-            </div>
-
-            {/* PERSUASIVE HOVER SUMMARY POPOVER / TOOLTIP (Alto Interés para Concluir la Venta) */}
-            {isSummaryOpen && (
-              <div 
-                id={`summary-popover-${product.id}`}
-                className="absolute bottom-full left-0 right-0 sm:left-[-12px] sm:right-[-12px] mb-2 z-40 bg-white rounded-2xl p-4 border-2 border-sky-400 shadow-2xl animate-in fade-in zoom-in-95 duration-200 pointer-events-auto text-slate-900"
-                onClick={handleNavigateToProduct}
-              >
-                {/* Top Badge */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2.5">
-                  <span className="text-[10px] font-mono font-black uppercase tracking-wider text-sky-700 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                    ¿POR QUÉ TE ENCANTARÁ?
-                  </span>
-                  <span className="text-[9px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-300 font-bold">
-                    Pago Contra Entrega
-                  </span>
-                </div>
-
-                {/* Brief & Engaging Summary Text */}
-                <p className="text-xs text-slate-700 font-medium leading-relaxed mb-3">
-                  {cleanSummary}
-                </p>
-
-                {/* 3 High-Value Sales Arguments */}
-                <div className="space-y-1.5 mb-3.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                    <span><strong className="text-slate-900">Cero Riesgo:</strong> No pagas nada por anticipado. Pagas en efectivo al cartero.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
-                    <span><strong className="text-slate-900">Despacho Inmediato:</strong> Envío express desde {product.warehouseCity || 'Bogotá D.C.'}.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                    <span><strong className="text-slate-900">Garantía Total:</strong> 30 días de cobertura y soporte directo por WhatsApp.</span>
-                  </div>
-                </div>
-
-                {/* Action to finalize interest & open detail */}
-                <button
-                  type="button"
-                  onClick={handleNavigateToProduct}
-                  className="w-full py-2 px-3 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-black text-[11px] rounded-xl flex items-center justify-center gap-1.5 uppercase tracking-wider shadow-sm transition-all cursor-pointer group/btn"
-                >
-                  <span>Ver más información y pedir</span>
-                  <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
-                </button>
-
-                <div className="text-center mt-1.5">
-                  <span className="text-[9px] text-slate-500 font-mono">
-                    👆 Haz clic aquí para ver fotos, videos y hacer tu pedido
-                  </span>
-                </div>
-
-                {/* Triangle Arrow pointer */}
-                <div className="absolute top-full left-6 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-sky-400" />
-              </div>
-            )}
-          </div>
-
-          {/* Pricing Monospace & Savings Indicator */}
-          <div className="pt-1 space-y-1">
-            <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-2xl font-semibold text-slate-900 tracking-tight">
-                {formatCOP(product.price)}
-              </span>
-              <span className="text-xs font-medium text-slate-500">COP</span>
-              {product.compareAtPrice && product.compareAtPrice > product.price && (
-                <span className="text-xs text-slate-400 line-through font-mono">
-                  {formatCOP(product.compareAtPrice)}
-                </span>
-              )}
-            </div>
-
-            {/* Savings indicator in Colombian Pesos */}
-            {product.compareAtPrice && product.compareAtPrice > product.price && (
-              <div className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-200 text-[10px] font-mono font-extrabold">
-                <span>🔥 ¡Ahorras {formatCOP(product.compareAtPrice - product.price)} hoy!</span>
-              </div>
-            )}
-
-            {/* Commercial Low Stock Urgency Banner (<= 5 units) */}
-            {product.stock <= 5 && product.stock > 0 ? (
-              <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-400/40 text-amber-950 flex items-center justify-between gap-1 text-[10px]">
-                <span className="font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-red-600 animate-ping inline-block" />
-                  <span>¡Ya quedan pocas unidades!</span>
-                </span>
-                <span className="font-mono font-black text-red-700 bg-white px-1.5 py-0.5 rounded border border-amber-300">
-                  Solo {product.stock} disp.
-                </span>
-              </div>
-            ) : null}
-
-            {/* Modalidad A: Free shipping perk pill */}
-            <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              <Truck className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>🚚 <strong>Envío Gratis Incluido</strong> ($0 COP)</span>
-            </div>
-
-            <div className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 pt-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="truncate">Pago Contra Entrega en Efectivo</span>
-            </div>
+          <div className="flex items-center gap-0.5 text-black" aria-label="Calificación 5 de 5">
+            {[0, 1, 2, 3, 4].map(i => <Star key={i} className="w-3 h-3 fill-black" />)}
+            <span className="text-[11px] text-[color:var(--shop-muted)] ml-1">5.0</span>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="space-y-2 pt-2.5 border-t border-slate-100">
-          {/* Primary CTA: High energy ¡PEDIR Y PAGAR EN CASA! */}
+        <div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-xl sm:text-2xl font-semibold text-black" style={{ letterSpacing: '-0.04em' }}>
+              {formatCOP(price)}
+            </span>
+            {hasDiscount && (
+              <span className="text-xs text-[color:var(--shop-muted)] line-through">{formatCOP(compareAt)}</span>
+            )}
+          </div>
+          <p className="text-[11px] sm:text-xs text-[color:var(--shop-muted)] mt-0.5">Envío gratis · Pago contra entrega</p>
+        </div>
+
+        <div className="flex items-center gap-2 mt-auto pt-1">
           <button
             id={`btn-buy-now-${product.id}`}
             onClick={(e) => {
               e.stopPropagation();
               onBuyNow(product, e);
             }}
-            className="w-full h-11 hover:brightness-110 active:scale-98 font-black rounded-full text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all uppercase tracking-wider cursor-pointer" style={{ background: 'var(--zv-cta, linear-gradient(90deg,#06b6d4,#4f46e5))', color: 'var(--zv-cta-ink, #fff)' }}
+            className="flex-1 h-11 rounded-full text-sm font-semibold flex items-center justify-center hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
           >
-            <Zap className="w-4 h-4 fill-current" />
-            <span className="font-extrabold tracking-wide">¡PEDIR Y PAGAR EN CASA!</span>
+            Pedir y pagar en casa
           </button>
-
-          {/* Secondary CTA & Share */}
-          <div className="flex gap-1.5">
-            <button
-              id={`btn-add-cart-${product.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToCart(product, e);
-              }}
-              className="flex-1 h-9 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 font-bold rounded-full text-xs flex items-center justify-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all uppercase tracking-wider cursor-pointer"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 text-slate-700" />
-              <span>AGREGAR AL CARRITO</span>
-            </button>
-
-            <button
-              id={`btn-share-${product.id}`}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsShareOpen(true);
-              }}
-              className="h-9 px-3 bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 hover:border-purple-300 rounded-full border border-slate-200 transition-colors flex items-center justify-center cursor-pointer shadow-2xs"
-              title="Compartir por WhatsApp, Facebook o Redes"
-            >
-              <Share2 className="w-4 h-4 text-purple-600" />
-            </button>
-          </div>
+          <button
+            id={`btn-add-cart-${product.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(product, e);
+            }}
+            className="zs-pill w-11 h-11 rounded-full flex items-center justify-center cursor-pointer shrink-0"
+            title="Agregar al carrito"
+            aria-label="Agregar al carrito"
+          >
+            <ShoppingBag className="w-4 h-4 text-black" />
+          </button>
+          <button
+            id={`btn-share-${product.id}`}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsShareOpen(true);
+            }}
+            className="zs-pill w-11 h-11 rounded-full hidden sm:flex items-center justify-center cursor-pointer shrink-0"
+            title="Compartir"
+            aria-label="Compartir producto"
+          >
+            <Share2 className="w-4 h-4 text-black" />
+          </button>
         </div>
       </div>
 
-      {/* Share Modal Portal */}
       <ProductShareModal
         product={product}
         isOpen={isShareOpen}
@@ -387,4 +193,3 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     </div>
   );
 };
-
