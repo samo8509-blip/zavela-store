@@ -21,6 +21,7 @@ const label = 'block text-xs font-bold text-slate-600 mb-1';
 
 export const AdminHomePromo: React.FC<Props> = ({ settings, categories = [], onSaveSettings }) => {
   const [band, setBand] = useState<HomePromoSettings['band']>({ ...DEFAULT_HOME_PROMO.band, ...(settings.homePromo?.band || {}) });
+  const [ribbon, setRibbon] = useState<NonNullable<HomePromoSettings['ribbon']>>({ ...DEFAULT_HOME_PROMO.ribbon!, ...(settings.homePromo?.ribbon || {}) });
   const [shelf, setShelf] = useState<HomePromoSettings['shelf']>({ ...DEFAULT_HOME_PROMO.shelf, ...(settings.homePromo?.shelf || {}) });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -35,7 +36,7 @@ export const AdminHomePromo: React.FC<Props> = ({ settings, categories = [], onS
     setSaved(false);
     try {
       const pct = Math.min(90, Math.max(1, Math.round(Number(band.maxDiscount) || 0)));
-      await onSaveSettings({ homePromo: { band: { ...band, maxDiscount: pct }, shelf } });
+      await onSaveSettings({ homePromo: { band: { ...band, maxDiscount: pct }, shelf, ribbon } });
       setSaved(true);
       setTimeout(() => setSaved(false), 4000);
     } catch {
@@ -110,6 +111,48 @@ export const AdminHomePromo: React.FC<Props> = ({ settings, categories = [], onS
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+        <h3 className="font-black text-sm text-slate-900">Cinta de productos del banner principal</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={label}>Qué muestra</label>
+            <select className={input} value={ribbon.mode} onChange={e => setRibbon({ ...ribbon, mode: e.target.value as 'all' | 'categories' })}>
+              <option value="all">Todas las categorías (mezcla variada)</option>
+              <option value="categories">Solo las categorías que yo elija</option>
+            </select>
+          </div>
+          <div>
+            <label className={label}>Cantidad de productos</label>
+            <select className={input} value={ribbon.count} onChange={e => setRibbon({ ...ribbon, count: Number(e.target.value) === 20 ? 20 : Number(e.target.value) === 8 ? 8 : 14 })}>
+              <option value={8}>8 productos</option>
+              <option value={14}>14 productos</option>
+              <option value={20}>20 productos</option>
+            </select>
+          </div>
+        </div>
+        {ribbon.mode === 'categories' && (
+          <div>
+            <label className={label}>Categorías de la cinta (puedes marcar varias, por ejemplo Artículos Navideños)</label>
+            <div className="flex flex-wrap gap-2">
+              {categories.map(c => {
+                const on = ribbon.categoryIds.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setRibbon({ ...ribbon, categoryIds: on ? ribbon.categoryIds.filter(x => x !== c.id) : [...ribbon.categoryIds, c.id] })}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border cursor-pointer ${on ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-slate-700 border-slate-200 hover:border-violet-300'}`}
+                  >
+                    {(c.name || '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">Si eliges categorías con menos de 2 productos, la cinta vuelve sola a la mezcla de todas.</p>
+          </div>
+        )}
       </section>
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">

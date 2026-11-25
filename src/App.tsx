@@ -1201,8 +1201,16 @@ export default function App() {
   // Franja de oferta y estante de temporada (se editan en el panel: Inicio comercial)
   const homePromo = {
     band: { ...DEFAULT_HOME_PROMO.band, ...(settings?.homePromo?.band || {}) },
-    shelf: { ...DEFAULT_HOME_PROMO.shelf, ...(settings?.homePromo?.shelf || {}) }
+    shelf: { ...DEFAULT_HOME_PROMO.shelf, ...(settings?.homePromo?.shelf || {}) },
+    ribbon: { ...DEFAULT_HOME_PROMO.ribbon!, ...(settings?.homePromo?.ribbon || {}) }
   };
+  // Cinta del banner: todas las categorías mezcladas, o solo las elegidas en el panel (si no alcanzan, vuelve a mezclar todo)
+  let ribbonProducts: Product[] = products;
+  let ribbonOnlySelected = false;
+  if (homePromo.ribbon.mode === 'categories' && homePromo.ribbon.categoryIds.length > 0) {
+    const picked = products.filter(p => homePromo.ribbon.categoryIds.some(id => matchesCategoryKey(p, id)));
+    if (picked.length >= 2) { ribbonProducts = picked; ribbonOnlySelected = true; }
+  }
   const showPromoBand = showCategoryRows && isPromoBandVisible(homePromo.band);
   let shelfProducts: Product[] = [];
   if (showCategoryRows && homePromo.shelf.enabled) {
@@ -1718,7 +1726,9 @@ export default function App() {
           <HomeHero
             themeId={seasonalThemeInfo.activeThemeId}
             style={settings?.storefrontStyle}
-            products={products}
+            products={ribbonProducts}
+            ribbonOnlySelected={ribbonOnlySelected}
+            ribbonCount={homePromo.ribbon.count}
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             onExploreCatalog={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}
             onSelectProduct={handleSelectProduct}

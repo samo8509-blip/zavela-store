@@ -10,6 +10,9 @@ interface HomeHeroProps {
   whatsappNumber: string;
   onExploreCatalog: () => void;
   onSelectProduct: (p: Product) => void;
+  /** true = la cinta muestra solo categorías elegidas: sin tope de 2 por categoría */
+  ribbonOnlySelected?: boolean;
+  ribbonCount?: number;
   categories: { id?: string; slug?: string; name?: string }[];
   onSearch: (q: string) => void;
   onSelectCategory: (id: string) => void;
@@ -20,7 +23,7 @@ const firstImage = (p: Product): string => {
   return anyP.image || anyP.imagen || (Array.isArray(anyP.images) ? anyP.images[0] : '') || (Array.isArray(anyP.imagenes) ? anyP.imagenes[0] : '') || '';
 };
 
-export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct, categories, onSearch, onSelectCategory }) => {
+export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct, categories, onSearch, onSelectCategory, ribbonOnlySelected, ribbonCount = 14 }) => {
   // Cinta de productos: destacados y con descuento primero, y como máximo 2 por categoría para que haya variedad
   const eligible = products
     .filter(p => p.active !== false && Number(p.stock) !== 0 && firstImage(p))
@@ -34,10 +37,10 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
   const featured: Product[] = [];
   for (const p of ranked) {
     const k = String(p.categoryName || p.categoryId || 'x');
-    if ((perCat[k] || 0) >= 2) continue;
+    if (!ribbonOnlySelected && (perCat[k] || 0) >= 2) continue;
     perCat[k] = (perCat[k] || 0) + 1;
     featured.push(p);
-    if (featured.length >= 14) break;
+    if (featured.length >= ribbonCount) break;
   }
   const waHref = `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero que me ayuden a elegir un producto')}`;
 
