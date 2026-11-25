@@ -106,7 +106,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
         </form>
 
         {pills.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 max-w-3xl">
+          <div className="hidden md:flex flex-wrap justify-center gap-2 max-w-3xl">
             {pills.map(c => (
               <button
                 key={c.id || c.slug}

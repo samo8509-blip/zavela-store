@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage, DEFAULT_HOME_PROMO } from './types/index.ts';
 import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
+import { MobileBottomNav } from './components/MobileBottomNav.tsx';
+import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
 import { HomeShelf } from './components/HomeShelf.tsx';
 import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
@@ -1721,8 +1723,17 @@ export default function App() {
           />
         </main>
       ) : (
-        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
-          
+        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full pb-24 md:pb-6">
+
+          <MobileCategoryTabs
+            categories={effectiveCategories}
+            selectedCategoryId={selectedCategoryId}
+            onSelect={(catId) => {
+              goToCategory(catId);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+
           <HomeHero
             themeId={seasonalThemeInfo.activeThemeId}
             style={settings?.storefrontStyle}
@@ -2036,7 +2047,7 @@ export default function App() {
         <button
           onClick={() => openLuckyWheel('manual')}
           id="btn-floating-lucky-wheel"
-          className="fixed bottom-20 left-4 sm:bottom-6 sm:left-6 z-40 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-amber-500/25 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
+          className="fixed bottom-36 left-4 sm:bottom-6 sm:left-6 z-40 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-amber-500/25 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
           title="Gira la Ruleta y Gana tu Descuento Exclusivo"
           style={{
             borderColor: settings?.luckyWheel?.seasonAccentColor || '#ffffff'
@@ -2055,7 +2066,7 @@ export default function App() {
         <button
           onClick={() => openGamificationGame('manual')}
           id="btn-floating-gamification-challenge"
-          className="fixed bottom-32 left-4 sm:bottom-20 sm:left-6 z-40 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-indigo-600/30 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
+          className="fixed bottom-48 left-4 sm:bottom-20 sm:left-6 z-40 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black px-3.5 py-2.5 rounded-2xl shadow-xl shadow-indigo-600/30 border-2 border-white flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer active:scale-95 transition-all hover:scale-105 animate-in fade-in slide-in-from-bottom-3 duration-300"
           title="Juega el Desafío Flash y Atrapa tu Descuento"
           style={{
             borderColor: settings?.gamificationGame?.accentColor || '#ffffff'
@@ -2081,6 +2092,30 @@ export default function App() {
       )}
 
 
+
+      {currentView === 'store' && !isCartOpen && !isCheckoutOpen && (
+        <MobileBottomNav
+          active={isCartOpen ? 'cart' : selectedCategoryId === 'all' && !searchQuery ? 'home' : 'categories'}
+          categories={effectiveCategories}
+          cartCount={totalCartCount}
+          isLoggedIn={!!currentCustomer}
+          onHome={() => {
+            goToCategory('all');
+            setSearchQuery('');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOffers={() => {
+            goToCategory('all');
+            setTimeout(() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' }), 80);
+          }}
+          onOpenCart={() => setIsCartOpen(true)}
+          onAccount={() => (currentCustomer ? setIsCustomerProfileOpen(true) : handleOpenCustomerAuth('login'))}
+          onSelectCategory={(catId) => {
+            goToCategory(catId);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
 
       <CartDrawer
         isOpen={isCartOpen}
