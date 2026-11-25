@@ -11,7 +11,7 @@ import type { Product } from '../../src/types/index.ts';
  */
 const router = Router();
 // Se prueban en orden: la cuota de la búsqueda en Google se cuenta por modelo.
-const MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+const MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash'];
 let usedModel = MODELS[0];
 
 let client: GoogleGenAI | null = null;
@@ -27,6 +27,12 @@ const LIMIT_PER_HOUR = 30;
 
 const num = (v: any) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+function cleanDetail(raw: string): string {
+  let d = raw;
+  try { const j = JSON.parse(raw); d = j?.error?.message || raw; } catch {}
+  return d.replace(/key=[A-Za-z0-9_-]+/g, 'key=***').replace(/\s+/g, ' ').slice(0, 220);
+}
 
 function extractJson(text: string): any | null {
   const a = text.indexOf('{'); const b = text.lastIndexOf('}');
@@ -72,6 +78,7 @@ Reglas estrictas:
 {"resumen":"qué producto entendiste, en una frase","confianza":"alta|media|baja","competidores":[{"tienda":"","precio":0,"url":"","nota":"diferencias importantes con el producto (marca, tamaño, cantidad)"}]}`;
       let r: any = null;
       let lastErr: any = null;
+      const failures: string[] = [];
       for (const m of MODELS) {
         try {
           r = await ai.models.generateContent({ model: m, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
@@ -80,12 +87,13 @@ Reglas estrictas:
         } catch (e: any) {
           lastErr = e;
           const t = String(e?.message || e || '');
+          failures.push(`${m}: ${cleanDetail(t)}`);
           console.warn(`[price-suggestion] ${m} falló: ${t.slice(0, 300)}`);
           // Solo se salta de modelo si es cuota, límite o modelo no disponible; otros errores se muestran tal cual.
           if (!/429|quota|RESOURCE_EXHAUSTED|404|NOT_FOUND|not found|not supported|503|UNAVAILABLE|overloaded/i.test(t)) break;
         }
       }
-      if (!r) throw lastErr || new Error('Sin respuesta de Gemini');
+      if (!r) { const e: any = lastErr || new Error('Sin respuesta de Gemini'); e.allFailures = failures; throw e; }
       const parsed = extractJson(String(r.text || ''));
       const sources = ((r as any).candidates?.[0]?.groundingMetadata?.groundingChunks || [])
         .map((c: any) => c?.web).filter((w: any) => w?.uri).slice(0, 8).map((w: any) => ({ title: String(w.title || w.uri), uri: String(w.uri) }));
@@ -156,10 +164,9 @@ Reglas estrictas:
     const raw = String(err?.message || err || '');
     console.error('[price-suggestion]', raw);
     // Solo la ve el administrador: se muestra el motivo real que devolvió Google, sin la clave.
-    let detail = raw;
-    try { const j = JSON.parse(raw); detail = j?.error?.message || raw; } catch {}
-    detail = detail.replace(/key=[A-Za-z0-9_-]+/g, 'key=***').replace(/\s+/g, ' ').slice(0, 260);
-    const isQuota = /429|quota|RESOURCE_EXHAUSTED/i.test(raw);
+    const all: string[] = Array.isArray(err?.allFailures) && err.allFailures.length ? err.allFailures : [cleanDetail(raw)];
+    const detail = all.join(' | ');
+    const isQuota = /429|quota|RESOURCE_EXHAUSTED/i.test(all.join(' '));
     return res.status(isQuota ? 429 : 500).json({
       success: false,
       message: (isQuota
