@@ -412,4 +412,6 @@ export function applyShopAccent(themeId: SeasonalThemeId, style: 'marca' | 'merc
   // Botón de compra sólido (sin degradados) con el color de la temporada
   s.setProperty('--zv-cta', a.cta);
   s.setProperty('--zv-cta-ink', a.ctaInk);
+  // Barra del navegador / de la app instalada con el color de la temporada
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', a.accent);
 }

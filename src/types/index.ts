@@ -382,6 +382,7 @@ export interface StoreSettings {
   whatsappMessage?: string;
   whatsappAdvisorName?: string;
   whatsappFloatingEnabled?: boolean;
+  pwaInstallPromptEnabled?: boolean; // aviso "Instala Zavela en tu celular" (por defecto activo)
   whatsappSettings?: WhatsAppConfigSettings;
   whatsappCloudApi?: WhatsAppCloudApiSettings;
   whatsappAlerts?: WhatsAppAlertsSettings;

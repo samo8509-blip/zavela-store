@@ -25,6 +25,7 @@ import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.ts
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
 import { MobileCartBar, useWaiChatMobileStyle } from './components/MobileCartBar.tsx';
+import { InstallAppPrompt } from './components/InstallAppPrompt.tsx';
 import { HomeShelf } from './components/HomeShelf.tsx';
 import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
@@ -2120,6 +2121,11 @@ export default function App() {
           }}
         />
       )}
+
+      <InstallAppPrompt
+        enabled={settings?.pwaInstallPromptEnabled !== false}
+        visible={currentView === 'store' && !selectedProduct && !isCartOpen && !isCheckoutOpen && totalCartCount === 0}
+      />
 
       {currentView === 'store' && !selectedProduct && !isCartOpen && !isCheckoutOpen && (
         <MobileCartBar
