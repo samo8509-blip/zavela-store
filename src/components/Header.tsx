@@ -222,40 +222,40 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <div id="top-announcement-bar" className="w-full max-w-[100vw] overflow-hidden bg-slate-900 text-white text-xs py-1.5 px-2.5 sm:px-8 border-b border-slate-800">
+      <div id="top-announcement-bar" className="zs-font w-full max-w-[100vw] overflow-hidden bg-[#f2f4f5] text-slate-700 text-xs py-1.5 px-2.5 sm:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-4 text-center sm:text-left">
           <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#10B981] shrink-0" />
-            <span className="text-[10px] sm:text-[11px] font-medium text-slate-200 truncate">
-              Envío Gratis Nacional y <strong className="text-emerald-400 font-bold uppercase">Pago Contra Entrega</strong> (Pagas al recibir)
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span className="text-[10px] sm:text-[11px] font-medium text-slate-700 truncate">
+              Envío gratis nacional y <strong className="text-black font-semibold">pago contra entrega</strong> (pagas al recibir)
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 sm:gap-5 text-slate-300 text-[10px] sm:text-[11px] flex-wrap sm:flex-nowrap">
+          <div className="flex items-center justify-center gap-2 sm:gap-5 text-slate-600 text-[10px] sm:text-[11px] flex-wrap sm:flex-nowrap">
             <button 
               id="top-bar-contact-btn"
               onClick={() => setIsContactModalOpen(true)}
-              className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+              className="hover:text-black transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <Headphones className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <Headphones className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Atención</span>
             </button>
 
             <button 
               id="top-bar-track-order-btn"
               onClick={onOpenTracking}
-              className="hover:text-sky-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+              className="hover:text-black transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <Truck className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <Truck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Rastreo</span>
             </button>
 
             <button 
               id="top-bar-warranties-btn"
               onClick={() => setIsWarrantyModalOpen(true)}
-              className="hover:text-amber-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+              className="hover:text-black transition-colors flex items-center gap-1 cursor-pointer shrink-0"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Garantías</span>
             </button>
           </div>
@@ -265,7 +265,7 @@ export const Header: React.FC<HeaderProps> = ({
       <header 
         id="main-store-header" 
         ref={megaMenuContainerRef}
-        className="sticky top-0 z-50 bg-white/98 backdrop-blur-md border-b border-slate-200/90 shadow-xs text-slate-900 transition-all w-full max-w-[100vw] overflow-visible"
+        className="zs-font sticky top-0 z-50 bg-white/95 backdrop-blur-md shadow-[0_2px_8px_rgba(0,0,0,0.06)] text-slate-900 transition-all w-full max-w-[100vw] overflow-visible"
       >
         <div className="w-full max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3">
           <div className="flex items-center justify-between gap-1.5 sm:gap-4 lg:gap-8 w-full">
@@ -294,22 +294,22 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </Link>
 
-            <nav className="hidden lg:flex items-center gap-6 xl:gap-8 text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0">
+            <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-sm font-medium text-black shrink-0" style={{ letterSpacing: '-0.02em' }}>
               <Link
                 to="/"
                 id="nav-link-inicio"
                 onClick={handleHomeClick}
-                className={`py-2 transition-colors cursor-pointer no-underline ${
+                className={`px-3.5 py-2 rounded-full transition-colors cursor-pointer no-underline ${
                   activeCategoryId === 'all' && !searchQuery && window.location.pathname === '/'
-                    ? 'text-sky-600 font-black'
-                    : 'hover:text-sky-600'
+                    ? 'bg-[#f2f4f5] text-black'
+                    : 'hover:bg-[#f2f4f5]'
                 }`}
               >
                 Inicio
               </Link>
 
               <div 
-                className="catalog-dropdown-container group/catalog relative py-2"
+                className="catalog-dropdown-container group/catalog relative"
                 onMouseEnter={() => setIsMegaMenuOpen(true)}
                 onMouseLeave={() => setIsMegaMenuOpen(false)}
               >
@@ -322,10 +322,10 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsMegaMenuOpen(!isMegaMenuOpen);
                     }
                   }}
-                  className={`flex items-center gap-1.5 transition-colors cursor-pointer no-underline ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-colors cursor-pointer no-underline ${
                     activeCategoryId !== 'all' || isMegaMenuOpen
-                      ? 'text-sky-600 font-black'
-                      : 'text-slate-800 hover:text-sky-600'
+                      ? 'bg-[#f2f4f5] text-black'
+                      : 'text-black hover:bg-[#f2f4f5]'
                   }`}
                   aria-expanded={isMegaMenuOpen}
                   aria-haspopup="true"
@@ -421,11 +421,11 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-link-ofertas"
                 onClick={handleOfertasClick}
-                className="py-2 text-[#FF5A36] hover:text-[#E02656] font-black transition-colors cursor-pointer flex items-center gap-1.5 group"
+                className="px-3.5 py-2 rounded-full text-[#FF5A36] hover:bg-[#fff1ef] font-medium transition-colors cursor-pointer flex items-center gap-1.5 group"
               >
                 <Flame className="w-3.5 h-3.5 text-[#FF5A36] group-hover:scale-110 transition-transform" />
                 <span>Ofertas</span>
-                <span className="bg-gradient-to-r from-red-500 to-rose-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase tracking-wider shadow-2xs">
+                <span className="bg-[#FF5A36] text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium leading-none">
                   Hot
                 </span>
               </button>
@@ -433,17 +433,17 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-link-quienes-somos"
                 onClick={handleQuienesSomosClick}
-                className="py-2 hover:text-sky-600 transition-colors cursor-pointer"
+                className="px-3.5 py-2 rounded-full hover:bg-[#f2f4f5] transition-colors cursor-pointer"
               >
-                Quiénes Somos
+                Quiénes somos
               </button>
 
               <button
                 id="nav-link-adults"
                 onClick={handleAdultZoneClick}
-                className="py-2 px-3 rounded-full bg-slate-900 text-purple-300 hover:text-white hover:bg-purple-900 font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-2 rounded-full zs-pill text-black font-medium transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <Moon className="w-3.5 h-3.5" />
+                <Moon className="w-3.5 h-3.5 text-slate-500" />
                 <span>Zona +18</span>
               </button>
             </nav>
@@ -550,7 +550,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="header-login-btn"
                   onClick={() => onOpenCustomerAuth?.('login')}
-                  className="w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5 shrink-0"
+                  className="w-8 h-8 sm:w-auto sm:px-4 sm:py-2 rounded-full zs-pill text-black text-sm font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                   title="Iniciar Sesión / Registrarse"
                   aria-label="Iniciar sesión o registrarse"
                 >
@@ -564,16 +564,17 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => {
                   if (onToggleAdmin) onToggleAdmin();
                 }}
-                className="hidden sm:flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 active:scale-95 transition-all shadow-xs cursor-pointer shrink-0 no-underline"
+                className="hidden sm:flex items-center gap-1 px-3 sm:px-4 py-1 sm:py-2 rounded-full zs-pill text-black text-sm font-medium active:scale-95 transition-all cursor-pointer shrink-0 no-underline"
                 title="Abrir Panel Administrativo"
               >
-                <span>⚙️ Admin</span>
+                <span>Admin</span>
               </Link>
 
               <button
                 id="header-open-cart-btn"
                 onClick={onOpenCart}
-                className="relative flex items-center justify-center gap-1 sm:gap-2 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-95 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full font-black text-xs shadow-md hover:shadow-lg transition-all cursor-pointer uppercase tracking-wider shrink-0"
+                className="relative flex items-center justify-center gap-1 sm:gap-2 hover:brightness-110 active:scale-95 px-3 sm:px-5 py-2 rounded-full font-semibold text-sm transition-all cursor-pointer shrink-0"
+                style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
                 aria-label="Abrir carrito de compras"
               >
                 <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />

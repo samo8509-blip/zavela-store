@@ -35,23 +35,22 @@ export const FlashSaleBanner: React.FC<FlashSaleBannerProps> = ({ onExploreOffer
   const formatDigits = (n: number) => n.toString().padStart(2, '0');
 
   return (
-    <div id="flash-sale-boom-banner" className="shadow-md relative overflow-hidden py-2 px-3 sm:px-6" style={{ background: 'var(--zv-topbar, #0A192F)', color: 'var(--zv-topbar-ink, #22D3EE)' }}>
+    <div id="flash-sale-boom-banner" className="relative overflow-hidden py-1.5 px-3 sm:px-6" style={{ background: 'var(--zv-topbar, #0A192F)', color: 'var(--zv-topbar-ink, #22D3EE)' }}>
       {/* Subtle animated background shimmer */}
-      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full animate-[shimmer_3s_infinite]" />
 
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2 text-xs">
         
         {/* Left: Explosive Offer Badge & Headline */}
         <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap text-center md:text-left">
-          <div className="flex items-center gap-1.5 bg-black/30 backdrop-blur-xs px-2.5 py-1 rounded-full border border-yellow-300/40 text-yellow-300 font-mono font-black uppercase text-[10px] sm:text-[11px] animate-pulse shadow-xs shrink-0">
+          <div className="flex items-center gap-1.5 bg-black/25 px-2.5 py-1 rounded-full text-yellow-300 font-medium uppercase text-[10px] sm:text-[11px] shrink-0">
             <Flame className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
             <span>{isCampaign ? 'BLACK FRIDAY' : 'ENVÍO GRATIS'}</span>
           </div>
 
-          <span className="font-extrabold tracking-wide text-xs sm:text-sm">
+          <span className="font-medium text-xs sm:text-sm" style={{ letterSpacing: '-0.01em' }}>
             {isCampaign && (
               <>
-                <strong className="font-black text-sm sm:text-base">Precios especiales</strong> +{' '}
+                <strong className="font-semibold text-sm sm:text-base">Precios especiales</strong> +{' '}
               </>
             )}
             Envío Gratis y Pago Contra Entrega en Toda Colombia 🇨🇴
