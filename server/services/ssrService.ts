@@ -317,10 +317,23 @@ Sitemap: ${baseUrl}/sitemap.xml
       );
     }
 
+    // Lista de categorías para el selector: se calcula ANTES de filtrar, para que siempre estén todas
+    const categories = Array.from(new Set(allProducts.map(p => p.categoryName || 'General'))).filter(Boolean);
+    const navCategories = await this.getActiveCategoriesFromDb();
+
+    // Las ligas del menú usan el slug (p. ej. articulos-para-automovil-y-motocicletas) y el selector usa el nombre:
+    // se comparan normalizados (sin tildes, minúsculas, con guiones) contra nombre, id y slug de la categoría.
+    const norm = (v: string) => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     if (categoryFilter && categoryFilter !== 'todos') {
-      allProducts = allProducts.filter(p => 
-        (p.categoryName || '').toLowerCase().includes(categoryFilter) ||
-        (p.categoryId || '').toLowerCase().includes(categoryFilter)
+      const wanted = norm(categoryFilter);
+      const matchedCats = navCategories.filter(c => norm(c.slug) === wanted || norm(c.id) === wanted || norm(c.name) === wanted);
+      const catIds = new Set(matchedCats.map(c => String(c.id)));
+      const catNames = new Set(matchedCats.map(c => norm(c.name)));
+      allProducts = allProducts.filter(p =>
+        norm(p.categoryName || '') === wanted ||
+        norm(p.categoryId || '') === wanted ||
+        catIds.has(String(p.categoryId || '')) ||
+        catNames.has(norm(p.categoryName || ''))
       );
     }
 
@@ -328,9 +341,6 @@ Sitemap: ${baseUrl}/sitemap.xml
     const totalPages = Math.ceil(totalProducts / limit) || 1;
     const startIndex = (page - 1) * limit;
     const pageProducts = allProducts.slice(startIndex, startIndex + limit);
-
-    const categories = Array.from(new Set(allProducts.map(p => p.categoryName || 'General'))).filter(Boolean);
-    const navCategories = await this.getActiveCategoriesFromDb();
 
     // JSON-LD ItemList
     const jsonLdItemList = {
@@ -1003,7 +1013,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       />
       <select name="categoria">
         <option value="">Todas las Categorías</option>
-        ${categories.map(cat => `<option value="${escapeHtml(cat)}" ${categoryFilter === cat.toLowerCase() ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
+        ${categories.map(cat => `<option value="${escapeHtml(cat)}" ${norm(categoryFilter) === norm(cat) ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
       </select>
       <button type="submit">Filtrar</button>
       ${searchQuery || categoryFilter ? `<a href="/catalogo" class="btn btn-secondary" style="padding: 0.65rem 1rem;">Limpiar</a>` : ''}

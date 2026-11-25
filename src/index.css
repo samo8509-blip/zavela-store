@@ -135,3 +135,11 @@
 
 /* Fondo gris claro del estilo Shop en la portada de la tienda */
 #zavela-app-root { background-color: var(--shop-canvas) !important; transition: background-color 0.3s ease; }
+
+
+/* Cinta de productos del inicio: se desplaza muy despacio de derecha a izquierda y se detiene al pasar el mouse */
+@keyframes zs-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.zs-marquee { animation: zs-marquee 70s linear infinite; padding-left: 1rem; }
+.zs-marquee-wrap:hover .zs-marquee, .zs-marquee-wrap:focus-within .zs-marquee { animation-play-state: paused; }
+.zs-marquee-still { animation: none; margin-left: auto; margin-right: auto; }
+@media (prefers-reduced-motion: reduce) { .zs-marquee { animation: none; overflow-x: auto; } }

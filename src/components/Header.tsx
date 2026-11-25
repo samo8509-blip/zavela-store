@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   ShoppingBag, 
   Search, 
@@ -96,6 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchQuery,
   onSearchChange
 }) => {
+  const navigate = useNavigate();
   const seasonalInfo = resolveActiveSeasonalTheme(settings);
   const activeSeasonalThemeId = seasonalInfo.activeThemeId;
 
@@ -317,10 +318,16 @@ export const Header: React.FC<HeaderProps> = ({
                   href="/catalogo"
                   id="nav-link-catalogo"
                   onClick={(e) => {
+                    // El enlace real /catalogo es una página estática para buscadores; al hacer clic
+                    // el cliente debe quedarse en la tienda interactiva (el href se conserva para SEO).
+                    e.preventDefault();
                     if (window.innerWidth < 1024) {
-                      e.preventDefault();
                       setIsMegaMenuOpen(!isMegaMenuOpen);
+                      return;
                     }
+                    setIsMegaMenuOpen(false);
+                    if (window.location.pathname !== '/') navigate('/');
+                    handleCategorySelection('all');
                   }}
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-colors cursor-pointer no-underline ${
                     activeCategoryId !== 'all' || isMegaMenuOpen
