@@ -108,6 +108,7 @@ const rules: Rule[] = [
   // Protegido (administrador)
   { method: '*', re: /^\/api\/(admin|backups)(\/|$)/, access: 'admin' },
   { method: '*', re: /^\/api\/dropi(\/|$)/, access: 'admin' },
+  { method: '*', re: /^\/api\/admin\/price-suggestion(\/|$)/, access: 'admin' },
   { method: '*', re: /^\/api\/customers(\/|$)/, access: 'admin' },
   { method: '*', re: /^\/api\/alerts(\/|$)/, access: 'admin' },
   { method: '*', re: /^\/api\/advisors(\/|$)/, access: 'admin' },

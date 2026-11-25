@@ -278,6 +278,43 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const precioSugerido30 = useMemo(() => calcularPrecioParaMargen(30), [costoTotalOperativo]);
   const precioSugerido40 = useMemo(() => calcularPrecioParaMargen(40), [costoTotalOperativo]);
 
+  // ---- Precio sugerido por IA (compara con el mercado) ----
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<any | null>(null);
+
+  const consultarPrecioIA = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/admin/price-suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          categoryName: formData.categoryName,
+          costProduct: costoProveedor,
+          shipping: fleteEnvio,
+          platformFee: comisionDropi,
+          currentPrice: precioVenta
+        })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.message || `Error ${res.status}`);
+      setAiResult(json);
+    } catch (e: any) {
+      setAiResult(null);
+      setAiError(e?.message || 'No se pudo consultar.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Solo cambia el precio de venta: el precio tachado debe ser un precio que de verdad se cobró antes.
+  const aplicarPrecioIA = (nuevoPrecio: number) => {
+    if (nuevoPrecio > 0) setFormData(prev => ({ ...prev, precio: nuevoPrecio }));
+  };
+
   const aplicarPrecioSugerido = (nuevoPrecio: number) => {
     if (nuevoPrecio <= 0) return;
     setFormData(prev => ({
@@ -633,6 +670,67 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 <button type="button" onClick={() => aplicarPrecioSugerido(precioSugerido30)} disabled={costoTotalOperativo <= 0} className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 transition-all shadow-2xs group disabled:opacity-50"><span className="text-xs font-extrabold text-slate-700">Ganancia 30%</span><span className="text-sm font-black text-indigo-600 font-mono mt-0.5">{formatCOP(precioSugerido30)}</span></button>
                 <button type="button" onClick={() => aplicarPrecioSugerido(precioSugerido40)} disabled={costoTotalOperativo <= 0} className="flex flex-col items-center justify-center p-3 rounded-xl bg-white border border-slate-200 hover:border-amber-400 transition-all shadow-2xs group disabled:opacity-50"><span className="text-xs font-extrabold text-slate-700">Ganancia 40%</span><span className="text-sm font-black text-amber-600 font-mono mt-0.5">{formatCOP(precioSugerido40)}</span></button>
               </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border border-violet-200 bg-violet-50/50 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-600" /> Precio sugerido por IA (compara con el mercado)</span>
+                <button
+                  type="button"
+                  onClick={consultarPrecioIA}
+                  disabled={aiLoading || !String(formData.title || '').trim()}
+                  className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {aiLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Buscando en la web…</> : 'Consultar precios del mercado'}
+                </button>
+              </div>
+              {!String(formData.title || '').trim() && (
+                <p className="text-[11px] text-slate-500">Escribe primero el título del producto (sección 3) para poder buscarlo.</p>
+              )}
+              {aiError && <p className="text-xs font-bold text-rose-700">{aiError}</p>}
+              {aiResult && (
+                <div className="space-y-3">
+                  {aiResult.summary && <p className="text-xs text-slate-700"><strong>Entendí:</strong> {aiResult.summary}{aiResult.confidence ? ` (certeza ${aiResult.confidence})` : ''}</p>}
+                  {(aiResult.warnings || []).map((w: string, i: number) => (
+                    <p key={i} className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{w}</p>
+                  ))}
+                  {aiResult.market && (
+                    <p className="text-xs text-slate-700">
+                      Mercado ({aiResult.market.count} {aiResult.market.count === 1 ? 'precio' : 'precios'}): desde <strong>{formatCOP(aiResult.market.low)}</strong> · mediana <strong>{formatCOP(aiResult.market.median)}</strong> · hasta <strong>{formatCOP(aiResult.market.high)}</strong>
+                      {aiResult.floor > 0 && <> · Tu precio mínimo con {aiResult.guard?.minMarginPercent}% de margen: <strong>{formatCOP(aiResult.floor)}</strong></>}
+                    </p>
+                  )}
+                  {(aiResult.suggestions || []).length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {aiResult.suggestions.map((sg: any) => (
+                        <button key={sg.label} type="button" onClick={() => aplicarPrecioIA(sg.price)} className="text-left p-3 rounded-xl bg-white border border-slate-200 hover:border-violet-400 transition-all shadow-2xs">
+                          <span className="block text-xs font-extrabold text-slate-800">{sg.label}</span>
+                          <span className="block text-sm font-black text-violet-700 font-mono mt-0.5">{formatCOP(sg.price)}</span>
+                          <span className="block text-[11px] text-slate-600 mt-0.5">Ganas {formatCOP(sg.profit)} ({sg.margin}%)</span>
+                          <span className="block text-[10px] text-slate-500 mt-1 leading-snug">{sg.desc}{sg.atFloor ? ' · ajustado a tu mínimo' : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(aiResult.competitors || []).length > 0 && (
+                    <details className="text-xs text-slate-700">
+                      <summary className="cursor-pointer font-bold">Ver de dónde salió cada precio</summary>
+                      <ul className="mt-2 space-y-1.5">
+                        {aiResult.competitors.map((c: any, i: number) => (
+                          <li key={i} className="flex flex-wrap items-baseline gap-x-2">
+                            <strong>{c.store}</strong> <span className="font-mono">{formatCOP(c.price)}</span>
+                            {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-violet-700 underline">ver</a>}
+                            {c.note && <span className="text-slate-500">— {c.note}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Precios aproximados tomados de la web por IA ({aiResult.model}). Verifica los enlaces antes de decidir. Al aplicar un precio solo cambia el precio de venta; el precio tachado no se toca.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className={`p-4 rounded-2xl border transition-all ${rentabilidadNetaReal > 0 ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950' : (precioVenta > 0 ? 'bg-rose-50/80 border-rose-300 text-rose-950' : 'bg-slate-50 border-slate-200 text-slate-700')}`}>
