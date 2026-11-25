@@ -334,7 +334,7 @@ export const WhatsAppAdvisorFloating: React.FC<WhatsAppAdvisorFloatingProps> = (
   };
 
   return (
-    <div id="whatsapp-advisor-floating-root" className="fixed bottom-24 md:bottom-5 right-4 sm:right-6 z-40 pointer-events-auto">
+    <div id="whatsapp-advisor-floating-root" className="fixed bottom-[76px] md:bottom-5 right-4 sm:right-6 z-40 pointer-events-auto">
       
       {/* Expanded Interactive Chat Bubble */}
       {isOpen && (

@@ -24,6 +24,7 @@ import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advi
 import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
+import { MobileCartBar, useWaiChatMobileStyle } from './components/MobileCartBar.tsx';
 import { HomeShelf } from './components/HomeShelf.tsx';
 import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
@@ -1230,6 +1231,7 @@ export default function App() {
   }
   const featuredProducts = products.filter(p => p.featured && p.active);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
+  useWaiChatMobileStyle(currentView === 'store');
 
   if (currentView === 'admin') {
     if (!checkIsAdminAuthenticated()) {
@@ -2114,6 +2116,15 @@ export default function App() {
             goToCategory(catId);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+        />
+      )}
+
+      {currentView === 'store' && !isCartOpen && !isCheckoutOpen && (
+        <MobileCartBar
+          count={totalCartCount}
+          total={cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product.price) * (item.quantity || 1)), 0)}
+          navVisible
+          onOpenCart={() => setIsCartOpen(true)}
         />
       )}
 
