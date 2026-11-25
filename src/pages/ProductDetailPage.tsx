@@ -74,6 +74,8 @@ export interface ProductDetailPageProps {
   isSocialClosing?: boolean;
   onOpenLuckyWheel?: () => void;
   isLuckyWheelEnabled?: boolean;
+  whatsappFloatingEnabled?: boolean;
+  whatsappNumber?: string;
 }
 
 export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
@@ -88,7 +90,9 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   onOpenAuthorCertificate,
   isSocialClosing = false,
   onOpenLuckyWheel,
-  isLuckyWheelEnabled = false
+  isLuckyWheelEnabled = false,
+  whatsappFloatingEnabled = true,
+  whatsappNumber
 }) => {
   const params = useProductParams();
   const targetIdentifier = propSlug || params.slug || params.id || '';
@@ -303,9 +307,10 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
   // Enlace dinámico de WhatsApp para consultas del producto actual
   const product = activeProduct;
+  const waNumber = (whatsappNumber || '573008784427').replace(/\D/g, '');
   const whatsappUrl = product
-    ? `https://wa.me/573008784427?text=${encodeURIComponent('Hola, estoy interesado en el producto ' + product.title + ' que vi en Zavela Store y quisiera más información.')}`
-    : 'https://wa.me/573008784427';
+    ? `https://wa.me/${waNumber}?text=${encodeURIComponent('Hola, estoy interesado en el producto ' + product.title + ' que vi en Zavela Store y quisiera más información.')}`
+    : `https://wa.me/${waNumber}`;
 
   // Manejadores de compra
   const handleAddToCartClick = () => {
@@ -1014,14 +1019,14 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
       )}
 
       {/* 💬 Botón Flotante de Asesor WhatsApp */}
-      {product && (
+      {product && whatsappFloatingEnabled && (
         <a
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           id="btn-floating-whatsapp-product"
           aria-label="Preguntar por WhatsApp al Asesor"
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs sm:text-sm rounded-full shadow-2xl shadow-emerald-600/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+          className="hidden md:flex fixed bottom-6 right-6 z-40 items-center gap-2.5 px-4 py-3 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs sm:text-sm rounded-full shadow-2xl shadow-emerald-600/40 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
         >
           <div className="relative">
             <MessageCircle className="w-5 h-5 fill-white text-emerald-800" />
