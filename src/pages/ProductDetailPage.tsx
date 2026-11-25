@@ -191,9 +191,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
   // Precio de referencia o comparación
   const activeCompareAtPrice = useMemo(() => {
     if (!activeProduct) return 0;
-    // Precio tachado desactivado: no se muestra ningún "precio antes"
+    // Precio tachado desactivado, salvo en campaña activa (ahí es el precio real anterior).
+    // Con una variante de precio propio no se compara, porque el "antes" es del producto base.
+    const campaignCompare = Number(activeProduct.compareAtPrice) || 0;
+    const variantOwnPrice = selectedVariant && typeof selectedVariant.price === 'number' && selectedVariant.price > 0 && selectedVariant.price !== activeProduct.price;
+    if (activeProduct.campaignName && campaignCompare > activeUnitPrice && !variantOwnPrice) return campaignCompare;
     return 0;
-  }, [activeProduct, activeUnitPrice]);
+  }, [activeProduct, activeUnitPrice, selectedVariant]);
 
   const discountPercentage = useMemo(() => {
     if (!activeCompareAtPrice || activeCompareAtPrice <= activeUnitPrice) return 0;
@@ -566,6 +570,13 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
 
               {/* 💵 BLOQUE DE PRECIO DINÁMICO GRANDE */}
               <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-emerald-50/40 border border-slate-200 space-y-1.5">
+                {activeProduct.campaignName && activeCompareAtPrice > activeUnitPrice && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-yellow-300">
+                    <span>⚡</span>
+                    <span>{activeProduct.campaignName}</span>
+                    <span className="text-white/70">· precio especial</span>
+                  </div>
+                )}
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="text-3xl sm:text-4xl font-mono font-black text-slate-950">
                     {formatCOP(activeUnitPrice)}

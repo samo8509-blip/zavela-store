@@ -3,6 +3,7 @@ import { db, isTestProduct } from '../db.ts';
 import { pool, nativePool } from '../mysqlPool.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
+import { applyCampaignDisplay } from '../services/campaign.ts';
 
 const router = Router();
 
@@ -79,7 +80,7 @@ router.get('/', async (req, res) => {
     if (nativePool) {
       try {
         const [rows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
-        if (Array.isArray(rows)) products = rows.map(mapSqlRowToProduct).filter(p => !isTestProduct(p));
+        if (Array.isArray(rows)) products = rows.map(mapSqlRowToProduct).filter(p => !isTestProduct(p)).map(applyCampaignDisplay);
       } catch (e) {
         console.error("Error GET MySQL:", e);
       }

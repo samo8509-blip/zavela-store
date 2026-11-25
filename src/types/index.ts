@@ -486,6 +486,7 @@ export interface Product {
   realNetMarginPercentage?: number; // Margen neto % real sobre venta
   compareAtPrice?: number; // Precio tachado
   discountPercentage?: number;
+  campaignName?: string; // Nombre de la campaña activa (p. ej. Black Friday)
   marginAmount?: number; // Ganancia $ bruta (price - costPrice)
   marginPercentage?: number; // Margen % bruto ((price - costPrice)/costPrice * 100)
   stock: number;

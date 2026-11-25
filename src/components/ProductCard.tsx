@@ -112,6 +112,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ) : stock <= 5 ? (
             <span className="absolute top-2 left-2 bg-white text-black text-[10px] font-medium px-2 py-0.5 rounded-full shadow-sm">Quedan {stock}</span>
           ) : null}
+          {hasDiscount && product.campaignName && (
+            <span className="absolute left-2 bottom-2 bg-black text-yellow-300 text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
+              {product.campaignName}
+            </span>
+          )}
           {stock > 0 && (
             <button
               type="button"
@@ -160,6 +165,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {hasDiscount && product.discountPercentage > 0 && (
           <span className="absolute top-5 right-5 bg-white text-[color:var(--shop-violet)] text-xs font-semibold px-2.5 py-1 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
             -{product.discountPercentage}%
+          </span>
+        )}
+        {hasDiscount && product.campaignName && (
+          <span className="absolute bottom-5 left-5 bg-black text-yellow-300 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
+            ⚡ {product.campaignName}
           </span>
         )}
         {stock <= 0 ? (
