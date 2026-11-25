@@ -300,10 +300,10 @@ export const Header: React.FC<HeaderProps> = ({
                 to="/"
                 id="nav-link-inicio"
                 onClick={handleHomeClick}
-                className={`px-3.5 py-2 rounded-full transition-colors cursor-pointer no-underline ${
+                className={`px-3 py-2 transition-colors cursor-pointer ${
                   activeCategoryId === 'all' && !searchQuery && window.location.pathname === '/'
-                    ? 'bg-[#f2f4f5] text-black'
-                    : 'hover:bg-[#f2f4f5]'
+                    ? 'text-black font-semibold underline decoration-[var(--shop-violet)] decoration-2 underline-offset-[10px]'
+                    : 'text-black hover:underline decoration-slate-300 decoration-2 underline-offset-[10px]'
                 }`}
               >
                 Inicio
@@ -329,10 +329,10 @@ export const Header: React.FC<HeaderProps> = ({
                     if (window.location.pathname !== '/') navigate('/');
                     handleCategorySelection('all');
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-colors cursor-pointer no-underline ${
+                  className={`flex items-center gap-1.5 px-3 py-2 transition-colors cursor-pointer ${
                     activeCategoryId !== 'all' || isMegaMenuOpen
-                      ? 'bg-[#f2f4f5] text-black'
-                      : 'text-black hover:bg-[#f2f4f5]'
+                      ? 'text-black font-semibold underline decoration-[var(--shop-violet)] decoration-2 underline-offset-[10px]'
+                      : 'text-black hover:underline decoration-slate-300 decoration-2 underline-offset-[10px]'
                   }`}
                   aria-expanded={isMegaMenuOpen}
                   aria-haspopup="true"
@@ -428,7 +428,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-link-ofertas"
                 onClick={handleOfertasClick}
-                className="px-3.5 py-2 rounded-full text-[#FF5A36] hover:bg-[#fff1ef] font-medium transition-colors cursor-pointer flex items-center gap-1.5 group"
+                className="px-3 py-2 text-[#FF5A36] hover:underline decoration-[#FF5A36]/40 decoration-2 underline-offset-[10px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 group"
               >
                 <Flame className="w-3.5 h-3.5 text-[#FF5A36] group-hover:scale-110 transition-transform" />
                 <span>Ofertas</span>
@@ -440,7 +440,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-link-quienes-somos"
                 onClick={handleQuienesSomosClick}
-                className="px-3.5 py-2 rounded-full hover:bg-[#f2f4f5] transition-colors cursor-pointer"
+                className="px-3 py-2 hover:underline decoration-slate-300 decoration-2 underline-offset-[10px] transition-colors cursor-pointer"
               >
                 Quiénes somos
               </button>
@@ -448,7 +448,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="nav-link-adults"
                 onClick={handleAdultZoneClick}
-                className="px-3.5 py-2 rounded-full zs-pill text-black font-medium transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-3 py-2 text-black font-medium hover:underline decoration-slate-300 decoration-2 underline-offset-[10px] transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Moon className="w-3.5 h-3.5 text-slate-500" />
                 <span>Zona +18</span>
@@ -496,7 +496,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     id="header-user-account-btn"
                     onClick={() => setIsCustomerMenuOpen(!isCustomerMenuOpen)}
-                    className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 hover:bg-sky-50 text-slate-800 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 text-black hover:underline decoration-slate-300 decoration-2 underline-offset-[10px] text-sm font-medium transition-all cursor-pointer shrink-0"
                     title={`Mi Cuenta (${currentCustomer.firstName || currentCustomer.name})`}
                   >
                     <User className="w-3.5 h-3.5 text-sky-600 shrink-0" />
@@ -557,7 +557,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="header-login-btn"
                   onClick={() => onOpenCustomerAuth?.('login')}
-                  className="w-8 h-8 sm:w-auto sm:px-4 sm:py-2 rounded-full zs-pill text-black text-sm font-medium transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                  className="w-8 h-8 sm:w-auto sm:px-4 sm:py-2 text-black text-sm font-medium hover:underline decoration-slate-300 decoration-2 underline-offset-[10px] transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
                   title="Iniciar Sesión / Registrarse"
                   aria-label="Iniciar sesión o registrarse"
                 >
@@ -571,7 +571,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => {
                   if (onToggleAdmin) onToggleAdmin();
                 }}
-                className="hidden sm:flex items-center gap-1 px-3 sm:px-4 py-1 sm:py-2 rounded-full zs-pill text-black text-sm font-medium active:scale-95 transition-all cursor-pointer shrink-0 no-underline"
+                className="hidden sm:flex items-center gap-1 px-3 sm:px-4 py-1 sm:py-2 text-black text-sm font-medium hover:underline decoration-slate-300 decoration-2 underline-offset-[10px] active:scale-95 transition-all cursor-pointer shrink-0 no-underline"
                 title="Abrir Panel Administrativo"
               >
                 <span>Admin</span>
