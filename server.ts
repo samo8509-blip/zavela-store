@@ -18,6 +18,7 @@ import handoffLinkRouter from './server/routes/handoffLink.ts';
 import paymentsRouter from './server/routes/payments.ts';
 import dropiRouter from './server/routes/dropi.ts';
 import backupsRouter from './server/routes/backups.ts';
+import priceSuggestionRouter from './server/routes/priceSuggestion.ts';
 import { authRouter } from './server/routes/auth.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db, isTestProduct } from './server/db.ts';
@@ -78,6 +79,7 @@ async function startServer() {
   app.use('/api/admin/backups', backupsRouter);
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
+  app.use('/api/admin/price-suggestion', priceSuggestionRouter);
   app.use('/api/admin', adminRouter);
   // Soporte directo para /api/categories (GET, POST, PUT, DELETE)
   app.use('/api/categories', (req, res, next) => {
