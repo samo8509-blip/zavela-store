@@ -72,6 +72,7 @@ import { registerProductObservation } from './services/commerceMindClient.ts';
 import { SeasonalThemeAtmosphere } from './components/SeasonalThemeAtmosphere.tsx';
 import { resolveActiveSeasonalTheme, applyStorefrontPalette } from './utils/seasonalThemes.ts';
 import { HomeHero } from './components/HomeHero.tsx';
+import { CategoryMosaic } from './components/CategoryMosaic.tsx';
 import { CategoryTiles } from './components/CategoryTiles.tsx';
 import { CategoryRows, CategoryRowSection } from './components/CategoryRows.tsx';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
@@ -1695,23 +1696,27 @@ export default function App() {
             }}
           />
 
-          <CategoryTiles
-            categories={effectiveCategories}
-            selectedCategoryId={selectedCategoryId}
-            getCount={getCategoryProductCount}
-            onSelect={(catId) => {
-              goToCategory(catId);
-              setTimeout(() => {
-                document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
-              }, 50);
-            }}
-          />
+          {showCategoryRows ? (
+            <CategoryMosaic sections={categorySections} onSelectProduct={handleSelectProduct} />
+          ) : (
+            <CategoryTiles
+              categories={effectiveCategories}
+              selectedCategoryId={selectedCategoryId}
+              getCount={getCategoryProductCount}
+              onSelect={(catId) => {
+                goToCategory(catId);
+                setTimeout(() => {
+                  document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' });
+                }, 50);
+              }}
+            />
+          )}
 
           <div id="catalogo" className="scroll-mt-24"></div>
           <div id="catalog-products-section" className="space-y-5 pt-1 scroll-mt-24 zs-font">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 zs-bar px-3 sm:px-4 py-2.5">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
+              <div className={`${showCategoryRows ? 'hidden' : 'flex'} items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto`}>
                 <button
                   id="cat-pill-all"
                   type="button"
