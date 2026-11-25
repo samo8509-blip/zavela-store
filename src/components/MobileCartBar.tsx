@@ -28,9 +28,9 @@ export const MobileCartBar: React.FC<MobileCartBarProps> = ({ count, total, navV
  * con solo el ícono y se sube sobre la barra inferior para no tapar el menú.
  * El widget vive en un shadow DOM abierto: se le inyecta una hoja de estilos.
  */
-export function useWaiChatMobileStyle(navVisible: boolean) {
+export function useWaiChatMobileStyle(navVisible: boolean, extraBottom = 0) {
   React.useEffect(() => {
-    const bottom = navVisible ? 'calc(68px + env(safe-area-inset-bottom))' : '16px';
+    const bottom = navVisible ? `calc(${68 + extraBottom}px + env(safe-area-inset-bottom))` : '16px';
     const css = `@media (max-width: 767px) {
       .wai { bottom: ${bottom} !important; right: 12px !important; }
       .wai .lanzador { width: 48px !important; min-width: 48px !important; height: 48px !important; padding: 0 !important; border-radius: 50% !important; justify-content: center !important; gap: 0 !important; }
@@ -53,5 +53,5 @@ export function useWaiChatMobileStyle(navVisible: boolean) {
     const t = window.setInterval(() => { if (apply()) window.clearInterval(t); }, 800);
     const stop = window.setTimeout(() => window.clearInterval(t), 30000);
     return () => { window.clearInterval(t); window.clearTimeout(stop); };
-  }, [navVisible]);
+  }, [navVisible, extraBottom]);
 }

@@ -1018,6 +1018,39 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
         />
       )}
 
+      {/* Barra de compra fija (solo celular): precio + Agregar + Comprar */}
+      {product && (
+        <>
+          <div className="md:hidden h-28" aria-hidden="true" />
+          <div
+            className="md:hidden fixed inset-x-0 z-[45] bg-white border-t border-[var(--shop-border)] px-3 py-2.5 flex items-center gap-2.5"
+            style={{ bottom: 'calc(52px + env(safe-area-inset-bottom))' }}
+          >
+            <div className="min-w-0 shrink-0">
+              <div className="text-base font-semibold text-black leading-tight" style={{ letterSpacing: '-0.03em' }}>
+                {formatCOP(activeUnitPrice)}
+              </div>
+              <div className="text-[10px] text-[color:var(--shop-muted)] leading-tight">Pago contra entrega</div>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddToCartClick}
+              className="flex-1 h-11 rounded-full border border-black bg-white text-black text-sm font-semibold active:scale-95 transition-transform"
+            >
+              {isAddedSuccess ? 'Agregado ✓' : 'Agregar'}
+            </button>
+            <button
+              type="button"
+              onClick={handleBuyNowClick}
+              className="flex-1 h-11 rounded-full text-sm font-semibold active:scale-95 transition-transform"
+              style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
+            >
+              Comprar
+            </button>
+          </div>
+        </>
+      )}
+
       {/* 💬 Botón Flotante de Asesor WhatsApp */}
       {product && whatsappFloatingEnabled && (
         <a
