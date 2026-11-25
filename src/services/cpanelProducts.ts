@@ -50,6 +50,9 @@ export function normalizeCpanelProduct(p: any): Product {
   const price = parseNumCOP(p.price ?? p.precio);
   const stock = parseNumCOP(p.stock ?? p.inventario);
   
+  const campaignCompare = parseNumCOP(p.compareAtPrice);
+  const campaignOn = Boolean(p.campaignName) && campaignCompare > price && price > 0;
+
   const totalOperatingCost = costPrice + shipping + fee;
   const realNetProfit = price - totalOperatingCost;
   const realNetMarginPercentage = price > 0 ? Math.round((realNetProfit / price) * 100) : 0;
@@ -67,11 +70,11 @@ export function normalizeCpanelProduct(p: any): Product {
     costoProveedor: costPrice,
     price,
     precio: price,
-    // Precio tachado desactivado en toda la tienda
-    compareAtPrice: 0,
-    compare_price: 0,
-    suggested_price: 0,
-    discountPercentage: 0,
+    // Precio tachado desactivado en toda la tienda, salvo en una campaña activa
+    // (ahí el "antes" es el precio real que cobrabas, guardado por el servidor).
+    ...(campaignOn
+      ? { compareAtPrice: campaignCompare, compare_price: campaignCompare, suggested_price: campaignCompare, discountPercentage: Math.round((1 - price / campaignCompare) * 100), campaignName: String(p.campaignName) }
+      : { compareAtPrice: 0, compare_price: 0, suggested_price: 0, discountPercentage: 0 }),
     shippingCost: shipping,
     shipping_cost: shipping,
     flete_envio: shipping,
