@@ -89,10 +89,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div 
       id={`product-card-${product.id}`}
       onClick={handleNavigateToProduct}
-      className="group bg-white rounded-2xl border border-slate-200 hover:border-sky-400 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-visible cursor-pointer relative"
+      className="group zs-card flex flex-col overflow-visible cursor-pointer relative"
     >
       {/* Window-like Header bar with High-Visibility Category Tag */}
-      <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between rounded-t-2xl">
+      <div className="px-4 pt-4 pb-1 flex items-center justify-between">
         <span className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs ${categoryStyle.bg}`}>
           <span>{categoryStyle.emoji}</span>
           <span className="truncate max-w-[140px]">{categoryLabel}</span>
@@ -108,13 +108,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image & Badges Container */}
       <div 
         onClick={handleNavigateToProduct}
-        className="relative aspect-square w-full bg-slate-100/70 overflow-hidden flex items-center justify-center p-2.5 cursor-pointer"
+        className="relative aspect-square w-full overflow-hidden flex items-center justify-center p-3 cursor-pointer"
       >
         <img
           src={mainImage}
           alt={product.title}
           referrerPolicy="no-referrer"
-          className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover rounded-[20px] group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
         />
 
@@ -151,7 +151,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Quick View Button on Image Hover */}
         <div 
           onClick={handleNavigateToProduct}
-          className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer"
+          className="absolute inset-3 rounded-[20px] bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center cursor-pointer"
         >
           <button
             type="button"
@@ -165,7 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3 bg-white rounded-b-2xl relative">
+      <div className="p-4 flex-1 flex flex-col justify-between space-y-3 bg-white rounded-b-[28px] relative">
         <div className="space-y-2">
           {/* Top Status & Review stars */}
           <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
@@ -183,7 +183,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Title with stronger hierarchy */}
           <h3 
             onClick={handleNavigateToProduct}
-            className="font-extrabold text-base text-slate-900 line-clamp-2 leading-snug group-hover:text-sky-600 transition-colors cursor-pointer"
+            className="font-semibold text-base tracking-tight text-slate-900 line-clamp-2 leading-snug group-hover:text-[color:var(--shop-violet)] transition-colors cursor-pointer"
           >
             {product.title}
           </h3>
@@ -289,10 +289,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Pricing Monospace & Savings Indicator */}
           <div className="pt-1 space-y-1">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-2xl font-mono font-black text-slate-900 tracking-tight">
+              <span className="text-2xl font-semibold text-slate-900 tracking-tight">
                 {formatCOP(product.price)}
               </span>
-              <span className="text-xs font-mono font-bold text-slate-500">COP</span>
+              <span className="text-xs font-medium text-slate-500">COP</span>
               {product.compareAtPrice && product.compareAtPrice > product.price && (
                 <span className="text-xs text-slate-400 line-through font-mono">
                   {formatCOP(product.compareAtPrice)}
@@ -342,7 +342,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               e.stopPropagation();
               onBuyNow(product, e);
             }}
-            className="w-full h-11 hover:brightness-110 active:scale-98 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all uppercase tracking-wider cursor-pointer" style={{ background: 'var(--zv-cta, linear-gradient(90deg,#06b6d4,#4f46e5))', color: 'var(--zv-cta-ink, #fff)' }}
+            className="w-full h-11 hover:brightness-110 active:scale-98 font-black rounded-full text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all uppercase tracking-wider cursor-pointer" style={{ background: 'var(--zv-cta, linear-gradient(90deg,#06b6d4,#4f46e5))', color: 'var(--zv-cta-ink, #fff)' }}
           >
             <Zap className="w-4 h-4 fill-current" />
             <span className="font-extrabold tracking-wide">¡PEDIR Y PAGAR EN CASA!</span>
@@ -356,7 +356,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 e.stopPropagation();
                 onAddToCart(product, e);
               }}
-              className="flex-1 h-9 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all uppercase tracking-wider cursor-pointer"
+              className="flex-1 h-9 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 font-bold rounded-full text-xs flex items-center justify-center gap-1.5 border border-slate-200 hover:border-slate-300 transition-all uppercase tracking-wider cursor-pointer"
             >
               <ShoppingBag className="w-3.5 h-3.5 text-slate-700" />
               <span>AGREGAR AL CARRITO</span>
@@ -369,7 +369,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 e.stopPropagation();
                 setIsShareOpen(true);
               }}
-              className="h-9 px-3 bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 hover:border-purple-300 rounded-xl border border-slate-200 transition-colors flex items-center justify-center cursor-pointer shadow-2xs"
+              className="h-9 px-3 bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 hover:border-purple-300 rounded-full border border-slate-200 transition-colors flex items-center justify-center cursor-pointer shadow-2xs"
               title="Compartir por WhatsApp, Facebook o Redes"
             >
               <Share2 className="w-4 h-4 text-purple-600" />

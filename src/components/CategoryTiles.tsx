@@ -33,8 +33,8 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({ categories, select
   if (visible.length === 0) return null;
 
   return (
-    <section id="home-category-tiles" aria-label="Compra por categoría" className="space-y-3">
-      <h2 className="font-black tracking-tight text-2xl sm:text-3xl text-slate-900">Compra por categoría</h2>
+    <section id="home-category-tiles" aria-label="Compra por categoría" className="space-y-4 zs-font">
+      <h2 className="font-semibold tracking-tight text-2xl sm:text-3xl text-slate-900">Compra por categoría</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {visible.map(({ cat, count }) => {
           const Icon = pickIcon(cat.name || '');
@@ -46,21 +46,21 @@ export const CategoryTiles: React.FC<CategoryTilesProps> = ({ categories, select
               type="button"
               onClick={() => onSelect(cat.id)}
               aria-pressed={isSelected}
-              className="text-left rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 flex flex-col gap-3 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg active:scale-95"
+              className="text-left rounded-[28px] p-4 sm:p-5 flex flex-col gap-3 cursor-pointer transition-all hover:-translate-y-1 active:scale-95"
               style={{
-                background: isSelected ? 'var(--zv-cta, #0284c7)' : '#FFFFFF',
-                color: isSelected ? 'var(--zv-cta-ink, #fff)' : '#0f172a',
-                border: '2px solid var(--zv-p1, #22D3EE)'
+                background: isSelected ? 'var(--shop-violet)' : '#FFFFFF',
+                color: isSelected ? '#fff' : '#0f172a',
+                boxShadow: isSelected ? 'var(--shop-shadow-violet)' : 'var(--shop-shadow-card)'
               }}
             >
               <span
                 className="w-11 h-11 rounded-2xl flex items-center justify-center"
-                style={{ background: isSelected ? 'rgba(255,255,255,.22)' : 'var(--zv-p1, #22D3EE)', color: isSelected ? 'inherit' : 'var(--zv-p1-ink, #0A192F)' }}
+                style={{ background: isSelected ? 'rgba(255,255,255,.22)' : 'var(--shop-canvas)', color: isSelected ? 'inherit' : 'var(--shop-violet)' }}
               >
                 <Icon className="w-5 h-5" />
               </span>
               <span>
-                <span className="block font-extrabold text-sm sm:text-base leading-tight">{label}</span>
+                <span className="block font-semibold text-sm sm:text-base leading-tight">{label}</span>
                 <span className="block text-xs font-semibold opacity-70 mt-0.5">{count} {count === 1 ? 'producto' : 'productos'}</span>
               </span>
             </button>

@@ -448,7 +448,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0">
               <div className="relative shrink-0">
                 {isSearchInputOpen ? (
-                  <div className="flex items-center bg-slate-100 rounded-full border border-slate-300 px-2 sm:px-3 py-1 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center bg-white rounded-full border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.06)] px-2 sm:px-3 py-1 animate-in fade-in zoom-in-95 duration-150">
                     <input
                       ref={searchInputRef}
                       type="text"
@@ -472,7 +472,7 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsSearchInputOpen(true);
                       setTimeout(() => searchInputRef.current?.focus(), 100);
                     }}
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full zs-search-btn flex items-center justify-center transition-all cursor-pointer shrink-0"
                     title="Buscar productos"
                     aria-label="Abrir buscador"
                   >
