@@ -90,27 +90,27 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 max-md:bg-white max-md:border-[var(--shop-border)] zs-font">
           <div className="flex items-center gap-2.5">
-            <div className="w-3 h-3 bg-sky-600 rounded-full shadow-xs" />
-            <h2 className="font-black text-sm uppercase tracking-widest text-slate-900">
+            <div className="w-3 h-3 bg-sky-600 rounded-full shadow-xs max-md:hidden" />
+            <h2 className="font-black text-sm uppercase tracking-widest text-slate-900 max-md:font-semibold max-md:text-lg max-md:normal-case max-md:tracking-tight">
               Carrito Zavela ({totalItemCount} {totalItemCount === 1 ? 'producto' : 'productos'})
             </h2>
           </div>
           <button
             id="btn-close-cart"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer border border-slate-200 shadow-2xs"
+            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer border border-slate-200 shadow-2xs max-md:w-10 max-md:h-10 max-md:rounded-full max-md:bg-[#f2f4f5] max-md:border-0 max-md:shadow-none"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modalidad A Informative Benefit Badge: 🚚 Envío Gratis Incluido a Toda Colombia */}
-        <div className="px-4 py-3 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-sky-500/15 border-b border-emerald-200/80">
+        <div className="px-4 py-3 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-sky-500/15 border-b border-emerald-200/80 max-md:py-2 max-md:bg-[#f2f4f5] max-md:bg-none max-md:border-[var(--shop-border)]">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs max-md:hidden">
                 <Truck className="w-4 h-4" />
               </div>
               <div className="min-w-0">
@@ -118,7 +118,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span>🚚 Envío Gratis Incluido a Toda Colombia</span>
                   <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 </div>
-                <p className="text-[11px] text-emerald-700/90 font-medium truncate">
+                <p className="text-[11px] text-emerald-700/90 font-medium truncate max-md:hidden">
                   Despacho nacional sin costo adicional con Pago Contra Entrega
                 </p>
               </div>
@@ -130,7 +130,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         </div>
 
         {/* Items List */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/50 max-md:bg-white max-md:space-y-1 max-md:divide-y max-md:divide-[var(--shop-border)]">
           {cartItems.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
               <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-4 text-sky-600 shadow-sm">
@@ -142,7 +142,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </p>
               <button
                 onClick={onClose}
-                className="bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all uppercase tracking-wider cursor-pointer shadow-md hover:shadow-lg"
+                className="bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] text-white text-xs font-black px-5 py-2.5 rounded-xl transition-all uppercase tracking-wider cursor-pointer shadow-md hover:shadow-lg max-md:bg-none max-md:bg-[var(--zv-cta,#ff5a4f)] max-md:text-[var(--zv-cta-ink,#fff)] max-md:rounded-full max-md:normal-case max-md:tracking-normal max-md:text-sm max-md:font-semibold max-md:px-7 max-md:py-3 max-md:shadow-none"
               >
                 Explorar Productos
               </button>
@@ -156,20 +156,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div 
                   key={`${item.product.id || item.product.slug}-${item.variant?.id || 'base'}-${idx}`}
                   id={`cart-item-${item.product.id || item.product.slug}`}
-                  className="flex gap-4 p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white relative shadow-xs hover:border-sky-300 transition-colors"
+                  className="flex gap-4 p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white relative shadow-xs hover:border-sky-300 transition-colors max-md:border-0 max-md:shadow-none max-md:rounded-none max-md:px-0 max-md:py-3 max-md:gap-3"
                 >
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 p-1 flex items-center justify-center">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 p-1 flex items-center justify-center max-md:border-0 max-md:p-0 max-md:rounded-2xl max-md:bg-[#f2f4f5]">
                     <img 
                       src={image} 
                       alt={item.product.title} 
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover rounded-lg" 
+                      className="w-full h-full object-cover rounded-lg max-md:rounded-2xl" 
                     />
                   </div>
 
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
-                      <h4 className="font-bold text-sm text-slate-900 line-clamp-1">
+                      <h4 className="font-bold text-sm text-slate-900 line-clamp-1 max-md:font-medium max-md:line-clamp-2">
                         {item.product.title}
                       </h4>
                       {item.variant && (
@@ -187,17 +187,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           ✨ Combo {item.quantity}x (Envío Único)
                         </span>
                       )}
-                      <div className="font-mono font-black text-sm text-slate-900 mt-1">
+                      <div className="font-mono font-black text-sm text-slate-900 mt-1 max-md:font-sans max-md:font-semibold max-md:text-base">
                         {formatCOP(price)}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-2">
                       {/* Quantity Stepper */}
-                      <div className="flex items-center border border-slate-300 rounded-xl bg-slate-50">
+                      <div className="flex items-center border border-slate-300 rounded-xl bg-slate-50 max-md:rounded-full max-md:bg-[#f2f4f5] max-md:border-0">
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.variant?.id, -1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors rounded-l-xl cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors rounded-l-xl cursor-pointer max-md:w-9 max-md:h-9 max-md:rounded-full"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -206,7 +206,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </span>
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.variant?.id, 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors rounded-r-xl cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors rounded-r-xl cursor-pointer max-md:w-9 max-md:h-9 max-md:rounded-full"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -230,7 +230,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
         {/* Footer Summary & Checkout */}
         {cartItems.length > 0 && (
-          <div className="p-5 sm:p-6 border-t border-slate-200 bg-white space-y-3.5 shadow-md">
+          <div className="p-5 sm:p-6 border-t border-slate-200 bg-white space-y-3.5 shadow-md max-md:p-4 max-md:space-y-3 max-md:shadow-none zs-font" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             <div className="space-y-2 text-xs text-slate-600">
               {/* Subtotal Bruto (Tachado si hay descuento consolidado) */}
               <div className="flex justify-between items-center text-slate-600">
@@ -277,13 +277,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <button
               id="btn-drawer-checkout"
               onClick={onProceedToCheckout}
-              className="w-full h-12 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-98 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer shadow-md hover:shadow-lg"
+              className="w-full h-12 bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656] active:scale-98 text-white font-black rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 uppercase tracking-wider transition-all cursor-pointer shadow-md hover:shadow-lg max-md:h-14 max-md:rounded-full max-md:bg-none max-md:bg-[var(--zv-cta,#ff5a4f)] max-md:text-[var(--zv-cta-ink,#fff)] max-md:normal-case max-md:tracking-normal max-md:text-base max-md:font-semibold max-md:shadow-none"
             >
-              <span>CONTINUAR AL CHECKOUT (PAGO CONTRA ENTREGA)</span>
+              <span className="md:hidden">Continuar · {formatCOP(finalTotal)}</span>
+              <span className="max-md:hidden">CONTINUAR AL CHECKOUT (PAGO CONTRA ENTREGA)</span>
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
 
-            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 font-semibold uppercase tracking-wider max-md:hidden">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Despacho garantizado por Coordinadora, Servientrega e Interrapidísimo</span>
             </div>
