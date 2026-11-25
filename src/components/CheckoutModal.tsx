@@ -582,32 +582,32 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return (
     <div 
       id="checkout-modal-backdrop" 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 max-md:p-0 overflow-y-auto"
       onClick={onClose}
     >
       <div 
         id="checkout-modal-dialog" 
-        className="bg-white text-slate-900 rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white text-slate-900 rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-hidden shadow-2xl flex flex-col relative border border-slate-200 animate-in fade-in zoom-in-95 duration-200 max-md:rounded-none max-md:max-h-none max-md:h-full max-md:border-0"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white">
+        <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white max-md:bg-none max-md:bg-white max-md:text-black max-md:border-[var(--shop-border)]">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono font-black uppercase tracking-widest bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-md border border-cyan-500/30">
                 🇨🇴 ZAVELA CHECKOUT SEGURO
               </span>
-              <span className="text-[10px] font-bold text-slate-300">
+              <span className="text-[10px] font-bold text-slate-300 max-md:hidden">
                 • Cobertura en 32 Departamentos
               </span>
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-white leading-tight mt-1">
+            <h2 className="text-lg sm:text-xl font-black text-white leading-tight mt-1 max-md:text-black max-md:font-semibold">
               Finaliza tu pedido contra entrega
             </h2>
           </div>
           <button
             id="btn-close-checkout"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10"
+            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10 max-md:w-10 max-md:h-10 max-md:rounded-full max-md:bg-[#f2f4f5] max-md:text-black max-md:border-0"
             title="Cerrar formulario de compra"
           >
             <X className="w-4 h-4" />
@@ -1073,12 +1073,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:bg-white max-md:pt-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-md:border-t max-md:border-[var(--shop-border)]">
             <button
               id="btn-submit-order"
               type="submit"
               disabled={isSubmitting}
-              className={`w-full text-white font-black py-4 px-6 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-98 ${
+              className={`w-full text-white font-black py-4 px-6 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-98 max-md:rounded-full max-md:py-4 ${
                 formData.paymentMethod === 'epayco' || formData.paymentMethod === 'pago_online'
                   ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800'
                   : 'bg-gradient-to-r from-[#FF5A36] to-[#FF3366] hover:from-[#E04826] hover:to-[#E02656]'
