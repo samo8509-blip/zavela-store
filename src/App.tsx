@@ -20,7 +20,9 @@ import {
   Layers,
   Grid
 } from 'lucide-react';
-import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage } from './types/index.ts';
+import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage, DEFAULT_HOME_PROMO } from './types/index.ts';
+import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
+import { HomeShelf } from './components/HomeShelf.tsx';
 import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
@@ -1196,6 +1198,26 @@ export default function App() {
   if (homeRowSections.length === 0 && showCategoryRows) {
     homeRowSections = [{ key: 'all-products', title: 'Productos de la tienda', products: filteredProducts }];
   }
+  // Franja de oferta y estante de temporada (se editan en el panel: Inicio comercial)
+  const homePromo = {
+    band: { ...DEFAULT_HOME_PROMO.band, ...(settings?.homePromo?.band || {}) },
+    shelf: { ...DEFAULT_HOME_PROMO.shelf, ...(settings?.homePromo?.shelf || {}) }
+  };
+  const showPromoBand = showCategoryRows && isPromoBandVisible(homePromo.band);
+  let shelfProducts: Product[] = [];
+  if (showCategoryRows && homePromo.shelf.enabled) {
+    const inStock = filteredProducts.filter(p => Number(p.stock) !== 0);
+    let pool: Product[] = [];
+    if (homePromo.shelf.source === 'category' && homePromo.shelf.categoryId) {
+      pool = inStock.filter(p => matchesCategoryKey(p, homePromo.shelf.categoryId as string));
+    } else if (homePromo.shelf.source === 'featured') {
+      pool = inStock.filter(p => p.featured);
+    } else {
+      pool = inStock.filter(p => (p.discountPercentage || 0) > 0).sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0));
+    }
+    if (pool.length < 2) pool = inStock.filter(p => p.featured);
+    shelfProducts = pool.slice(0, homePromo.shelf.count === 8 ? 8 : 4);
+  }
   const featuredProducts = products.filter(p => p.featured && p.active);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
 
@@ -1710,6 +1732,34 @@ export default function App() {
               setTimeout(() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' }), 50);
             }}
           />
+
+          {showPromoBand && (
+            <HomePromoBand
+              band={homePromo.band}
+              onClick={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}
+            />
+          )}
+
+          {shelfProducts.length >= 2 && (
+            <HomeShelf
+              title={homePromo.shelf.title}
+              onViewAll={
+                homePromo.shelf.source === 'category' && homePromo.shelf.categoryId
+                  ? () => goToCategory(homePromo.shelf.categoryId as string)
+                  : () => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              {shelfProducts.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onSelectProduct={handleSelectProduct}
+                  onAddToCart={(p) => handleAddToCart(p, p.variants?.[0], 1)}
+                  onBuyNow={(p) => handleBuyNow(p, p.variants?.[0], 1)}
+                />
+              ))}
+            </HomeShelf>
+          )}
 
           {showCategoryRows ? (
             <CategoryMosaic sections={categorySections} onSelectProduct={handleSelectProduct} />

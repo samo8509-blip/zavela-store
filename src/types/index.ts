@@ -447,6 +447,8 @@ export interface StoreSettings {
   seasonalThemeConfig?: SeasonalThemeConfig;
   /** Estilo de la vitrina en temporadas normales: colores de la marca (azul/cian) o Mercado vivo (amarillo) */
   storefrontStyle?: 'marca' | 'mercado-vivo';
+  /** Franja de oferta y estante de temporada del inicio (se editan en el panel: Inicio comercial) */
+  homePromo?: HomePromoSettings;
   socialMarketingSettings?: SocialMarketingSettings;
   luckyWheel?: LuckyWheelSettings;
   gamificationGame?: GamificationGameSettings;
@@ -1109,3 +1111,45 @@ export interface CustomSubpage {
 
 
 
+
+
+export interface HomePromoSettings {
+  band: {
+    enabled: boolean;
+    eyebrow: string;
+    /** Usa {n} para insertar el porcentaje, p. ej. "Hasta -{n}% en regalos de Navidad" */
+    title: string;
+    maxDiscount: number;
+    buttonText: string;
+    color: 'coral' | 'violeta' | 'verde' | 'amarillo';
+    /** Fecha (AAAA-MM-DD) hasta la que se muestra; vacío = sin fecha de fin */
+    endsAt?: string;
+  };
+  shelf: {
+    enabled: boolean;
+    title: string;
+    /** featured = destacados, offers = con descuento, category = una categoría concreta */
+    source: 'featured' | 'offers' | 'category';
+    categoryId?: string;
+    count: 4 | 8;
+  };
+}
+
+export const DEFAULT_HOME_PROMO: HomePromoSettings = {
+  band: {
+    enabled: true,
+    eyebrow: 'SOLO ESTA SEMANA',
+    title: 'Hasta -{n}% en regalos de Navidad',
+    maxDiscount: 40,
+    buttonText: 'Ver ofertas',
+    color: 'coral',
+    endsAt: ''
+  },
+  shelf: {
+    enabled: true,
+    title: 'Para regalar esta Navidad',
+    source: 'offers',
+    categoryId: '',
+    count: 4
+  }
+};
