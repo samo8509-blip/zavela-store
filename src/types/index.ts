@@ -1125,6 +1125,13 @@ export interface HomePromoSettings {
     /** Fecha (AAAA-MM-DD) hasta la que se muestra; vacío = sin fecha de fin */
     endsAt?: string;
   };
+  /** Cinta de productos que se desplaza en el banner principal */
+  ribbon?: {
+    /** all = mezcla de todas las categorías; categories = solo las categorías elegidas (p. ej. luces navideñas) */
+    mode: 'all' | 'categories';
+    categoryIds: string[];
+    count: 8 | 14 | 20;
+  };
   shelf: {
     enabled: boolean;
     title: string;
@@ -1145,6 +1152,7 @@ export const DEFAULT_HOME_PROMO: HomePromoSettings = {
     color: 'temporada',
     endsAt: ''
   },
+  ribbon: { mode: 'all', categoryIds: [], count: 14 },
   shelf: {
     enabled: true,
     title: 'Para regalar esta Navidad',
