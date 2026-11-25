@@ -1588,6 +1588,8 @@ export default function App() {
           <ProductDetailPage
             key={selectedProduct.id || selectedProduct.slug || 'product-detail-page'}
             product={selectedProduct}
+            whatsappFloatingEnabled={settings?.whatsappSettings?.enabled ?? settings?.whatsappFloatingEnabled ?? true}
+            whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone}
             allProducts={products}
             cartItems={cartItems}
             onBack={() => {
