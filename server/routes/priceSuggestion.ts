@@ -10,7 +10,9 @@ import type { Product } from '../../src/types/index.ts';
  * Solo administradores (regla en apiGuard). Con límite de uso y memoria de 24 h para cuidar la cuota.
  */
 const router = Router();
-const MODEL = 'gemini-3.8-flash';
+// Se prueban en orden: la cuota de la búsqueda en Google se cuenta por modelo.
+const MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+let usedModel = MODELS[0];
 
 let client: GoogleGenAI | null = null;
 const getClient = () => {
@@ -68,7 +70,22 @@ Reglas estrictas:
 - Máximo 8 resultados, de tiendas distintas cuando se pueda.
 - Responde ÚNICAMENTE con JSON (sin texto antes ni después) con esta forma:
 {"resumen":"qué producto entendiste, en una frase","confianza":"alta|media|baja","competidores":[{"tienda":"","precio":0,"url":"","nota":"diferencias importantes con el producto (marca, tamaño, cantidad)"}]}`;
-      const r = await ai.models.generateContent({ model: MODEL, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
+      let r: any = null;
+      let lastErr: any = null;
+      for (const m of MODELS) {
+        try {
+          r = await ai.models.generateContent({ model: m, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
+          usedModel = m;
+          break;
+        } catch (e: any) {
+          lastErr = e;
+          const t = String(e?.message || e || '');
+          console.warn(`[price-suggestion] ${m} falló: ${t.slice(0, 300)}`);
+          // Solo se salta de modelo si es cuota, límite o modelo no disponible; otros errores se muestran tal cual.
+          if (!/429|quota|RESOURCE_EXHAUSTED|404|NOT_FOUND|not found|not supported|503|UNAVAILABLE|overloaded/i.test(t)) break;
+        }
+      }
+      if (!r) throw lastErr || new Error('Sin respuesta de Gemini');
       const parsed = extractJson(String(r.text || ''));
       const sources = ((r as any).candidates?.[0]?.groundingMetadata?.groundingChunks || [])
         .map((c: any) => c?.web).filter((w: any) => w?.uri).slice(0, 8).map((w: any) => ({ title: String(w.title || w.uri), uri: String(w.uri) }));
@@ -123,7 +140,7 @@ Reglas estrictas:
     return res.json({
       success: true,
       provider: 'gemini',
-      model: MODEL,
+      model: usedModel,
       summary: String(parsed.resumen || '').slice(0, 240),
       confidence: parsed.confianza || null,
       guard: { minMarginPercent: guard.minMarginPercent, marginBase: guard.marginBase },
@@ -136,10 +153,19 @@ Reglas estrictas:
       cached: market.at !== now
     });
   } catch (err: any) {
-    const msg = String(err?.message || err || '');
-    if (/429|quota|RESOURCE_EXHAUSTED/i.test(msg)) return res.status(429).json({ success: false, message: 'Se agotó la cuota de Gemini por ahora. Intenta más tarde.' });
-    console.error('[price-suggestion]', msg);
-    return res.status(500).json({ success: false, message: 'No se pudo consultar el mercado. Intenta de nuevo.' });
+    const raw = String(err?.message || err || '');
+    console.error('[price-suggestion]', raw);
+    // Solo la ve el administrador: se muestra el motivo real que devolvió Google, sin la clave.
+    let detail = raw;
+    try { const j = JSON.parse(raw); detail = j?.error?.message || raw; } catch {}
+    detail = detail.replace(/key=[A-Za-z0-9_-]+/g, 'key=***').replace(/\s+/g, ' ').slice(0, 260);
+    const isQuota = /429|quota|RESOURCE_EXHAUSTED/i.test(raw);
+    return res.status(isQuota ? 429 : 500).json({
+      success: false,
+      message: (isQuota
+        ? 'Google dice que no hay cuota disponible para la búsqueda web con esta clave (la búsqueda tiene su propio límite, aparte del uso normal). '
+        : 'No se pudo consultar el mercado. ') + `Detalle de Google: ${detail}`
+    });
   }
 });
 
