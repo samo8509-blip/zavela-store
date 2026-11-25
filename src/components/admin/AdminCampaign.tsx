@@ -29,6 +29,143 @@ const defaultEnd = () => {
 
 const fmtDate = (iso?: string) => (iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
+interface Tier { label: string; terms: string; maxDiscount: number }
+type PlanRow = Row & { tier: string };
+
+/** Plan por niveles: varias categorías de una vez, cada nivel con su propio descuento máximo. */
+const TierPlan: React.FC<{ active: boolean; onState: (s: State) => void; onMsg: (m: { ok: boolean; text: string } | null) => void }> = ({ active, onState, onMsg }) => {
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [minMargin, setMinMargin] = useState(10);
+  const [endsAt, setEndsAt] = useState(defaultEnd());
+  const [name, setName] = useState('Black Friday');
+  const [rows, setRows] = useState<PlanRow[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/admin/campaign/plan-defaults').then(r => r.json()).then(j => { if (j.success) setTiers(j.tiers); }).catch(() => {});
+  }, []);
+
+  const calculate = async () => {
+    setBusy(true); onMsg(null);
+    try {
+      const r = await fetch('/api/admin/campaign/plan-preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tiers, minMarginPercent: minMargin, marginBase: 'venta' })
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.message);
+      setRows(j.rows);
+      setPicked(new Set(j.rows.filter((x: PlanRow) => x.selectable).map((x: PlanRow) => x.id)));
+    } catch (e: any) { onMsg({ ok: false, text: e?.message || 'No se pudo calcular.' }); }
+    finally { setBusy(false); }
+  };
+
+  const chosen = useMemo(() => (rows || []).filter(r => picked.has(r.id) && r.selectable), [rows, picked]);
+  const toggle = (id: string) => setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const activate = async () => {
+    if (chosen.length === 0) return;
+    const best = chosen.reduce((m, r) => Math.max(m, r.discountPercent), 0);
+    const txt = active
+      ? `Se agregarán ${chosen.length} producto(s) a la campaña activa (hasta -${best}%), con la misma fecha de fin.`
+      : `Se bajará el precio de ${chosen.length} producto(s) (hasta -${best}%) hasta el ${endsAt}.`;
+    if (!window.confirm(`${txt} Los precios originales quedan guardados y vuelven solos. ¿Continuar?`)) return;
+    setBusy(true); onMsg(null);
+    try {
+      const r = await fetch('/api/admin/campaign/plan-activate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: chosen.map(c => c.id), tiers, minMarginPercent: minMargin, marginBase: 'venta', endsAt, name, homeBlocks: true })
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.message);
+      onState(j.state); setRows(null);
+      onMsg({ ok: true, text: `Listo: la campaña tiene ahora ${j.state.items.length} producto(s). Si no ves los cambios en la tienda, recarga con Ctrl+F5.` });
+    } catch (e: any) { onMsg({ ok: false, text: e?.message || 'No se pudo activar.' }); }
+    finally { setBusy(false); }
+  };
+
+  const tierNames = Array.from(new Set((rows || []).map(r => r.tier)));
+
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+      <div>
+        <h3 className="text-sm font-extrabold text-slate-900">{active ? 'Agregar más categorías a la campaña activa' : 'Plan por niveles (varias categorías)'}</h3>
+        <p className="text-[11px] text-slate-500 mt-0.5">Cada nivel tiene su descuento máximo según el margen de esas categorías. Ningún producto baja de tu ganancia mínima, y lo que ya está en la campaña no se toca.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {tiers.map((t, i) => (
+          <div key={i} className="rounded-xl border border-slate-200 p-3 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-black text-slate-900">{t.label}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-slate-500">hasta -</span>
+                <input type="number" min={1} max={60} className="w-16 px-2 py-1 rounded-lg border border-slate-200 text-sm" value={t.maxDiscount}
+                  onChange={e => setTiers(prev => prev.map((x, k) => k === i ? { ...x, maxDiscount: Number(e.target.value) } : x))} />
+                <span className="text-[11px] text-slate-500">%</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-snug">{t.terms.split('|').join(' · ')}</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className={label}>Ganancia mínima que protejo (%)</label>
+          <input type="number" min={0} className={input} value={minMargin} onChange={e => setMinMargin(Number(e.target.value))} />
+        </div>
+        {!active && (
+          <>
+            <div><label className={label}>Termina el día</label><input type="date" className={input} value={endsAt} onChange={e => setEndsAt(e.target.value)} /></div>
+            <div><label className={label}>Nombre</label><input type="text" maxLength={60} className={input} value={name} onChange={e => setName(e.target.value)} /></div>
+          </>
+        )}
+      </div>
+      <button onClick={calculate} disabled={busy || tiers.length === 0} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-60 cursor-pointer">
+        {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : null} Calcular plan
+      </button>
+
+      {rows && (
+        <div className="space-y-3">
+          {rows.length === 0 && <p className="text-sm text-slate-600">No hay productos nuevos para agregar.</p>}
+          {tierNames.map(tn => {
+            const list = rows.filter(r => r.tier === tn);
+            const ok = list.filter(r => r.selectable).length;
+            return (
+              <details key={tn} open className="rounded-xl border border-slate-200">
+                <summary className="px-3 py-2 text-xs font-black text-slate-900 cursor-pointer">Nivel {tn} · {ok} de {list.length} entran</summary>
+                <div className="overflow-x-auto px-3 pb-3">
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-left text-slate-500 border-b border-slate-200"><th className="py-1.5 pr-2"></th><th className="py-1.5 pr-3">Producto</th><th className="py-1.5 pr-3">Hoy</th><th className="py-1.5 pr-3">Campaña</th><th className="py-1.5 pr-3">Desc.</th><th className="py-1.5">Ganas</th></tr></thead>
+                    <tbody>
+                      {list.map(r => (
+                        <tr key={r.id} className={`border-b border-slate-100 align-top ${r.selectable ? '' : 'opacity-60'}`}>
+                          <td className="py-1.5 pr-2"><input type="checkbox" disabled={!r.selectable} checked={picked.has(r.id) && r.selectable} onChange={() => toggle(r.id)} /></td>
+                          <td className="py-1.5 pr-3 max-w-[260px]"><div className="font-bold text-slate-900">{r.title}</div><div className="text-[10px] text-slate-400">{r.category}</div>{r.note && <div className="text-[10px] text-amber-700">{r.note}</div>}</td>
+                          <td className="py-1.5 pr-3 whitespace-nowrap">{formatCOP(r.price)}</td>
+                          <td className="py-1.5 pr-3 whitespace-nowrap font-bold">{r.discountPercent > 0 ? formatCOP(r.campaignPrice) : '—'}</td>
+                          <td className="py-1.5 pr-3 whitespace-nowrap">{r.discountPercent > 0 ? `-${r.discountPercent}%` : '—'}</td>
+                          <td className="py-1.5 whitespace-nowrap">{r.discountPercent > 0 ? `${formatCOP(r.profitAfter)} (${r.marginAfter}%)` : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            );
+          })}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-slate-600">{chosen.length} producto(s) elegidos</p>
+            <button onClick={activate} disabled={busy || chosen.length === 0} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-black disabled:opacity-50 cursor-pointer">
+              <Check className="w-4 h-4" /> {active ? 'Agregar a la campaña' : 'Activar campaña'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const AdminCampaign: React.FC = () => {
   const [state, setState] = useState<State | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
@@ -152,9 +289,11 @@ export const AdminCampaign: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <TierPlan active onState={setState} onMsg={setMsg} />
         </div>
       ) : (
         <>
+          <TierPlan active={false} onState={setState} onMsg={setMsg} />
           {state?.endedAt && (
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs text-slate-700 space-y-1">
               <p><strong>Última campaña:</strong> {state.name} · terminó {fmtDate(state.endedAt)} ({state.endedReason === 'automatica' ? 'por fecha' : 'a mano'}) · precios restaurados: {state.restored ?? 0}.</p>
