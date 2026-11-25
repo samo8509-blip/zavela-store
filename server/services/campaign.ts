@@ -266,7 +266,7 @@ export interface PlanTier { label: string; terms: string; maxDiscount: number }
 
 /** Niveles según el margen real de cada categoría (ver el análisis de Black Friday). Una categoría cuenta en el primer nivel que la nombra. */
 export const DEFAULT_TIERS: PlanTier[] = [
-  { label: 'Fuerte', terms: 'electronica para el hogar|automov|cocina', maxDiscount: 18 },
+  { label: 'Fuerte', terms: 'electronica para el hogar|automov|cocina|sexshop', maxDiscount: 18 },
   { label: 'Medio', terms: 'calzado|navide|belleza|perfumeria|moda', maxDiscount: 10 },
   { label: 'Suave', terms: 'hogar|herramient|segurid|energia solar', maxDiscount: 5 }
 ];
