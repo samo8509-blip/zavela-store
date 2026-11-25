@@ -43,6 +43,7 @@ export const AdminHeaderButtons: React.FC<AdminHeaderButtonsProps> = ({
   const [trackingButtonText, setTrackingButtonText] = useState('Rastrear Mi Pedido');
   const [showCartCount, setShowCartCount] = useState(true);
   const [showWhatsAppDirect, setShowWhatsAppDirect] = useState(true);
+  const [pwaPrompt, setPwaPrompt] = useState<boolean>(settings.pwaInstallPromptEnabled !== false);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
     settings.freeShippingThreshold || 120000
   );
@@ -234,6 +235,27 @@ export const AdminHeaderButtons: React.FC<AdminHeaderButtonsProps> = ({
               >
                 {showCartCount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                 <span>{showCartCount ? 'Visible' : 'Oculto'}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-700">Aviso "Instala Zavela en tu celular" (se guarda al instante)</span>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const next = !pwaPrompt;
+                  setPwaPrompt(next);
+                  try { await onSaveSettings({ pwaInstallPromptEnabled: next }); } catch { setPwaPrompt(!next); }
+                }}
+                className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg cursor-pointer transition-colors ${
+                  pwaPrompt ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {pwaPrompt ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span>{pwaPrompt ? 'Visible' : 'Oculto'}</span>
               </button>
             </div>
 
