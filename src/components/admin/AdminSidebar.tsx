@@ -73,6 +73,7 @@ export type AdminViewKey =
   | 'hero_banners'
   | 'home_sections'
   | 'home_promo'
+  | 'pricing_guard'
   | 'reviews'
   | 'trust_badges'
   | 'blog_posts'
@@ -267,6 +268,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             ? 'bg-amber-400 text-slate-950 font-black animate-pulse' 
             : 'bg-cyan-500 text-slate-950 font-black' 
         },
+        { key: 'pricing_guard', label: 'Márgenes y descuentos seguros', icon: Percent, badge: 'Nuevo', badgeColor: 'bg-emerald-500 text-white font-black' },
       ]
     },
     {

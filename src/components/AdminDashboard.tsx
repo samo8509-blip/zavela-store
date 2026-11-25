@@ -64,6 +64,7 @@ import { AdminGamificationSettings } from './admin/AdminGamificationSettings.tsx
 import { AdminHeroBanners } from './admin/AdminHeroBanners.tsx';
 import { AdminHomeSections } from './admin/AdminHomeSections.tsx';
 import { AdminHomePromo } from './admin/AdminHomePromo.tsx';
+import { AdminPricingGuard } from './admin/AdminPricingGuard.tsx';
 import { AdminReviews } from './admin/AdminReviews.tsx';
 import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
@@ -929,6 +930,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <AdminHeaderTicker
                 settings={settings}
                 onSaveSettings={handleSaveSettings}
+              />
+            )}
+
+            {activeSection === 'pricing_guard' && (
+              <AdminPricingGuard
+                settings={settings}
+                products={products}
+                onSaveSettings={handleSaveSettings}
+                onSaveProduct={handleSaveProduct}
               />
             )}
 

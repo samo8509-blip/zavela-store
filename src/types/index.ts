@@ -450,6 +450,7 @@ export interface StoreSettings {
   storefrontStyle?: 'marca' | 'mercado-vivo';
   /** Franja de oferta y estante de temporada del inicio (se editan en el panel: Inicio comercial) */
   homePromo?: HomePromoSettings;
+  pricingGuard?: PricingGuardSettings;
   socialMarketingSettings?: SocialMarketingSettings;
   luckyWheel?: LuckyWheelSettings;
   gamificationGame?: GamificationGameSettings;
@@ -1141,6 +1142,15 @@ export interface HomePromoSettings {
     categoryId?: string;
     count: 4 | 8;
   };
+}
+
+/** Reglas de ganancia que protege el módulo "Márgenes y descuentos". */
+export interface PricingGuardSettings {
+  minMarginPercent: number; // margen mínimo a proteger
+  marginBase: 'costo' | 'venta'; // el % se calcula sobre el costo o sobre el precio de venta
+  includeShipping: boolean; // sumar el flete al costo
+  includePlatformFee: boolean; // sumar la tarifa Dropi/plataforma al costo
+  codFeePercent: number; // comisión de recaudo contra entrega (% del precio de venta)
 }
 
 export const DEFAULT_HOME_PROMO: HomePromoSettings = {
