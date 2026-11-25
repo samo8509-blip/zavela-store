@@ -30,7 +30,7 @@ export const CategoryMosaic: React.FC<CategoryMosaicProps> = ({ sections, onSele
         .slice(0, 4)
     }))
     .filter(b => b.tiles.length >= 2)
-    .slice(0, 8);
+    .slice(0, 16);
 
   if (blocks.length === 0) return null;
 

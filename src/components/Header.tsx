@@ -161,6 +161,9 @@ export const Header: React.FC<HeaderProps> = ({
     setIsMegaMenuOpen(false);
     setIsMobileMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Los selectores de categoría programan un desplazamiento hacia el catálogo (100 ms);
+    // al volver al inicio por el logo, el cliente debe quedar arriba de la página.
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'auto' }), 220);
   };
 
   const handleOfertasClick = () => {
