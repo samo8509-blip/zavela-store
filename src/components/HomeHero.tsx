@@ -52,8 +52,8 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
   const pills = categories.slice(0, 8);
 
   return (
-    <section id="home-hero" aria-label="Bienvenida" className="zs-font overflow-x-clip space-y-12 sm:space-y-16 pt-2 sm:pt-6">
-      <div className="flex flex-col items-center text-center gap-6 sm:gap-8">
+    <section id="home-hero" aria-label="Bienvenida" className="zs-font overflow-x-clip space-y-12 sm:space-y-16 max-md:space-y-4 pt-2 sm:pt-6">
+      <div className="flex flex-col items-center text-center gap-6 sm:gap-8 max-md:gap-3">
         {featured.length > 0 && (
           <div className="zs-marquee-wrap w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4" aria-label="Productos de la tienda">
             <div className={`zs-marquee flex items-end gap-4 sm:gap-5 w-max ${featured.length < 5 ? 'zs-marquee-still' : ''}`}>
@@ -62,7 +62,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
                   key={`${p.id}-${i}`}
                   type="button"
                   onClick={() => onSelectProduct(p)}
-                  className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-44 lg:w-48 shrink-0 ${['-rotate-2', 'rotate-1 translate-y-3', 'rotate-2', '-rotate-1 translate-y-2'][i % 4]}`}
+                  className={`zs-card text-left cursor-pointer border-0 p-2 w-36 max-md:w-28 sm:w-44 lg:w-48 shrink-0 ${['-rotate-2', 'rotate-1 translate-y-3', 'rotate-2', '-rotate-1 translate-y-2'][i % 4]}`}
                   aria-label={`Ver ${p.title}`}
                   aria-hidden={i >= featured.length ? true : undefined}
                   tabIndex={i >= featured.length ? -1 : 0}
@@ -84,14 +84,14 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
           </div>
         )}
 
-        <h1 className="font-semibold text-black leading-[1.05] text-4xl sm:text-6xl" style={{ letterSpacing: '-0.05em' }}>
+        <h1 className="font-semibold text-black leading-[1.05] text-4xl max-md:text-2xl sm:text-6xl" style={{ letterSpacing: '-0.05em' }}>
           Compra hoy. Paga cuando te llegue<span style={{ color: 'var(--shop-violet)' }}>.</span>
         </h1>
-        <p className="text-base sm:text-lg max-w-xl text-[color:var(--shop-muted)]" style={{ letterSpacing: '-0.031em' }}>
+        <p className="max-md:hidden text-base sm:text-lg max-w-xl text-[color:var(--shop-muted)]" style={{ letterSpacing: '-0.031em' }}>
           Los productos que están pidiendo todos, enviados a tu puerta. Sin tarjeta y sin riesgo.
         </p>
 
-        <form onSubmit={submit} role="search" className="w-full max-w-2xl flex items-center bg-white rounded-full border border-black/10 pl-5 pr-1 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+        <form onSubmit={submit} role="search" className="max-md:order-first w-full max-w-2xl flex items-center bg-white rounded-full border border-black/10 pl-5 pr-1 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
           <input
             type="text"
             value={q}
@@ -120,7 +120,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
           </div>
         )}
 
-        <div className="flex flex-wrap justify-center gap-3">
+        <div className="max-md:hidden flex flex-wrap justify-center gap-3">
           <button
             type="button"
             onClick={onExploreCatalog}
@@ -140,7 +140,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="max-md:hidden grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
           { t: '1. Elige', d: 'Escoge tu producto y llena tus datos de envío.' },
           { t: '2. Recibe', d: 'Te lo llevamos a la puerta, con envío gratis.' },

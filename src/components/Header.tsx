@@ -223,7 +223,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <div id="top-announcement-bar" className="zs-font w-full max-w-[100vw] overflow-hidden bg-[#f2f4f5] text-slate-700 text-xs py-1.5 px-2.5 sm:px-8">
+      <div id="top-announcement-bar" className="zs-font w-full max-w-[100vw] overflow-hidden bg-[#f2f4f5] text-slate-700 text-xs py-1 sm:py-1.5 px-2.5 sm:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-4 text-center sm:text-left">
           <div className="flex items-center justify-center gap-1.5 sm:gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -232,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 sm:gap-5 text-slate-600 text-[10px] sm:text-[11px] flex-wrap sm:flex-nowrap">
+          <div className="hidden sm:flex items-center justify-center gap-2 sm:gap-5 text-slate-600 text-[10px] sm:text-[11px] flex-wrap sm:flex-nowrap">
             <button 
               id="top-bar-contact-btn"
               onClick={() => setIsContactModalOpen(true)}
