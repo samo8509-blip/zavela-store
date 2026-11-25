@@ -1231,7 +1231,7 @@ export default function App() {
   }
   const featuredProducts = products.filter(p => p.featured && p.active);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
-  useWaiChatMobileStyle(currentView === 'store');
+  useWaiChatMobileStyle(currentView === 'store', selectedProduct ? 64 : 0);
 
   if (currentView === 'admin') {
     if (!checkIsAdminAuthenticated()) {
@@ -2121,7 +2121,7 @@ export default function App() {
         />
       )}
 
-      {currentView === 'store' && !isCartOpen && !isCheckoutOpen && (
+      {currentView === 'store' && !selectedProduct && !isCartOpen && !isCheckoutOpen && (
         <MobileCartBar
           count={totalCartCount}
           total={cartItems.reduce((acc, item) => acc + ((item.variant?.price || item.product.price) * (item.quantity || 1)), 0)}
