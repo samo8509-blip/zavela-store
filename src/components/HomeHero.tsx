@@ -24,7 +24,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
   const featured = products
     .filter(p => p.active !== false && Number(p.stock) !== 0 && firstImage(p))
     .filter(p => !/sex|adult/i.test(String(p.categoryName || '')))
-    .slice(0, 2);
+    .slice(0, 4);
   const waHref = `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero que me ayuden a elegir un producto')}`;
 
   const [q, setQ] = React.useState('');
@@ -44,7 +44,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
                 key={p.id}
                 type="button"
                 onClick={() => onSelectProduct(p)}
-                className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-48 ${i === 0 ? '-rotate-3 -translate-y-2' : 'rotate-3'}`}
+                className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-44 lg:w-48 ${i >= 2 ? 'hidden sm:block' : ''} ${['-rotate-3 -translate-y-2', 'rotate-2 translate-y-2', '-rotate-2 -translate-y-1', 'rotate-3 translate-y-1'][i]}`}
                 aria-label={`Ver ${p.title}`}
               >
                 <img
