@@ -153,7 +153,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 380px' }}
     >
       <div className="flex items-center justify-between gap-3 px-1 mb-2.5">
-        <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-wide truncate">
+        <h3 className="text-lg sm:text-xl font-semibold tracking-tight text-slate-900 truncate">
           {section.title}
           <span className="ml-2 text-[11px] font-mono font-bold text-slate-400">{total}</span>
         </h3>
@@ -162,7 +162,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
             <button
               type="button"
               onClick={section.onViewAll}
-              className="text-xs font-bold text-sky-700 hover:text-sky-900 hover:underline cursor-pointer mr-1"
+              className="text-xs font-semibold text-[color:var(--shop-violet)] hover:underline cursor-pointer mr-1"
             >
               Ver todo
             </button>
@@ -173,7 +173,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
                 type="button"
                 aria-label={`Anterior en ${section.title}`}
                 onClick={() => move(-1)}
-                className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="zs-arrow hidden sm:flex items-center justify-center cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -181,7 +181,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
                 type="button"
                 aria-label={`Siguiente en ${section.title}`}
                 onClick={() => move(1)}
-                className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="zs-arrow hidden sm:flex items-center justify-center cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -216,7 +216,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
 };
 
 export const CategoryRows: React.FC<CategoryRowsProps> = ({ sections, renderProduct, maxPerSection = 16 }) => (
-  <div className="space-y-8">
+  <div className="space-y-14">
     {sections.map((s) => (
       <Row key={s.key} section={s} renderProduct={renderProduct} max={maxPerSection} />
     ))}

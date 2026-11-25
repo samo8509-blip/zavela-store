@@ -1699,9 +1699,9 @@ export default function App() {
           />
 
           <div id="catalogo" className="scroll-mt-24"></div>
-          <div id="catalog-products-section" className="space-y-4 pt-1 scroll-mt-24">
+          <div id="catalog-products-section" className="space-y-5 pt-1 scroll-mt-24 zs-font">
             
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white/70 backdrop-blur-xs px-3 sm:px-4 py-2 rounded-2xl border border-slate-200/70 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 zs-bar px-3 sm:px-4 py-2.5">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto">
                 <button
                   id="cat-pill-all"
@@ -1709,8 +1709,8 @@ export default function App() {
                   onClick={() => goToCategory('all')}
                   className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     selectedCategoryId === 'all'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                      ? 'zs-pill-on'
+                      : 'zs-pill text-slate-800'
                   }`}
                 >
                   Todas ({products.filter(p => p.active !== false && p.categoryName?.toLowerCase() !== 'sexshop' && p.categoryName?.toLowerCase() !== 'adultos').length})
@@ -1728,8 +1728,8 @@ export default function App() {
                       onClick={() => goToCategory(cat.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                         isSelected
-                          ? 'bg-sky-600 text-white shadow-xs'
-                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                          ? 'zs-pill-on'
+                          : 'zs-pill text-slate-800'
                       }`}
                     >
                       <span>{cat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}</span>
