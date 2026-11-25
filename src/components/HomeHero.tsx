@@ -1,7 +1,7 @@
 import React from 'react';
 import { Product } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
-import { getStorefrontPalette, SeasonalThemeId } from '../utils/seasonalThemes.ts';
+import { SeasonalThemeId } from '../utils/seasonalThemes.ts';
 
 interface HomeHeroProps {
   themeId: SeasonalThemeId;
@@ -10,6 +10,9 @@ interface HomeHeroProps {
   whatsappNumber: string;
   onExploreCatalog: () => void;
   onSelectProduct: (p: Product) => void;
+  categories: { id?: string; slug?: string; name?: string }[];
+  onSearch: (q: string) => void;
+  onSelectCategory: (id: string) => void;
 }
 
 const firstImage = (p: Product): string => {
@@ -17,65 +20,31 @@ const firstImage = (p: Product): string => {
   return anyP.image || anyP.imagen || (Array.isArray(anyP.images) ? anyP.images[0] : '') || (Array.isArray(anyP.imagenes) ? anyP.imagenes[0] : '') || '';
 };
 
-export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct }) => {
-  const palette = getStorefrontPalette(themeId, style);
+export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct, categories, onSearch, onSelectCategory }) => {
   const featured = products
     .filter(p => p.active !== false && Number(p.stock) !== 0 && firstImage(p))
     .filter(p => !/sex|adult/i.test(String(p.categoryName || '')))
     .slice(0, 2);
   const waHref = `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero que me ayuden a elegir un producto')}`;
 
-  return (
-    <section id="home-hero" aria-label="Bienvenida" className="space-y-4">
-      <div className="flex flex-col lg:flex-row gap-4 items-stretch">
-        <div
-          className="relative flex-1 min-w-0 rounded-[28px] sm:rounded-[32px] px-6 py-8 sm:px-12 sm:py-12 overflow-hidden flex flex-col justify-center gap-4 sm:gap-5"
-          style={{ background: palette.hero, color: palette.heroInk }}
-        >
-          <div className="absolute -right-10 -top-10 w-56 h-56 rounded-full opacity-35 pointer-events-none" style={{ background: palette.glow }} />
-          <span
-            className="relative self-start text-[11px] sm:text-xs font-extrabold tracking-widest px-3.5 py-1.5 rounded-full"
-            style={{ background: palette.badgeBg, color: palette.badgeInk }}
-          >
-            {palette.badge}
-          </span>
-          <h1 className="relative font-black tracking-tight leading-[1.02] text-4xl sm:text-5xl lg:text-6xl">
-            Compra hoy.<br />Paga cuando<br />
-            <span style={{ color: palette.p1 }}>te llegue.</span>
-          </h1>
-          <p className="relative text-base sm:text-lg leading-relaxed max-w-md opacity-90">
-            Los productos que están pidiendo todos, enviados a tu puerta. Sin tarjeta y sin riesgo.
-          </p>
-          <div className="relative flex flex-wrap gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onExploreCatalog}
-              className="font-bold px-6 py-3.5 rounded-full text-sm sm:text-base cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95"
-              style={{ background: palette.cta, color: palette.ctaInk }}
-            >
-              Ver el catálogo
-            </button>
-            <a
-              href={waHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold px-6 py-3.5 rounded-full text-sm sm:text-base bg-white/20 hover:bg-white/30 transition-colors"
-              style={{ color: palette.heroInk }}
-            >
-              Hablar con un asesor
-            </a>
-          </div>
-        </div>
+  const [q, setQ] = React.useState('');
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(q.trim());
+  };
+  const pills = categories.slice(0, 8);
 
+  return (
+    <section id="home-hero" aria-label="Bienvenida" className="zs-font space-y-12 sm:space-y-16 pt-2 sm:pt-6">
+      <div className="flex flex-col items-center text-center gap-6 sm:gap-8">
         {featured.length > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4 lg:w-[38%] shrink-0">
+          <div className="flex items-end justify-center gap-3 sm:gap-4">
             {featured.map((p, i) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => onSelectProduct(p)}
-                className="relative min-h-[200px] sm:min-h-[240px] rounded-[24px] sm:rounded-[28px] overflow-hidden text-left cursor-pointer group border-0 p-0"
-                style={{ background: i === 0 ? palette.p1 : palette.p2 }}
+                className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-48 ${i === 0 ? '-rotate-3 -translate-y-2' : 'rotate-3'}`}
                 aria-label={`Ver ${p.title}`}
               >
                 <img
@@ -83,30 +52,82 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
                   alt={p.title}
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-300"
+                  className="w-full aspect-square object-cover rounded-[20px]"
                 />
-                <span className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/75 to-transparent text-white">
-                  <span className="block font-extrabold leading-tight text-base sm:text-lg line-clamp-2">{p.title}</span>
-                  <span className="block font-bold text-sm">{formatCOP(p.price)}</span>
+                <span className="block px-2 pt-2 pb-1">
+                  <span className="block font-semibold text-xs sm:text-sm leading-tight line-clamp-1 text-black">{p.title}</span>
+                  <span className="block text-xs text-[color:var(--shop-muted)]">{formatCOP(p.price)}</span>
                 </span>
               </button>
             ))}
           </div>
         )}
+
+        <h1 className="font-semibold text-black leading-[1.05] text-4xl sm:text-6xl" style={{ letterSpacing: '-0.05em' }}>
+          Compra hoy. Paga cuando te llegue<span style={{ color: 'var(--shop-violet)' }}>.</span>
+        </h1>
+        <p className="text-base sm:text-lg max-w-xl text-[color:var(--shop-muted)]" style={{ letterSpacing: '-0.031em' }}>
+          Los productos que están pidiendo todos, enviados a tu puerta. Sin tarjeta y sin riesgo.
+        </p>
+
+        <form onSubmit={submit} role="search" className="w-full max-w-2xl flex items-center bg-white rounded-full border border-black/10 pl-5 pr-1 py-1 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="¿Qué estás buscando hoy?"
+            aria-label="Buscar productos"
+            className="flex-1 min-w-0 bg-transparent outline-hidden text-base text-black placeholder:text-[color:var(--shop-muted)]"
+          />
+          <button type="submit" aria-label="Buscar" className="zs-search-btn w-12 h-12 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all">
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </button>
+        </form>
+
+        {pills.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2 max-w-3xl">
+            {pills.map(c => (
+              <button
+                key={c.id || c.slug}
+                type="button"
+                onClick={() => onSelectCategory(c.id)}
+                className="zs-pill rounded-full px-4 py-1.5 text-sm text-black cursor-pointer transition-colors"
+              >
+                {(c.name || '').replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim()}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={onExploreCatalog}
+            className="font-semibold px-6 py-3 rounded-full text-sm sm:text-base cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95"
+            style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
+          >
+            Ver el catálogo
+          </button>
+          <a
+            href={waHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="zs-pill rounded-full font-semibold px-6 py-3 text-sm sm:text-base text-black"
+          >
+            Hablar con un asesor
+          </a>
+        </div>
       </div>
 
-      <div
-        className="rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 text-white grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
-        style={{ background: palette.stripBg }}
-      >
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
           { t: '1. Elige', d: 'Escoge tu producto y llena tus datos de envío.' },
           { t: '2. Recibe', d: 'Te lo llevamos a la puerta, con envío gratis.' },
           { t: '3. Paga', d: 'Pagas en efectivo al recibir. Sin adelantos.' }
-        ].map(s => (
-          <div key={s.t}>
-            <div className="font-black text-xl sm:text-2xl" style={{ color: style === 'mercado-vivo' && palette.stripBg === '#0B1F4B' ? '#FFD23F' : palette.p1 }}>{s.t}</div>
-            <div className="text-sm opacity-90 mt-1">{s.d}</div>
+        ].map(st => (
+          <div key={st.t} className="zs-card p-5 sm:p-6" style={{ transform: 'none' }}>
+            <div className="font-semibold text-xl text-black" style={{ letterSpacing: '-0.05em' }}>{st.t}</div>
+            <div className="text-sm text-[color:var(--shop-muted)] mt-1">{st.d}</div>
           </div>
         ))}
       </div>

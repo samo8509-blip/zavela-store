@@ -1684,6 +1684,15 @@ export default function App() {
             whatsappNumber={settings?.whatsappSettings?.phoneNumber || settings?.whatsappNumber || settings?.contactPhone || '573133595427'}
             onExploreCatalog={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })}
             onSelectProduct={handleSelectProduct}
+            categories={effectiveCategories}
+            onSearch={(q) => {
+              setSearchQuery(q);
+              setTimeout(() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' }), 50);
+            }}
+            onSelectCategory={(catId) => {
+              goToCategory(catId);
+              setTimeout(() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' }), 50);
+            }}
           />
 
           <CategoryTiles
