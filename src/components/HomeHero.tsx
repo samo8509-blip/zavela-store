@@ -21,10 +21,24 @@ const firstImage = (p: Product): string => {
 };
 
 export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, whatsappNumber, onExploreCatalog, onSelectProduct, categories, onSearch, onSelectCategory }) => {
-  const featured = products
+  // Cinta de productos: destacados y con descuento primero, y como máximo 2 por categoría para que haya variedad
+  const eligible = products
     .filter(p => p.active !== false && Number(p.stock) !== 0 && firstImage(p))
-    .filter(p => !/sex|adult/i.test(String(p.categoryName || '')))
-    .slice(0, 4);
+    .filter(p => !/sex|adult/i.test(String(p.categoryName || '')));
+  const ranked = [
+    ...eligible.filter(p => p.featured),
+    ...eligible.filter(p => !p.featured && (p.discountPercentage || 0) > 0).sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0)),
+    ...eligible.filter(p => !p.featured && !((p.discountPercentage || 0) > 0))
+  ];
+  const perCat: Record<string, number> = {};
+  const featured: Product[] = [];
+  for (const p of ranked) {
+    const k = String(p.categoryName || p.categoryId || 'x');
+    if ((perCat[k] || 0) >= 2) continue;
+    perCat[k] = (perCat[k] || 0) + 1;
+    featured.push(p);
+    if (featured.length >= 14) break;
+  }
   const waHref = `https://wa.me/${String(whatsappNumber).replace(/\D/g, '')}?text=${encodeURIComponent('Hola, quiero que me ayuden a elegir un producto')}`;
 
   const [q, setQ] = React.useState('');
@@ -35,31 +49,35 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
   const pills = categories.slice(0, 8);
 
   return (
-    <section id="home-hero" aria-label="Bienvenida" className="zs-font space-y-12 sm:space-y-16 pt-2 sm:pt-6">
+    <section id="home-hero" aria-label="Bienvenida" className="zs-font overflow-x-clip space-y-12 sm:space-y-16 pt-2 sm:pt-6">
       <div className="flex flex-col items-center text-center gap-6 sm:gap-8">
         {featured.length > 0 && (
-          <div className="flex items-end justify-center gap-3 sm:gap-4">
-            {featured.map((p, i) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onSelectProduct(p)}
-                className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-44 lg:w-48 ${i >= 2 ? 'hidden sm:block' : ''} ${['-rotate-3 -translate-y-2', 'rotate-2 translate-y-2', '-rotate-2 -translate-y-1', 'rotate-3 translate-y-1'][i]}`}
-                aria-label={`Ver ${p.title}`}
-              >
-                <img
-                  src={firstImage(p)}
-                  alt={p.title}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="w-full aspect-square object-cover rounded-[20px]"
-                />
-                <span className="block px-2 pt-2 pb-1">
-                  <span className="block font-semibold text-xs sm:text-sm leading-tight line-clamp-1 text-black">{p.title}</span>
-                  <span className="block text-xs text-[color:var(--shop-muted)]">{formatCOP(p.price)}</span>
-                </span>
-              </button>
-            ))}
+          <div className="zs-marquee-wrap w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4" aria-label="Productos de la tienda">
+            <div className={`zs-marquee flex items-end gap-4 sm:gap-5 w-max ${featured.length < 5 ? 'zs-marquee-still' : ''}`}>
+              {[...featured, ...(featured.length >= 5 ? featured : [])].map((p, i) => (
+                <button
+                  key={`${p.id}-${i}`}
+                  type="button"
+                  onClick={() => onSelectProduct(p)}
+                  className={`zs-card text-left cursor-pointer border-0 p-2 w-36 sm:w-44 lg:w-48 shrink-0 ${['-rotate-2', 'rotate-1 translate-y-3', 'rotate-2', '-rotate-1 translate-y-2'][i % 4]}`}
+                  aria-label={`Ver ${p.title}`}
+                  aria-hidden={i >= featured.length ? true : undefined}
+                  tabIndex={i >= featured.length ? -1 : 0}
+                >
+                  <img
+                    src={firstImage(p)}
+                    alt={i >= featured.length ? '' : p.title}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    className="w-full aspect-square object-cover rounded-[20px]"
+                  />
+                  <span className="block px-2 pt-2 pb-1">
+                    <span className="block font-semibold text-xs sm:text-sm leading-tight line-clamp-1 text-black">{p.title}</span>
+                    <span className="block text-xs text-[color:var(--shop-muted)]">{formatCOP(p.price)}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
