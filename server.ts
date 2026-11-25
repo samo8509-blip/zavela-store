@@ -19,6 +19,8 @@ import paymentsRouter from './server/routes/payments.ts';
 import dropiRouter from './server/routes/dropi.ts';
 import backupsRouter from './server/routes/backups.ts';
 import priceSuggestionRouter from './server/routes/priceSuggestion.ts';
+import campaignRouter from './server/routes/campaign.ts';
+import { loadCampaign, autoEndIfDue } from './server/services/campaign.ts';
 import { authRouter } from './server/routes/auth.ts';
 import { cpanelDbService } from './server/services/cpanelDbService.ts';
 import { db, isTestProduct } from './server/db.ts';
@@ -80,6 +82,7 @@ async function startServer() {
   app.use('/api/products', productsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/admin/price-suggestion', priceSuggestionRouter);
+  app.use('/api/admin/campaign', campaignRouter);
   app.use('/api/admin', adminRouter);
   // Soporte directo para /api/categories (GET, POST, PUT, DELETE)
   app.use('/api/categories', (req, res, next) => {
@@ -402,6 +405,10 @@ async function startServer() {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Zavela Store backend running at http://0.0.0.0:${PORT}`);
   });
+
+  // Campaña de precios: carga su estado y termina sola cuando pasa la fecha de fin
+  loadCampaign().then(() => autoEndIfDue()).catch(() => {});
+  setInterval(() => { autoEndIfDue().catch(() => {}); }, 10 * 60 * 1000);
 
   const customPort = process.env.PORT && process.env.PORT !== '3000' && process.env.PORT !== '8080'
     ? Number(process.env.PORT)

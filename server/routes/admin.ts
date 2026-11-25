@@ -17,6 +17,7 @@ import { metaGraphService, isPlaceholderToken } from '../services/metaGraphServi
 import { pool } from '../mysqlPool.ts';
 import { publicOrderView, exactMatch } from '../services/publicOrder.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
+import { applyCampaignDisplay } from '../services/campaign.ts';
 
 const router = Router();
 
@@ -553,7 +554,8 @@ router.get('/products', async (req, res) => {
         };
       });
 
-    res.json({ success: true, count: mapped.length, data: mapped });
+    const withCampaign = mapped.map(applyCampaignDisplay);
+    res.json({ success: true, count: withCampaign.length, data: withCampaign });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -648,7 +650,7 @@ router.get('/products/:id', async (req, res) => {
           : true
       };
 
-      return res.json({ success: true, data: productData });
+      return res.json({ success: true, data: applyCampaignDisplay(productData) });
     }
 
     const fallback = db.getProductById(id);
