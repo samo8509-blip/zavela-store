@@ -104,6 +104,12 @@ export function ScrollToTop() {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
+    // Evita que el navegador restaure una posición vieja (caía a mitad o al fondo de la página
+    // al volver desde una categoría o un producto, porque el contenido carga después).
+    try { window.history.scrollRestoration = 'manual'; } catch {}
+  }, []);
+
+  useEffect(() => {
     // Si la URL no contiene un hash de anclaje (ej. #catalogo), scrollear al tope
     if (!window.location.hash) {
       window.scrollTo(0, 0);
@@ -1184,6 +1190,12 @@ export default function App() {
     }
   }
 
+  // En el inicio, las categorías ya se ven en el mosaico de fotos; las filas con tarjetas completas
+  // solo muestran Destacados y Ofertas (así no hay dos catálogos repetidos).
+  let homeRowSections: CategoryRowSection[] = categorySections.filter(s => s.key === 'featured' || s.key === 'offers');
+  if (homeRowSections.length === 0 && showCategoryRows) {
+    homeRowSections = [{ key: 'all-products', title: 'Productos de la tienda', products: filteredProducts }];
+  }
   const featuredProducts = products.filter(p => p.featured && p.active);
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0); // <--- RESTAURADA
 
@@ -1460,7 +1472,10 @@ export default function App() {
           onOpenCustomerAuth={handleOpenCustomerAuth}
           onOpenCustomerProfile={() => setIsCustomerProfileOpen(true)}
           onCustomerLogout={handleCustomerLogout}
-          onGoHome={() => setCurrentView('store')}
+          onGoHome={() => {
+            setCurrentView('store');
+            if (location.pathname !== '/') navigate('/');
+          }}
           onNavigateQuienesSomos={() => {
             setCurrentView('quienes-somos');
             try { window.history.pushState({}, '', '/quienes-somos'); } catch {}
@@ -1880,7 +1895,7 @@ export default function App() {
                 </div>
               ) : showCategoryRows ? (
                 <CategoryRows
-                  sections={categorySections}
+                  sections={homeRowSections}
                   renderProduct={(product) => (
                     <ProductCard
                       product={product}
