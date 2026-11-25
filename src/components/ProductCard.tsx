@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Zap, ShieldCheck, Truck, Sparkles, ChevronRight, CheckCircle2, Eye, Star, Share2 } from 'lucide-react';
+import { ShoppingBag, Zap, ShieldCheck, Truck, Sparkles, ChevronRight, CheckCircle2, Eye, Star, Share2, Plus } from 'lucide-react';
 import { Product } from '../types/index.ts';
 import { formatCOP } from '../utils/formatters.ts';
 import { ProductShareModal } from './ProductShareModal.tsx';
@@ -95,10 +95,61 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div
       id={`product-card-${product.id}`}
       onClick={handleNavigateToProduct}
-      className="group zs-card zs-font flex flex-col overflow-visible cursor-pointer relative"
+      className="group zs-card zs-font flex flex-col overflow-visible cursor-pointer relative max-md:!shadow-none max-md:!rounded-none max-md:!bg-transparent max-md:hover:!transform-none"
     >
+      {/* Versión celular: foto en baldosa gris, botón "+" y precio con descuento */}
+      <div className="md:hidden">
+        <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#f2f4f5]">
+          <img
+            src={mainImage}
+            alt={product.title}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          {stock <= 0 ? (
+            <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-medium px-2 py-0.5 rounded-full">Agotado</span>
+          ) : stock <= 5 ? (
+            <span className="absolute top-2 left-2 bg-white text-black text-[10px] font-medium px-2 py-0.5 rounded-full shadow-sm">Quedan {stock}</span>
+          ) : null}
+          {stock > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToCart(product, e);
+              }}
+              className="absolute right-2 bottom-2 w-9 h-9 rounded-full bg-white border border-[var(--shop-border)] shadow-sm flex items-center justify-center active:scale-90 transition-transform"
+              aria-label="Agregar al carrito"
+              title="Agregar al carrito"
+            >
+              <Plus className="w-5 h-5 text-black" />
+            </button>
+          )}
+        </div>
+        <div className="pt-2 space-y-0.5">
+          <h3 className="text-[13px] leading-snug text-black line-clamp-2" style={{ letterSpacing: '-0.02em' }}>
+            {stripEmoji(product.title)}
+          </h3>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-base font-semibold text-black" style={{ letterSpacing: '-0.03em' }}>{formatCOP(price)}</span>
+            {hasDiscount && (
+              <>
+                <span className="text-[11px] text-[color:var(--shop-muted)] line-through">{formatCOP(compareAt)}</span>
+                {product.discountPercentage > 0 && (
+                  <span className="text-[10px] font-semibold rounded-md px-1.5 py-px bg-[#ffe9e7] text-[#d6372a]">-{product.discountPercentage}%</span>
+                )}
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-[color:var(--shop-muted)]">
+            <Star className="w-3 h-3 fill-black text-black" /> 5.0 · Pago contra entrega
+          </div>
+        </div>
+      </div>
+
       {/* Imagen: la foto manda, con marco blanco de 12px y esquinas de 20px */}
-      <div className="relative aspect-square w-full overflow-hidden p-3">
+      <div className="hidden md:block relative aspect-square w-full overflow-hidden p-3">
         <img
           src={mainImage}
           alt={product.title}
@@ -119,7 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Contenido: nombre, estrellas, precio y un solo botón de compra */}
-      <div className="px-4 pb-4 pt-1 flex-1 flex flex-col gap-3">
+      <div className="hidden md:flex px-4 pb-4 pt-1 flex-1 flex-col gap-3">
         <div className="space-y-1.5">
           <h3
             className="font-semibold text-sm sm:text-base text-black line-clamp-2 leading-snug group-hover:text-[color:var(--shop-violet)] transition-colors"
