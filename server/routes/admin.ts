@@ -3628,12 +3628,85 @@ router.post('/social/disconnect/:platform', async (req, res) => {
   }
 });
 
-router.get('/social/posts', (req, res) => {
+// Historial de publicaciones sociales: se guarda en MySQL (configuraciones, clave social_posts_history).
+// El guardado en memoria de db.publishSocialPost no hace nada, por eso antes devolvía null y la pantalla se rompía.
+const SOCIAL_HISTORY_KEY = 'social_posts_history';
+async function readSocialHistory(): Promise<any[]> {
   try {
-    const posts = db.getSocialBroadcastPosts();
+    const [rows]: any = await pool.query('SELECT valor FROM configuraciones WHERE clave = ? LIMIT 1', [SOCIAL_HISTORY_KEY]);
+    if (Array.isArray(rows) && rows[0]?.valor) {
+      const list = JSON.parse(rows[0].valor);
+      return Array.isArray(list) ? list.filter(p => p && typeof p === 'object') : [];
+    }
+  } catch (e: any) { console.warn('[social] no se pudo leer el historial:', e?.message || e); }
+  return [];
+}
+async function writeSocialHistory(list: any[]): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO configuraciones (clave, valor, updated_at) VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE valor = VALUES(valor), updated_at = NOW()`,
+      [SOCIAL_HISTORY_KEY, JSON.stringify(list.slice(0, 100))]
+    );
+  } catch (e: any) { console.warn('[social] no se pudo guardar el historial:', e?.message || e); }
+}
+
+router.get('/social/posts', async (req, res) => {
+  try {
+    const posts = await readSocialHistory();
     res.json({ success: true, data: posts });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Proxy de imágenes para la plantilla de campaña: el navegador no puede dibujar fotos de otros sitios en un lienzo
+// sin permiso (CORS), así que el servidor las descarga y las entrega desde el mismo dominio. Solo administradores.
+router.get('/social/image-proxy', async (req, res) => {
+  try {
+    const raw = String(req.query.url || '');
+    let u: URL;
+    try { u = new URL(raw); } catch { return res.status(400).json({ success: false, message: 'URL inválida' }); }
+    const host = u.hostname.toLowerCase();
+    const privateHost = host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal') || /^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1\]?$|\[?f[cd])/i.test(host);
+    if (!/^https?:$/.test(u.protocol) || privateHost) return res.status(400).json({ success: false, message: 'URL no permitida' });
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 10000);
+    const r = await fetch(u.toString(), { signal: ctl.signal, redirect: 'follow' });
+    clearTimeout(timer);
+    const type = String(r.headers.get('content-type') || '');
+    if (!r.ok || !type.startsWith('image/')) return res.status(502).json({ success: false, message: 'No se pudo descargar la imagen' });
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 8 * 1024 * 1024) return res.status(413).json({ success: false, message: 'Imagen demasiado grande' });
+    res.setHeader('Content-Type', type);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(buf);
+  } catch (e: any) {
+    res.status(502).json({ success: false, message: e?.message || 'Error al descargar la imagen' });
+  }
+});
+
+// Publica en Facebook una imagen de campaña de la tienda (plantilla generada en el panel).
+router.post('/social/publish-image', async (req, res) => {
+  try {
+    const { imageDataUrl, caption, title } = req.body || {};
+    const m = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(String(imageDataUrl || ''));
+    if (!m) return res.status(400).json({ success: false, message: 'La imagen no es válida (se espera PNG o JPG).' });
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > 8 * 1024 * 1024) return res.status(413).json({ success: false, message: 'La imagen pesa más de 8 MB.' });
+    const text = String(caption || '').slice(0, 5000);
+    const result = await metaGraphService.publishImageToFacebook(buf, m[1], text);
+    if (result.success) {
+      const history = await readSocialHistory();
+      await writeSocialHistory([{
+        id: `post-${Date.now()}`, productId: 'store-campaign', productTitle: String(title || 'Campaña de la tienda').slice(0, 80), productPrice: 0,
+        productImageUrl: '', productSlug: '', platforms: ['facebook'], copies: { facebook: text }, status: 'published',
+        publishedAt: new Date().toISOString(), views: 0, clicks: 0, likes: 0, shares: 0, attributedSalesCOP: 0, postUrl: result.permalink
+      }, ...history]);
+    }
+    res.status(result.success ? 201 : 200).json({ success: result.success, result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'Error al publicar' });
   }
 });
 
@@ -3672,14 +3745,7 @@ router.post('/social/publish', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Producto no encontrado en el catálogo' });
     }
 
-    const newPost = db.publishSocialPost({
-      productId: product.id,
-      platforms,
-      copies,
-      estimatedViewsBoost: 3000
-    });
-
-    let facebookSync = null;
+    let facebookSync: any = null;
     if (Array.isArray(platforms) && platforms.includes('facebook')) {
       try {
         facebookSync = await metaGraphService.publishProductToFacebook(product, {
@@ -3693,6 +3759,26 @@ router.post('/social/publish', async (req, res) => {
         };
       }
     }
+
+    const plats = (Array.isArray(platforms) ? platforms : []).filter((p: any) => ['facebook', 'instagram', 'tiktok'].includes(p));
+    const fbFailedOnly = plats.length === 1 && plats[0] === 'facebook' && facebookSync && facebookSync.success === false;
+    const imgs: any[] = Array.isArray((product as any).images) ? (product as any).images : [];
+    const newPost = {
+      id: `post-${Date.now()}`,
+      productId: String(product.id),
+      productTitle: String((product as any).title || (product as any).nombre || 'Producto'),
+      productPrice: Number((product as any).price) || 0,
+      productImageUrl: String(imgs[0] || (product as any).image || ''),
+      productSlug: String((product as any).slug || product.id),
+      platforms: plats,
+      copies: { facebook: copies?.facebook, instagram: copies?.instagram, tiktok: copies?.tiktok },
+      status: fbFailedOnly ? 'failed' : 'published',
+      publishedAt: new Date().toISOString(),
+      views: 0, clicks: 0, likes: 0, shares: 0, attributedSalesCOP: 0,
+      postUrl: facebookSync?.permalink || undefined
+    };
+    const history = await readSocialHistory();
+    await writeSocialHistory([newPost, ...history]);
 
     res.status(201).json({ success: true, data: newPost, facebookSync });
   } catch (error: any) {
@@ -4192,9 +4278,12 @@ router.post('/social/facebook/sync-all', async (req, res) => {
   }
 });
 
-router.delete('/social/posts/:id', (req, res) => {
+router.delete('/social/posts/:id', async (req, res) => {
   try {
-    const deleted = db.deleteSocialBroadcastPost(req.params.id);
+    const history = await readSocialHistory();
+    const rest = history.filter(p => String(p.id) !== String(req.params.id));
+    const deleted = rest.length !== history.length;
+    if (deleted) await writeSocialHistory(rest);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Publicación no encontrada' });
     }

@@ -171,6 +171,47 @@ export class MetaGraphService {
   }
 
   /**
+   * Publica una imagen propia (por ejemplo la plantilla de campaña de la tienda) en la Fanpage.
+   * La imagen se sube como archivo, no por enlace, así no depende de una URL pública.
+   */
+  public async publishImageToFacebook(image: Buffer, mime: string, caption: string): Promise<MetaFacebookPublishResult> {
+    const config = await this.getEffectiveFacebookConfig();
+    const pageId = config.pageId || '1256955457511976';
+    const accessToken = config.accessToken;
+    if (!pageId || !accessToken || isPlaceholderToken(accessToken)) {
+      return {
+        success: false,
+        errorCode: 190,
+        message: 'Debes ingresar tu Page Access Token permanente de Meta for Developers.',
+        technicalDetails: 'Ve a "Cuentas y conexión", pega tu Page Access Token permanente y guarda.'
+      };
+    }
+    try {
+      const form = new FormData();
+      form.append('source', new Blob([image], { type: mime }), mime === 'image/jpeg' ? 'campana.jpg' : 'campana.png');
+      form.append('caption', caption);
+      form.append('access_token', accessToken);
+      const response = await fetch(`${this.apiBase}/${encodeURIComponent(pageId)}/photos`, { method: 'POST', body: form });
+      const data: any = await response.json();
+      if (data && (data.id || data.post_id)) {
+        const postId = String(data.post_id || data.id);
+        db.addLog({ type: 'PRODUCT_UPDATE', action: 'Campaña de tienda publicada en Facebook', details: `Imagen de campaña publicada en la página (${pageId}) con ID ${postId}.`, status: 'success' });
+        return { success: true, postId, photoId: data.id ? String(data.id) : undefined, permalink: `https://facebook.com/${postId}`, message: `Publicado en Facebook con ID ${postId}` };
+      }
+      const e = data?.error;
+      if (e) {
+        let hint = e.message;
+        if (e.code === 190) hint = 'El token de Facebook es inválido o expiró. Pega un Page Access Token permanente en "Cuentas y conexión".';
+        else if (e.code === 200 || e.code === 10) hint = 'Faltan permisos: el token necesita pages_manage_posts, pages_read_engagement y pages_show_list.';
+        return { success: false, errorCode: e.code, errorSubcode: e.error_subcode, errorType: e.type, message: `Facebook (${e.code}): ${e.message}`, technicalDetails: hint };
+      }
+      return { success: false, message: 'Facebook no devolvió un ID de publicación.', technicalDetails: JSON.stringify(data).slice(0, 300) };
+    } catch (err: any) {
+      return { success: false, message: `No se pudo conectar con Facebook: ${err?.message || err}` };
+    }
+  }
+
+  /**
    * Publica un producto directamente en la Fanpage de Facebook utilizando Meta Graph API v26.0
    */
   public async publishProductToFacebook(

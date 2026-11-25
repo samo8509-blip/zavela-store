@@ -40,6 +40,7 @@ import {
 import { Product, SocialMarketingSettings, SocialBroadcastPost, SocialPlatformConnection } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
 import { FacebookPageConnectModal } from './FacebookPageConnectModal.tsx';
+import { AdminStorePromo } from './AdminStorePromo.tsx';
 
 interface AdminSocialMarketingProps {
   products: Product[];
@@ -50,7 +51,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
   products,
   onNavigateToProduct
 }) => {
-  const [activeTab, setActiveTab] = useState<'publish' | 'accounts' | 'automation' | 'history'>('publish');
+  const [activeTab, setActiveTab] = useState<'publish' | 'campaign' | 'accounts' | 'automation' | 'history'>('publish');
   const [settings, setSettings] = useState<SocialMarketingSettings | null>(null);
   const [posts, setPosts] = useState<SocialBroadcastPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -120,7 +121,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
         }
       }
       if (postsRes.success) {
-        setPosts(postsRes.data);
+        setPosts(Array.isArray(postsRes.data) ? postsRes.data.filter(Boolean) : []);
       }
     } catch (err) {
       console.error('Error fetching social marketing data:', err);
@@ -231,9 +232,11 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message || 'Error al publicar');
 
-      setPosts(prev => [data.data, ...prev]);
+      if (data.data) setPosts(prev => [data.data, ...prev]);
       if (data.facebookSync?.success) {
         showToast(`🚀 ¡Publicado con éxito! ✅ Post oficial de Facebook creado con ID ${data.facebookSync.postId}`);
+      } else if (data.facebookSync && data.facebookSync.success === false) {
+        alert(`No se pudo publicar en Facebook.\n\n${data.facebookSync.message || ''}\n${data.facebookSync.technicalDetails || ''}`.trim());
       } else {
         showToast(`🚀 ¡Publicado con éxito en [${activePlats.join(', ')}]! Generando visualizaciones y tráfico.`);
       }
@@ -473,6 +476,17 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
           <span>Publicador Rápido & Mockups</span>
         </button>
 
+        <button
+          onClick={() => setActiveTab('campaign')}
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'campaign'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-black'
+              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Zap className={`w-4 h-4 ${activeTab === 'campaign' ? 'text-pink-600' : ''}`} />
+          <span>Campañas de la Tienda</span>
+        </button>
         <button
           onClick={() => setActiveTab('accounts')}
           className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
@@ -1076,6 +1090,19 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
       {/* ======================================================== */}
       {/* TAB 2: VINCULACIÓN DE CUENTAS (FB, IG, TIKTOK)            */}
       {/* ======================================================== */}
+      {activeTab === 'campaign' && (
+        <AdminStorePromo
+          products={products}
+          onToast={showToast}
+          onPublished={async () => {
+            try {
+              const r = await fetch('/api/admin/social/posts').then(x => x.json());
+              if (r.success && Array.isArray(r.data)) setPosts(r.data.filter(Boolean));
+            } catch { /* el historial se actualiza al recargar */ }
+          }}
+        />
+      )}
+
       {activeTab === 'accounts' && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
@@ -1553,8 +1580,8 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
                     />
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-[10px] font-bold">
-                          PUBLICADO
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${post.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                          {post.status === 'failed' ? 'NO SE PUBLICÓ' : 'PUBLICADO'}
                         </span>
                         <span className="text-[11px] text-slate-400 font-mono">
                           {new Date(post.publishedAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -1569,17 +1596,17 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
                         </span>
                         <span className="text-slate-300 dark:text-slate-600">•</span>
                         <div className="flex items-center gap-1">
-                          {post.platforms.includes('facebook') && (
+                          {(post.platforms || []).includes('facebook') && (
                             <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold text-[10px]">
                               Facebook
                             </span>
                           )}
-                          {post.platforms.includes('instagram') && (
+                          {(post.platforms || []).includes('instagram') && (
                             <span className="px-1.5 py-0.5 rounded bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300 font-bold text-[10px]">
                               Instagram
                             </span>
                           )}
-                          {post.platforms.includes('tiktok') && (
+                          {(post.platforms || []).includes('tiktok') && (
                             <span className="px-1.5 py-0.5 rounded bg-slate-900 text-cyan-300 border border-cyan-400/30 font-bold text-[10px]">
                               TikTok
                             </span>
@@ -1597,7 +1624,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
                         <span>Views</span>
                       </div>
                       <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white font-mono">
-                        {post.views.toLocaleString()}
+                        {Number(post.views || 0).toLocaleString()}
                       </div>
                     </div>
 
