@@ -63,6 +63,7 @@ import { AdminLuckyWheel } from './admin/AdminLuckyWheel.tsx';
 import { AdminGamificationSettings } from './admin/AdminGamificationSettings.tsx';
 import { AdminHeroBanners } from './admin/AdminHeroBanners.tsx';
 import { AdminHomeSections } from './admin/AdminHomeSections.tsx';
+import { AdminHomePromo } from './admin/AdminHomePromo.tsx';
 import { AdminReviews } from './admin/AdminReviews.tsx';
 import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
@@ -927,6 +928,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {activeSection === 'header_ticker' && (
               <AdminHeaderTicker
                 settings={settings}
+                onSaveSettings={handleSaveSettings}
+              />
+            )}
+
+            {activeSection === 'home_promo' && (
+              <AdminHomePromo
+                settings={settings}
+                categories={categories}
                 onSaveSettings={handleSaveSettings}
               />
             )}

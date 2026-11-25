@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Megaphone,
   BarChart3,
   ShoppingCart,
   Users,
@@ -71,6 +72,7 @@ export type AdminViewKey =
   | 'gamification_game'
   | 'hero_banners'
   | 'home_sections'
+  | 'home_promo'
   | 'reviews'
   | 'trust_badges'
   | 'blog_posts'
@@ -238,6 +240,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         },
         { key: 'hero_banners', label: 'Carrusel de Banners (Hero)', icon: Sliders },
         { key: 'home_sections', label: 'Secciones y Bloques del Home', icon: Layers },
+        { key: 'home_promo', label: 'Inicio comercial (oferta y estante)', icon: Megaphone, badge: 'Nuevo', badgeColor: 'bg-violet-500 text-white font-black' },
         { 
           key: 'reviews', 
           label: 'Calificaciones y Reseñas', 
