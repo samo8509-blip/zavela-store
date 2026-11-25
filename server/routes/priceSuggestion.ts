@@ -45,12 +45,17 @@ router.post('/', async (req, res) => {
     const title = String(req.body?.title || '').trim().slice(0, 160);
     if (title.length < 4) return res.status(400).json({ success: false, message: 'Escribe primero el título del producto (sección 3) para poder buscarlo.' });
 
-    const ai = getClient();
-    if (!ai) return res.status(503).json({ success: false, message: 'Falta la clave GEMINI_API_KEY en el servidor.' });
+    // Modo manual: el administrador escribe los precios que encontró; no se usa Gemini.
+    const manual: number[] = (Array.isArray(req.body?.manualPrices) ? req.body.manualPrices : [])
+      .map((v: any) => Math.round(num(v))).filter((v: number) => v >= 1000).slice(0, 12);
+    const isManual = manual.length > 0;
+
+    const ai = isManual ? null : getClient();
+    if (!isManual && !ai) return res.status(503).json({ success: false, message: 'Falta la clave GEMINI_API_KEY en el servidor.' });
 
     const now = Date.now();
     while (hits.length && now - hits[0] > 3600 * 1000) hits.shift();
-    if (hits.length >= LIMIT_PER_HOUR) return res.status(429).json({ success: false, message: 'Muchas consultas seguidas. Intenta de nuevo en unos minutos.' });
+    if (!isManual && hits.length >= LIMIT_PER_HOUR) return res.status(429).json({ success: false, message: 'Muchas consultas seguidas. Intenta de nuevo en unos minutos.' });
 
     const categoryName = String(req.body?.categoryName || '').trim().slice(0, 80);
     const guard = resolveGuard(db.getSettings()?.pricingGuard);
@@ -63,8 +68,16 @@ router.post('/', async (req, res) => {
 
     // 1) Mercado (con memoria de 24 h por título)
     const key = title.toLowerCase().replace(/\s+/g, ' ');
-    let market = cache.get(key);
-    if (!market || now - market.at > CACHE_MS) {
+    let market = isManual ? undefined : cache.get(key);
+    if (isManual) {
+      market = {
+        at: now,
+        data: {
+          parsed: { resumen: 'Precios que ingresaste tú', confianza: 'alta', competidores: manual.map(p => ({ tienda: 'Precio ingresado', precio: p, url: '', nota: '' })) },
+          sources: []
+        }
+      };
+    } else if (!market || now - market.at > CACHE_MS) {
       hits.push(now);
       const prompt = `Eres analista de precios para una tienda online en Colombia. Busca en la web cuánto cuesta HOY, en pesos colombianos (COP), este producto o uno equivalente en tiendas que vendan en Colombia (Mercado Libre Colombia, Amazon, Falabella, Éxito, Alkosto, Temu, tiendas de dropshipping y otras).
 
@@ -81,7 +94,7 @@ Reglas estrictas:
       const failures: string[] = [];
       for (const m of MODELS) {
         try {
-          r = await ai.models.generateContent({ model: m, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
+          r = await ai!.models.generateContent({ model: m, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
           usedModel = m;
           break;
         } catch (e: any) {

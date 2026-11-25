@@ -282,8 +282,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<any | null>(null);
+  const [manualPrices, setManualPrices] = useState('');
 
-  const consultarPrecioIA = async () => {
+  const consultarPrecioIA = async (manual?: number[]) => {
     setAiLoading(true);
     setAiError(null);
     try {
@@ -296,7 +297,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           costProduct: costoProveedor,
           shipping: fleteEnvio,
           platformFee: comisionDropi,
-          currentPrice: precioVenta
+          currentPrice: precioVenta,
+          ...(manual && manual.length ? { manualPrices: manual } : {})
         })
       });
       const json = await res.json().catch(() => ({}));
@@ -677,7 +679,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                 <span className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-600" /> Precio sugerido por IA (compara con el mercado)</span>
                 <button
                   type="button"
-                  onClick={consultarPrecioIA}
+                  onClick={() => consultarPrecioIA()}
                   disabled={aiLoading || !String(formData.title || '').trim()}
                   className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
                 >
@@ -687,7 +689,45 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
               {!String(formData.title || '').trim() && (
                 <p className="text-[11px] text-slate-500">Escribe primero el título del producto (sección 3) para poder buscarlo.</p>
               )}
-              {aiError && <p className="text-xs font-bold text-rose-700">{aiError}</p>}
+              {aiError && <p className="text-xs font-bold text-rose-700 break-words">{aiError}</p>}
+              {(aiError || aiResult) && (
+                <div className="rounded-xl bg-white border border-slate-200 p-3 space-y-2">
+                  <p className="text-xs font-extrabold text-slate-800">Comparar tú mismo (no gasta IA)</p>
+                  <p className="text-[11px] text-slate-600">
+                    Busca el producto en estas tiendas, anota los precios que veas y escríbelos abajo. Calculo tus tres precios con tu margen mínimo.
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+                    {[
+                      ['Mercado Libre', `https://listado.mercadolibre.com.co/${encodeURIComponent(String(formData.title || '').trim().replace(/\s+/g, '-'))}`],
+                      ['Google Shopping', `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(String(formData.title || '').trim())}`],
+                      ['Amazon', `https://www.amazon.com/s?k=${encodeURIComponent(String(formData.title || '').trim())}`]
+                    ].map(([n, u]) => (
+                      <a key={n} href={u} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800">{n} ↗</a>
+                    ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={manualPrices}
+                      onChange={(e) => setManualPrices(e.target.value)}
+                      placeholder="Precios en pesos separados por coma. Ej: 89900, 105000, 119000"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={() => {
+                        const list = manualPrices.split(/[,;\n]+/).map(t => parseNumCOP(t)).filter(n => n >= 1000);
+                        if (list.length === 0) { setAiError('Escribe al menos un precio en pesos (mínimo 1.000).'); return; }
+                        consultarPrecioIA(list);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                    >
+                      Calcular con estos precios
+                    </button>
+                  </div>
+                </div>
+              )}
               {aiResult && (
                 <div className="space-y-3">
                   {aiResult.summary && <p className="text-xs text-slate-700"><strong>Entendí:</strong> {aiResult.summary}{aiResult.confidence ? ` (certeza ${aiResult.confidence})` : ''}</p>}
