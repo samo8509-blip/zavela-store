@@ -134,4 +134,4 @@
 .zs-search-btn:hover { filter: brightness(1.08); }
 
 /* Fondo gris claro del estilo Shop en la portada de la tienda */
-#zavela-app-root { background-color: var(--shop-canvas) !important; }
+#zavela-app-root { background-color: var(--shop-canvas) !important; transition: background-color 0.3s ease; }

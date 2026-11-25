@@ -9,6 +9,7 @@ interface Props {
 }
 
 const COLOR_OPTS: { id: HomePromoSettings['band']['color']; name: string; hex: string }[] = [
+  { id: 'temporada', name: 'Color de la temporada (automático)', hex: '#5433eb' },
   { id: 'coral', name: 'Coral', hex: '#ff5a4f' },
   { id: 'violeta', name: 'Violeta', hex: '#5433eb' },
   { id: 'verde', name: 'Verde Navidad', hex: '#0f3d2e' },
@@ -27,6 +28,7 @@ export const AdminHomePromo: React.FC<Props> = ({ settings, categories = [], onS
   const previewTitle = String(band.title || '').replace(/\{n\}/g, String(Math.round(Number(band.maxDiscount) || 0)));
   const colorHex = COLOR_OPTS.find(c => c.id === band.color)?.hex || '#ff5a4f';
   const darkInk = band.color === 'amarillo';
+  const isSeason = band.color === 'temporada';
 
   const save = async () => {
     setSaving(true);
@@ -62,7 +64,7 @@ export const AdminHomePromo: React.FC<Props> = ({ settings, categories = [], onS
           </label>
         </div>
 
-        <div className="rounded-3xl px-5 py-4 flex items-center justify-between gap-3" style={{ background: colorHex, color: darkInk ? '#000' : '#fff', opacity: band.enabled ? 1 : 0.4 }}>
+        <div className="rounded-3xl px-5 py-4 flex items-center justify-between gap-3" style={{ background: isSeason ? 'var(--shop-violet)' : colorHex, color: darkInk ? '#000' : '#fff', opacity: band.enabled ? 1 : 0.4 }}>
           <div className="min-w-0">
             <div className="text-[11px] font-bold tracking-wider">{band.eyebrow}</div>
             <div className="text-xl font-semibold leading-tight">{previewTitle}</div>
