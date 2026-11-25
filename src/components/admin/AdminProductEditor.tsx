@@ -282,8 +282,9 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiResult, setAiResult] = useState<any | null>(null);
+  const [manualPrices, setManualPrices] = useState('');
 
-  const consultarPrecioIA = async () => {
+  const consultarPrecioIA = async (manual?: number[]) => {
     setAiLoading(true);
     setAiError(null);
     try {
@@ -296,7 +297,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           costProduct: costoProveedor,
           shipping: fleteEnvio,
           platformFee: comisionDropi,
-          currentPrice: precioVenta
+          currentPrice: precioVenta,
+          ...(manual && manual.length ? { manualPrices: manual } : {})
         })
       });
       const json = await res.json().catch(() => ({}));
@@ -673,30 +675,54 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
             </div>
 
             <div className="p-4 rounded-2xl border border-violet-200 bg-violet-50/50 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-600" /> Precio sugerido por IA (compara con el mercado)</span>
-                <button
-                  type="button"
-                  onClick={consultarPrecioIA}
-                  disabled={aiLoading || !String(formData.title || '').trim()}
-                  className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  {aiLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Buscando en la web…</> : 'Consultar precios del mercado'}
-                </button>
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-violet-900 flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-violet-600" /> Precio sugerido según el mercado (sin costo)</span>
+                <p className="text-[11px] text-slate-600 mt-1">
+                  Busca el producto en estas tiendas, anota los precios que veas y escríbelos abajo. Calculo tus tres precios sin bajar de tu margen mínimo.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px] font-bold">
+                {[
+                  ['Mercado Libre', `https://listado.mercadolibre.com.co/${encodeURIComponent(String(formData.title || '').trim().replace(/\s+/g, '-'))}`],
+                  ['Google Shopping', `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(String(formData.title || '').trim())}`],
+                  ['Amazon', `https://www.amazon.com/s?k=${encodeURIComponent(String(formData.title || '').trim())}`]
+                ].map(([n, u]) => (
+                  <a key={n} href={String(formData.title || '').trim() ? u : undefined} target="_blank" rel="noopener noreferrer" aria-disabled={!String(formData.title || '').trim()} className={`px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-800 ${String(formData.title || '').trim() ? 'hover:bg-slate-100' : 'opacity-50 pointer-events-none'}`}>{n} ↗</a>
+                ))}
               </div>
               {!String(formData.title || '').trim() && (
-                <p className="text-[11px] text-slate-500">Escribe primero el título del producto (sección 3) para poder buscarlo.</p>
+                <p className="text-[11px] text-slate-500">Escribe primero el título del producto (sección 3) para activar las búsquedas.</p>
               )}
-              {aiError && <p className="text-xs font-bold text-rose-700">{aiError}</p>}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={manualPrices}
+                  onChange={(e) => setManualPrices(e.target.value)}
+                  placeholder="Precios en pesos separados por coma. Ej: 89900, 105000, 119000"
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={aiLoading}
+                  onClick={() => {
+                    const list = manualPrices.split(/[,;\n]+/).map(t => parseNumCOP(t)).filter(n => n >= 1000);
+                    if (list.length === 0) { setAiError('Escribe al menos un precio en pesos (mínimo 1.000).'); return; }
+                    consultarPrecioIA(list);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {aiLoading ? 'Calculando…' : 'Calcular con estos precios'}
+                </button>
+              </div>
+              {aiError && <p className="text-xs font-bold text-rose-700 break-words">{aiError}</p>}
               {aiResult && (
                 <div className="space-y-3">
-                  {aiResult.summary && <p className="text-xs text-slate-700"><strong>Entendí:</strong> {aiResult.summary}{aiResult.confidence ? ` (certeza ${aiResult.confidence})` : ''}</p>}
                   {(aiResult.warnings || []).map((w: string, i: number) => (
                     <p key={i} className="text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{w}</p>
                   ))}
                   {aiResult.market && (
                     <p className="text-xs text-slate-700">
-                      Mercado ({aiResult.market.count} {aiResult.market.count === 1 ? 'precio' : 'precios'}): desde <strong>{formatCOP(aiResult.market.low)}</strong> · mediana <strong>{formatCOP(aiResult.market.median)}</strong> · hasta <strong>{formatCOP(aiResult.market.high)}</strong>
+                      Con tus {aiResult.market.count} {aiResult.market.count === 1 ? 'precio' : 'precios'}: desde <strong>{formatCOP(aiResult.market.low)}</strong> · mediana <strong>{formatCOP(aiResult.market.median)}</strong> · hasta <strong>{formatCOP(aiResult.market.high)}</strong>
                       {aiResult.floor > 0 && <> · Tu precio mínimo con {aiResult.guard?.minMarginPercent}% de margen: <strong>{formatCOP(aiResult.floor)}</strong></>}
                     </p>
                   )}
@@ -712,22 +738,8 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                       ))}
                     </div>
                   )}
-                  {(aiResult.competitors || []).length > 0 && (
-                    <details className="text-xs text-slate-700">
-                      <summary className="cursor-pointer font-bold">Ver de dónde salió cada precio</summary>
-                      <ul className="mt-2 space-y-1.5">
-                        {aiResult.competitors.map((c: any, i: number) => (
-                          <li key={i} className="flex flex-wrap items-baseline gap-x-2">
-                            <strong>{c.store}</strong> <span className="font-mono">{formatCOP(c.price)}</span>
-                            {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-violet-700 underline">ver</a>}
-                            {c.note && <span className="text-slate-500">— {c.note}</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
-                  )}
                   <p className="text-[10px] text-slate-500">
-                    Precios aproximados tomados de la web por IA ({aiResult.model}). Verifica los enlaces antes de decidir. Al aplicar un precio solo cambia el precio de venta; el precio tachado no se toca.
+                    Al aplicar un precio solo cambia el precio de venta; el precio tachado no se toca.
                   </p>
                 </div>
               )}
