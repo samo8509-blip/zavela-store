@@ -123,7 +123,7 @@ function mapDocToProduct(docSnap: any): Product {
     totalOperatingCost,
     realNetProfit,
     realNetMarginPercentage,
-    compareAtPrice: Number(data.compareAtPrice) || (price > 0 ? Math.round(price * 1.35) : 0),
+    compareAtPrice: Number(data.compareAtPrice) || 0,
     discountPercentage: Number(data.discountPercentage) || 0,
     marginAmount,
     marginPercentage,
@@ -238,7 +238,7 @@ export async function createFirestoreProduct(productData: Partial<Product>): Pro
       ? Math.round((realNetProfit / price) * 1000) / 10
       : 0;
 
-    const compareAtPrice = Number(productData.compareAtPrice) || (price > 0 ? Math.round(price * 1.35) : 0);
+    const compareAtPrice = Number(productData.compareAtPrice) || 0;
     const discountPercentage = (compareAtPrice > price) ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100) : 0;
     const marginAmount = price - costPrice;
     const marginPercentage = costPrice > 0 ? Math.round((marginAmount / costPrice) * 1000) / 10 : 0;
