@@ -227,7 +227,7 @@ router.post('/:id/restore', async (req, res) => {
       const title = String(item.nombre || item.title || item.name || 'Producto Restaurado').trim();
       const price = Number(item.precio !== undefined ? item.precio : (item.price || 0)) || 0;
       const supplierCost = Number(item.supplier_cost !== undefined ? item.supplier_cost : (item.costPrice || 0)) || 0;
-      const suggestedPrice = Number(item.suggested_price !== undefined ? item.suggested_price : (item.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
+      const suggestedPrice = Number(item.suggested_price !== undefined ? item.suggested_price : (item.compareAtPrice || 0)) || 0;
       const stock = Number(item.stock !== undefined ? item.stock : 10);
       const description = String(item.descripcion !== undefined ? item.descripcion : (item.description || ''));
 

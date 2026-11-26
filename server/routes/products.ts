@@ -4,6 +4,7 @@ import { pool, nativePool } from '../mysqlPool.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
 import { cpanelDbService } from '../services/cpanelDbService.ts';
 import { applyCampaignDisplay } from '../services/campaign.ts';
+import { canSeeCosts, redactProductCosts } from '../utils/redactCosts.ts';
 
 const router = Router();
 
@@ -85,7 +86,8 @@ router.get('/', async (req, res) => {
         console.error("Error GET MySQL:", e);
       }
     }
-    res.json({ success: true, count: products.length, data: products });
+    const visible = canSeeCosts(res) ? products : products.map(redactProductCosts);
+    res.json({ success: true, count: visible.length, data: visible });
   } catch (error: any) { res.status(500).json({ success: false, message: error.message }); }
 });
 

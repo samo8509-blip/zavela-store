@@ -18,6 +18,7 @@ import { pool } from '../mysqlPool.ts';
 import { publicOrderView, exactMatch } from '../services/publicOrder.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
 import { applyCampaignDisplay } from '../services/campaign.ts';
+import { canSeeCosts, redactProductCosts } from '../utils/redactCosts.ts';
 
 const router = Router();
 
@@ -421,7 +422,7 @@ router.get('/products', async (req, res) => {
 
         const price = Number(row.price !== undefined ? row.price : row.precio) || 0;
         const supplierCost = Number(row.supplier_cost !== undefined ? row.supplier_cost : (row.costPrice || 0)) || 0;
-        const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
+        const suggestedPrice = Number(row.suggested_price !== undefined ? row.suggested_price : (row.compareAtPrice || 0)) || 0; // sin "antes" inventado: solo cuenta un precio anterior real
 
         // Extracción robusta de categoría (evita que 'General' eclipse una categoría real)
         let resolvedCategory = 'General';
@@ -554,7 +555,7 @@ router.get('/products', async (req, res) => {
         };
       });
 
-    const withCampaign = mapped.map(applyCampaignDisplay);
+    const withCampaign = mapped.map(applyCampaignDisplay).map(p => canSeeCosts(res) ? p : redactProductCosts(p));
     res.json({ success: true, count: withCampaign.length, data: withCampaign });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -605,7 +606,7 @@ router.get('/products/:id', async (req, res) => {
 
       const price = Number(foundRow.price !== undefined ? foundRow.price : foundRow.precio) || 0;
       const supplierCost = Number(foundRow.supplier_cost !== undefined ? foundRow.supplier_cost : (foundRow.costPrice || 0)) || 0;
-      const suggestedPrice = Number(foundRow.suggested_price !== undefined ? foundRow.suggested_price : (foundRow.compareAtPrice || 0)) || (price > 0 ? Math.round(price * 1.35) : 0);
+      const suggestedPrice = Number(foundRow.suggested_price !== undefined ? foundRow.suggested_price : (foundRow.compareAtPrice || 0)) || 0; // sin "antes" inventado
       const shippingCost = Number(foundRow.shipping_cost !== undefined && foundRow.shipping_cost !== null ? foundRow.shipping_cost : (foundRow.flete_envio ?? foundRow.flete ?? 0));
 
       const productData = {
@@ -650,26 +651,24 @@ router.get('/products/:id', async (req, res) => {
           : true
       };
 
-      return res.json({ success: true, data: applyCampaignDisplay(productData) });
+      return res.json({ success: true, data: canSeeCosts(res) ? applyCampaignDisplay(productData) : redactProductCosts(applyCampaignDisplay(productData)) });
     }
 
     const fallback = db.getProductById(id);
     if (fallback) {
       const fallbackShipping = Number((fallback as any).shippingCost ?? (fallback as any).shipping_cost ?? (fallback as any).flete_envio ?? (fallback as any).flete ?? fallback.estimatedShippingCost ?? 0);
       const fallbackFee = Number((fallback as any).dropiFee ?? (fallback as any).dropi_fee ?? 0);
-      return res.json({ 
-        success: true, 
-        data: {
-          ...fallback,
-          shippingCost: fallbackShipping,
-          shipping_cost: fallbackShipping,
-          estimatedShippingCost: fallbackShipping,
-          flete_envio: fallbackShipping,
-          flete: fallbackShipping,
-          dropiFee: fallbackFee,
-          dropi_fee: fallbackFee
-        } 
-      });
+      const fallbackData: any = {
+        ...fallback,
+        shippingCost: fallbackShipping,
+        shipping_cost: fallbackShipping,
+        estimatedShippingCost: fallbackShipping,
+        flete_envio: fallbackShipping,
+        flete: fallbackShipping,
+        dropiFee: fallbackFee,
+        dropi_fee: fallbackFee
+      };
+      return res.json({ success: true, data: canSeeCosts(res) ? fallbackData : redactProductCosts(fallbackData) });
     }
 
     res.status(404).json({ success: false, message: 'Producto no encontrado' });

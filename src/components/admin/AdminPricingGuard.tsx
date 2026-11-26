@@ -247,12 +247,18 @@ export const AdminPricingGuard: React.FC<Props> = ({ settings, products, onSaveS
             <tbody>
               {visible.slice(0, 200).map(r => {
                 const st = STATUS[r.status];
-                const needsFix = (r.status === 'perdida' || r.status === 'bajo') && Number.isFinite(r.minPrice) && r.minPrice > 0;
+                // Productos con precio de campaña: el precio ya está rebajado a propósito y vuelve solo al terminar.
+                const inCampaign = Boolean((r.product as any).campaignName);
+                const needsFix = !inCampaign && (r.status === 'perdida' || r.status === 'bajo') && Number.isFinite(r.minPrice) && r.minPrice > 0;
                 return (
                   <tr key={String(r.product.id)} className="border-b border-slate-100 align-top">
                     <td className="py-2 pr-3 max-w-[220px]">
                       <div className="font-bold text-slate-900 line-clamp-2">{r.product.title}</div>
-                      {r.shownDiscount > 0 && (
+                      {inCampaign ? (
+                        <div className="text-[10px] text-violet-700 mt-0.5">
+                          {(r.product as any).campaignName}: precio original {formatCOP(r.compareAt)} (-{r.shownDiscount}%)
+                        </div>
+                      ) : r.shownDiscount > 0 && (
                         <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
                           {r.discountMismatch && <AlertTriangle className="w-3 h-3 text-amber-600" />}
                           Tachado {formatCOP(r.compareAt)} (-{r.shownDiscount}%){r.discountMismatch ? ` · guardado: ${r.product.discountPercentage || 0}%` : ''}
@@ -267,9 +273,11 @@ export const AdminPricingGuard: React.FC<Props> = ({ settings, products, onSaveS
                     <td className="py-2 pr-3 whitespace-nowrap">{r.status === 'sin_costo' ? '—' : `${r.margin.toFixed(1)}%`}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">{r.status === 'sin_costo' || !Number.isFinite(r.minPrice) ? '—' : formatCOP(ceil100(r.minPrice))}</td>
                     <td className="py-2 pr-3 whitespace-nowrap">
-                      {r.status === 'sin_costo' ? '—' : r.status === 'perdida' || r.status === 'bajo' ? <span className="text-rose-700 font-bold flex items-center gap-1"><TrendingDown className="w-3 h-3" />0%</span> : `${r.maxDiscountFromPrice}%`}
+                      {r.status === 'sin_costo' ? '—' : inCampaign ? <span className="text-violet-700 font-bold">En campaña</span> : r.status === 'perdida' || r.status === 'bajo' ? <span className="text-rose-700 font-bold flex items-center gap-1"><TrendingDown className="w-3 h-3" />0%</span> : `${r.maxDiscountFromPrice}%`}
                     </td>
-                    <td className="py-2 pr-3"><span className={`px-2 py-0.5 rounded-full font-bold ${st.cls}`}>{st.text}</span></td>
+                    <td className="py-2 pr-3">{inCampaign
+                      ? <span className="px-2 py-0.5 rounded-full font-bold bg-violet-100 text-violet-800">En campaña</span>
+                      : <span className={`px-2 py-0.5 rounded-full font-bold ${st.cls}`}>{st.text}</span>}</td>
                     <td className="py-2 text-right">
                       {needsFix && (
                         <button

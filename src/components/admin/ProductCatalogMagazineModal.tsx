@@ -429,8 +429,8 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
             const boxX = posX + col * (itemW + gapGridX);
             const boxY = startY + row * (itemH + gapGridY);
 
-            const regularPrice = Math.round(prod.price * 1.35);
-            const discountPct = Math.round(((regularPrice - prod.price) / regularPrice) * 100);
+            const regularPrice = Number((prod as any).compareAtPrice) > prod.price ? Math.round(Number((prod as any).compareAtPrice)) : 0; // solo un precio anterior real
+            const discountPct = regularPrice > 0 ? Math.round(((regularPrice - prod.price) / regularPrice) * 100) : 0;
 
             // Card background & border
             pdf.setFillColor(248, 250, 252); // #f8fafc
@@ -450,13 +450,15 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
               }
             }
 
-            // Discount Badge
-            pdf.setFillColor(225, 29, 72); // #e11d48
-            pdf.roundedRect(boxX + 5, boxY + 6, 24, 5.5, 1.5, 1.5, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(6.5);
-            pdf.text(`-${discountPct}% OFERTA`, boxX + 17, boxY + 9.8, { align: 'center' });
+            // Discount Badge (solo si hay un precio anterior real)
+            if (discountPct > 0) {
+              pdf.setFillColor(225, 29, 72); // #e11d48
+              pdf.roundedRect(boxX + 5, boxY + 6, 24, 5.5, 1.5, 1.5, 'F');
+              pdf.setTextColor(255, 255, 255);
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(6.5);
+              pdf.text(`-${discountPct}% OFERTA`, boxX + 17, boxY + 9.8, { align: 'center' });
+            }
 
             // Category & Ref Tag
             pdf.setTextColor(100, 116, 139);
@@ -492,7 +494,7 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
             pdf.setTextColor(148, 163, 184);
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(6.5);
-            pdf.text(`Antes: ${formatCOP(regularPrice)}`, boxX + 7, boxY + 104);
+            if (regularPrice > 0) pdf.text(`Antes: ${formatCOP(regularPrice)}`, boxX + 7, boxY + 104);
 
             // Offer Price
             pdf.setTextColor(190, 18, 60); // #be123c
@@ -521,8 +523,8 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
             const boxX = posX;
             const boxY = startY + i * (itemH + gapGridY);
 
-            const regularPrice = Math.round(prod.price * 1.35);
-            const discountPct = Math.round(((regularPrice - prod.price) / regularPrice) * 100);
+            const regularPrice = Number((prod as any).compareAtPrice) > prod.price ? Math.round(Number((prod as any).compareAtPrice)) : 0; // solo un precio anterior real
+            const discountPct = regularPrice > 0 ? Math.round(((regularPrice - prod.price) / regularPrice) * 100) : 0;
 
             // Card background & border
             pdf.setFillColor(248, 250, 252);
@@ -546,13 +548,15 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
             const rightX = boxX + 108;
             const rightW = itemW - 114;
 
-            // Discount Badge
-            pdf.setFillColor(225, 29, 72);
-            pdf.roundedRect(rightX, boxY + 8, 26, 6, 1.5, 1.5, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(7);
-            pdf.text(`-${discountPct}% OFERTA`, rightX + 13, boxY + 12, { align: 'center' });
+            // Discount Badge (solo si hay un precio anterior real)
+            if (discountPct > 0) {
+              pdf.setFillColor(225, 29, 72);
+              pdf.roundedRect(rightX, boxY + 8, 26, 6, 1.5, 1.5, 'F');
+              pdf.setTextColor(255, 255, 255);
+              pdf.setFont('helvetica', 'bold');
+              pdf.setFontSize(7);
+              pdf.text(`-${discountPct}% OFERTA`, rightX + 13, boxY + 12, { align: 'center' });
+            }
 
             // Category & Ref Tag
             pdf.setTextColor(100, 116, 139);
@@ -584,7 +588,7 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
             pdf.setTextColor(148, 163, 184);
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8);
-            pdf.text(`Precio Regular: ${formatCOP(regularPrice)}`, rightX + 6, boxY + 92);
+            if (regularPrice > 0) pdf.text(`Precio Regular: ${formatCOP(regularPrice)}`, rightX + 6, boxY + 92);
 
             pdf.setTextColor(190, 18, 60);
             pdf.setFont('helvetica', 'bold');
@@ -1090,8 +1094,8 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
                 {/* Products Grid for this page */}
                 <div className={`grow grid ${layoutMode === '4_per_page' ? 'grid-cols-1 sm:grid-cols-2 gap-6' : 'grid-cols-1 gap-8'}`}>
                   {pageGroup.map((prod) => {
-                    const regularPrice = Math.round(prod.price * 1.35);
-                    const discount = Math.round(((regularPrice - prod.price) / regularPrice) * 100);
+                    const regularPrice = Number((prod as any).compareAtPrice) > prod.price ? Math.round(Number((prod as any).compareAtPrice)) : 0; // solo un precio anterior real
+                    const discount = regularPrice > 0 ? Math.round(((regularPrice - prod.price) / regularPrice) * 100) : 0;
 
                     return (
                       <div
@@ -1099,9 +1103,11 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
                         className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow relative"
                       >
                         {/* Discount Ribbon */}
-                        <div className="absolute top-6 left-6 z-10 bg-gradient-to-r from-rose-600 to-rose-700 text-white text-[11px] font-black px-2.5 py-1 rounded-full shadow-md uppercase tracking-wider">
-                          -{discount}% OFERTA
-                        </div>
+                        {discount > 0 && (
+                          <div className="absolute top-6 left-6 z-10 bg-gradient-to-r from-rose-600 to-rose-700 text-white text-[11px] font-black px-2.5 py-1 rounded-full shadow-md uppercase tracking-wider">
+                            -{discount}% OFERTA
+                          </div>
+                        )}
 
                         {/* Image Container */}
                         <div className="relative rounded-xl overflow-hidden aspect-4/3 bg-slate-50 mb-3 border border-slate-100">
@@ -1136,9 +1142,11 @@ export const ProductCatalogMagazineModal: React.FC<ProductCatalogMagazineModalPr
                           {/* Price Box */}
                           <div className="pt-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/80 p-2.5 rounded-xl">
                             <div>
-                              <div className="text-[10px] text-slate-400 line-through font-bold">
-                                Precio Regular: {formatCOP(regularPrice)}
-                              </div>
+                              {regularPrice > 0 && (
+                                <div className="text-[10px] text-slate-400 line-through font-bold">
+                                  Precio Regular: {formatCOP(regularPrice)}
+                                </div>
+                              )}
                               <div className="text-lg font-black text-rose-700 font-mono">
                                 {formatCOP(prod.price)}
                               </div>
