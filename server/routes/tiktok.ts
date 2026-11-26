@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../mysqlPool.ts';
 import { db } from '../db.ts';
-import { buildAuthUrl, newState, consumeState, completeLogin, tiktokConfigured } from '../services/tiktokService.ts';
+import { buildAuthUrl, newState, consumeState, completeLogin, tiktokConfigured, getTmpMedia } from '../services/tiktokService.ts';
 
 const router = Router();
 
@@ -24,6 +24,26 @@ router.get('/api/admin/social/tiktok/callback', async (req, res) => {
   } catch (e: any) {
     res.redirect('/admin?tiktok=error&msg=' + encodeURIComponent(String(e?.message || 'error').slice(0, 120)));
   }
+});
+
+/** Público (enlace imposible de adivinar, dura 1 hora): campañas y videos que TikTok debe descargar. Admite Range. */
+router.get('/media/tiktok/tmp/:name', (req, res) => {
+  const m = getTmpMedia(req.params.name);
+  if (!m) return res.status(404).end();
+  const total = m.buf.length;
+  res.set('Content-Type', m.mime);
+  res.set('Accept-Ranges', 'bytes');
+  res.set('Cache-Control', 'private, max-age=600');
+  const r = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+  if (r && (r[1] || r[2])) {
+    const start = r[1] ? parseInt(r[1], 10) : Math.max(0, total - parseInt(r[2], 10));
+    const end = r[1] && r[2] ? Math.min(parseInt(r[2], 10), total - 1) : total - 1;
+    if (start > end || start >= total) { res.status(416).set('Content-Range', `bytes */${total}`); return res.end(); }
+    res.status(206).set('Content-Range', `bytes ${start}-${end}/${total}`).set('Content-Length', String(end - start + 1));
+    return res.end(m.buf.subarray(start, end + 1));
+  }
+  res.set('Content-Length', String(total));
+  res.end(m.buf);
 });
 
 /** Público: TikTok descarga aquí las fotos del producto (las originales viven en otro dominio que no podemos verificar). */
