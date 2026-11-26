@@ -17,6 +17,9 @@ interface FooterProps {
   onToggleAdmin?: () => void;
   showSecretLogin?: boolean;
   onOpenAuthorCertificate?: () => void;
+  companyName?: string;
+  nit?: string;
+  contactEmail?: string;
 }
 
 export const Footer: React.FC<FooterProps> = ({
@@ -25,8 +28,13 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigateQuienesSomos,
   onToggleAdmin,
   showSecretLogin = false,
-  onOpenAuthorCertificate
+  onOpenAuthorCertificate,
+  companyName,
+  nit,
+  contactEmail
 }) => {
+  // El sistema trae un NIT de ejemplo: no se muestra como dato real.
+  const realNit = nit && nit.trim() && nit.trim() !== '901.784.321-4' ? nit.trim() : '';
   return (
     <footer id="main-store-footer" className="bg-white text-slate-700 border-t border-slate-200 text-xs">
       
@@ -138,19 +146,39 @@ export const Footer: React.FC<FooterProps> = ({
                 </li>
               )}
               <li>
-                <span className="text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5">
-                  <span className="text-slate-400 font-bold">›</span> Términos de Garantía y Devolución
-                </span>
+                <a href="/politica-de-garantias" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Garantías, cambios y retracto
+                </a>
               </li>
               <li>
-                <span className="text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5">
-                  <span className="text-sky-600 font-bold">›</span> Preguntas Frecuentes (FAQ)
-                </span>
+                <a href="/politica-de-garantias#preguntas-frecuentes" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Preguntas frecuentes
+                </a>
               </li>
               <li>
-                <span className="text-slate-600 hover:text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5">
-                  <span className="text-slate-400 font-bold">›</span> Cobertura Nacional Contra Entrega
-                </span>
+                <a href="/terminos-y-condiciones" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Términos y condiciones
+                </a>
+              </li>
+              <li>
+                <a href="/politica-de-privacidad" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Política de privacidad
+                </a>
+              </li>
+              <li>
+                <a href="/derechos-datos" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Tus derechos sobre tus datos
+                </a>
+              </li>
+              <li>
+                <a href="/politica-de-cookies" className="text-slate-700 hover:text-sky-700 transition-colors flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Política de cookies
+                </a>
+              </li>
+              <li>
+                <button type="button" onClick={() => (window as any).zsOpenCookiePrefs?.()} className="text-slate-700 hover:text-sky-700 transition-colors cursor-pointer flex items-center gap-1.5 font-medium">
+                  <span className="text-sky-600 font-bold" aria-hidden="true">›</span> Preferencias de cookies
+                </button>
               </li>
             </ul>
           </div>
@@ -228,7 +256,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Copyright */}
         <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-500 text-[10px] uppercase tracking-wider font-mono">
-          <span>© {new Date().getFullYear()} ZAVELA STORE • Descubre algo nuevo</span>
+          <span>© {new Date().getFullYear()} {companyName && realNit ? companyName : 'ZAVELA STORE'}{realNit ? ` • NIT ${realNit}` : ''} • Cartagena, Colombia{contactEmail ? ` • ${contactEmail}` : ''}</span>
           <div className="flex items-center gap-2">
             <span>Tienda de Comercio Electrónico en Colombia</span>
             <span>•</span>

@@ -95,6 +95,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <div
       id={`product-card-${product.id}`}
       onClick={handleNavigateToProduct}
+      tabIndex={0}
+      aria-label={product.title}
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleNavigateToProduct(); } }}
       className="group zs-card zs-font flex flex-col overflow-visible cursor-pointer relative max-md:!shadow-none max-md:!rounded-none max-md:!bg-transparent max-md:hover:!transform-none"
     >
       {/* Versión celular: foto en baldosa gris, botón "+" y precio con descuento */}
@@ -142,7 +145,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <>
                 <span className="text-[11px] text-[color:var(--shop-muted)] line-through">{formatCOP(compareAt)}</span>
                 {product.discountPercentage > 0 && (
-                  <span className="text-[10px] font-semibold rounded-md px-1.5 py-px bg-[#ffe9e7] text-[#d6372a]">-{product.discountPercentage}%</span>
+                  <span className="text-[10px] font-semibold rounded-md px-1.5 py-px bg-[#ffe9e7] text-[#b91c1c]">-{product.discountPercentage}%</span>
                 )}
               </>
             )}

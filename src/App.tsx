@@ -1728,7 +1728,7 @@ export default function App() {
           />
         </main>
       ) : (
-        <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full pb-24 md:pb-6">
+        <main id="main-content" tabIndex={-1} className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full pb-24 md:pb-6 outline-hidden">
 
           <MobileCategoryTabs
             categories={effectiveCategories}
@@ -2260,6 +2260,9 @@ export default function App() {
         onToggleAdmin={handleRequestAdmin}
         showSecretLogin={showSecretLogin}
         onOpenAuthorCertificate={() => setIsAuthorCertModalOpen(true)}
+        companyName={settings?.footerSettings?.companyName}
+        nit={settings?.footerSettings?.nit}
+        contactEmail={settings?.contactEmail}
       />
 
       <AuthorCertificateModal

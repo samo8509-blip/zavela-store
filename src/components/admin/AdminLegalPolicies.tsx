@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   FileText, 
   ShieldCheck, 
@@ -16,6 +16,66 @@ interface AdminLegalPoliciesProps {
   settings: StoreSettings;
   onSaveSettings: (settings: Partial<StoreSettings>) => Promise<void>;
 }
+
+const REQ_LABEL: Record<string, string> = {
+  consulta: 'Conocer mis datos', actualizacion: 'Actualizar datos', supresion: 'Eliminar datos',
+  revocatoria: 'Revocar autorización', baja_ofertas: 'Dejar de recibir ofertas', reclamo: 'Reclamo'
+};
+
+/** Solicitudes de derechos sobre datos personales (Ley 1581): consultas 10 días hábiles, reclamos 15 días hábiles. */
+const PrivacyRequests: React.FC = () => {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    fetch('/api/admin/privacy-requests').then(r => r.json()).then(j => { if (j.success) setItems(j.data || []); }).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(load, []);
+
+  const setStatus = async (id: string, status: string) => {
+    await fetch(`/api/admin/privacy-requests/${encodeURIComponent(id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+    load();
+  };
+
+  const open = items.filter(i => i.status !== 'resuelta').length;
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="text-sm font-extrabold text-slate-900">Solicitudes de datos personales ({open} pendientes)</h3>
+          <p className="text-[11px] text-slate-600">Llegan desde la página pública /derechos-datos. La ley da 10 días hábiles para responder consultas y 15 para reclamos.</p>
+        </div>
+        <button onClick={load} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 text-xs font-bold cursor-pointer">Actualizar</button>
+      </div>
+      {loading ? <p className="text-xs text-slate-500">Cargando…</p> : items.length === 0 ? <p className="text-xs text-slate-600">No hay solicitudes todavía.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead><tr className="text-left text-slate-600 border-b border-slate-200"><th className="py-1.5 pr-3">Radicado</th><th className="py-1.5 pr-3">Fecha</th><th className="py-1.5 pr-3">Tipo</th><th className="py-1.5 pr-3">Persona</th><th className="py-1.5 pr-3">Detalle</th><th className="py-1.5">Estado</th></tr></thead>
+            <tbody>
+              {items.map(r => (
+                <tr key={r.id} className="border-b border-slate-100 align-top">
+                  <td className="py-2 pr-3 font-mono whitespace-nowrap">{r.id}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString('es-CO')}</td>
+                  <td className="py-2 pr-3">{REQ_LABEL[r.tipo] || r.tipo}</td>
+                  <td className="py-2 pr-3"><div className="font-bold">{r.nombre}</div><div className="text-slate-600">{r.email} {r.telefono}</div></td>
+                  <td className="py-2 pr-3 max-w-[260px]">{r.detalle || '—'}</td>
+                  <td className="py-2">
+                    <select value={r.status} onChange={e => setStatus(r.id, e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1 text-xs">
+                      <option value="recibida">Recibida</option>
+                      <option value="en_proceso">En proceso</option>
+                      <option value="resuelta">Resuelta</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const AdminLegalPolicies: React.FC<AdminLegalPoliciesProps> = ({
   settings,
@@ -105,6 +165,11 @@ Si tu producto presenta alguna anomalía técnica o defecto de fábrica, tramita
         </button>
       </div>
 
+      <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+        Las páginas públicas de la tienda (/terminos-y-condiciones, /politica-de-privacidad, /politica-de-garantias, /politica-de-cookies) se publican con un texto base preparado para Colombia.
+        Los textos que edites aquí todavía no reemplazan esas páginas. Haz revisar el texto final con un abogado.
+      </div>
+
       {/* Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
@@ -184,6 +249,9 @@ Si tu producto presenta alguna anomalía técnica o defecto de fábrica, tramita
           </div>
         )}
       </div>
+
+
+      <PrivacyRequests />
 
     </div>
   );

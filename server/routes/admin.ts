@@ -19,6 +19,7 @@ import { publicOrderView, exactMatch } from '../services/publicOrder.ts';
 import { dropiBackupService } from '../services/dropiBackupService.ts';
 import { applyCampaignDisplay } from '../services/campaign.ts';
 import { canSeeCosts, redactProductCosts } from '../utils/redactCosts.ts';
+import { listPrivacyRequests, updatePrivacyRequest } from './legal.ts';
 
 const router = Router();
 
@@ -3649,6 +3650,19 @@ async function writeSocialHistory(list: any[]): Promise<void> {
     );
   } catch (e: any) { console.warn('[social] no se pudo guardar el historial:', e?.message || e); }
 }
+
+// Solicitudes de derechos sobre datos personales (Habeas Data) recibidas desde /derechos-datos
+router.get('/privacy-requests', async (_req, res) => {
+  try { res.json({ success: true, data: await listPrivacyRequests() }); }
+  catch (e: any) { res.status(500).json({ success: false, message: e?.message || 'Error' }); }
+});
+router.put('/privacy-requests/:id', async (req, res) => {
+  try {
+    const ok = await updatePrivacyRequest(req.params.id, { status: req.body?.status, note: req.body?.note });
+    if (!ok) return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ success: false, message: e?.message || 'Error' }); }
+});
 
 router.get('/social/posts', async (req, res) => {
   try {

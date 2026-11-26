@@ -145,6 +145,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Autorización de términos y tratamiento de datos: nunca viene marcada de antemano.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const currentDepartmentInfo = useMemo(() => {
     return COLOMBIA_DEPARTMENTS.find(
@@ -284,6 +286,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     if (!validate()) return;
 
+    if (!acceptedTerms) {
+      setServerError('Para continuar, marca la casilla de términos y autorización de datos personales.');
+      return;
+    }
+
     if (cartItems.length === 0) {
       setServerError('El carrito está vacío. Agrega productos antes de continuar.');
       return;
@@ -353,6 +360,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         address: formData.address.trim(),
         direccion: formData.address.trim(),
         additionalNotes: formData.additionalNotes?.trim(),
+        privacyConsent: { terms: true, privacy: true, adult: true, version: '2026-11-26', at: new Date().toISOString() },
         paymentMethod: formData.paymentMethod,
         dane_code: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
         daneCode: shippingCalculation.daneCode || getDaneCode(formData.city, formData.department),
@@ -1071,6 +1079,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-300 bg-slate-50 p-3">
+            <label className="flex items-start gap-3 cursor-pointer text-[13px] leading-snug text-slate-800">
+              <input
+                id="checkout-accept-terms"
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={e => { setAcceptedTerms(e.target.checked); if (e.target.checked) setServerError(null); }}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-slate-900"
+              />
+              <span>
+                Declaro ser mayor de 18 años, acepto los{' '}
+                <a href="/terminos-y-condiciones" target="_blank" rel="noopener noreferrer" className="font-bold underline text-violet-800">términos y condiciones</a>{' '}
+                y autorizo el tratamiento de mis datos personales para gestionar mi pedido, según la{' '}
+                <a href="/politica-de-privacidad" target="_blank" rel="noopener noreferrer" className="font-bold underline text-violet-800">política de privacidad</a>.
+                Conozco mi derecho de retracto y garantía (<a href="/politica-de-garantias" target="_blank" rel="noopener noreferrer" className="font-bold underline text-violet-800">ver política</a>).
+              </span>
+            </label>
           </div>
 
           <div className="pt-2 max-md:sticky max-md:bottom-0 max-md:z-10 max-md:bg-white max-md:pt-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-md:border-t max-md:border-[var(--shop-border)]">
