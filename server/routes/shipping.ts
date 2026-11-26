@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { quotePackages, readSupplierMap, writeSupplierMap, SupplierMap } from '../services/shippingPackages.ts';
 import { db } from '../db.ts';
+import { pool, nativePool } from '../mysqlPool.ts';
+import { mapSqlRowToProduct } from './products.ts';
 
 const router = Router();
 
@@ -19,7 +21,15 @@ router.post('/api/shipping/quote', async (req, res) => {
 /** Solo administrador (apiGuard): proveedor de cada producto. */
 router.get('/api/admin/product-suppliers', async (_req, res) => {
   const map = await readSupplierMap();
-  const products = (db.getProducts() as any[]).map(p => ({ id: String(p.id), title: p.title, supplier: p.supplier || '', provider: p.provider || '' }));
+  let list: any[] = [];
+  if (nativePool) {
+    try {
+      const [rows]: any = await pool.query('SELECT * FROM productos ORDER BY created_at DESC');
+      if (Array.isArray(rows)) list = rows.map(mapSqlRowToProduct);
+    } catch { /* si falla MySQL se usa la copia local */ }
+  }
+  if (!list.length) list = db.getProducts() as any[];
+  const products = list.map(p => ({ id: String(p.id), title: p.title || p.name || p.nombre || '', supplier: p.supplier || '', provider: p.provider || '' }));
   res.json({ success: true, map, products });
 });
 
