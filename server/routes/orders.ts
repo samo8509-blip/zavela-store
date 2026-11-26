@@ -1,3 +1,4 @@
+import { WELCOME_CODE, WELCOME_PERCENT, consumeWelcomeCoupon } from './newsletter.ts';
 import { Router } from 'express';
 import { db } from '../db.ts';
 import { Order, OrderItem, PaymentMethod } from '../../src/types/index.ts';
@@ -137,7 +138,8 @@ router.post('/', async (req, res) => {
     const address = String(rawAddress || '').trim();
     const resolvedDane = String(req.body.dane_code || '').trim() || getDaneCode(city, department);
 
-    const { firstName, lastName, phone, email, additionalNotes, paymentMethod = 'contra_entrega', discountCode, discountAmount = 0, discountPercent = 0, items } = req.body;
+    const { firstName, lastName, phone, email, additionalNotes, paymentMethod = 'contra_entrega', discountCode, discountAmount: clientDiscountAmount = 0, discountPercent = 0, items } = req.body;
+    let discountAmount = Number(clientDiscountAmount) || 0;
 
     if (!firstName || !lastName || !phone || !department || !city || !address) {
       return res.status(400).json({ success: false, message: 'Por favor completa todos los campos obligatorios del destinatario.' });
@@ -230,6 +232,11 @@ router.post('/', async (req, res) => {
 
     const shippingCalc = calculateShippingCost({ department, city, cartItems: validatedItems.map(vi => ({ product: { id: vi.productId, price: vi.unitPrice } as any, quantity: vi.quantity })), subtotal, freeShippingThreshold: settings.freeShippingThreshold || 120000 });
     const shippingCost = parseFloat(String(req.body.shippingCost ?? shippingCalc.finalRate ?? 0)) || 0;
+    // Cupón de bienvenida: el servidor calcula el descuento y lo gasta una sola vez por correo suscrito.
+    if (String(discountCode || '').trim().toUpperCase() === WELCOME_CODE) {
+      discountAmount = 0;
+      if (await consumeWelcomeCoupon(String(email || ''))) discountAmount = Math.round((subtotal * WELCOME_PERCENT) / 100);
+    }
     const total = Math.max(0, subtotal - (Number(discountAmount) || 0) + shippingCost);
 
     const isOnlineEpayco = paymentMethod === 'EPAYCO' || paymentMethod === 'ONLINE';

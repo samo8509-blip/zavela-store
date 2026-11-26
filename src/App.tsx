@@ -2156,6 +2156,7 @@ export default function App() {
         products={products}
         appliedCoupon={appliedDiscountCoupon}
         onRemoveCoupon={() => setAppliedDiscountCoupon(null)}
+        onApplyCoupon={(c) => setAppliedDiscountCoupon(c)}
         onOrderCreated={(order, clientDetails) => {
           const savedDetails = {
             firstName: clientDetails?.firstName || order.firstName || (order.customerName ? order.customerName.split(' ')[0] : ''),

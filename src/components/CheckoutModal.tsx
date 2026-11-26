@@ -77,6 +77,7 @@ interface CheckoutModalProps {
   freeShippingThreshold?: number;
   appliedCoupon?: ActiveDiscountCoupon | null;
   onRemoveCoupon?: () => void;
+  onApplyCoupon?: (coupon: ActiveDiscountCoupon) => void;
   products?: any[];
 }
 
@@ -88,6 +89,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   freeShippingThreshold = 120000,
   appliedCoupon,
   onRemoveCoupon,
+  onApplyCoupon,
   products = []
 }) => {
   if (!isOpen) return null;
@@ -217,6 +219,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const regularSubtotal = rawSubtotal;
   const subtotalAfterConsolidated = Math.max(0, rawSubtotal - consolidatedDiscount);
   const subtotal = subtotalAfterConsolidated;
+
+  const [couponInput, setCouponInput] = useState('');
+  const [couponMsg, setCouponMsg] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const applyCouponCode = async () => {
+    setCouponBusy(true); setCouponMsg('');
+    try {
+      const r = await fetch('/api/newsletter/validate-coupon', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), email: (formData.email || '').trim() })
+      });
+      const j = await r.json();
+      if (j.success) onApplyCoupon?.({ code: j.code, percentage: j.percentage, expiresAt: Date.now() + 24 * 3600_000 });
+      else setCouponMsg(j.message || 'Cupón no válido.');
+    } catch { setCouponMsg('No pudimos validar el cupón. Intenta de nuevo.'); }
+    setCouponBusy(false);
+  };
 
   const discountAmount = useMemo(() => {
     if (!appliedCoupon || !appliedCoupon.percentage) return 0;
@@ -1044,6 +1063,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {!appliedCoupon && onApplyCoupon && (
+                <div className="py-1.5">
+                  <label htmlFor="checkout-coupon" className="text-[11px] font-bold text-slate-600">¿Tienes un cupón?</label>
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      id="checkout-coupon"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value); setCouponMsg(''); }}
+                      placeholder="Ej: BIENVENIDO10"
+                      className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-300 text-xs uppercase"
+                    />
+                    <button type="button" disabled={couponBusy || !couponInput.trim()} onClick={applyCouponCode}
+                      className="px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold disabled:opacity-50 cursor-pointer">
+                      {couponBusy ? '…' : 'Aplicar'}
+                    </button>
+                  </div>
+                  {couponMsg && <p className="text-[11px] text-rose-700 mt-1" role="alert">{couponMsg}</p>}
+                  <p className="text-[10px] text-slate-500 mt-1">Se valida con el correo que escribas en este formulario.</p>
                 </div>
               )}
 
