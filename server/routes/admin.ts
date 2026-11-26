@@ -1,4 +1,4 @@
-import { publishProductPhotos, publishPhotoUrls, publishVideoUrl, storeTmpMedia } from '../services/tiktokService.ts';
+import { publishProductPhotos, publishPhotoUrls, publishVideoUrl, storeTmpMedia, normalizeVideo } from '../services/tiktokService.ts';
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence, refreshAdvisorsIfStale, isSalesAdvisor, isAccountingRole } from '../services/advisorStore.ts';
@@ -3751,7 +3751,9 @@ router.post('/social/tiktok/publish-media', async (req, res) => {
     if ((kind === 'video') !== isVideo) return res.status(400).json({ success: false, message: 'El tipo de archivo no coincide.' });
     const buf = Buffer.from(m[2], 'base64');
     if (buf.length > 40 * 1024 * 1024) return res.status(413).json({ success: false, message: 'El archivo pesa más de 40 MB.' });
-    const url = storeTmpMedia(buf, m[1]);
+    let outBuf = buf, outMime = m[1], conv = false;
+    if (isVideo) { const n = await normalizeVideo(buf); outBuf = n.buf; conv = n.converted; if (conv) outMime = 'video/mp4'; }
+    const url = storeTmpMedia(outBuf, outMime);
     const text = String(caption || '').slice(0, 2200);
     const label = String(title || 'Zavela Store').slice(0, 80);
     const result = isVideo ? await publishVideoUrl(url, text || label) : await publishPhotoUrls([url], label, text || label);
@@ -3760,7 +3762,7 @@ router.post('/social/tiktok/publish-media', async (req, res) => {
       id: `post-${Date.now()}`, productId: 'store-campaign', productTitle: label, productPrice: 0,
       productImageUrl: '', productSlug: '', platforms: ['tiktok'], copies: { tiktok: text }, status: result.success ? 'published' : 'failed',
       publishedAt: new Date().toISOString(), views: 0, clicks: 0, likes: 0, shares: 0, attributedSalesCOP: 0,
-      note: `TikTok (${isVideo ? 'video' : 'foto'}): ${result.message}`
+      note: `TikTok (${isVideo ? 'video' : 'foto'}${isVideo ? (conv ? ', convertido' : ', sin convertir') : ''}): ${result.message}`
     }, ...history]);
     res.status(result.success ? 201 : 200).json({ success: result.success, result });
   } catch (e: any) {

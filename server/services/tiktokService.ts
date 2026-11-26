@@ -110,6 +110,36 @@ export function storeTmpMedia(buf: Buffer, mime: string): string {
   const ext = mime.includes('mp4') ? 'mp4' : mime.includes('webm') ? 'webm' : mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
   return `${TIKTOK_SITE}/media/tiktok/tmp/${id}.${ext}`;
 }
+/** Convierte el video del navegador a un MP4 estandar (H.264 + AAC, 30 fps constantes, listo para streaming). Si falla, devuelve el original. */
+export async function normalizeVideo(buf: Buffer): Promise<{ buf: Buffer; converted: boolean }> {
+  const fs = await import('node:fs/promises');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const { spawn } = await import('node:child_process');
+  let dir = '';
+  try {
+    const mod: any = await import('ffmpeg-static');
+    const bin: string = (mod?.default ?? mod) as string;
+    if (!bin) return { buf, converted: false };
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zv-'));
+    const inp = path.join(dir, 'in'), out = path.join(dir, 'out.mp4');
+    await fs.writeFile(inp, buf);
+    await new Promise<void>((resolve, reject) => {
+      const p = spawn(bin, ['-v', 'error', '-y', '-i', inp, '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', '30', '-preset', 'veryfast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-movflags', '+faststart', out]);
+      let err = '';
+      p.stderr.on('data', d => { err += String(d).slice(0, 500); });
+      const t = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('ffmpeg tardo demasiado')); }, 120000);
+      p.on('error', e => { clearTimeout(t); reject(e); });
+      p.on('close', code => { clearTimeout(t); code === 0 ? resolve() : reject(new Error(err || `ffmpeg salio con ${code}`)); });
+    });
+    return { buf: await fs.readFile(out), converted: true };
+  } catch (e: any) {
+    console.error('[tiktok] no se pudo convertir el video:', e?.message || e);
+    return { buf, converted: false };
+  } finally {
+    if (dir) fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
 export function getTmpMedia(name: string) {
   const id = String(name).split('.')[0];
   const v = tmpMedia.get(id);
