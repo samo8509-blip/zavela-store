@@ -111,7 +111,7 @@ export function storeTmpMedia(buf: Buffer, mime: string): string {
   return `${TIKTOK_SITE}/media/tiktok/tmp/${id}.${ext}`;
 }
 /** Convierte el video del navegador a un MP4 estandar (H.264 + AAC, 720x1280, 30 fps constantes). Ligero a proposito: Render tiene poca memoria. Si falla, devuelve el original. */
-export async function normalizeVideo(buf: Buffer, opts?: { maxBytes?: number; durationSec?: number }): Promise<{ buf: Buffer; converted: boolean }> {
+export async function normalizeVideo(buf: Buffer, opts?: { maxBytes?: number; durationSec?: number }): Promise<{ buf: Buffer; converted: boolean; error?: string }> {
   const fs = await import('node:fs/promises');
   const os = await import('node:os');
   const path = await import('node:path');
@@ -120,7 +120,7 @@ export async function normalizeVideo(buf: Buffer, opts?: { maxBytes?: number; du
   try {
     const mod: any = await import('ffmpeg-static');
     const bin: string = (mod?.default ?? mod) as string;
-    if (!bin) return { buf, converted: false };
+    if (!bin) return { buf, converted: false, error: 'ffmpeg-static no trae el programa (no se instaló)' };
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zv-'));
     const inp = path.join(dir, 'in'), out = path.join(dir, 'out.mp4');
     // Con tope de peso: bitrate fijo calculado con la duración; si no, calidad constante
@@ -139,7 +139,7 @@ export async function normalizeVideo(buf: Buffer, opts?: { maxBytes?: number; du
     return { buf: await fs.readFile(out), converted: true };
   } catch (e: any) {
     console.error('[tiktok] no se pudo convertir el video:', e?.message || e);
-    return { buf, converted: false };
+    return { buf, converted: false, error: String(e?.message || e).slice(0, 300) };
   } finally {
     if (dir) fs.rm(dir, { recursive: true, force: true }).catch(() => {});
   }
