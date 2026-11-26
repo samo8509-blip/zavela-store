@@ -138,7 +138,6 @@ export function drawFrame(ctx: CanvasRenderingContext2D, c: VidCfg, p: number) {
   }
   // barra de avance y entrada/salida
   ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(0, H - 10, W * p, 10);
-  if (p < 0.02) { ctx.fillStyle = `rgba(0,0,0,${1 - p / 0.02})`; ctx.fillRect(0, 0, W, H); }
   if (p > 0.97) { ctx.fillStyle = `rgba(0,0,0,${(p - 0.97) / 0.03})`; ctx.fillRect(0, 0, W, H); }
 }
 
