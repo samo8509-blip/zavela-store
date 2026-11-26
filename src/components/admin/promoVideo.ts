@@ -281,7 +281,9 @@ export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number
     ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
     : ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   const mime = cands.find(t => (MediaRecorder as any).isTypeSupported?.(t)) || '';
-  const rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 3_500_000, audioBitsPerSecond: 128_000 });
+  // Peso objetivo ~10 MB (el estado de WhatsApp acepta hasta 16 MB): se reparte según la duración
+  const vbps = Math.round(Math.max(1_200_000, Math.min(3_500_000, (10_000_000 * 8) / (dur / 1000) - 96_000)));
+  const rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: vbps, audioBitsPerSecond: 96_000 });
   const chunks: Blob[] = [];
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   const done = new Promise<void>(res => { rec.onstop = () => res(); });
