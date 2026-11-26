@@ -1,4 +1,4 @@
-import { publishProductPhotos } from '../services/tiktokService.ts';
+import { publishProductPhotos, publishPhotoUrls, publishVideoUrl, storeTmpMedia } from '../services/tiktokService.ts';
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence, refreshAdvisorsIfStale, isSalesAdvisor, isAccountingRole } from '../services/advisorStore.ts';
@@ -3701,6 +3701,35 @@ router.get('/social/image-proxy', async (req, res) => {
 });
 
 // Publica en Facebook una imagen de campaña de la tienda (plantilla generada en el panel).
+/** Campañas de la tienda en TikTok: una imagen (foto) o un video corto generado en el navegador. */
+router.post('/social/tiktok/publish-media', async (req, res) => {
+  try {
+    const { mediaDataUrl, kind, caption, title } = req.body || {};
+    const conn: any = await pool.getSocialConnection('tiktok');
+    if (!conn?.connected || !conn.accessToken) return res.status(400).json({ success: false, message: 'TikTok no está vinculado.' });
+    const m = /^data:((?:image\/(?:jpeg|webp))|(?:video\/(?:mp4|webm)))(?:;codecs=[^;,]+)?;base64,([A-Za-z0-9+/=]+)$/.exec(String(mediaDataUrl || ''));
+    if (!m) return res.status(400).json({ success: false, message: 'El archivo no es válido (foto JPG/WEBP o video MP4/WEBM).' });
+    const isVideo = m[1].startsWith('video/');
+    if ((kind === 'video') !== isVideo) return res.status(400).json({ success: false, message: 'El tipo de archivo no coincide.' });
+    const buf = Buffer.from(m[2], 'base64');
+    if (buf.length > 40 * 1024 * 1024) return res.status(413).json({ success: false, message: 'El archivo pesa más de 40 MB.' });
+    const url = storeTmpMedia(buf, m[1]);
+    const text = String(caption || '').slice(0, 2200);
+    const label = String(title || 'Zavela Store').slice(0, 80);
+    const result = isVideo ? await publishVideoUrl(url, text || label) : await publishPhotoUrls([url], label, text || label);
+    const history = await readSocialHistory();
+    await writeSocialHistory([{
+      id: `post-${Date.now()}`, productId: 'store-campaign', productTitle: label, productPrice: 0,
+      productImageUrl: '', productSlug: '', platforms: ['tiktok'], copies: { tiktok: text }, status: result.success ? 'published' : 'failed',
+      publishedAt: new Date().toISOString(), views: 0, clicks: 0, likes: 0, shares: 0, attributedSalesCOP: 0,
+      note: `TikTok (${isVideo ? 'video' : 'foto'}): ${result.message}`
+    }, ...history]);
+    res.status(result.success ? 201 : 200).json({ success: result.success, result });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'No se pudo publicar en TikTok.' });
+  }
+});
+
 router.post('/social/publish-image', async (req, res) => {
   try {
     const { imageDataUrl, caption, title } = req.body || {};

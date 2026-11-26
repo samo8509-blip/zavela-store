@@ -226,6 +226,11 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
   const [busy, setBusy] = useState(false);
   const [rendering, setRendering] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cfgRef = useRef<DrawCfg | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [videoPct, setVideoPct] = useState(0);
 
   const eligible = useMemo(
     () => products.filter(p => p.active !== false && Number(p.stock) !== 0 && !isAdultCat(p) && mainImage(p)),
@@ -276,11 +281,13 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
         ...chosen.map(p => loadImage(String(mainImage(p)), String(mainImage(p)).startsWith('http')))
       ]);
       if (cancelled || !canvasRef.current) return;
-      draw(canvasRef.current, {
+      const cfg: DrawCfg = {
         theme, eyebrow, headline, badge: badgeText, cta,
         chips: chips.split(',').map(s => s.trim()).filter(Boolean),
         items: chosen.map((p, i) => ({ product: p, img: imgs[i] || null })), logo, format
-      });
+      };
+      cfgRef.current = cfg;
+      draw(canvasRef.current, cfg);
       setRendering(false);
     }, 250);
     return () => { cancelled = true; clearTimeout(timer); };
@@ -327,6 +334,106 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
     } catch (e: any) {
       alert(e?.message || 'No se pudo publicar.');
     } finally { setBusy(false); }
+  };
+
+  const blobToDataUrl = (b: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(b); });
+
+  const sendToTikTok = async (kind: 'photo' | 'video') => {
+    const title = `${eyebrow}: ${headline}`;
+    let mediaDataUrl = '';
+    if (kind === 'photo') {
+      if (!canvasRef.current) return;
+      mediaDataUrl = canvasRef.current.toDataURL('image/jpeg', 0.92);
+    } else {
+      if (!videoBlob) return;
+      mediaDataUrl = await blobToDataUrl(videoBlob);
+    }
+    if (!window.confirm(`Se enviará ${kind === 'video' ? 'este video' : 'esta imagen'} con el texto a la cuenta de TikTok vinculada. ¿Continuar?`)) return;
+    setBusy(true);
+    try {
+      const r = await fetch('/api/admin/social/tiktok/publish-media', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaDataUrl, kind, caption, title })
+      });
+      const j = await r.json();
+      if (!j.success) alert(`No se pudo publicar en TikTok.\n\n${j.result?.message || j.message || ''}`.trim());
+      else { onToast(`🎵 ${j.result.message}`); onPublished?.(); }
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo publicar en TikTok.');
+    } finally { setBusy(false); }
+  };
+
+  // Video corto vertical (9:16, ~8 s): la tarjeta de la campaña con zoom suave, destello y cierre. Se graba en el navegador.
+  const makeVideo = async () => {
+    const base = cfgRef.current;
+    if (!base) return;
+    if (typeof MediaRecorder === 'undefined') { alert('Este navegador no puede grabar video. Usa Chrome o Edge.'); return; }
+    setVideoBusy(true); setVideoPct(0);
+    if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(''); setVideoBlob(null); }
+    try {
+      const card = document.createElement('canvas');
+      draw(card, { ...base, format: 'story' });
+      const W = card.width, H = card.height;
+      const out = document.createElement('canvas'); out.width = W; out.height = H;
+      const ctx = out.getContext('2d')!;
+      const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+      const mime = types.find(t => (MediaRecorder as any).isTypeSupported?.(t)) || '';
+      const stream = (out as any).captureStream(30);
+      const rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 3_000_000 });
+      const chunks: Blob[] = [];
+      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+      const done = new Promise<void>(res => { rec.onstop = () => res(); });
+      const DUR = 8000;
+      rec.start(250);
+      const t0 = performance.now();
+      await new Promise<void>(resolve => {
+        const frame = () => {
+          const el = performance.now() - t0;
+          const p = Math.min(1, el / DUR);
+          const intro = Math.min(1, el / 700);                       // entrada
+          const zoom = 1.12 - 0.12 * intro + 0.07 * p;              // acerca suave
+          const panX = Math.sin(p * Math.PI) * 14;
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+          ctx.save();
+          ctx.globalAlpha = intro;
+          ctx.translate(W / 2 + panX, H / 2);
+          ctx.scale(zoom, zoom);
+          ctx.drawImage(card, -W / 2, -H / 2);
+          ctx.restore();
+          // destellos que cruzan la tarjeta (a los 2.5 s y 5.5 s)
+          for (const c of [0.31, 0.69]) {
+            const q = (p - c) / 0.14;
+            if (q > 0 && q < 1) {
+              const x = -W * 0.3 + q * W * 1.6;
+              const g = ctx.createLinearGradient(x - 160, 0, x + 160, H * 0.25);
+              g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.28)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+              ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            }
+          }
+          // barra de avance fina abajo
+          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(0, H - 10, W * p, 10);
+          // salida suave
+          if (p > 0.94) { ctx.fillStyle = `rgba(0,0,0,${(p - 0.94) / 0.06})`; ctx.fillRect(0, 0, W, H); }
+          setVideoPct(Math.round(p * 100));
+          if (el >= DUR) resolve(); else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      });
+      rec.stop();
+      await done;
+      const type = mime.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
+      const blob = new Blob(chunks, { type });
+      setVideoBlob(blob);
+      setVideoUrl(URL.createObjectURL(blob));
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo crear el video.');
+    } finally { setVideoBusy(false); }
+  };
+
+  const downloadVideo = () => {
+    if (!videoUrl || !videoBlob) return;
+    const a = document.createElement('a');
+    a.href = videoUrl; a.download = `zavela-${themeId}.${videoBlob.type.includes('mp4') ? 'mp4' : 'webm'}`; a.click();
   };
 
   return (
@@ -413,7 +520,21 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
             <button onClick={download} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"><Download className="w-4 h-4" /> Descargar PNG</button>
             <button onClick={publish} disabled={busy || rendering} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#1877F2] text-white text-xs font-black disabled:opacity-60 cursor-pointer"><Send className="w-4 h-4" /> {busy ? 'Publicando…' : 'Publicar en Facebook'}</button>
           </div>
-          <p className="text-[11px] text-slate-500">Para Instagram, TikTok o WhatsApp descarga el PNG y súbelo desde la app. La publicación automática solo existe para Facebook.</p>
+          <button onClick={() => sendToTikTok('photo')} disabled={busy || rendering} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-black text-cyan-300 border border-cyan-400/40 text-xs font-black disabled:opacity-60 cursor-pointer"><Send className="w-4 h-4" /> {busy ? 'Enviando…' : 'Publicar imagen en TikTok'}</button>
+          <p className="text-[11px] text-slate-500">Para Instagram o WhatsApp descarga el PNG y súbelo desde la app. Facebook y TikTok se publican desde aquí.</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <h3 className="text-sm font-extrabold text-slate-900">Video corto para TikTok</h3>
+          <p className="text-[11px] text-slate-500">Crea un video vertical de unos 8 segundos con la campaña elegida (zoom suave, destellos y cierre). Se genera en tu navegador; el texto de la publicación es el del paso 4.</p>
+          {videoUrl && <video src={videoUrl} controls loop playsInline className="w-full rounded-xl border border-slate-200 bg-black" style={{ maxHeight: 520 }} />}
+          <button onClick={makeVideo} disabled={videoBusy || rendering} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-black disabled:opacity-60 cursor-pointer"><Wand2 className="w-4 h-4" /> {videoBusy ? `Creando video… ${videoPct}%` : (videoUrl ? 'Crear otro video' : 'Crear video (8 s)')}</button>
+          {videoUrl && (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={downloadVideo} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"><Download className="w-4 h-4" /> Descargar video</button>
+              <button onClick={() => sendToTikTok('video')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-black text-cyan-300 border border-cyan-400/40 text-xs font-black disabled:opacity-60 cursor-pointer"><Send className="w-4 h-4" /> {busy ? 'Enviando…' : 'Publicar video en TikTok'}</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
