@@ -271,8 +271,12 @@ export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number
     s.connect(g); g.connect(dest); s.start(ac.currentTime); s.stop(ac.currentTime + secs);
   } else if (a.music) synthMusic(ac, dest, secs, a.voice ? 0.16 : 0.45);
 
-  const vs = (out as any).captureStream(30) as MediaStream;
-  const stream = new MediaStream([...vs.getVideoTracks(), ...(hasAudio ? dest.stream.getAudioTracks() : [])]);
+  // Frames manuales (requestFrame) para controlar cuándo se capturan; si el navegador no lo soporta, captura automática
+  const vs = (out as any).captureStream(0) as MediaStream;
+  const vtrack: any = vs.getVideoTracks()[0];
+  const manual = typeof vtrack?.requestFrame === 'function';
+  const vs2 = manual ? vs : ((out as any).captureStream(30) as MediaStream);
+  const stream = new MediaStream([...vs2.getVideoTracks(), ...(hasAudio ? dest.stream.getAudioTracks() : [])]);
   const cands = hasAudio
     ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
     : ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -283,14 +287,16 @@ export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number
   const done = new Promise<void>(res => { rec.onstop = () => res(); });
   rec.start(250);
   const t0 = performance.now();
+  // El reloj va en un Worker: a diferencia de requestAnimationFrame, no se detiene si cambias de pestaña
+  const worker = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),33)'], { type: 'text/javascript' })));
   await new Promise<void>(resolve => {
-    const frame = () => {
+    worker.onmessage = () => {
       const el = performance.now() - t0; const p = Math.min(1, el / dur);
-      drawFrame(ctx, c, el / 1000, tl); onProgress(Math.round(p * 100));
-      if (el >= dur) resolve(); else requestAnimationFrame(frame);
+      drawFrame(ctx, c, el / 1000, tl); if (manual) vtrack.requestFrame(); onProgress(Math.round(p * 100));
+      if (el >= dur) resolve();
     };
-    requestAnimationFrame(frame);
   });
+  worker.terminate();
   rec.stop(); await done; try { await ac.close(); } catch { /* nada */ }
   return new Blob(chunks, { type: mime.startsWith('video/mp4') ? 'video/mp4' : 'video/webm' });
 }

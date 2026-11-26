@@ -559,7 +559,7 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <h3 className="text-sm font-extrabold text-slate-900">Video con voz y música para TikTok</h3>
-          <p className="text-[11px] text-slate-500">Video vertical que abre con la imagen de Zavela Store y sigue con la campaña, hasta 4 productos con su precio y el cierre. Dura {Math.round(videoDuration({ voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }, true, Math.max(1, Math.min(4, chosen.length))))} s según la voz. Se crea en tu navegador (Chrome o Edge).</p>
+          <p className="text-[11px] text-slate-500">Video vertical que abre con la imagen de Zavela Store y sigue con la campaña, hasta 4 productos con su precio y el cierre. Dura {Math.round(videoDuration({ voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }, true, Math.max(1, Math.min(4, chosen.length))))} s según la voz. Se crea en tu navegador (Chrome o Edge): déjalo abierto hasta que termine.</p>
 
           <div className="grid grid-cols-3 gap-1 text-[11px] font-bold">
             {([['ia', 'Voz IA latina'], ['mic', 'Mi voz'], ['none', 'Sin voz']] as const).map(([id, name]) => (
