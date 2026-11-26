@@ -10,8 +10,9 @@ export interface VidCfg {
   /** Imagen de portada: es lo primero que se ve (y la miniatura en TikTok). */
   cover?: ImageBitmap | null;
 }
-export const COVER_SECS = 2.5;
-export interface VidAudio { voice: AudioBuffer | null; music: boolean; musicBuf: AudioBuffer | null }
+export const COVER_SECS = 1.6;
+const VOICE_START = 0.4;
+export interface VidAudio { voice: AudioBuffer | null; music: boolean; musicBuf: AudioBuffer | null; script?: string }
 
 const W = 1080, H = 1920;
 const FONT = '"Inter","Helvetica Neue",Arial,sans-serif';
@@ -143,26 +144,76 @@ function sceneCover(ctx: CanvasRenderingContext2D, img: ImageBitmap, k: number) 
   ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); ctx.restore();
 }
 
-/** Dibuja el fotograma del instante p (0..1) del video, que dura durSec segundos. */
-export function drawFrame(ctx: CanvasRenderingContext2D, c: VidCfg, p: number, durSec = 10) {
-  const coverEnd = c.cover ? Math.min(0.3, COVER_SECS / durSec) : 0;
-  const body = (q: number) => {
-    const n = Math.min(4, c.items.length);
-    const introEnd = n ? 0.2 : 0.55;
-    const outroStart = n ? 0.8 : 0.55;
-    if (q < introEnd) sceneIntro(ctx, c, q / introEnd);
-    else if (q >= outroStart) sceneOutro(ctx, c, (q - outroStart) / (1 - outroStart));
-    else {
-      const span = (outroStart - introEnd) / n; const i = Math.min(n - 1, Math.floor((q - introEnd) / span));
-      sceneProduct(ctx, c, c.items[i], ((q - introEnd) - i * span) / span, i);
-    }
+export interface Timeline { cover: number; intro: number; prods: number[]; outro: number; total: number; voiceStart: number }
+
+/** Parte el guion en frases: [intro, producto 1..n, beneficios, cierre]. */
+const sentences = (script: string) => script.split(/(?<=[.!?])\s+/).map(x => x.trim()).filter(Boolean);
+
+/** Busca en el audio de la voz el instante (s) en que termina cada frase, usando las pausas entre frases. */
+export function voiceMarks(buf: AudioBuffer, script: string, n: number): number[] {
+  const groups = n + 2; // intro + n productos + cierre
+  const dur = buf.duration;
+  const even = Array.from({ length: n + 1 }, (_, i) => dur * (i + 1) / groups);
+  const sents = sentences(script);
+  if (sents.length !== n + 3) return even; // guion editado: reparto parejo
+  // fin de cada bloque: intro (frase 0), producto i (frase i+1)
+  const chars = sents.map(x => x.length), total = chars.reduce((a, b) => a + b, 0);
+  const expected: number[] = []; let acc = 0;
+  for (let i = 0; i <= n; i++) { acc += chars[i]; expected.push(dur * acc / total); }
+  // pausas: tramos con energía muy baja
+  const d = buf.getChannelData(0), hop = Math.round(buf.sampleRate * 0.02);
+  const env: number[] = []; for (let i = 0; i + hop < d.length; i += hop) { let sum = 0; for (let j = 0; j < hop; j++) sum += d[i + j] * d[i + j]; env.push(Math.sqrt(sum / hop)); }
+  const mx = Math.max(...env, 1e-6), thr = mx * 0.05;
+  const pauses: number[] = []; let run = 0;
+  env.forEach((e, i) => { if (e < thr) run++; else { if (run >= 8) pauses.push(((i - run / 2) * hop) / buf.sampleRate); run = 0; } });
+  // Asigna en orden: cada fin de frase es la pausa más cercana a lo esperado, siempre posterior a la anterior
+  const out: number[] = []; let prev = 0.3;
+  for (const exp of expected) {
+    let best = -1, bd = 2.5;
+    pauses.forEach((pz, i) => { const dd = Math.abs(pz - exp); if (pz > prev + 1 && dd < bd) { bd = dd; best = i; } });
+    const v = best >= 0 ? pauses[best] : Math.max(exp, prev + 1.5);
+    out.push(v); prev = v;
+  }
+  return out;
+}
+
+export function buildTimeline(c: VidCfg, a: VidAudio): Timeline {
+  const n = Math.min(4, c.items.length);
+  const cover = c.cover ? COVER_SECS : 0;
+  if (!a.voice || !n) {
+    const intro = cover, per = 3, prods = Array.from({ length: n }, (_, i) => intro + 3 + i * per);
+    const outro = n ? prods[n - 1] + per : intro + 4;
+    return { cover, intro, prods, outro, total: outro + 4, voiceStart: VOICE_START };
+  }
+  const marks = voiceMarks(a.voice, a.script || '', n);
+  const abs = marks.map(m => VOICE_START + m);
+  const intro = cover;
+  let t0 = Math.max(abs[0], intro + 1.4);
+  const prods: number[] = [t0];
+  for (let i = 1; i < n; i++) prods.push(Math.max(abs[i], prods[i - 1] + 2.2));
+  const outro = Math.max(abs[n], prods[n - 1] + 2.2);
+  const total = Math.max(outro + 3, VOICE_START + a.voice.duration + 1.2);
+  return { cover, intro, prods, outro, total: Math.min(total, 60), voiceStart: VOICE_START };
+}
+
+/** Dibuja el fotograma del segundo t del video. */
+export function drawFrame(ctx: CanvasRenderingContext2D, c: VidCfg, t: number, tl: Timeline) {
+  const n = tl.prods.length;
+  const body = (tt: number) => {
+    if (n && tt >= tl.outro) sceneOutro(ctx, c, clamp((tt - tl.outro) / Math.max(1, tl.total - tl.outro)));
+    else if (n && tt >= tl.prods[0]) {
+      let i = n - 1; while (i > 0 && tt < tl.prods[i]) i--;
+      const end = i + 1 < n ? tl.prods[i + 1] : tl.outro;
+      sceneProduct(ctx, c, c.items[i], clamp((tt - tl.prods[i]) / (end - tl.prods[i])), i);
+    } else if (!n && tt >= tl.outro) sceneOutro(ctx, c, clamp((tt - tl.outro) / Math.max(1, tl.total - tl.outro)));
+    else sceneIntro(ctx, c, clamp((tt - tl.intro) / Math.max(0.5, (n ? tl.prods[0] : tl.outro) - tl.intro)));
   };
-  if (c.cover && p < coverEnd) {
-    const k = p / coverEnd; const fade = 0.4 / (coverEnd * durSec); // últimos 0,4 s: transición a la campaña
-    if (k > 1 - fade) { body(0); ctx.save(); ctx.globalAlpha = 1 - (k - (1 - fade)) / fade; sceneCover(ctx, c.cover, k); ctx.restore(); }
-    else sceneCover(ctx, c.cover, k);
-  } else body(coverEnd ? (p - coverEnd) / (1 - coverEnd) : p);
-  // barra de avance y fundido final
+  if (c.cover && t < tl.cover) {
+    const fadeLen = 0.4;
+    if (t > tl.cover - fadeLen) { body(tl.intro); ctx.save(); ctx.globalAlpha = (tl.cover - t) / fadeLen; sceneCover(ctx, c.cover, t / tl.cover); ctx.restore(); }
+    else sceneCover(ctx, c.cover, t / tl.cover);
+  } else body(t);
+  const p = clamp(t / tl.total);
   ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(0, H - 10, W * p, 10);
   if (p > 0.97) { ctx.fillStyle = `rgba(0,0,0,${(p - 0.97) / 0.03})`; ctx.fillRect(0, 0, W, H); }
 }
@@ -198,21 +249,22 @@ function synthMusic(ac: AudioContext, dest: AudioNode, dur: number, vol: number)
   }
 }
 
-export function videoDuration(a: VidAudio, hasCover = false): number {
-  const extra = hasCover ? COVER_SECS : 0;
-  return (a.voice ? Math.min(45, Math.max(12, a.voice.duration + 2)) : 10) + extra;
+export function videoDuration(a: VidAudio, hasCover = false, n = 4): number {
+  const base = (a.voice ? Math.min(55, a.voice.duration + VOICE_START + 1.2) : 3 + 3 + n * 3 + 4) + 0;
+  return Math.max(base, (hasCover ? COVER_SECS : 0) + 6);
 }
 
 /** Graba el video (con audio si hay). Devuelve el archivo. */
 export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number) => void): Promise<Blob> {
-  const dur = videoDuration(a, Boolean(c.cover)) * 1000;
+  const tl = buildTimeline(c, a);
+  const dur = tl.total * 1000;
   const out = document.createElement('canvas'); out.width = W; out.height = H;
   const ctx = out.getContext('2d')!;
   const ac = new AudioContext(); await ac.resume();
   const dest = ac.createMediaStreamDestination();
   const hasAudio = Boolean(a.voice || a.music || a.musicBuf);
   const secs = dur / 1000;
-  if (a.voice) { const s = ac.createBufferSource(); s.buffer = a.voice; const g = ac.createGain(); g.gain.value = 1; s.connect(g); g.connect(dest); s.start(ac.currentTime + 0.5 + (c.cover ? COVER_SECS : 0)); }
+  if (a.voice) { const s = ac.createBufferSource(); s.buffer = a.voice; const g = ac.createGain(); g.gain.value = 1; s.connect(g); g.connect(dest); s.start(ac.currentTime + VOICE_START); }
   if (a.musicBuf) {
     const s = ac.createBufferSource(); s.buffer = a.musicBuf; s.loop = true; const g = ac.createGain(); const vol = a.voice ? 0.14 : 0.5; g.gain.value = vol;
     g.gain.setValueAtTime(vol, ac.currentTime + secs - 1.2); g.gain.linearRampToValueAtTime(0, ac.currentTime + secs);
@@ -234,7 +286,7 @@ export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number
   await new Promise<void>(resolve => {
     const frame = () => {
       const el = performance.now() - t0; const p = Math.min(1, el / dur);
-      drawFrame(ctx, c, p, dur / 1000); onProgress(Math.round(p * 100));
+      drawFrame(ctx, c, el / 1000, tl); onProgress(Math.round(p * 100));
       if (el >= dur) resolve(); else requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
