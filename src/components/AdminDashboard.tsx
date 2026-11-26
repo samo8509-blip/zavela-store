@@ -66,6 +66,7 @@ import { AdminHomeSections } from './admin/AdminHomeSections.tsx';
 import { AdminHomePromo } from './admin/AdminHomePromo.tsx';
 import { AdminPricingGuard } from './admin/AdminPricingGuard.tsx';
 import { AdminCampaign } from './admin/AdminCampaign.tsx';
+import { AdminSuppliers } from './admin/AdminSuppliers.tsx';
 import { AdminReviews } from './admin/AdminReviews.tsx';
 import { AdminTrustBadges } from './admin/AdminTrustBadges.tsx';
 import { AdminBlogPosts } from './admin/AdminBlogPosts.tsx';
@@ -935,6 +936,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             )}
 
             {activeSection === 'campaign_bf' && <AdminCampaign />}
+
+            {activeSection === 'suppliers' && <AdminSuppliers />}
 
             {activeSection === 'pricing_guard' && (
               <AdminPricingGuard

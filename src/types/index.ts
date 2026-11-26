@@ -600,6 +600,7 @@ export interface Customer {
 }
 
 export interface Order {
+  shippingPackages?: { proveedor: string; envio: number; productos: string[] }[]; // un paquete por proveedor (un pedido de Dropi por paquete)
   id: string;
   orderNumber: string; // e.g. "NV-1001" or "ZV-1001"
   customerId?: string;

@@ -255,7 +255,34 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     });
   }, [formData.department, formData.city, cartItems, totalItemQuantity, discountedSubtotal, freeShippingThreshold]);
 
-  const shippingCost = shippingCalculation.finalRate;
+  // Envío por paquetes (uno por proveedor), calculado por el servidor
+  const [quote, setQuote] = useState<{ packages: any[]; totalShipping: number; threshold: number } | null>(null);
+  const quoteKey = useMemo(
+    () => JSON.stringify([cartItems.map(i => [i.product?.id, i.quantity]), formData.department, formData.city]),
+    [cartItems, formData.department, formData.city]
+  );
+  useEffect(() => {
+    if (!isOpen || cartItems.length === 0) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch('/api/shipping/quote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: cartItems.map(i => ({ productId: i.product?.id, quantity: i.quantity })), department: formData.department, city: formData.city })
+      }).then(r => r.json()).then(j => { if (!cancelled && j?.success) setQuote(j); }).catch(() => {});
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, quoteKey]);
+
+  const shippingCost = quote ? quote.totalShipping : shippingCalculation.finalRate;
+  const extraPackages = quote ? quote.packages.filter(p => p.fee > 0) : [];
+  const shippingBadge = !quote
+    ? 'Calculando tu envío…'
+    : quote.packages.length <= 1
+      ? 'Todos tus productos salen en un solo paquete con envío gratis.'
+      : extraPackages.length === 0
+        ? `Tu pedido sale en ${quote.packages.length} paquetes, todos con envío gratis.`
+        : `Tu pedido sale en ${quote.packages.length} paquetes (productos de distintos proveedores): el primero con envío gratis.`;
   const total = discountedSubtotal + shippingCost;
 
   useEffect(() => {
@@ -365,7 +392,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         )
                   )
             );
-      const calculatedShippingCost = parseFloat(String(rawShippingValue)) || 0;
+      const calculatedShippingCost = quote ? quote.totalShipping : (parseFloat(String(rawShippingValue)) || 0);
 
       const orderPayload = {
         firstName: formData.firstName?.trim(),
@@ -646,11 +673,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <div className="flex items-center gap-1.5 min-w-0">
               <Sparkles className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
               <span className="truncate">
-                ¡Felicidades! Tu compra incluye <strong>ENVÍO GRATIS NACIONAL (\$0 COP)</strong> a {formData.city ? `${formData.city}, ${formData.department}` : 'toda Colombia'}
+                {quote && quote.packages.length > 1
+                  ? <>Tu pedido saldrá en <strong>{quote.packages.length} paquetes</strong>: el primero con <strong>envío gratis</strong></>
+                  : <>Tu compra incluye <strong>ENVÍO GRATIS</strong> a {formData.city ? `${formData.city}, ${formData.department}` : 'toda Colombia'}</>}
               </span>
             </div>
             <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold shadow-2xs shrink-0">
-              \$0 Flete
+              {quote && quote.totalShipping > 0 ? formatCOP(quote.totalShipping) : '$0 Flete'}
             </span>
           </div>
         </div>
@@ -849,7 +878,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                               ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
                               : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}>
-                            {shippingCalculation.badgeText}
+                            {shippingBadge}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-600 mt-0.5">
@@ -864,10 +893,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <span>Entrega: {shippingCalculation.estimatedDays}</span>
                       </div>
                       <div className="text-xs font-black">
-                        {shippingCalculation.isFreeShipping ? (
-                          <span className="text-emerald-700 font-mono text-sm">GRATIS (\$0)</span>
+                        {shippingCost === 0 ? (
+                          <span className="text-emerald-700 font-mono text-sm">GRATIS ($0)</span>
                         ) : (
-                          <span className="text-slate-900 font-mono text-sm">{formatCOP(shippingCalculation.finalRate)}</span>
+                          <span className="text-slate-900 font-mono text-sm">{formatCOP(shippingCost)}</span>
                         )}
                       </div>
                     </div>
@@ -1087,27 +1116,33 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between items-center py-1.5 bg-white px-2.5 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Truck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="font-bold text-slate-800">Costo de Envío ({shippingCalculation.zoneShortName}):</span>
-                  {totalItemQuantity >= 2 && (
-                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
-                      🎉 Envío Único ({totalItemQuantity} un.)
-                    </span>
+              {(quote ? quote.packages : [null]).map((pk: any, idx: number) => (
+                <div key={pk?.key || 'single'} className="bg-white px-2.5 py-1.5 rounded-xl border border-slate-200">
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Truck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="font-bold text-slate-800 truncate">
+                        {pk && quote && quote.packages.length > 1 ? `Envío del paquete ${idx + 1}` : 'Costo de Envío'}
+                      </span>
+                    </div>
+                    {(!pk || pk.fee === 0) ? (
+                      <span className="font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300">Gratis</span>
+                    ) : (
+                      <span className="font-black text-xs text-slate-900 font-mono">{formatCOP(pk.fee)}</span>
+                    )}
+                  </div>
+                  {pk && quote && quote.packages.length > 1 && (
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      {pk.items.map((it: any) => `${it.quantity}× ${it.title}`).join(', ')}
+                    </p>
+                  )}
+                  {pk && pk.fee > 0 && pk.missingForFree > 0 && (
+                    <p className="text-[11px] text-emerald-800 font-bold mt-0.5">
+                      Agrega {formatCOP(pk.missingForFree)} más de este proveedor y el envío de este paquete es gratis.
+                    </p>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {shippingCalculation.baseRate > 0 && (
-                    <span className="text-slate-400 line-through text-[11px] font-mono">
-                      {formatCOP(shippingCalculation.baseRate)}
-                    </span>
-                  )}
-                  <span className="font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300 shadow-2xs">
-                    ¡GRATIS! (\$0 COP)
-                  </span>
-                </div>
-              </div>
+              ))}
 
               <div className="border-t-2 border-slate-300 pt-2.5 flex justify-between items-center text-sm font-black text-slate-950">
                 <span>Total a Pagar en Destino:</span>

@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import productsRouter, { searchProductForBot } from './server/routes/products.ts';
 import legalRouter from './server/routes/legal.ts';
 import newsletterRouter from './server/routes/newsletter.ts';
+import shippingRouter from './server/routes/shipping.ts';
 import ordersRouter from './server/routes/orders.ts';
 import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
@@ -281,6 +282,7 @@ async function startServer() {
   // Páginas legales públicas (términos, privacidad, garantías, cookies, derechos sobre datos)
   app.use(legalRouter);
   app.use(newsletterRouter);
+  app.use(shippingRouter);
 
   // Página /catalogo en HTML simple (sin JS dependiente) con paginación
   app.get(['/catalogo', '/catalogo/'], async (req, res) => {

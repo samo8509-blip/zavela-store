@@ -1,3 +1,4 @@
+import { quotePackages } from '../services/shippingPackages.ts';
 import { WELCOME_CODE, WELCOME_PERCENT, consumeWelcomeCoupon } from './newsletter.ts';
 import { Router } from 'express';
 import { db } from '../db.ts';
@@ -231,7 +232,9 @@ router.post('/', async (req, res) => {
     }
 
     const shippingCalc = calculateShippingCost({ department, city, cartItems: validatedItems.map(vi => ({ product: { id: vi.productId, price: vi.unitPrice } as any, quantity: vi.quantity })), subtotal, freeShippingThreshold: settings.freeShippingThreshold || 120000 });
-    const shippingCost = parseFloat(String(req.body.shippingCost ?? shippingCalc.finalRate ?? 0)) || 0;
+    // El envío lo calcula el servidor por paquetes (un paquete por proveedor); nunca se toma de lo que envía el navegador.
+    const shippingQuote = await quotePackages(validatedItems.map(vi => ({ productId: vi.productId, quantity: vi.quantity })), department, city);
+    const shippingCost = shippingQuote.totalShipping;
     // Cupón de bienvenida: el servidor calcula el descuento y lo gasta una sola vez por correo suscrito.
     if (String(discountCode || '').trim().toUpperCase() === WELCOME_CODE) {
       discountAmount = 0;
@@ -253,6 +256,7 @@ router.post('/', async (req, res) => {
       additionalNotes,
       subtotal,
       shippingCost,
+      shippingPackages: shippingQuote.packages.map(p => ({ proveedor: p.supplierName, envio: p.fee, productos: p.items.map(i => `${i.quantity}x ${i.title}`) })),
       total,
       paymentMethod: paymentMethod as PaymentMethod,
       status: isOnlineEpayco ? 'PENDIENTE_PAGO' : 'PENDIENTE_REVISION',
