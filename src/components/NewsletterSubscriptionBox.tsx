@@ -38,10 +38,35 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
   const [isCopied, setIsCopied] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+  const [mailStatus, setMailStatus] = useState<'sent' | 'failed' | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) return;
-    if (!marketingConsent) return;
+    if (!marketingConsent || sending) return;
+    setSending(true);
+
+    // Registro real en el servidor: guarda la suscripción y envía el correo de bienvenida con el cupón.
+    try {
+      const r = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), consent: true, interests: currentCategoryInterest && currentCategoryInterest !== 'todos' && currentCategoryInterest !== 'all' ? [currentCategoryInterest] : [] })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.success) {
+        setSending(false);
+        showToast?.(j.message || 'No pudimos completar tu suscripción. Intenta de nuevo.');
+        return;
+      }
+      setMailStatus(j.welcomeEmailSent ? 'sent' : 'failed');
+    } catch {
+      setSending(false);
+      showToast?.('Sin conexión con la tienda. Intenta de nuevo en un momento.');
+      return;
+    }
+    setSending(false);
 
     const interests = currentCategoryInterest && currentCategoryInterest !== 'todos' && currentCategoryInterest !== 'all'
       ? [currentCategoryInterest, 'Tendencias y Ofertas']
@@ -74,7 +99,7 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
       .catch(() => {});
 
     if (showToast) {
-      showToast('🎁 ¡Te has suscrito con éxito! Tu cupón de 10% OFF es BIENVENIDO10.');
+      showToast('🎁 ¡Te has suscrito con éxito! Revisa tu correo (y la carpeta de spam) para ver tu cupón.');
     }
   };
 
@@ -145,7 +170,7 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
                     type="submit"
                     className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-md shadow-indigo-600/30"
                   >
-                    <span>Unirme</span>
+                    <span>{sending ? 'Enviando…' : 'Unirme'}</span>
                     <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -174,6 +199,11 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
                   <CheckCircle2 className="w-5 h-5 shrink-0" />
                   <span className="text-xs font-bold uppercase tracking-wider">¡Suscripción confirmada!</span>
                 </div>
+                <p className="text-xs text-slate-200 leading-snug">
+                  {mailStatus === 'sent'
+                    ? <>Te enviamos un correo de bienvenida a <strong>{subscribedData.subscriber.email}</strong>. Si no lo ves, revisa spam o promociones.</>
+                    : <>Quedaste suscrito, pero no pudimos enviar el correo ahora mismo. Tu cupón es el de abajo; úsalo al finalizar la compra con este correo.</>}
+                </p>
 
                 <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700 flex items-center justify-between gap-3">
                   <div>

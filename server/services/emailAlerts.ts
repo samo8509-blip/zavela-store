@@ -71,12 +71,13 @@ const errText = (e: any): string => {
   return Array.from(new Set(parts)).join(' / ') || 'sin detalle';
 };
 
-async function resendSend(key: string, to: string, subject: string, text: string): Promise<void> {
-  const from = process.env.ALERT_EMAIL_FROM || 'Alertas Zavela <onboarding@resend.dev>';
+async function resendSend(key: string, to: string, subject: string, text: string, html?: string, fromName?: string): Promise<void> {
+  const rawFrom = process.env.ALERT_EMAIL_FROM || 'onboarding@resend.dev';
+  const from = fromName ? `${fromName} <${rawFrom.replace(/^.*<|>$/g, '')}>` : (process.env.ALERT_EMAIL_FROM || 'Alertas Zavela <onboarding@resend.dev>');
   const r = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, text }),
+    body: JSON.stringify(html ? { from, to: [to], subject, text, html } : { from, to: [to], subject, text }),
     signal: AbortSignal.timeout(15000)
   });
   if (!r.ok) {
@@ -92,7 +93,7 @@ const wrap76 = (s: string) => s.replace(/(.{76})/g, '$1\r\n');
 
 /** Cliente SMTP mínimo: conecta, autentica (AUTH LOGIN) y envía un correo de texto. */
 function smtpSend(opts: {
-  host: string; port: number; secure: boolean; user: string; pass: string; from: string; to: string; subject: string; text: string;
+  host: string; port: number; secure: boolean; user: string; pass: string; from: string; to: string; subject: string; text: string; html?: string; fromName?: string;
 }): Promise<void> {
   return new Promise((resolve, reject) => {
     let socket: net.Socket | tls.TLSSocket;
@@ -150,15 +151,15 @@ function smtpSend(opts: {
       await cmd(`RCPT TO:<${opts.to}>`, [250, 251]);
       await cmd('DATA', [354]);
       const msg = [
-        `From: Alertas Zavela Store <${opts.from}>`,
+        `From: ${clean(opts.fromName || 'Alertas Zavela Store')} <${opts.from}>`,
         `To: <${opts.to}>`,
         `Subject: =?UTF-8?B?${b64(clean(opts.subject))}?=`,
         `Date: ${new Date().toUTCString()}`,
         'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
+        `Content-Type: text/${opts.html ? 'html' : 'plain'}; charset=UTF-8`,
         'Content-Transfer-Encoding: base64',
         '',
-        wrap76(b64(opts.text)),
+        wrap76(b64(opts.html || opts.text)),
         '.'
       ].join('\r\n');
       await cmd(msg, [250]);
@@ -216,6 +217,31 @@ export async function sendAlertEmail(subject: string, text: string, toOverride?:
     return { sent: true };
   } catch (e: any) {
     console.warn('[Alertas por correo] No se pudo enviar:', errText(e));
+    return { sent: false, reason: `Error enviando el correo: ${errText(e)}` };
+  }
+}
+
+/** Correo a un cliente (HTML) con el nombre de la tienda como remitente. Nunca lanza: devuelve el resultado. */
+export async function sendCustomerEmail(to: string, subject: string, html: string, text: string): Promise<EmailResult> {
+  if (!isValidEmail(to)) return { sent: false, reason: 'Correo de destino no válido.' };
+  if (!isSmtpConfigured()) return { sent: false, reason: 'Aún no hay cuenta de envío configurada.' };
+  const resendKey = getResendKey();
+  if (resendKey) {
+    try {
+      await resendSend(resendKey, to.trim(), subject, text, html, 'Zavela Store');
+      return { sent: true };
+    } catch (e: any) {
+      console.warn('[Correo a cliente] Resend falló:', errText(e));
+      return { sent: false, reason: `Error enviando con Resend: ${errText(e)}` };
+    }
+  }
+  const cfg = getSmtp();
+  const from = (process.env.ALERT_EMAIL_FROM && isValidEmail(process.env.ALERT_EMAIL_FROM) ? process.env.ALERT_EMAIL_FROM : cfg.user).trim();
+  try {
+    await smtpSend({ host: cfg.host, port: cfg.port, secure: cfg.port === 465 || process.env.SMTP_SECURE === 'true', user: cfg.user, pass: cfg.pass, from, to: to.trim(), subject, text, html, fromName: 'Zavela Store' });
+    return { sent: true };
+  } catch (e: any) {
+    console.warn('[Correo a cliente] No se pudo enviar:', errText(e));
     return { sent: false, reason: `Error enviando el correo: ${errText(e)}` };
   }
 }
