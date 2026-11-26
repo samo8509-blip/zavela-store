@@ -131,6 +131,12 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
   };
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('tiktok') === 'ok') { showToast('✅ Cuenta de TikTok vinculada correctamente.'); window.history.replaceState({}, '', window.location.pathname); }
+    else if (q.get('tiktok') === 'error') { alert('No se pudo vincular TikTok: ' + (q.get('msg') || 'error')); window.history.replaceState({}, '', window.location.pathname); }
+  }, []);
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -275,6 +281,14 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
   const openConnectModal = (plat: 'facebook' | 'instagram' | 'tiktok') => {
     if (plat === 'facebook') {
       setIsFbPageModalOpen(true);
+      return;
+    }
+    if (plat === 'tiktok') {
+      // TikTok no usa token pegado a mano: se autoriza la cuenta en TikTok y vuelve a la tienda.
+      fetch('/api/admin/social/tiktok/auth-url').then(r => r.json()).then(j => {
+        if (j.success && j.url) window.location.href = j.url;
+        else alert(j.message || 'No se pudo iniciar la vinculación con TikTok.');
+      }).catch(() => alert('No se pudo iniciar la vinculación con TikTok.'));
       return;
     }
     const conn = settings?.connections[plat];
