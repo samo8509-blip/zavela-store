@@ -427,7 +427,8 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaDataUrl, kind, caption, title })
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => null);
+      if (!j) throw new Error('El servidor no respondió (puede estar convirtiendo el video o reiniciándose). Espera 1 minuto y revisa el Historial antes de volver a intentar.');
       if (!j.success) alert(`No se pudo publicar en TikTok.\n\n${j.result?.message || j.message || ''}`.trim());
       else { onToast(`🎵 ${j.result.message}`); onPublished?.(); }
     } catch (e: any) {
