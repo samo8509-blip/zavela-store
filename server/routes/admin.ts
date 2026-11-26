@@ -3739,6 +3739,22 @@ router.post('/social/tts', async (req, res) => {
   }
 });
 
+/** Comprime el video de la campaña para el estado de WhatsApp (tope ~8 MB; el límite es 16 MB). */
+router.post('/social/video-whatsapp', async (req, res) => {
+  try {
+    const m = /^data:video\/(?:mp4|webm)(?:;codecs=[^;,]+)?;base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body?.mediaDataUrl || ''));
+    if (!m) return res.status(400).json({ success: false, message: 'El video no es válido.' });
+    const dur = Math.max(5, Math.min(90, Number(req.body?.durationSec) || 35));
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length > 40 * 1024 * 1024) return res.status(413).json({ success: false, message: 'El archivo pesa más de 40 MB.' });
+    const out = await normalizeVideo(buf, { maxBytes: 8 * 1024 * 1024, durationSec: dur });
+    if (!out.converted) return res.status(500).json({ success: false, message: 'No se pudo comprimir el video en el servidor.' });
+    res.json({ success: true, sizeMB: Math.round(out.buf.length / 1048576 * 10) / 10, videoDataUrl: `data:video/mp4;base64,${out.buf.toString('base64')}` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'No se pudo comprimir el video.' });
+  }
+});
+
 /** Campañas de la tienda en TikTok: una imagen (foto) o un video corto generado en el navegador. */
 router.post('/social/tiktok/publish-media', async (req, res) => {
   try {
