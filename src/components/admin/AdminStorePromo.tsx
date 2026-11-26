@@ -445,7 +445,10 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
     setVideoBusy(true); setVideoPct(0);
     if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(''); setVideoBlob(null); }
     try {
+      let cover: ImageBitmap | null = null;
+      try { cover = await createImageBitmap(await (await fetch('/zavela-portada.jpg')).blob()); } catch { /* sin portada */ }
       const cfg: VidCfg = {
+        cover,
         theme: base.theme, eyebrow: base.eyebrow, headline: base.headline, badge: base.badge, cta: base.cta, chips: base.chips, logo: base.logo,
         items: base.items.slice(0, 4).map(it => ({
           img: it.img, title: String(it.product.title), price: formatCOP(Number(it.product.price) || 0),
@@ -556,7 +559,7 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <h3 className="text-sm font-extrabold text-slate-900">Video con voz y música para TikTok</h3>
-          <p className="text-[11px] text-slate-500">Video vertical con escenas: la campaña, hasta 4 productos con su precio y el cierre. Dura {Math.round(videoDuration({ voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }))} s según la voz. Se crea en tu navegador (Chrome o Edge).</p>
+          <p className="text-[11px] text-slate-500">Video vertical que abre con la imagen de Zavela Store y sigue con la campaña, hasta 4 productos con su precio y el cierre. Dura {Math.round(videoDuration({ voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }, true))} s según la voz. Se crea en tu navegador (Chrome o Edge).</p>
 
           <div className="grid grid-cols-3 gap-1 text-[11px] font-bold">
             {([['ia', 'Voz IA latina'], ['mic', 'Mi voz'], ['none', 'Sin voz']] as const).map(([id, name]) => (
