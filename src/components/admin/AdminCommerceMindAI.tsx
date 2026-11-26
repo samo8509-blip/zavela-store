@@ -49,6 +49,7 @@ import {
   generateDailyTrafficReport,
   createEmptyDailyTrafficReport,
   buildRealTrafficReportFromOrders,
+  filterOrdersByRange,
   clearSimulatedTraffic,
   SimulatedDailyTrafficReport 
 } from '../../utils/mockDailyTrafficGenerator.ts';
@@ -299,6 +300,11 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
     };
   }, []);
 
+  // Rango de las métricas reales
+  const [range, setRange] = useState<'today' | '7d' | '30d' | 'all'>('today');
+  const [viewsInfo, setViewsInfo] = useState<{ available: boolean; total: number } | null>(null);
+  const rangeLabel = range === 'today' ? 'del día' : range === '7d' ? 'últimos 7 días' : range === '30d' ? 'últimos 30 días' : 'de todo el tiempo';
+
   // Client simulation state
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [simulatedDwellTime, setSimulatedDwellTime] = useState<number>(140);
@@ -329,7 +335,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
   // Load Admin Mode Analysis on mount and when real orders change
   useEffect(() => {
     fetchAdminAnalysis();
-  }, [orders.length, products.length]);
+  }, [orders.length, products.length, range]);
 
   const fetchAdminAnalysis = async (forceRegenerate: boolean = false) => {
     setLoading(true);
@@ -353,12 +359,15 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
         traffic = generateDailyTrafficReport(products);
       } else if (isSimActive) {
         traffic = getOrGenerateDailyTrafficReport(products);
-      } else if (orders && orders.length > 0) {
-        // Modo real: consumir exclusivamente la base de datos confirmada
-        traffic = buildRealTrafficReportFromOrders(orders, products);
       } else {
-        // Estricto: Si la base de datos real está vacía y la simulación está apagada, NUNCA usar datos mock
-        traffic = createEmptyDailyTrafficReport();
+        // Modo real: pedidos de la base de datos (sin cancelados, del rango elegido) + visitas reales registradas por la tienda
+        let views: { productId: string; views: number; avgSeconds: number }[] = [];
+        try {
+          const vr = await fetch(`/api/admin/metrics/views?range=${range}`);
+          const vj = await vr.json();
+          if (vj?.success) { views = vj.products || []; setViewsInfo({ available: Boolean(vj.available), total: Number(vj.totalViews) || 0 }); }
+        } catch { setViewsInfo(null); }
+        traffic = buildRealTrafficReportFromOrders(filterOrdersByRange(orders || [], range), products, views);
       }
 
       setTrafficReport(traffic);
@@ -1001,18 +1010,31 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
             </div>
           )}
 
+          {/* Rango de las métricas */}
+          {!isSimulationActive && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 mr-1">Período:</span>
+              {([['today', 'Hoy'], ['7d', '7 días'], ['30d', '30 días'], ['all', 'Todo']] as const).map(([id, name]) => (
+                <button key={id} onClick={() => setRange(id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border ${range === id ? 'bg-sky-500 text-white border-sky-500' : 'bg-slate-900 text-slate-300 border-slate-700'}`}>{name}</button>
+              ))}
+              <span className="text-[11px] text-slate-500 ml-2">
+                {viewsInfo?.available === false ? 'Visitas: la tienda aún no tiene base de datos para guardarlas.' : 'Visitas reales desde que se activó el registro; pedidos cancelados no cuentan.'}
+              </span>
+            </div>
+          )}
+
           {/* Unified KPI Cards: Tráfico + Ventas */}
           {trafficReport && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
                 <div className="flex items-center justify-between text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <span>Ingresos del Día</span>
+                  <span>Ingresos {rangeLabel}</span>
                   <DollarSign className="w-4 h-4" />
                 </div>
                 <div className="text-2xl font-black font-mono text-emerald-400">
                   {formatCOP(trafficReport.total_ingresos)}
                 </div>
-                <span className="text-[11px] text-slate-400 mt-2">Facturación proyectada</span>
+                <span className="text-[11px] text-slate-400 mt-2">Pedidos no cancelados</span>
               </div>
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
@@ -1034,7 +1056,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 <div className="text-2xl font-black font-mono text-white">
                   {trafficReport.total_visualizaciones}
                 </div>
-                <span className="text-[11px] text-slate-400 mt-2">Permanencia: {trafficReport.tiempo_promedio_general_segundos}s</span>
+                <span className="text-[11px] text-slate-400 mt-2">{trafficReport.tiempo_promedio_general_segundos > 0 ? `Permanencia: ${trafficReport.tiempo_promedio_general_segundos}s` : 'Visitas reales de la tienda'}</span>
               </div>
 
               <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
@@ -1045,7 +1067,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 <div className="text-2xl font-black font-mono text-purple-400">
                   {trafficReport.tasa_conversion_promedio}
                 </div>
-                <span className="text-[11px] text-amber-400 mt-2">{trafficReport.total_carritos_abandonados} carritos por rescatar</span>
+                <span className="text-[11px] text-amber-400 mt-2">Pedidos ÷ visitas reales</span>
               </div>
             </div>
           )}
@@ -1078,7 +1100,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                           <div className="truncate">
                             <div className="text-sm font-semibold text-white truncate">{item.nombre}</div>
                             <div className="text-xs text-slate-400">
-                              {item.visitas} vistas • {item.tiempo_promedio_segundos}s prom.
+                              {item.visitas} vistas{item.tiempo_promedio_segundos > 0 ? ` • ${item.tiempo_promedio_segundos}s prom.` : ''}
                             </div>
                           </div>
                         </div>
@@ -1153,7 +1175,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 <span className="text-xs font-mono text-indigo-300">Análisis Predictivo</span>
               </div>
 
-              {trafficReport.productos.length === 0 ? (
+              {(!trafficReport.productos.some(p => p.es_estrella || p.es_friccion)) ? (
                 <div className="p-6 text-center text-xs text-slate-400 bg-slate-950/60 rounded-xl border border-dashed border-slate-800">
                   Sin datos de correlación aún. Las oportunidades de conversión y productos estrella se detectarán automáticamente conforme tus clientes reales naveguen y compren en la tienda.
                 </div>
@@ -1161,7 +1183,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Producto Estrella */}
                   {(() => {
-                    const star = trafficReport.productos.find(p => p.es_estrella) || trafficReport.productos[0];
+                    const star = trafficReport.productos.find(p => p.es_estrella);
                     if (!star) return null;
                     return (
                       <div className="p-4 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-2">
@@ -1175,7 +1197,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
                         </div>
                         <h4 className="text-sm font-bold text-white truncate">{star.nombre}</h4>
                         <p className="text-xs text-slate-300 leading-relaxed">
-                          Lidera el catálogo con {star.visitas} visualizaciones y {star.compras} compras completadas. Representa el motor de ventas principal del día.
+                          Lidera el catálogo con {star.visitas} visualizaciones y {star.compras} compras completadas. Es el producto que más factura en este período.
                         </p>
                       </div>
                     );
@@ -1183,7 +1205,7 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
 
                   {/* Producto con Fricción */}
                   {(() => {
-                    const friction = trafficReport.productos.find(p => p.es_friccion) || trafficReport.productos[1];
+                    const friction = trafficReport.productos.find(p => p.es_friccion);
                     if (!friction) return null;
                     return (
                       <div className="p-4 rounded-xl bg-slate-950/80 border border-amber-500/30 space-y-2">

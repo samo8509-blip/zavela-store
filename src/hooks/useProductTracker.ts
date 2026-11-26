@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Product, TrackedProduct } from '../types/index.ts';
+import { sendProductView } from '../utils/serverTracking.ts';
 
 const TRACKING_STORAGE_KEY = 'zavela_product_views';
 const TRACKING_UPDATE_EVENT = 'zavela_product_tracker_update';
@@ -79,6 +80,7 @@ export function useProductTracker() {
    */
   const trackProductVisit = useCallback((product: Product) => {
     if (!product || !product.id) return;
+    sendProductView(String(product.id));
 
     try {
       const existing = [...trackedItems];

@@ -93,6 +93,25 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Trae de Facebook los números reales de cada publicación (reacciones, compartidos, alcance)
+  const [syncingMetrics, setSyncingMetrics] = useState(false);
+  const syncFacebookMetrics = async (silent = false) => {
+    setSyncingMetrics(true);
+    try {
+      const r = await fetch('/api/admin/social/sync-metrics', { method: 'POST' });
+      const j = await r.json().catch(() => null);
+      const list = await fetch('/api/admin/social/posts').then(x => x.json()).catch(() => null);
+      if (list?.success) setPosts(Array.isArray(list.data) ? list.data.filter(Boolean) : []);
+      if (!silent) showToast(j?.message || 'No se pudieron traer los números de Facebook.');
+    } catch { if (!silent) showToast('No se pudieron traer los números de Facebook.'); }
+    finally { setSyncingMetrics(false); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history' && settings?.connections?.facebook?.connected) syncFacebookMetrics(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, settings?.connections?.facebook?.connected]);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -437,7 +456,6 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
           <div className="bg-[#0D1836]/80 p-4 rounded-2xl border border-[#23335A]">
             <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
               <span className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5 text-cyan-400" /> Visualizaciones</span>
-              <span className="text-[10px] text-emerald-400 font-extrabold">+18.4%</span>
             </div>
             <div className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
               {totalViews.toLocaleString()} <span className="text-xs font-normal text-slate-400">views</span>
@@ -1552,13 +1570,23 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
               </p>
             </div>
             
-            <button
-              onClick={() => setActiveTab('publish')}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nueva Publicación</span>
-            </button>
+            <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              <button
+                onClick={() => syncFacebookMetrics(false)}
+                disabled={syncingMetrics}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncingMetrics ? 'animate-spin' : ''}`} />
+                <span>{syncingMetrics ? 'Actualizando…' : 'Actualizar números de Facebook'}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('publish')}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nueva Publicación</span>
+              </button>
+            </div>
           </div>
 
           {posts.length === 0 ? (
