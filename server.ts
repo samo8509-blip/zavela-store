@@ -8,6 +8,7 @@ import productsRouter, { searchProductForBot } from './server/routes/products.ts
 import legalRouter from './server/routes/legal.ts';
 import newsletterRouter from './server/routes/newsletter.ts';
 import shippingRouter from './server/routes/shipping.ts';
+import tiktokRouter from './server/routes/tiktok.ts';
 import ordersRouter from './server/routes/orders.ts';
 import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
@@ -283,6 +284,7 @@ async function startServer() {
   app.use(legalRouter);
   app.use(newsletterRouter);
   app.use(shippingRouter);
+  app.use(tiktokRouter);
 
   // Página /catalogo en HTML simple (sin JS dependiente) con paginación
   app.get(['/catalogo', '/catalogo/'], async (req, res) => {

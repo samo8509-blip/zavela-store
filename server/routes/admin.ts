@@ -1,3 +1,4 @@
+import { publishProductPhotos } from '../services/tiktokService.ts';
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence, refreshAdvisorsIfStale, isSalesAdvisor, isAccountingRole } from '../services/advisorStore.ts';
@@ -3773,6 +3774,16 @@ router.post('/social/publish', async (req, res) => {
       }
     }
 
+    let tiktokSync: any = null;
+    if (Array.isArray(platforms) && platforms.includes('tiktok')) {
+      const ttConn: any = await pool.getSocialConnection('tiktok');
+      if (ttConn?.connected && ttConn.accessToken) {
+        tiktokSync = await publishProductPhotos(product, copies?.tiktok);
+      } else {
+        tiktokSync = { success: false, message: 'TikTok no está vinculado: se guardó solo en el historial.' };
+      }
+    }
+
     const plats = (Array.isArray(platforms) ? platforms : []).filter((p: any) => ['facebook', 'instagram', 'tiktok'].includes(p));
     const fbFailedOnly = plats.length === 1 && plats[0] === 'facebook' && facebookSync && facebookSync.success === false;
     const imgs: any[] = Array.isArray((product as any).images) ? (product as any).images : [];
@@ -3793,7 +3804,7 @@ router.post('/social/publish', async (req, res) => {
     const history = await readSocialHistory();
     await writeSocialHistory([newPost, ...history]);
 
-    res.status(201).json({ success: true, data: newPost, facebookSync });
+    res.status(201).json({ success: true, data: newPost, facebookSync, tiktokSync });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

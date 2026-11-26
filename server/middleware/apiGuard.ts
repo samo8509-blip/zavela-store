@@ -85,6 +85,7 @@ function readToken(req: Request): string {
 type Rule = { method: string | '*'; re: RegExp; access: 'public' | 'advisor' | 'admin' };
 const rules: Rule[] = [
   // Lo que necesita la tienda pública (lectura) y formularios de visitantes
+  { method: 'GET', re: /^\/api\/admin\/social\/tiktok\/callback$/, access: 'public' }, // la abre TikTok; solo sirve con el state del admin
   { method: 'GET', re: /^\/api\/admin\/settings$/, access: 'public' },          // la ruta entrega versión sin secretos
   { method: 'GET', re: /^\/api\/admin\/categories$/, access: 'public' },
   { method: 'GET', re: /^\/api\/admin\/products(\/[^/]+)?$/, access: 'public' },
