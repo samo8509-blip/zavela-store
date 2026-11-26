@@ -82,6 +82,18 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
     }
   }, []);
 
+  // Proveedor del producto dentro de Dropi (para agrupar el envío por paquetes)
+  const [supplierId, setSupplierId] = useState('');
+  const [supplierName, setSupplierName] = useState('');
+  useEffect(() => {
+    const pid = String((product as any)?.id || '');
+    if (!pid) return;
+    fetch('/api/admin/product-suppliers').then(r => r.json()).then(j => {
+      const e = j?.map?.[pid];
+      if (e) { setSupplierId(String(e.id || '')); setSupplierName(String(e.name || '')); }
+    }).catch(() => {});
+  }, [product]);
+
   const getEmptyInitialState = (): ProductFormData => ({
     id: '', title: '', slug: '', description: '', shortDescription: '',
     categoryId: categories[0]?.id || '', categoryName: categories[0]?.name || 'General',
@@ -416,8 +428,20 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
         publicar_en_facebook: Boolean(formData.publishOnFacebook)
       };
 
+      const saveSupplier = async () => {
+        try {
+          const g = await fetch('/api/admin/product-suppliers').then(r => r.json());
+          const map = { ...(g?.map || {}) };
+          const id = supplierId.trim();
+          const name = supplierName.trim();
+          if (id || name) map[String(targetId)] = { id, name }; else delete map[String(targetId)];
+          await fetch('/api/admin/product-suppliers', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ map }) });
+        } catch { /* el producto ya se guardó; el proveedor se puede editar en Proveedores de Dropi */ }
+      };
+
       if (onSave) {
         await onSave(payload as any);
+        if (provider === 'dropi') await saveSupplier();
         setSaveSuccess(true);
         alert('Producto guardado correctamente');
       } else {
@@ -428,6 +452,7 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
           body: JSON.stringify(payload)
         });
 
+        if (provider === 'dropi') await saveSupplier();
         setSaveSuccess(true);
         alert('Producto guardado correctamente en la base de datos');
         setTimeout(() => { onCancel(); }, 500);
@@ -620,6 +645,15 @@ export const AdminProductEditor: React.FC<AdminProductEditorProps> = ({
                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
                     <input type="text" placeholder="0" value={dropiFee === 0 ? '' : dropiFee} onChange={(e) => { const val = parseNumCOP(e.target.value); setDropiFee(val); setFormData(prev => ({ ...prev, comisionDropi: val })); }} className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">N.° del proveedor en Dropi</label>
+                  <input type="text" inputMode="numeric" placeholder="Ej. 54262 (sale en la URL /provider/54262/...)" value={supplierId} onChange={(e) => setSupplierId(e.target.value.replace(/[^0-9]/g, ''))} className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-white font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nombre del proveedor</label>
+                  <input type="text" placeholder="Ej. Stockeado Andrey" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 bg-white text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+                  <p className="text-[11px] text-amber-800 mt-1">Productos del mismo proveedor salen en un solo paquete de envío.</p>
                 </div>
               </div>
             </div>
