@@ -3701,6 +3701,44 @@ router.get('/social/image-proxy', async (req, res) => {
 });
 
 // Publica en Facebook una imagen de campaña de la tienda (plantilla generada en el panel).
+/** Voz para los videos de la tienda: texto -> audio (WAV) con Gemini TTS, en español latino. Usa GEMINI_API_KEY. */
+router.post('/social/tts', async (req, res) => {
+  try {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.status(400).json({ success: false, message: 'Falta GEMINI_API_KEY en Render.' });
+    const text = String(req.body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 1200);
+    if (!text) return res.status(400).json({ success: false, message: 'Escribe el texto de la voz.' });
+    const voices = ['Kore', 'Puck', 'Charon', 'Aoede', 'Fenrir', 'Leda'];
+    const voice = voices.includes(req.body?.voice) ? req.body.voice : 'Kore';
+    const prompt = `Di con acento latinoamericano (colombiano neutro), tono entusiasta de anuncio publicitario, ritmo ágil y natural: ${text}`;
+    let lastErr = '';
+    for (const model of ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts']) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
+        })
+      });
+      const j: any = await r.json().catch(() => ({}));
+      const b64 = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data)?.inlineData?.data;
+      if (r.ok && b64) {
+        const pcm = Buffer.from(b64, 'base64');
+        const head = Buffer.alloc(44);
+        head.write('RIFF', 0); head.writeUInt32LE(36 + pcm.length, 4); head.write('WAVE', 8); head.write('fmt ', 12);
+        head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(1, 22); head.writeUInt32LE(24000, 24);
+        head.writeUInt32LE(48000, 28); head.writeUInt16LE(2, 32); head.writeUInt16LE(16, 34); head.write('data', 36); head.writeUInt32LE(pcm.length, 40);
+        return res.json({ success: true, audioDataUrl: `data:audio/wav;base64,${Buffer.concat([head, pcm]).toString('base64')}` });
+      }
+      lastErr = j?.error?.message || `Gemini respondió ${r.status}`;
+    }
+    res.status(502).json({ success: false, message: `No se pudo generar la voz: ${lastErr}` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'No se pudo generar la voz.' });
+  }
+});
+
 /** Campañas de la tienda en TikTok: una imagen (foto) o un video corto generado en el navegador. */
 router.post('/social/tiktok/publish-media', async (req, res) => {
   try {

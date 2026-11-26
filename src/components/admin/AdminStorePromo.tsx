@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Send, Wand2, Copy, RefreshCw } from 'lucide-react';
 import type { Product } from '../../types/index.ts';
 import { formatCOP } from '../../utils/formatters.ts';
+import { recordVideo, videoDuration, type VidCfg } from './promoVideo.ts';
 
 /**
  * Plantillas de campaña para dar a conocer la TIENDA (no un solo producto): Black Friday, Cyber Monday, Navidad, etc.
@@ -231,6 +232,18 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
   const [videoPct, setVideoPct] = useState(0);
+  const [voiceMode, setVoiceMode] = useState<'ia' | 'mic' | 'none'>('ia');
+  const [voiceName, setVoiceName] = useState('Kore');
+  const [script, setScript] = useState('');
+  const [scriptTouched, setScriptTouched] = useState(false);
+  const [voiceBuf, setVoiceBuf] = useState<AudioBuffer | null>(null);
+  const [voiceUrl, setVoiceUrl] = useState('');
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const [music, setMusic] = useState(true);
+  const [musicBuf, setMusicBuf] = useState<AudioBuffer | null>(null);
+  const [musicName, setMusicName] = useState('');
 
   const eligible = useMemo(
     () => products.filter(p => p.active !== false && Number(p.stock) !== 0 && !isAdultCat(p) && mainImage(p)),
@@ -307,6 +320,65 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
     setCaption(lines.join('\n'));
   }, [eyebrow, headline, badgeText, chips]);
 
+  // Guion de la voz: se arma solo con la campaña y los productos elegidos (se puede editar)
+  useEffect(() => {
+    if (scriptTouched) return;
+    const items = chosen.slice(0, 4).map(p => `${String(p.title).split(/\s+/).slice(0, 5).join(' ')} por solo ${(Number(p.price) || 0).toLocaleString('es-CO')} pesos.`);
+    const parts = [
+      `¡${eyebrow.toLowerCase()}! ${headline}.`,
+      badgeText.trim() ? `${badgeText.replace(/-/g, '').replace('%', ' por ciento de descuento').toLowerCase()}.` : '',
+      ...items,
+      chips.split(',').map(s => s.trim()).filter(Boolean).join(', ') + '.',
+      'Compra ya en zavela store punto com punto co.'
+    ].filter(Boolean);
+    setScript(parts.join(' '));
+  }, [eyebrow, headline, badgeText, chips, chosen, scriptTouched]);
+
+  const decodeAudio = async (ab: ArrayBuffer) => {
+    const ac = new AudioContext();
+    try { return await ac.decodeAudioData(ab); } finally { ac.close().catch(() => {}); }
+  };
+
+  const generateVoice = async () => {
+    if (!script.trim()) { alert('Escribe el texto de la voz.'); return; }
+    setVoiceBusy(true);
+    try {
+      const r = await fetch('/api/admin/social/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: script, voice: voiceName }) });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.message || 'No se pudo generar la voz.');
+      const blob = await (await fetch(j.audioDataUrl)).blob();
+      setVoiceBuf(await decodeAudio(await blob.arrayBuffer()));
+      if (voiceUrl) URL.revokeObjectURL(voiceUrl);
+      setVoiceUrl(URL.createObjectURL(blob));
+    } catch (e: any) { alert(e?.message || 'No se pudo generar la voz.'); }
+    finally { setVoiceBusy(false); }
+  };
+
+  const toggleRecord = async () => {
+    if (recording) { recRef.current?.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const rec = new MediaRecorder(stream); const chunks: Blob[] = [];
+      rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop()); setRecording(false);
+        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+        try {
+          setVoiceBuf(await decodeAudio(await blob.arrayBuffer()));
+          if (voiceUrl) URL.revokeObjectURL(voiceUrl);
+          setVoiceUrl(URL.createObjectURL(blob));
+        } catch { alert('No se pudo leer la grabación. Intenta de nuevo.'); }
+      };
+      recRef.current = rec; rec.start(); setRecording(true);
+    } catch { alert('No se pudo usar el micrófono. Revisa el permiso del navegador.'); }
+  };
+
+  const pickMusic = async (f?: File | null) => {
+    if (!f) return;
+    try { setMusicBuf(await decodeAudio(await f.arrayBuffer())); setMusicName(f.name); setMusic(true); }
+    catch { alert('No se pudo leer ese archivo de audio.'); }
+  };
+
   const download = () => {
     if (!canvasRef.current) return;
     const a = document.createElement('a');
@@ -363,66 +435,23 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
     } finally { setBusy(false); }
   };
 
-  // Video corto vertical (9:16, ~8 s): la tarjeta de la campaña con zoom suave, destello y cierre. Se graba en el navegador.
+  // Video vertical (9:16) con escenas, voz y música. Se graba en el navegador.
   const makeVideo = async () => {
     const base = cfgRef.current;
     if (!base) return;
     if (typeof MediaRecorder === 'undefined') { alert('Este navegador no puede grabar video. Usa Chrome o Edge.'); return; }
+    if (voiceMode !== 'none' && !voiceBuf) { alert(voiceMode === 'ia' ? 'Primero genera la voz con el botón "Generar voz".' : 'Primero graba tu voz.'); return; }
     setVideoBusy(true); setVideoPct(0);
     if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(''); setVideoBlob(null); }
     try {
-      const card = document.createElement('canvas');
-      draw(card, { ...base, format: 'story' });
-      const W = card.width, H = card.height;
-      const out = document.createElement('canvas'); out.width = W; out.height = H;
-      const ctx = out.getContext('2d')!;
-      const types = ['video/mp4;codecs=avc1.42E01E', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
-      const mime = types.find(t => (MediaRecorder as any).isTypeSupported?.(t)) || '';
-      const stream = (out as any).captureStream(30);
-      const rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 3_000_000 });
-      const chunks: Blob[] = [];
-      rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-      const done = new Promise<void>(res => { rec.onstop = () => res(); });
-      const DUR = 8000;
-      rec.start(250);
-      const t0 = performance.now();
-      await new Promise<void>(resolve => {
-        const frame = () => {
-          const el = performance.now() - t0;
-          const p = Math.min(1, el / DUR);
-          const intro = Math.min(1, el / 700);                       // entrada
-          const zoom = 1.12 - 0.12 * intro + 0.07 * p;              // acerca suave
-          const panX = Math.sin(p * Math.PI) * 14;
-          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-          ctx.save();
-          ctx.globalAlpha = intro;
-          ctx.translate(W / 2 + panX, H / 2);
-          ctx.scale(zoom, zoom);
-          ctx.drawImage(card, -W / 2, -H / 2);
-          ctx.restore();
-          // destellos que cruzan la tarjeta (a los 2.5 s y 5.5 s)
-          for (const c of [0.31, 0.69]) {
-            const q = (p - c) / 0.14;
-            if (q > 0 && q < 1) {
-              const x = -W * 0.3 + q * W * 1.6;
-              const g = ctx.createLinearGradient(x - 160, 0, x + 160, H * 0.25);
-              g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.28)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-              ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-            }
-          }
-          // barra de avance fina abajo
-          ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(0, H - 10, W * p, 10);
-          // salida suave
-          if (p > 0.94) { ctx.fillStyle = `rgba(0,0,0,${(p - 0.94) / 0.06})`; ctx.fillRect(0, 0, W, H); }
-          setVideoPct(Math.round(p * 100));
-          if (el >= DUR) resolve(); else requestAnimationFrame(frame);
-        };
-        requestAnimationFrame(frame);
-      });
-      rec.stop();
-      await done;
-      const type = mime.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
-      const blob = new Blob(chunks, { type });
+      const cfg: VidCfg = {
+        theme: base.theme, eyebrow: base.eyebrow, headline: base.headline, badge: base.badge, cta: base.cta, chips: base.chips, logo: base.logo,
+        items: base.items.slice(0, 4).map(it => ({
+          img: it.img, title: String(it.product.title), price: formatCOP(Number(it.product.price) || 0),
+          discount: Number((it.product as any).discountPercentage) || 0
+        }))
+      };
+      const blob = await recordVideo(cfg, { voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }, setVideoPct);
       setVideoBlob(blob);
       setVideoUrl(URL.createObjectURL(blob));
     } catch (e: any) {
@@ -525,10 +554,51 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-          <h3 className="text-sm font-extrabold text-slate-900">Video corto para TikTok</h3>
-          <p className="text-[11px] text-slate-500">Crea un video vertical de unos 8 segundos con la campaña elegida (zoom suave, destellos y cierre). Se genera en tu navegador; el texto de la publicación es el del paso 4.</p>
+          <h3 className="text-sm font-extrabold text-slate-900">Video con voz y música para TikTok</h3>
+          <p className="text-[11px] text-slate-500">Video vertical con escenas: la campaña, hasta 4 productos con su precio y el cierre. Dura {Math.round(videoDuration({ voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf }))} s según la voz. Se crea en tu navegador (Chrome o Edge).</p>
+
+          <div className="grid grid-cols-3 gap-1 text-[11px] font-bold">
+            {([['ia', 'Voz IA latina'], ['mic', 'Mi voz'], ['none', 'Sin voz']] as const).map(([id, name]) => (
+              <button key={id} onClick={() => setVoiceMode(id)} className={`px-2 py-2 rounded-lg border cursor-pointer ${voiceMode === id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'}`}>{name}</button>
+            ))}
+          </div>
+
+          {voiceMode !== 'none' && (
+            <div className="space-y-2">
+              <label className={label}>Texto de la voz (se arma solo; puedes editarlo)</label>
+              <textarea className={`${input} min-h-[110px] text-xs`} value={script} onChange={e => { setScript(e.target.value); setScriptTouched(true); }} />
+              {voiceMode === 'ia' ? (
+                <div className="flex gap-2">
+                  <select className={`${input} flex-1`} value={voiceName} onChange={e => setVoiceName(e.target.value)}>
+                    <option value="Kore">Kore · mujer, firme</option>
+                    <option value="Leda">Leda · mujer, juvenil</option>
+                    <option value="Aoede">Aoede · mujer, suave</option>
+                    <option value="Puck">Puck · hombre, animado</option>
+                    <option value="Fenrir">Fenrir · hombre, enérgico</option>
+                    <option value="Charon">Charon · hombre, grave</option>
+                  </select>
+                  <button onClick={generateVoice} disabled={voiceBusy} className="px-3 py-2 rounded-xl bg-violet-600 text-white text-xs font-black disabled:opacity-60 cursor-pointer">{voiceBusy ? 'Generando…' : 'Generar voz'}</button>
+                </div>
+              ) : (
+                <button onClick={toggleRecord} className={`w-full px-3 py-2.5 rounded-xl text-xs font-black cursor-pointer ${recording ? 'bg-rose-600 text-white animate-pulse' : 'bg-slate-100 text-slate-900'}`}>{recording ? '■ Detener grabación (lee el texto de arriba)' : '● Grabar mi voz leyendo el texto'}</button>
+              )}
+              {voiceUrl && <audio src={voiceUrl} controls className="w-full h-9" />}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={music} onChange={e => setMusic(e.target.checked)} /> Música de fondo</label>
+            {music && (
+              <div className="text-[11px] text-slate-500 space-y-1">
+                <p>{musicBuf ? `Usando tu archivo: ${musicName}` : 'Música alegre original, sin derechos de autor.'}</p>
+                <input type="file" accept="audio/*" onChange={e => pickMusic(e.target.files?.[0])} className="text-[11px]" />
+                <p>Si subes tu propia música, que tenga licencia para usarla en anuncios.</p>
+              </div>
+            )}
+          </div>
+
           {videoUrl && <video src={videoUrl} controls loop playsInline className="w-full rounded-xl border border-slate-200 bg-black" style={{ maxHeight: 520 }} />}
-          <button onClick={makeVideo} disabled={videoBusy || rendering} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-black disabled:opacity-60 cursor-pointer"><Wand2 className="w-4 h-4" /> {videoBusy ? `Creando video… ${videoPct}%` : (videoUrl ? 'Crear otro video' : 'Crear video (8 s)')}</button>
+          <button onClick={makeVideo} disabled={videoBusy || rendering} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-black disabled:opacity-60 cursor-pointer"><Wand2 className="w-4 h-4" /> {videoBusy ? `Creando video… ${videoPct}%` : (videoUrl ? 'Crear otro video' : 'Crear video')}</button>
           {videoUrl && (
             <div className="grid grid-cols-2 gap-2">
               <button onClick={downloadVideo} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"><Download className="w-4 h-4" /> Descargar video</button>
