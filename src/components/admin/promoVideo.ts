@@ -300,5 +300,7 @@ export async function recordVideo(c: VidCfg, a: VidAudio, onProgress: (p: number
   });
   worker.terminate();
   rec.stop(); await done; try { await ac.close(); } catch { /* nada */ }
-  return new Blob(chunks, { type: mime.startsWith('video/mp4') ? 'video/mp4' : 'video/webm' });
+  const blob: any = new Blob(chunks, { type: mime.startsWith('video/mp4') ? 'video/mp4' : 'video/webm' });
+  blob.durationSec = tl.total;
+  return blob as Blob;
 }

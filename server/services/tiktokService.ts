@@ -111,7 +111,7 @@ export function storeTmpMedia(buf: Buffer, mime: string): string {
   return `${TIKTOK_SITE}/media/tiktok/tmp/${id}.${ext}`;
 }
 /** Convierte el video del navegador a un MP4 estandar (H.264 + AAC, 720x1280, 30 fps constantes). Ligero a proposito: Render tiene poca memoria. Si falla, devuelve el original. */
-export async function normalizeVideo(buf: Buffer): Promise<{ buf: Buffer; converted: boolean }> {
+export async function normalizeVideo(buf: Buffer, opts?: { maxBytes?: number; durationSec?: number }): Promise<{ buf: Buffer; converted: boolean }> {
   const fs = await import('node:fs/promises');
   const os = await import('node:os');
   const path = await import('node:path');
@@ -123,9 +123,13 @@ export async function normalizeVideo(buf: Buffer): Promise<{ buf: Buffer; conver
     if (!bin) return { buf, converted: false };
     dir = await fs.mkdtemp(path.join(os.tmpdir(), 'zv-'));
     const inp = path.join(dir, 'in'), out = path.join(dir, 'out.mp4');
+    // Con tope de peso: bitrate fijo calculado con la duración; si no, calidad constante
+    const rate = opts?.maxBytes && opts?.durationSec
+      ? (() => { const vb = Math.max(300_000, Math.floor((opts.maxBytes! * 8) / opts.durationSec! - 96_000)); return ['-b:v', String(vb), '-maxrate', String(Math.floor(vb * 1.15)), '-bufsize', String(vb * 2)]; })()
+      : ['-crf', '27'];
     await fs.writeFile(inp, buf);
     await new Promise<void>((resolve, reject) => {
-      const p = spawn(bin, ['-v', 'error', '-y', '-i', inp, '-vf', 'scale=720:1280', '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', '30', '-preset', 'ultrafast', '-crf', '27', '-threads', '1', '-c:a', 'aac', '-b:a', '96k', '-ar', '44100', '-movflags', '+faststart', out]);
+      const p = spawn(bin, ['-v', 'error', '-y', '-i', inp, '-vf', 'scale=720:1280', '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', '30', '-preset', 'ultrafast', ...rate, '-threads', '1', '-c:a', 'aac', '-b:a', '96k', '-ar', '44100', '-movflags', '+faststart', out]);
       let err = '';
       p.stderr.on('data', d => { err += String(d).slice(0, 500); });
       const t = setTimeout(() => { p.kill('SIGKILL'); reject(new Error('ffmpeg tardo demasiado')); }, 120000);

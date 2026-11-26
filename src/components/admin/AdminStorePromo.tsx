@@ -463,6 +463,21 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
     } finally { setVideoBusy(false); }
   };
 
+  const [waBusy, setWaBusy] = useState(false);
+  const downloadForWhatsApp = async () => {
+    if (!videoBlob) return;
+    setWaBusy(true);
+    try {
+      const dataUrl: string = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error('No se pudo leer el video.')); fr.readAsDataURL(videoBlob); });
+      const r = await fetch('/api/admin/social/video-whatsapp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaDataUrl: dataUrl, durationSec: (videoBlob as any).durationSec || 35 }) });
+      const j = await r.json().catch(() => null);
+      if (!j?.success) throw new Error(j?.message || 'El servidor no respondió. Espera 1 minuto e intenta otra vez.');
+      const a = document.createElement('a'); a.href = j.videoDataUrl; a.download = 'zavela-estado-whatsapp.mp4'; document.body.appendChild(a); a.click(); a.remove();
+      alert(`Listo: el video para WhatsApp pesa ${j.sizeMB} MB.`);
+    } catch (e: any) { alert(e?.message || 'No se pudo preparar el video para WhatsApp.'); }
+    finally { setWaBusy(false); }
+  };
+
   const downloadVideo = () => {
     if (!videoUrl || !videoBlob) return;
     const a = document.createElement('a');
@@ -608,6 +623,9 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
               <button onClick={downloadVideo} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"><Download className="w-4 h-4" /> Descargar video</button>
               <button onClick={() => sendToTikTok('video')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-black text-cyan-300 border border-cyan-400/40 text-xs font-black disabled:opacity-60 cursor-pointer"><Send className="w-4 h-4" /> {busy ? 'Enviando…' : 'Publicar video en TikTok'}</button>
             </div>
+          )}
+          {videoUrl && (
+            <button onClick={downloadForWhatsApp} disabled={waBusy} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black disabled:opacity-60 cursor-pointer"><Download className="w-4 h-4" /> {waBusy ? 'Preparando…' : 'Descargar ligero para estado de WhatsApp'}</button>
           )}
         </div>
       </div>
