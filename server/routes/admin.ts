@@ -3674,6 +3674,45 @@ router.get('/social/posts', async (req, res) => {
   }
 });
 
+/** Trae de Facebook los números reales de cada publicación (reacciones, comentarios, compartidos y alcance) y los guarda en el historial. */
+router.post('/social/sync-metrics', async (_req, res) => {
+  try {
+    const fb = await metaGraphService.getEffectiveFacebookConfig();
+    if (!fb?.connected || !fb.accessToken) return res.status(400).json({ success: false, message: 'Facebook no está vinculado.' });
+    const base = 'https://graph.facebook.com/v26.0';
+    const posts = await readSocialHistory();
+    let updated = 0, failed = 0; let lastError = '';
+    for (const p of posts) {
+      if (!Array.isArray(p.platforms) || !p.platforms.includes('facebook') || !p.postUrl) continue;
+      const m = /facebook\.com\/([\w.\-]+)\/?$/i.exec(String(p.postUrl));
+      if (!m) continue;
+      const id = m[1];
+      try {
+        const q = new URLSearchParams({ fields: 'reactions.summary(true).limit(0),comments.summary(true).limit(0),shares', access_token: fb.accessToken });
+        const r = await fetch(`${base}/${encodeURIComponent(id)}?${q}`);
+        const j: any = await r.json().catch(() => ({}));
+        if (!r.ok || j?.error) { failed++; lastError = j?.error?.message || `HTTP ${r.status}`; continue; }
+        p.likes = Number(j?.reactions?.summary?.total_count) || 0;
+        p.shares = Number(j?.shares?.count) || 0;
+        p.comments = Number(j?.comments?.summary?.total_count) || 0;
+        // Alcance: Facebook cambió el nombre de la métrica con las versiones; se prueba una y luego la otra
+        for (const metric of ['post_media_view', 'post_impressions']) {
+          const ri = await fetch(`${base}/${encodeURIComponent(id)}/insights?${new URLSearchParams({ metric, access_token: fb.accessToken })}`);
+          const ji: any = await ri.json().catch(() => ({}));
+          const val = ji?.data?.[0]?.values?.[0]?.value;
+          if (ri.ok && typeof val === 'number') { p.views = val; break; }
+        }
+        p.metricsSyncedAt = new Date().toISOString();
+        updated++;
+      } catch (e: any) { failed++; lastError = e?.message || String(e); }
+    }
+    await writeSocialHistory(posts);
+    res.json({ success: true, updated, failed, lastError, message: failed && !updated ? `Facebook no entregó los números: ${lastError}` : `Se actualizaron ${updated} publicaciones de Facebook.` });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'No se pudieron traer las métricas.' });
+  }
+});
+
 // Proxy de imágenes para la plantilla de campaña: el navegador no puede dibujar fotos de otros sitios en un lienzo
 // sin permiso (CORS), así que el servidor las descarga y las entrega desde el mismo dominio. Solo administradores.
 router.get('/social/image-proxy', async (req, res) => {

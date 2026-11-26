@@ -1,3 +1,4 @@
+import { sendProductTime } from '../utils/serverTracking.ts';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   X, 
@@ -389,10 +390,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   useEffect(() => {
     if (!product?.id) return;
+    let secs = 0;
     const interval = setInterval(() => {
       recordTimeSpent(product.id, 2);
+      if (document.visibilityState === 'visible') secs += 2;
     }, 2000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); sendProductTime(String(product.id), secs); };
   }, [product?.id, recordTimeSpent]);
 
   useEffect(() => {

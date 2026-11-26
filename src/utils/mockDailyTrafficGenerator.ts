@@ -241,81 +241,89 @@ export function createEmptyDailyTrafficReport(): SimulatedDailyTrafficReport {
   };
 }
 
-/**
- * Builds real traffic and sales report aggregating ONLY confirmed database orders
- */
-export function buildRealTrafficReportFromOrders(orders: any[] = [], catalogProducts: Product[] = []): SimulatedDailyTrafficReport {
-  if (!orders || orders.length === 0) {
-    return createEmptyDailyTrafficReport();
-  }
+export interface RealViewStat { productId: string; views: number; avgSeconds: number }
 
-  const productStatsMap = new Map<string, { compras: number; ingresos: number; visitas: number }>();
+const CANCELLED = new Set(['CANCELADO', 'cancelado', 'cancelled', 'RECHAZADO']);
+/** Pedidos que cuentan como venta: no cancelados ni rechazados. */
+export function isCountableOrder(o: any): boolean {
+  return !CANCELLED.has(String(o?.status || ''));
+}
+
+/** Pedidos dentro de un rango (hora local del navegador: Colombia). */
+export function filterOrdersByRange(orders: any[] = [], range: 'today' | '7d' | '30d' | 'all'): any[] {
+  const days = range === 'today' ? 1 : range === '7d' ? 7 : range === '30d' ? 30 : 0;
+  const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - Math.max(0, days - 1));
+  return (orders || []).filter(o => {
+    if (!isCountableOrder(o)) return false;
+    if (!days) return true;
+    const t = new Date(o.createdAt || o.fecha || 0).getTime();
+    return t >= start.getTime();
+  });
+}
+
+/**
+ * Informe real: pedidos de la base de datos + visitas reales registradas por la tienda.
+ * Nada se inventa: sin visitas registradas, la conversión se muestra como "—".
+ */
+export function buildRealTrafficReportFromOrders(orders: any[] = [], catalogProducts: Product[] = [], views: RealViewStat[] = []): SimulatedDailyTrafficReport {
+  const stats = new Map<string, { compras: number; ingresos: number; visitas: number; seg: number }>();
   let totalRevenue = 0;
 
-  for (const o of orders) {
-    totalRevenue += Number(o.total || 0);
-    const items = o.items || [];
-    for (const item of items) {
-      const pid = item.productId || item.id || item.id_producto;
+  for (const o of orders || []) {
+    totalRevenue += Number(o.total ?? o.totalAmount ?? 0);
+    for (const item of o.items || []) {
+      const pid = String(item.productId || item.id || item.id_producto || '');
       if (!pid) continue;
-      const current = productStatsMap.get(pid) || { compras: 0, ingresos: 0, visitas: 0 };
+      const cur = stats.get(pid) || { compras: 0, ingresos: 0, visitas: 0, seg: 0 };
       const qty = Number(item.quantity || 1);
-      const price = Number(item.price || 0);
-      current.compras += qty;
-      current.ingresos += qty * price;
-      current.visitas += Math.max(qty * 3, 1);
-      productStatsMap.set(pid, current);
+      cur.compras += qty;
+      cur.ingresos += qty * Number(item.price || 0);
+      stats.set(pid, cur);
     }
   }
+  let totalViews = 0;
+  for (const v of views || []) {
+    const cur = stats.get(v.productId) || { compras: 0, ingresos: 0, visitas: 0, seg: 0 };
+    cur.visitas = v.views; cur.seg = v.avgSeconds;
+    totalViews += v.views;
+    stats.set(v.productId, cur);
+  }
 
-  const realProductsList: SimulatedProductMetric[] = [];
-  productStatsMap.forEach((val, pid) => {
-    const prod = catalogProducts.find(p => p.id === pid);
+  const list: SimulatedProductMetric[] = [];
+  stats.forEach((val, pid) => {
+    const prod = catalogProducts.find(p => String(p.id) === pid);
     const nombre = prod?.title || (prod as any)?.name || `Producto ${pid}`;
-    const categoria = prod?.categoryName || 'Catálogo General';
     const precio = prod?.price || (val.compras > 0 ? Math.round(val.ingresos / val.compras) : 0);
-    const imagen = prod?.images?.[0] || '';
-    const convNum = val.visitas > 0 ? (val.compras / val.visitas) * 100 : 0;
-
-    realProductsList.push({
-      id: pid,
-      nombre,
-      categoria,
-      precio,
-      imagen,
-      visitas: val.visitas,
-      tiempo_promedio_segundos: 120,
-      agregados_carrito: val.compras,
-      compras: val.compras,
-      ingresos_generados: val.ingresos,
-      conversion_tasa: `${convNum.toFixed(1)}%`,
-      conversionNum: convNum,
-      es_estrella: val.ingresos > 0,
-      es_friccion: false
+    const convNum = val.visitas > 0 ? Math.min(100, (val.compras / val.visitas) * 100) : 0;
+    list.push({
+      id: pid, nombre, categoria: prod?.categoryName || 'Catálogo General', precio,
+      imagen: prod?.images?.[0] || '', visitas: val.visitas, tiempo_promedio_segundos: val.seg,
+      agregados_carrito: 0, compras: val.compras, ingresos_generados: val.ingresos,
+      conversion_tasa: val.visitas > 0 ? `${convNum.toFixed(1)}%` : '—', conversionNum: convNum,
+      es_estrella: val.ingresos > 0, es_friccion: val.visitas >= 5 && val.compras === 0
     });
   });
 
-  const productos_top_visitas = [...realProductsList].sort((a, b) => b.visitas - a.visitas);
-  const productos_top_ingresos = [...realProductsList].sort((a, b) => b.ingresos_generados - a.ingresos_generados);
-  const total_compras = orders.length;
-  const total_visualizaciones = realProductsList.reduce((acc, p) => acc + p.visitas, 0);
-  const ticket_promedio = total_compras > 0 ? Math.round(totalRevenue / total_compras) : 0;
-  const avgRate = total_visualizaciones > 0 ? (total_compras / total_visualizaciones) * 100 : 0;
+  const top_visitas = [...list].sort((a, b) => b.visitas - a.visitas || b.compras - a.compras);
+  const top_ingresos = [...list].filter(p => p.ingresos_generados > 0).sort((a, b) => b.ingresos_generados - a.ingresos_generados);
+  const totalPedidos = (orders || []).length;
+  const withTime = list.filter(p => p.tiempo_promedio_segundos > 0);
+  const avgTime = withTime.length ? Math.round(withTime.reduce((a, p) => a + p.tiempo_promedio_segundos, 0) / withTime.length) : 0;
 
   return {
     timestamp: new Date().toISOString(),
-    total_visualizaciones,
-    total_compras,
-    total_pedidos: total_compras,
+    total_visualizaciones: totalViews,
+    total_compras: totalPedidos,
+    total_pedidos: totalPedidos,
     total_ingresos: totalRevenue,
-    ticket_promedio,
-    metodo_pago_predominante: 'Pago Contra Entrega Real',
+    ticket_promedio: totalPedidos > 0 ? Math.round(totalRevenue / totalPedidos) : 0,
+    metodo_pago_predominante: totalPedidos > 0 ? 'Pago Contra Entrega Real' : 'Sin ventas registradas',
     total_carritos_abandonados: 0,
-    tasa_conversion_promedio: `${avgRate.toFixed(1)}%`,
-    tiempo_promedio_general_segundos: 120,
-    productos: productos_top_visitas,
-    productos_top_visitas,
-    productos_top_ingresos
+    tasa_conversion_promedio: totalViews > 0 ? `${Math.min(100, (totalPedidos / totalViews) * 100).toFixed(1)}%` : '—',
+    tiempo_promedio_general_segundos: avgTime,
+    productos: top_visitas,
+    productos_top_visitas: top_visitas,
+    productos_top_ingresos: top_ingresos
   };
 }
 

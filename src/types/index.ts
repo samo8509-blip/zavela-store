@@ -267,6 +267,8 @@ export interface SocialBroadcastPost {
   productPrice: number;
   productImageUrl: string;
   note?: string;
+  comments?: number;
+  metricsSyncedAt?: string;
   productSlug: string;
   platforms: ('facebook' | 'instagram' | 'tiktok')[];
   copies: {
