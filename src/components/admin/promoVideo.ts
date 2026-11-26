@@ -117,7 +117,9 @@ function sceneOutro(ctx: CanvasRenderingContext2D, c: VidCfg, k: number) {
   // llamado a la acción con pulso
   const pulse = 1 + Math.sin(k * 20) * 0.03 * ease((k - 0.3) * 3);
   ctx.save(); ctx.globalAlpha = ease((k - 0.3) * 3); ctx.translate(W / 2, 1050); ctx.scale(pulse, pulse);
-  ctx.font = `900 64px ${FONT}`; const t = c.cta; const w = Math.min(W - 100, ctx.measureText(t).width + 100), h = 150;
+  const t = c.cta; let fs = 64; ctx.font = `900 ${fs}px ${FONT}`;
+  while (ctx.measureText(t).width > W - 200 && fs > 30) { fs -= 2; ctx.font = `900 ${fs}px ${FONT}`; }
+  const w = ctx.measureText(t).width + 100, h = 150;
   ctx.fillStyle = c.theme.accent; rr(ctx, -w / 2, -h / 2, w, h, 40); ctx.fill();
   ctx.fillStyle = c.theme.accentInk; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, 0, 4); ctx.restore();
   if (c.logo) { const s = 420 * (0.9 + 0.1 * ease(k * 2)); ctx.drawImage(c.logo, W / 2 - s / 2, 1250, s, s); }
