@@ -74,6 +74,7 @@ export type AdminViewKey =
   | 'home_sections'
   | 'home_promo'
   | 'campaign_bf'
+  | 'suppliers'
   | 'pricing_guard'
   | 'reviews'
   | 'trust_badges'
@@ -243,6 +244,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         { key: 'hero_banners', label: 'Carrusel de Banners (Hero)', icon: Sliders },
         { key: 'home_sections', label: 'Secciones y Bloques del Home', icon: Layers },
         { key: 'home_promo', label: 'Inicio comercial (oferta y estante)', icon: Megaphone, badge: 'Nuevo', badgeColor: 'bg-violet-500 text-white font-black' },
+        { key: 'suppliers', label: 'Proveedores de Dropi (envío por paquetes)', icon: Truck, badge: 'Nuevo', badgeColor: 'bg-violet-500 text-white font-black' },
         { key: 'campaign_bf', label: 'Campaña Black Friday (precios reales)', icon: Gift, badge: 'Nuevo', badgeColor: 'bg-violet-500 text-white font-black' },
         { 
           key: 'reviews', 
