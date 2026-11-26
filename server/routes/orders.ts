@@ -252,6 +252,10 @@ router.post('/', async (req, res) => {
       carrier: 'Servientrega',
       dane_code: resolvedDane,
       items: validatedItems,
+      // Prueba de la autorización de términos y tratamiento de datos (Ley 1581 de 2012)
+      privacyConsent: req.body?.privacyConsent && req.body.privacyConsent.terms && req.body.privacyConsent.privacy
+        ? { terms: true, privacy: true, adult: Boolean(req.body.privacyConsent.adult), version: String(req.body.privacyConsent.version || '').slice(0, 20), at: new Date().toISOString(), ip: String(req.ip || '').slice(0, 64) }
+        : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     } as Order;

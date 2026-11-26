@@ -983,8 +983,9 @@ Sitemap: ${baseUrl}/sitemap.xml
   var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
   ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
 
-    ttq.load('DBTI9D3C77UEEP3E5PVG');
-    ttq.page();
+    window.__zsStartTikTok = function () { if (window.__zsTTStarted) return; window.__zsTTStarted = true; ttq.load('DBTI9D3C77UEEP3E5PVG'); ttq.page(); };
+      try { if (localStorage.getItem('zs_cookie_consent') === 'all') window.__zsStartTikTok(); } catch (e) {}
+      try { var ck = document.createElement('script'); ck.src = '/cookie-consent.js'; ck.defer = true; document.head.appendChild(ck); } catch (e) {}
   }(window, document, 'ttq');
   </script>
   <!-- TikTok Pixel Code End -->
@@ -1663,8 +1664,9 @@ Sitemap: ${baseUrl}/sitemap.xml
   var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
   ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
 
-    ttq.load('DBTI9D3C77UEEP3E5PVG');
-    ttq.page();
+    window.__zsStartTikTok = function () { if (window.__zsTTStarted) return; window.__zsTTStarted = true; ttq.load('DBTI9D3C77UEEP3E5PVG'); ttq.page(); };
+      try { if (localStorage.getItem('zs_cookie_consent') === 'all') window.__zsStartTikTok(); } catch (e) {}
+      try { var ck = document.createElement('script'); ck.src = '/cookie-consent.js'; ck.defer = true; document.head.appendChild(ck); } catch (e) {}
     ttq.track('ViewContent', {
       contents: [{
         content_id: ${JSON.stringify(String(product.id))},
@@ -1806,8 +1808,9 @@ Sitemap: ${baseUrl}/sitemap.xml
   var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
   ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
 
-    ttq.load('DBTI9D3C77UEEP3E5PVG');
-    ttq.page();
+    window.__zsStartTikTok = function () { if (window.__zsTTStarted) return; window.__zsTTStarted = true; ttq.load('DBTI9D3C77UEEP3E5PVG'); ttq.page(); };
+      try { if (localStorage.getItem('zs_cookie_consent') === 'all') window.__zsStartTikTok(); } catch (e) {}
+      try { var ck = document.createElement('script'); ck.src = '/cookie-consent.js'; ck.defer = true; document.head.appendChild(ck); } catch (e) {}
   }(window, document, 'ttq');
   </script>
   <!-- TikTok Pixel Code End -->

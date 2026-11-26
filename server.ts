@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 
 import productsRouter, { searchProductForBot } from './server/routes/products.ts';
+import legalRouter from './server/routes/legal.ts';
 import ordersRouter from './server/routes/orders.ts';
 import adminRouter from './server/routes/admin.ts';
 import aiRouter from './server/routes/ai.ts';
@@ -275,6 +276,9 @@ async function startServer() {
       res.status(500).send('User-agent: *\nAllow: /\n');
     }
   });
+
+  // Páginas legales públicas (términos, privacidad, garantías, cookies, derechos sobre datos)
+  app.use(legalRouter);
 
   // Página /catalogo en HTML simple (sin JS dependiente) con paginación
   app.get(['/catalogo', '/catalogo/'], async (req, res) => {

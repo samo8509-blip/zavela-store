@@ -44,7 +44,7 @@ export const CustomerReviewsSection: React.FC = () => {
       customerDepartment: 'Colombia',
       rating,
       comment: comment.trim(),
-      verified: true,
+      verified: false, // solo las reseñas ligadas a un pedido real pueden marcarse como verificadas
       carrier,
       satisfactionBadges: ['Comprador Verificado', 'Pago al Recibir']
     });
@@ -61,6 +61,9 @@ export const CustomerReviewsSection: React.FC = () => {
     if (activeFilter === '5_stars') return r.rating === 5;
     return true;
   });
+
+  // Sin reseñas reales no se muestra la sección (antes mostraba reseñas de ejemplo).
+  if (reviews.length === 0 && !isAddReviewOpen) return null;
 
   return (
     <section id="customer-reviews-section" className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 my-8">

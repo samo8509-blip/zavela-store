@@ -30,6 +30,7 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
   showToast
 }) => {
   const [email, setEmail] = useState('');
+  const [marketingConsent, setMarketingConsent] = useState(false); // nunca viene marcada de antemano
   const [subscribedData, setSubscribedData] = useState<{
     subscriber: NewsletterSubscriber;
     template: GeneratedAIEmailTemplate;
@@ -40,6 +41,7 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !email.includes('@')) return;
+    if (!marketingConsent) return;
 
     const interests = currentCategoryInterest && currentCategoryInterest !== 'todos' && currentCategoryInterest !== 'all'
       ? [currentCategoryInterest, 'Tendencias y Ofertas']
@@ -110,7 +112,7 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
               Obtén un <strong className="text-amber-400">10% de descuento inmediato</strong> en tu primera compra con Pago Contra Entrega en Colombia y entérate antes que nadie de las novedades de temporada.
             </p>
 
-            <div className="flex items-center justify-center lg:justify-start gap-4 text-xs text-slate-400 pt-1">
+            <div className="flex items-center justify-center lg:justify-start gap-4 text-xs text-slate-300 pt-1">
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 Cero spam
@@ -147,7 +149,22 @@ export const NewsletterSubscriptionBox: React.FC<NewsletterSubscriptionBoxProps>
                     <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 text-center font-mono">
+                <label className="flex items-start gap-2 text-[12px] text-slate-200 leading-snug cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-500"
+                  />
+                  <span>
+                    Autorizo recibir ofertas y novedades de Zavela Store y el tratamiento de mi correo según la{' '}
+                    <a href="/politica-de-privacidad" target="_blank" rel="noopener noreferrer" className="underline font-bold text-white">política de privacidad</a>.
+                    Puedo retirar mi autorización cuando quiera en{' '}
+                    <a href="/derechos-datos" target="_blank" rel="noopener noreferrer" className="underline font-bold text-white">tus derechos sobre tus datos</a>.
+                  </span>
+                </label>
+                <p className="text-[11px] text-slate-300 text-center font-mono">
                   🎁 Te enviaremos tu cupón de bienvenida al instante.
                 </p>
               </form>

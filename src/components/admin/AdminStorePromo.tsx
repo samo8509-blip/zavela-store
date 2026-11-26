@@ -17,11 +17,11 @@ interface Theme {
 
 const THEMES: Theme[] = [
   { id: 'black_friday', name: 'Black Friday', bgA: '#0a0a0a', bgB: '#241c05', ink: '#ffffff', soft: 'rgba(255,255,255,0.72)', accent: '#facc15', accentInk: '#111111', logo: '/images/z/z-black-friday-256.png',
-    eyebrow: 'BLACK FRIDAY', headline: 'Los precios más bajos del año', badge: 'HASTA -{n}%', cta: 'Compra en zavelastore.com.co' },
+    eyebrow: 'BLACK FRIDAY', headline: 'Ofertas de Black Friday en Zavela Store', badge: 'HASTA -{n}%', cta: 'Compra en zavelastore.com.co' },
   { id: 'cyber_monday', name: 'Cyber Monday', bgA: '#071433', bgB: '#0f3a8a', ink: '#ffffff', soft: 'rgba(255,255,255,0.75)', accent: '#22d3ee', accentInk: '#06202a', logo: '/images/z/z-standard-256.png',
-    eyebrow: 'CYBER MONDAY', headline: 'Última oportunidad: ofertas solo hoy', badge: 'HASTA -{n}%', cta: 'Compra en zavelastore.com.co' },
+    eyebrow: 'CYBER MONDAY', headline: 'Ofertas de Cyber Monday en Zavela Store', badge: 'HASTA -{n}%', cta: 'Compra en zavelastore.com.co' },
   { id: 'navidad', name: 'Navidad', bgA: '#7f1d1d', bgB: '#14532d', ink: '#ffffff', soft: 'rgba(255,255,255,0.8)', accent: '#fde68a', accentInk: '#3b1a05', logo: '/images/z/z-navidad-fin-ano-256.png',
-    eyebrow: 'NAVIDAD EN ZAVELA', headline: 'Regalos que sí van a sorprender', badge: 'HASTA -{n}%', cta: 'Pide en zavelastore.com.co' },
+    eyebrow: 'NAVIDAD EN ZAVELA', headline: 'Ideas de regalo para esta Navidad', badge: 'HASTA -{n}%', cta: 'Pide en zavelastore.com.co' },
   { id: 'conoce', name: 'Conoce la tienda', bgA: '#f5f3ff', bgB: '#ddd6fe', ink: '#1e1b4b', soft: 'rgba(30,27,75,0.72)', accent: '#6d28d9', accentInk: '#ffffff', logo: '/images/z/z-standard-256.png',
     eyebrow: 'CONOCE ZAVELA STORE', headline: 'Compra hoy. Paga cuando te llegue.', badge: 'PAGO CONTRA ENTREGA', cta: 'Visítanos en zavelastore.com.co' }
 ];

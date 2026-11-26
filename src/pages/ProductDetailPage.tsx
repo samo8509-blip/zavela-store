@@ -545,15 +545,17 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   {activeProduct.brand || 'Zavela Store Oficial'}
                 </span>
                 
-                <div className="flex items-center gap-1.5 text-xs text-amber-500">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    ))}
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-500">
+                    <div className="flex" aria-hidden="true">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                    <span className="font-bold text-slate-800 text-xs">{(reviews.reduce((a, r) => a + (Number(r.rating) || 0), 0) / reviews.length).toFixed(1)}</span>
+                    <span className="text-slate-600 text-[11px]">({reviews.length} {reviews.length === 1 ? 'reseña' : 'reseñas'})</span>
                   </div>
-                  <span className="font-bold text-slate-800 text-xs">4.9</span>
-                  <span className="text-slate-400 text-[11px]">({reviews.length || 28} reseñas)</span>
-                </div>
+                )}
               </div>
 
               {/* Título Principal */}
@@ -914,7 +916,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
             </div>
           </div>
 
-          {/* ⭐ 3. RESEÑAS VERIFICADAS DE CLIENTES */}
+          {/* ⭐ 3. RESEÑAS VERIFICADAS DE CLIENTES (solo si existen reseñas reales de este producto) */}
+          {reviews.length > 0 && (
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
@@ -925,8 +928,8 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   Experiencias de Clientes en Colombia
                 </h3>
               </div>
-              <span className="text-xs font-bold text-slate-500">
-                100% Compras Verificadas
+              <span className="text-xs font-bold text-slate-600">
+                Reseñas de compras verificadas
               </span>
             </div>
 
@@ -953,6 +956,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               ))}
             </div>
           </div>
+          )}
 
           {/* 🏷️ 4. PRODUCTOS RECOMENDADOS DE LA MISMA CATEGORÍA */}
           {allProducts.length > 1 && (
