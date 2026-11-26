@@ -127,7 +127,10 @@ async function pickPrivacy(headers: Record<string, string>): Promise<{ privacy?:
   const cj: any = await ci.json().catch(() => ({}));
   if (cj?.error?.code && cj.error.code !== 'ok') return { error: `TikTok: ${cj.error.message || cj.error.code}` };
   const options: string[] = cj?.data?.privacy_level_options || ['SELF_ONLY'];
-  return { privacy: options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0] };
+  // Mientras la app no esté auditada TikTok solo acepta SELF_ONLY. Al pasar la auditoría, poner TIKTOK_AUDITED=1 en Render.
+  const audited = process.env.TIKTOK_AUDITED === '1';
+  if (audited && options.includes('PUBLIC_TO_EVERYONE')) return { privacy: 'PUBLIC_TO_EVERYONE' };
+  return { privacy: options.includes('SELF_ONLY') ? 'SELF_ONLY' : options[0] };
 }
 
 type Result = { success: boolean; message: string; publishId?: string };
@@ -137,7 +140,8 @@ async function initPost(path: string, body: any, headers: Record<string, string>
   const r = await fetch(`${API}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
   const j: any = await r.json().catch(() => ({}));
   if (!r.ok || (j?.error?.code && j.error.code !== 'ok')) {
-    return { success: false, message: `TikTok: ${j?.error?.message || j?.error?.code || r.status}` };
+    console.error('[tiktok] init error', path, JSON.stringify(j?.error || j));
+    return { success: false, message: `TikTok [${j?.error?.code || r.status}]: ${j?.error?.message || ''}` };
   }
   return { success: true, message: `Enviado a TikTok${privateNote(privacy)}.`, publishId: j?.data?.publish_id };
 }
