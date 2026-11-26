@@ -1587,11 +1587,15 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
                 >
                   {/* Product Info */}
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <img
-                      src={post.productImageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'}
-                      alt={post.productTitle}
-                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-                    />
+                    {post.productImageUrl ? (
+                      <img
+                        src={post.productImageUrl}
+                        alt={post.productTitle}
+                        className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-2xl shrink-0" title="Publicación de campaña (sin producto)">📣</div>
+                    )}
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${post.status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
@@ -1604,11 +1608,14 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
                       <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate">
                         {post.productTitle}
                       </h4>
+                      {post.note && <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate" title={post.note}>{post.note}</p>}
                       <div className="flex items-center gap-2 text-xs">
+                        {post.productPrice > 0 && (<>
                         <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
                           {formatCOP(post.productPrice)}
                         </span>
                         <span className="text-slate-300 dark:text-slate-600">•</span>
+                        </>)}
                         <div className="flex items-center gap-1">
                           {(post.platforms || []).includes('facebook') && (
                             <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-bold text-[10px]">
