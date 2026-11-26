@@ -3785,7 +3785,8 @@ router.post('/social/publish', async (req, res) => {
     }
 
     const plats = (Array.isArray(platforms) ? platforms : []).filter((p: any) => ['facebook', 'instagram', 'tiktok'].includes(p));
-    const fbFailedOnly = plats.length === 1 && plats[0] === 'facebook' && facebookSync && facebookSync.success === false;
+    const fbFailedOnly = (plats.length === 1 && plats[0] === 'facebook' && facebookSync && facebookSync.success === false)
+      || (plats.length === 1 && plats[0] === 'tiktok' && tiktokSync && tiktokSync.success === false);
     const imgs: any[] = Array.isArray((product as any).images) ? (product as any).images : [];
     const newPost = {
       id: `post-${Date.now()}`,
@@ -3799,7 +3800,8 @@ router.post('/social/publish', async (req, res) => {
       status: fbFailedOnly ? 'failed' : 'published',
       publishedAt: new Date().toISOString(),
       views: 0, clicks: 0, likes: 0, shares: 0, attributedSalesCOP: 0,
-      postUrl: facebookSync?.permalink || undefined
+      postUrl: facebookSync?.permalink || undefined,
+      note: tiktokSync ? `TikTok: ${tiktokSync.message}` : undefined
     };
     const history = await readSocialHistory();
     await writeSocialHistory([newPost, ...history]);
