@@ -3748,7 +3748,7 @@ router.post('/social/video-whatsapp', async (req, res) => {
     const buf = Buffer.from(m[1], 'base64');
     if (buf.length > 40 * 1024 * 1024) return res.status(413).json({ success: false, message: 'El archivo pesa más de 40 MB.' });
     const out = await normalizeVideo(buf, { maxBytes: 8 * 1024 * 1024, durationSec: dur });
-    if (!out.converted) return res.status(500).json({ success: false, message: 'No se pudo comprimir el video en el servidor.' });
+    if (!out.converted) return res.status(500).json({ success: false, message: `No se pudo comprimir el video en el servidor. Motivo: ${out.error || 'desconocido'}` });
     res.json({ success: true, sizeMB: Math.round(out.buf.length / 1048576 * 10) / 10, videoDataUrl: `data:video/mp4;base64,${out.buf.toString('base64')}` });
   } catch (e: any) {
     res.status(500).json({ success: false, message: e?.message || 'No se pudo comprimir el video.' });
