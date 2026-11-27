@@ -18,8 +18,17 @@ interface Props {
   apiRef?: React.Ref<OvalRingHandle>;
 }
 
+/** Cuántos productos caben bien en el anillo según el ancho (en celular menos, para que no se amontonen). */
+const limitForWidth = (w: number) => (w < 640 ? 6 : w < 1024 ? 8 : 12);
+
 export const OvalRing: React.FC<Props> = ({ products, renderProduct, apiRef }) => {
-  const n = products.length;
+  const [dims, setDims] = useState(() => {
+    const w = typeof window === 'undefined' ? 360 : Math.min(window.innerWidth, 1200);
+    return { w, cardW: 165, cardH: 300 };
+  });
+  const compact = dims.w < 768; // en celular la tarjeta del producto es plana y transparente: aquí se le da fondo propio
+  const visible = products.slice(0, limitForWidth(dims.w));
+  const n = visible.length;
   const boxRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const angleRef = useRef(0);
@@ -32,15 +41,13 @@ export const OvalRing: React.FC<Props> = ({ products, renderProduct, apiRef }) =
   const inViewRef = useRef(true);
   const geoRef = useRef({ rx: 120, ry: 20 });
 
-  const [dims, setDims] = useState({ w: 360, cardW: 165, cardH: 300 });
-
   // Medidas: ancho del contenedor y alto real de las tarjetas.
   useEffect(() => {
     const box = boxRef.current;
     if (!box) return;
     const measure = () => {
       const w = box.clientWidth || 360;
-      const cardW = Math.round(Math.min(250, Math.max(140, w < 640 ? w * 0.46 : w < 1024 ? w * 0.3 : w * 0.21)));
+      const cardW = Math.round(Math.min(250, Math.max(140, w < 640 ? Math.min(200, w * 0.5) : w < 1024 ? w * 0.3 : w * 0.21)));
       let h = 0;
       cardRefs.current.forEach(c => { if (c) h = Math.max(h, c.offsetHeight); });
       setDims(prev => (prev.w === w && prev.cardW === cardW && Math.abs(prev.cardH - (h || prev.cardH)) < 2 ? prev : { w, cardW, cardH: h || prev.cardH }));
@@ -86,6 +93,8 @@ export const OvalRing: React.FC<Props> = ({ products, renderProduct, apiRef }) =
       const opacity = c >= 0 ? 0.78 + 0.22 * c : 0.3 + 0.48 * (1 + c) * 0.55;
       el.style.transform = `translate3d(${(s * rx).toFixed(1)}px, ${(-c * ry).toFixed(1)}px, 0) scale(${(scale * (Math.abs(flip) < 0.02 ? 0.02 : flip)).toFixed(3)}, ${scale.toFixed(3)})`;
       el.style.opacity = String(Math.max(0, Math.min(1, opacity)).toFixed(3));
+      const blur = c < -0.25 ? '1.5px' : '';
+      if (el.dataset.blur !== blur) { el.dataset.blur = blur; el.style.filter = blur ? `blur(${blur})` : ''; }
       el.style.zIndex = String(Math.round((c + 1) * 50));
       el.style.pointerEvents = c > 0.25 ? 'auto' : 'none';
     }
@@ -181,12 +190,15 @@ export const OvalRing: React.FC<Props> = ({ products, renderProduct, apiRef }) =
           background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 70%)',
         }}
       />
-      {products.map((p, i) => (
+      {visible.map((p, i) => (
         <div
           key={`${p.id || p.slug}-${i}`}
           ref={(el) => { cardRefs.current[i] = el; }}
           className="absolute top-3"
-          style={{ left: '50%', width: dims.cardW, marginLeft: -dims.cardW / 2, willChange: 'transform, opacity' }}
+          style={{
+            left: '50%', width: dims.cardW, marginLeft: -dims.cardW / 2, willChange: 'transform, opacity',
+            ...(compact ? { background: '#fff', borderRadius: 20, padding: 8, boxShadow: '0 8px 22px rgba(15,23,42,0.14)', overflow: 'hidden' } : null),
+          }}
         >
           {renderProduct(p)}
         </div>
