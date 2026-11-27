@@ -141,6 +141,7 @@
 @keyframes zs-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .zs-marquee { animation: zs-marquee 70s linear infinite; padding-left: 1rem; }
 .zs-marquee-wrap:hover .zs-marquee, .zs-marquee-wrap:focus-within .zs-marquee { animation-play-state: paused; }
+.zs-marquee.zs-marquee-js { animation: none; will-change: transform; }
 .zs-marquee-still { animation: none; margin-left: auto; margin-right: auto; }
 @media (prefers-reduced-motion: reduce) { .zs-marquee { animation: none; overflow-x: auto; } }
 
