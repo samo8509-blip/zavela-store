@@ -323,6 +323,13 @@ async function startServer() {
     }
   });
 
+  // Política de devoluciones y garantía (requerida por Google Merchant Center)
+  app.get(['/politica-de-devoluciones', '/politica-de-devoluciones/'], (req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(ssrService.renderReturnPolicyPage('https://zavelastore.com.co'));
+  });
+
   // Feed de productos para Google Merchant Center
   app.get('/feed/google-merchant.txt', async (req, res) => {
     try {
