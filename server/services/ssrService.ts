@@ -38,8 +38,9 @@ export function cleanCatName(name: string = ''): string {
 
 /** Slug legible para URLs de producto: "dinosaurio-rex-rc-camina-y-ruge-prod-123". */
 export function productSlug(p: { id: any; slug?: any; title?: any }): string {
-  if (p.slug) return String(p.slug);
   const id = String(p.id);
+  // El mapeo usa el id como slug cuando el producto no tiene uno propio: eso cuenta como "sin slug".
+  if (p.slug && String(p.slug) !== id) return String(p.slug);
   if (!/^prod-\d+$/.test(id)) return id;
   const base = String(p.title || '')
     .toLowerCase()
