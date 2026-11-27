@@ -30,15 +30,6 @@ export const ColombiaTrustGuaranteesBar: React.FC = () => {
             Compre con total tranquilidad: <strong>no paga nada por anticipado</strong>. Verificas al recibir con transportadora oficial.
           </p>
         </div>
-
-        {/* Legal & NIT Badge */}
-        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200 shrink-0">
-          <Scale className="w-4 h-4 text-sky-600" />
-          <div className="text-[10px] font-mono leading-tight">
-            <span className="text-slate-500 block">Comercio Legal • Colombia</span>
-            <span className="text-slate-800 font-bold">NIT 901.482.193-4 • Vigilado SIC</span>
-          </div>
-        </div>
       </div>
 
       {/* 4 Pillars of Guaranteed Trust */}
@@ -96,10 +87,10 @@ export const ColombiaTrustGuaranteesBar: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-              Calidad Comprobada
+              Despacho Revisado
             </h4>
             <p className="text-[11px] text-purple-900 leading-snug">
-              Cada unidad es inspeccionada y probada antes del empaque para asegurar su óptimo funcionamiento.
+              El proveedor revisa cada pedido antes de despacharlo y lo envía bien empacado para que llegue en buen estado.
             </p>
           </div>
         </div>
