@@ -23,6 +23,7 @@ import {
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage, DEFAULT_HOME_PROMO } from './types/index.ts';
 import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
 import { HomeTrustStrip } from './components/HomeTrustStrip.tsx';
+import { sendVisitSource } from './utils/serverTracking.ts';
 import { HomeVideoSection } from './components/HomeVideoSection.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
@@ -180,6 +181,9 @@ export default function App() {
   const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [customerAuthInitialTab, setCustomerAuthInitialTab] = useState<'login' | 'register'>('login');
   const [isCustomerProfileOpen, setIsCustomerProfileOpen] = useState(false);
+
+  // Cuenta de dónde llega cada visita (anuncio, Instagram, Google, directo...). Una vez por sesión.
+  useEffect(() => { sendVisitSource(); }, []);
 
   const [activePaletteId] = useState<string>(() => getStoredPaletteId());
   const activePalette = TRUST_PALETTES.find(p => p.id === activePaletteId) || TRUST_PALETTES[0];

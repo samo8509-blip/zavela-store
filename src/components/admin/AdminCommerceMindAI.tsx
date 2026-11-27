@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AdminTrafficSources } from './AdminTrafficSources.tsx';
 import {
   Brain,
   Sparkles,
@@ -1022,6 +1023,8 @@ export const AdminCommerceMindAI: React.FC<AdminCommerceMindAIProps> = ({
               </span>
             </div>
           )}
+
+          {!isSimulationActive && <AdminTrafficSources range={range} />}
 
           {/* Unified KPI Cards: Tráfico + Ventas */}
           {trafficReport && (
