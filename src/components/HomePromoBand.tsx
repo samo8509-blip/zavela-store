@@ -31,7 +31,7 @@ export const HomePromoBand: React.FC<Props> = ({ band, onClick }) => {
     <section
       id="home-promo-band"
       aria-label="Oferta destacada"
-      className="zs-font rounded-[28px] px-5 py-5 sm:px-8 sm:py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      className="zs-font max-md:hidden rounded-[28px] px-5 py-5 sm:px-8 sm:py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       style={{ background: c.bg, color: c.ink }}
     >
       <div className="min-w-0">
