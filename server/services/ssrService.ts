@@ -1138,6 +1138,48 @@ Sitemap: ${baseUrl}/sitemap.xml
   /**
    * Renderiza una página individual por producto en HTML puro con metadatos y Schema.org extrayendo los datos de MySQL.
    */
+  /**
+   * Feed de productos para Google Merchant Center (archivo de texto separado por tabulaciones).
+   * Se excluyen productos sin imagen/precio y categorías para adultos (restringidas en Shopping).
+   */
+  public async generateMerchantFeed(baseUrl: string): Promise<string> {
+    const products = await this.getActiveProductsFromDb();
+    const clean = (v: any, max: number) => String(v ?? '')
+      .replace(/[\t\r\n]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, max);
+    const abs = (u: string) => (u.startsWith('http') ? u : `${baseUrl}${u.startsWith('/') ? '' : '/'}${u}`);
+    const headers = ['id', 'title', 'description', 'link', 'image_link', 'availability', 'price', 'condition', 'brand', 'identifier_exists', 'product_type'];
+
+    const rows = products
+      .filter(p => {
+        const cat = `${p.categoryName || ''} ${(p as any).categoryId || ''}`;
+        if (/sex|adult|er[oó]tic/i.test(cat)) return false;
+        const img = p.image || (Array.isArray(p.images) ? p.images[0] : '');
+        return !!img && Number(p.price) > 0 && !!p.title;
+      })
+      .map(p => {
+        const img = p.image || (Array.isArray(p.images) ? p.images[0] : '') || '';
+        const desc = clean(p.description || p.shortDescription || p.title, 4500);
+        return [
+          clean(p.id, 50),
+          clean(p.title, 150),
+          desc.length >= 10 ? desc : clean(`${p.title}. Envío a toda Colombia con pago contra entrega.`, 4500),
+          `${baseUrl}/producto/${encodeURIComponent(productSlug(p))}`,
+          abs(img),
+          (p.stock ?? 1) > 0 ? 'in_stock' : 'out_of_stock',
+          `${Math.round(Number(p.price))} COP`,
+          'new',
+          clean(p.brand || 'Zavela Store', 70),
+          'no',
+          clean(cleanCatName(p.categoryName || ''), 200)
+        ].join('\t');
+      });
+
+    return [headers.join('\t'), ...rows].join('\n') + '\n';
+  }
+
   /** Devuelve la ruta canónica (/producto/slug) si el identificador no es ya la canónica. */
   public async getCanonicalProductPath(identifier: string): Promise<string | null> {
     const cleanId = decodeURIComponent(identifier).trim();

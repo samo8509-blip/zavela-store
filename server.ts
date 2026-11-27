@@ -323,6 +323,19 @@ async function startServer() {
     }
   });
 
+  // Feed de productos para Google Merchant Center
+  app.get('/feed/google-merchant.txt', async (req, res) => {
+    try {
+      const feed = await ssrService.generateMerchantFeed('https://zavelastore.com.co');
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=900');
+      res.send(feed);
+    } catch (err: any) {
+      console.error('[Merchant Feed Error]:', err);
+      res.status(500).send('Error generando feed');
+    }
+  });
+
   // Página de categoría con URL propia (SEO): /categoria/:slug
   app.get(['/categoria/:slug', '/categoria/:slug/'], async (req, res) => {
     try {
