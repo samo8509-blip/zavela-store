@@ -186,6 +186,8 @@ export default function App() {
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'featured' | 'price_asc' | 'price_desc' | 'discount'>('featured');
+  const [priceBand, setPriceBand] = useState<'all' | 'u50' | 'm50_100' | 'm100_200' | 'o200'>('all');
+  const [onlyOffers, setOnlyOffers] = useState(false);
   const CATALOG_PAGE_SIZE = 12;
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
   const categoryPathRef = useRef<string>('/');
@@ -1065,7 +1067,13 @@ export default function App() {
 
   useEffect(() => {
     setVisibleCount(CATALOG_PAGE_SIZE);
-  }, [selectedCategoryId, selectedSubcategoryId, sortBy, searchQuery]);
+  }, [selectedCategoryId, selectedSubcategoryId, sortBy, searchQuery, priceBand, onlyOffers]);
+
+  // Los filtros de precio y ofertas valen solo para la categoría o búsqueda que se está viendo
+  useEffect(() => {
+    setPriceBand('all');
+    setOnlyOffers(false);
+  }, [selectedCategoryId, selectedSubcategoryId, searchQuery]);
 
   const prevPathRef = useRef(location.pathname);
   useEffect(() => {
@@ -1148,6 +1156,16 @@ export default function App() {
         p.tags?.some(t => t.toLowerCase().includes(q))
       );
     }
+    return true;
+  }).filter(p => {
+    // Filtros de precio y ofertas: solo cuando se está viendo una categoría o una búsqueda (el inicio muestra filas)
+    if (selectedCategoryId === 'all' && !searchQuery.trim()) return true;
+    const price = Number(p.price) || 0;
+    if (priceBand === 'u50' && !(price <= 50000)) return false;
+    if (priceBand === 'm50_100' && !(price > 50000 && price <= 100000)) return false;
+    if (priceBand === 'm100_200' && !(price > 100000 && price <= 200000)) return false;
+    if (priceBand === 'o200' && !(price > 200000)) return false;
+    if (onlyOffers && !((p.discountPercentage || 0) > 0)) return false;
     return true;
   }).sort((a, b) => {
     if (sortBy === 'price_asc') return a.price - b.price;
@@ -1929,6 +1947,52 @@ export default function App() {
                 );
               })()}
 
+              {!showCategoryRows && (
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-0.5" role="group" aria-label="Filtrar productos">
+                  <span className="text-[11px] font-mono text-slate-500 font-black uppercase tracking-wider shrink-0 flex items-center gap-1">
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Filtrar:</span>
+                  </span>
+                  {([
+                    ['u50', 'Hasta $50.000'],
+                    ['m50_100', '$50.000 – $100.000'],
+                    ['m100_200', '$100.000 – $200.000'],
+                    ['o200', 'Más de $200.000'],
+                  ] as const).map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPriceBand(priceBand === id ? 'all' : id)}
+                      aria-pressed={priceBand === id}
+                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors cursor-pointer border ${
+                        priceBand === id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOnlyOffers(v => !v)}
+                    aria-pressed={onlyOffers}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors cursor-pointer border ${
+                      onlyOffers ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    Solo ofertas
+                  </button>
+                  {(priceBand !== 'all' || onlyOffers) && (
+                    <button
+                      type="button"
+                      onClick={() => { setPriceBand('all'); setOnlyOffers(false); }}
+                      className="shrink-0 px-2 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 underline cursor-pointer"
+                    >
+                      Quitar filtros
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between px-1 pt-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-xs animate-pulse" />
@@ -1949,7 +2013,9 @@ export default function App() {
                     <Search className="w-6 h-6 text-sky-600" />
                   </div>
                   <h3 className="font-bold text-slate-900 text-sm">
-                    {selectedCategoryId !== 'all'
+                    {(priceBand !== 'all' || onlyOffers)
+                      ? 'Ningún producto cumple con estos filtros'
+                      : selectedCategoryId !== 'all'
                       ? 'No hay productos disponibles en esta categoría actualmente'
                       : 'No se encontraron productos'}
                   </h3>
@@ -1960,13 +2026,14 @@ export default function App() {
                   </p>
                   <button
                     onClick={() => {
+                      if (priceBand !== 'all' || onlyOffers) { setPriceBand('all'); setOnlyOffers(false); return; }
                       setSelectedCategoryId('all');
                       setSelectedSubcategoryId('all');
                       setSearchQuery('');
                     }}
                     className="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-black px-5 py-2.5 rounded-xl text-xs cursor-pointer uppercase tracking-wider shadow-md hover:shadow-lg transition-all"
                   >
-                    Ver todos los productos
+                    {(priceBand !== 'all' || onlyOffers) ? 'Quitar filtros' : 'Ver todos los productos'}
                   </button>
                 </div>
               ) : showCategoryRows ? (
