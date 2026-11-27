@@ -9,7 +9,7 @@
 // 1. Headers CORS y Respuesta JSON
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Api-Key');
 header('Content-Type: application/json; charset=utf-8');
 
 // Responder a peticiones pre-flight de CORS
@@ -47,6 +47,8 @@ try {
 
 // 3. Capturar Método HTTP y Entrada
 $method = $_SERVER['REQUEST_METHOD'];
+require_once __DIR__ . '/_guard.php';
+if ($method !== 'GET') { zavela_require_key(); } // lecturas abiertas; crear/editar/borrar solo desde el servidor de la tienda
 $inputJSON = file_get_contents('php://input');
 $inputData = json_decode($inputJSON, true) ?: [];
 

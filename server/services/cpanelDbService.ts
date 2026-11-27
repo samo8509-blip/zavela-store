@@ -4,6 +4,9 @@ import { db, isTestProduct } from '../db.ts';
 
 const DEFAULT_CPANEL_API_URL = 'https://api.zavelastore.com.co/api.php';
 
+/** Clave compartida con los archivos PHP de cPanel (variable CPANEL_API_KEY en Render). Sin clave no se envía nada. */
+const cpanelKeyHeader = (): Record<string, string> => (process.env.CPANEL_API_KEY ? { 'X-Api-Key': process.env.CPANEL_API_KEY.trim() } : {});
+
 /**
  * CpanelDbService: Servicio cliente para consumir la API PHP con base de datos MySQL en cPanel
  * Provee persistencia externa y un sistema de fallback transparente hacia la base de datos local en memoria.
@@ -44,7 +47,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -179,7 +182,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -220,7 +223,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -253,7 +256,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'DELETE',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -278,7 +281,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'DELETE',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -302,7 +305,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -331,7 +334,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -358,7 +361,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Accept': 'application/json' },
         signal: AbortSignal.timeout(3000)
       });
       if (!response.ok) return null;
@@ -378,7 +381,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ clave, valor }),
         signal: AbortSignal.timeout(3500)
       });
@@ -397,7 +400,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Accept': 'application/json' },
         signal: AbortSignal.timeout(3000)
       });
       if (!response.ok) return null;
@@ -417,7 +420,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
         signal: AbortSignal.timeout(3500)
       });
@@ -512,7 +515,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -549,7 +552,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -849,7 +852,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -886,7 +889,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -980,7 +983,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -1058,7 +1061,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
@@ -1095,7 +1098,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'DELETE',
-        headers: {
+        headers: { ...cpanelKeyHeader(),
           'Accept': 'application/json',
           'User-Agent': 'ZavelaStore-Fullstack/1.0 (Render)'
         },
@@ -1155,7 +1158,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Accept': 'application/json' },
         signal: AbortSignal.timeout(3500)
       });
       if (!response.ok) return null;
@@ -1182,7 +1185,7 @@ export class CpanelDbService {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...cpanelKeyHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids, action: 'delete' }),
         signal: AbortSignal.timeout(4500)
       });

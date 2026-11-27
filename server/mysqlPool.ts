@@ -35,7 +35,9 @@ if (dbHost && dbUser && dbName) {
       connectionLimit: 10,
       queueLimit: 0,
       connectTimeout: 4000,
-      charset: 'utf8mb4'
+      charset: 'utf8mb4',
+      // Conexión cifrada a MySQL: poner DB_SSL=1 en Render (cPanel suele usar certificado propio, por eso no se exige que esté firmado)
+      ...(/^(1|true|yes)$/i.test(process.env.DB_SSL || '') ? { ssl: { rejectUnauthorized: false } } : {})
     });
     console.log(`[MySQL cPanel] Pool de conexiones establecido con éxito en ${dbHost}:${dbPort}/${dbName}`);
 
