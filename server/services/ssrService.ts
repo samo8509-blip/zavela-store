@@ -27,6 +27,30 @@ function cleanMetaText(str: string = '', maxLen: number = 160): string {
 }
 
 // Format COP currency
+/** Nombre de categoría limpio para títulos: quita emojis y paréntesis (incluso sin cerrar). */
+export function cleanCatName(name: string = ''): string {
+  return String(name || '')
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/\s*\(.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Slug legible para URLs de producto: "dinosaurio-rex-rc-camina-y-ruge-prod-123". */
+export function productSlug(p: { id: any; slug?: any; title?: any }): string {
+  if (p.slug) return String(p.slug);
+  const id = String(p.id);
+  if (!/^prod-\d+$/.test(id)) return id;
+  const base = String(p.title || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+  return base ? `${base}-${id}` : id;
+}
+
 function formatCOP(amount: number): string {
   return `$${Math.round(amount || 0).toLocaleString('es-CO')} COP`;
 }
@@ -75,6 +99,12 @@ export class SsrService {
    */
   public async getProductByIdentifierFromDb(identifier: string): Promise<Product | null> {
     const cleanId = decodeURIComponent(identifier).trim();
+    // URLs legibles: "nombre-del-producto-prod-123" → se busca por el id del final
+    const suffix = cleanId.match(/-(prod-\d+)$/);
+    if (suffix) {
+      const byId = await this.getProductByIdentifierFromDb(suffix[1]);
+      if (byId) return byId;
+    }
     if (nativePool) {
       try {
         // 1. Consulta SQL limpia y directa por ID primario
@@ -256,10 +286,9 @@ export class SsrService {
       .map(c => ({ loc: `${baseUrl}/categoria/${encodeURIComponent(String(c.slug || c.id).toLowerCase())}`, priority: '0.8', changefreq: 'daily' }));
 
     const productPages = products.map(p => {
-      const slug = p.slug || p.id;
       const lastmod = p.updatedAt ? new Date(p.updatedAt).toISOString() : nowIso;
       return `  <url>
-    <loc>${baseUrl}/producto/${escapeHtml(slug)}</loc>
+    <loc>${baseUrl}/producto/${escapeHtml(encodeURIComponent(productSlug(p)))}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
@@ -351,7 +380,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       err.code = 'CATEGORY_NOT_FOUND';
       throw err;
     }
-    const catLabel = activeCat ? activeCat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim() : '';
+    const catLabel = activeCat ? cleanCatName(activeCat.name) : '';
     const catPath = activeCat ? `/categoria/${encodeURIComponent(String(activeCat.slug || activeCat.id).toLowerCase())}` : '';
     const useCatUrl = !!activeCat && !searchQuery;
 
@@ -375,7 +404,7 @@ Sitemap: ${baseUrl}/sitemap.xml
           'name': p.title,
           'image': p.image || `${baseUrl}/images/logo-zavela.jpg`,
           'description': cleanMetaText(p.shortDescription || p.description, 150),
-          'url': `${baseUrl}/producto/${p.slug || p.id}`,
+          'url': `${baseUrl}/producto/${encodeURIComponent(productSlug(p))}`,
           'offers': {
             '@type': 'Offer',
             'priceCurrency': 'COP',
@@ -394,7 +423,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       : `Explora el catálogo oficial de Zavela Store en Colombia. Perfumería, hogar, tecnología y herramientas con precios en COP y Pago Contra Entrega en efectivo al recibir en casa.`;
 
     const productCardsHtml = pageProducts.map(p => {
-      const productUrl = `/producto/${encodeURIComponent(p.slug || p.id)}`;
+      const productUrl = `/producto/${encodeURIComponent(productSlug(p))}`;
       const hasDiscount = false; // precio tachado desactivado
       const discountPercentage = hasDiscount 
         ? Math.round(((p.compareAtPrice! - p.price) / p.compareAtPrice!) * 100) 
@@ -418,7 +447,7 @@ Sitemap: ${baseUrl}/sitemap.xml
             <span class="badge cod-badge">Pago Contra Entrega</span>
           </div>
           <div class="product-info">
-            <span class="product-category">${escapeHtml(p.categoryName || 'General')}</span>
+            <span class="product-category">${escapeHtml(cleanCatName(p.categoryName || '') || 'General')}</span>
             <h2 class="product-title">
               <a href="${productUrl}">${escapeHtml(p.title)}</a>
             </h2>
@@ -1108,6 +1137,15 @@ Sitemap: ${baseUrl}/sitemap.xml
   /**
    * Renderiza una página individual por producto en HTML puro con metadatos y Schema.org extrayendo los datos de MySQL.
    */
+  /** Devuelve la ruta canónica (/producto/slug) si el identificador no es ya la canónica. */
+  public async getCanonicalProductPath(identifier: string): Promise<string | null> {
+    const cleanId = decodeURIComponent(identifier).trim();
+    const product = await this.getProductByIdentifierFromDb(cleanId);
+    if (!product || isTestProduct(product)) return null;
+    const slug = productSlug(product);
+    return slug !== cleanId ? `/producto/${encodeURIComponent(slug)}` : null;
+  }
+
   public async renderProductPage(req: express.Request, identifier: string): Promise<string> {
     const baseUrl = getBaseUrl(req);
     const settings: StoreSettings = db.getSettings();
@@ -1123,7 +1161,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
     const titleText = `${product.title} | Zavela Store Colombia - Pago Contra Entrega`;
     const cleanDesc = cleanMetaText(product.description || product.shortDescription || `${product.title} con despacho a toda Colombia y Pago Contra Entrega en efectivo al recibir en casa.`);
-    const canonicalUrl = `${baseUrl}/producto/${encodeURIComponent(product.slug || product.id)}`;
+    const canonicalUrl = `${baseUrl}/producto/${encodeURIComponent(productSlug(product))}`;
     const imageUrl = product.image ? (product.image.startsWith('http') ? product.image : `${baseUrl}${product.image}`) : `${baseUrl}/images/logo-zavela.jpg`;
 
     const hasDiscount = false; // precio tachado desactivado
@@ -1175,6 +1213,21 @@ Sitemap: ${baseUrl}/sitemap.xml
     // Related products
     const allActive = await this.getActiveProductsFromDb();
     const navCategories = await this.getActiveCategoriesFromDb();
+    const normC = (v: string) => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const prodCat = navCategories.find(c =>
+      String(c.id) === String(product.categoryId || '') ||
+      (product.categoryName && normC(c.name) === normC(product.categoryName)));
+    const prodCatName = prodCat ? cleanCatName(prodCat.name) : cleanCatName(product.categoryName || '');
+    const prodCatUrl = prodCat ? `/categoria/${encodeURIComponent(String(prodCat.slug || prodCat.id).toLowerCase())}` : '/catalogo';
+    const breadcrumbLd = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      'itemListElement': [
+        { '@type': 'ListItem', 'position': 1, 'name': 'Inicio', 'item': `${baseUrl}/` },
+        { '@type': 'ListItem', 'position': 2, 'name': prodCatName || 'Catálogo', 'item': `${baseUrl}${prodCatUrl}` },
+        { '@type': 'ListItem', 'position': 3, 'name': product.title, 'item': canonicalUrl }
+      ]
+    };
     const related = allActive
       .filter(p => p.id !== product.id && !isTestProduct(p) && (p.categoryName === product.categoryName || p.featured))
       .slice(0, 4);
@@ -1712,8 +1765,9 @@ Sitemap: ${baseUrl}/sitemap.xml
 
   <div class="breadcrumbs">
     <a href="/">Inicio</a> &gt; 
-    <a href="/catalogo">Catálogo</a> &gt; 
+    <a href="${prodCatUrl}">${escapeHtml(prodCatName || 'Catálogo')}</a> &gt; 
     <span>${escapeHtml(product.title)}</span>
+    <script type="application/ld+json">${JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c')}</script>
   </div>
 
   <main class="product-container">
@@ -1727,7 +1781,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     </div>
 
     <div class="details-card">
-      <span class="category-tag">${escapeHtml(product.categoryName || 'General')}</span>
+      <span class="category-tag">${escapeHtml(cleanCatName(product.categoryName || '') || 'General')}</span>
       <h1 class="product-heading">${escapeHtml(product.title)}</h1>
 
       <div class="price-box">
@@ -1762,7 +1816,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     <div class="related-grid">
       ${related.map(r => `
         <article style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-          <a href="/producto/${encodeURIComponent(r.slug || r.id)}">
+          <a href="/producto/${encodeURIComponent(productSlug(r))}">
             <img src="${escapeHtml(r.image || '/images/logo-zavela.jpg')}" alt="${escapeHtml(r.title)}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin-bottom: 0.5rem;" />
             <h3 style="font-size: 0.95rem; font-weight: 700; color: #0f172a; margin-bottom: 0.4rem;">${escapeHtml(r.title)}</h3>
             <p style="font-weight: 800; color: #4f46e5;">${formatCOP(r.price)}</p>

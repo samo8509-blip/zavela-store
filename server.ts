@@ -346,6 +346,12 @@ async function startServer() {
     }
 
     try {
+      // URL legible: si entraron por el id antiguo, redirigir (301) a la dirección con el nombre del producto
+      const canonicalPath = await ssrService.getCanonicalProductPath(identifier);
+      if (canonicalPath) {
+        const qs = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+        return res.redirect(301, canonicalPath + qs);
+      }
       const html = await ssrService.renderProductPage(req, identifier);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=300');
