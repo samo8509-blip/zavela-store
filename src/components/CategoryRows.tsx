@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Product } from '../types/index.ts';
+import { OvalRing, OvalRingHandle } from './OvalRing.tsx';
 
 export interface CategoryRowSection {
   key: string;
@@ -37,6 +38,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
   const resumeTimer = useRef<number | undefined>(undefined);
   const settleTimer = useRef<number | undefined>(undefined);
   const touchingRef = useRef(false);
+  const ringRef = useRef<OvalRingHandle>(null);
 
   const shown = section.products.slice(0, max);
   const total = section.products.length;
@@ -53,6 +55,9 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
     mq.addEventListener?.('change', onChange);
     return () => mq.removeEventListener?.('change', onChange);
   }, []);
+
+  /** Anillo ovalado (3D): con 4 o más productos y si el aparato no pidió reducir movimiento. */
+  const useRing = shown.length >= 4 && !reduceMotion;
 
   useEffect(() => {
     const onResize = () => setCols(columnsForWidth(window.innerWidth));
@@ -105,7 +110,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
   // Giro automático de derecha a izquierda, lento y continuo.
   useEffect(() => {
     const el = trackRef.current;
-    if (!el || !needsLoop || reduceMotion) return;
+    if (!el || !needsLoop || reduceMotion || useRing) return;
     posRef.current = el.scrollLeft;
     let raf = 0;
     let last = 0;
@@ -145,7 +150,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
       window.clearTimeout(resumeTimer.current);
       window.clearTimeout(settleTimer.current);
     };
-  }, [needsLoop, reduceMotion, halfWidth]);
+  }, [needsLoop, reduceMotion, useRing, halfWidth]);
 
   // Solo gira mientras la fila está a la vista.
   useEffect(() => {
@@ -157,6 +162,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
   }, []);
 
   const move = (dir: 1 | -1) => {
+    if (useRing) { ringRef.current?.step(dir); return; }
     const el = trackRef.current;
     if (!el) return;
     pauseFor(RESUME_DELAY_MS + 1200);
@@ -190,7 +196,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
               Ver todo
             </button>
           )}
-          {needsLoop && (
+          {(needsLoop || useRing) && (
             <>
               <button
                 type="button"
@@ -213,6 +219,9 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
         </div>
       </div>
 
+      {useRing ? (
+        <OvalRing products={shown} renderProduct={renderProduct} apiRef={ringRef} />
+      ) : (
       <div
         ref={trackRef}
         onMouseEnter={holdWhileInteracting}
@@ -234,6 +243,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
           </div>
         ))}
       </div>
+      )}
     </section>
   );
 };
