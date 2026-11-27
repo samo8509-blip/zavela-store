@@ -1970,7 +1970,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     </ol>
 
     <h2>Solución</h2>
-    <p>Según el caso, se hace el cambio por una unidad nueva o se repone la parte faltante. Los costos de envío de la devolución autorizada los asumimos nosotros.</p>
+    <p>Según el caso, se hace el cambio por una unidad nueva o se repone la parte faltante.</p>
 
     <h2>Revisión antes del despacho</h2>
     <p>Los productos son revisados por el proveedor antes de ser despachados y se empacan para protegerlos durante el transporte.</p>
