@@ -323,6 +323,20 @@ async function startServer() {
     }
   });
 
+  // Página de categoría con URL propia (SEO): /categoria/:slug
+  app.get(['/categoria/:slug', '/categoria/:slug/'], async (req, res) => {
+    try {
+      const html = await ssrService.renderCatalogPage(req, { categorySlug: String(req.params.slug || '') });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.send(html);
+    } catch (err: any) {
+      if (err?.code === 'CATEGORY_NOT_FOUND') return res.redirect(301, '/catalogo');
+      console.error('[SSR Categoria Error]:', err);
+      res.status(500).send('Error generando página de categoría');
+    }
+  });
+
   // Página individual de producto SSR con OpenGraph, Schema.org y HTML real
   app.get(['/producto/:identifier', '/producto/:identifier/'], async (req, res, next) => {
     const identifier = req.params.identifier;

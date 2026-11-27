@@ -203,7 +203,7 @@ export class SsrService {
                 </div>
                 <div class="dropdown-grid">
                   ${navCategories.map(c => `
-                    <a href="/catalogo?categoria=${encodeURIComponent(c.slug || c.name)}" class="dropdown-cat-card" role="menuitem">
+                    <a href="/categoria/${encodeURIComponent(String(c.slug || c.id).toLowerCase())}" class="dropdown-cat-card" role="menuitem">
                       <span class="cat-card-icon">🛍️</span>
                       <div class="cat-card-info">
                         <span class="cat-card-title">${escapeHtml(c.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim())}</span>
@@ -250,6 +250,11 @@ export class SsrService {
       { loc: `${baseUrl}/zavelastoresex`, priority: '0.7', changefreq: 'weekly' }
     ];
 
+    const categories = await this.getActiveCategoriesFromDb();
+    const categoryPages = categories
+      .filter(c => (c.productCount || 0) > 0)
+      .map(c => ({ loc: `${baseUrl}/categoria/${encodeURIComponent(String(c.slug || c.id).toLowerCase())}`, priority: '0.8', changefreq: 'daily' }));
+
     const productPages = products.map(p => {
       const slug = p.slug || p.id;
       const lastmod = p.updatedAt ? new Date(p.updatedAt).toISOString() : nowIso;
@@ -261,7 +266,7 @@ export class SsrService {
   </url>`;
     });
 
-    const staticXml = staticPages.map(page => `  <url>
+    const staticXml = [...staticPages, ...categoryPages].map(page => `  <url>
     <loc>${page.loc}</loc>
     <lastmod>${nowIso}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
@@ -296,7 +301,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   /**
    * Renderiza la página /catalogo en HTML puro (sin requerir JavaScript) extrayendo los datos de MySQL.
    */
-  public async renderCatalogPage(req: express.Request): Promise<string> {
+  public async renderCatalogPage(req: express.Request, opts: { categorySlug?: string } = {}): Promise<string> {
     const baseUrl = getBaseUrl(req);
     const settings: StoreSettings = db.getSettings();
     const rawPhone = settings.whatsappSettings?.phoneNumber || settings.whatsappNumber || '573008784427';
@@ -305,7 +310,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
     const limit = Math.max(1, Math.min(48, parseInt(String(req.query.limit || '12'), 10) || 12));
     const searchQuery = String(req.query.q || '').trim().toLowerCase();
-    const categoryFilter = String(req.query.categoria || '').trim().toLowerCase();
+    const categoryFilter = String(opts.categorySlug || req.query.categoria || '').trim().toLowerCase();
 
     let allProducts = await this.getActiveProductsFromDb();
 
@@ -337,6 +342,19 @@ Sitemap: ${baseUrl}/sitemap.xml
       );
     }
 
+    // Categoría activa (para título, descripción y URL canónica propios)
+    const activeCat = categoryFilter && categoryFilter !== 'todos'
+      ? navCategories.find(c => norm(c.slug) === norm(categoryFilter) || norm(c.id) === norm(categoryFilter) || norm(c.name) === norm(categoryFilter))
+      : undefined;
+    if (opts.categorySlug && !activeCat) {
+      const err: any = new Error('CATEGORY_NOT_FOUND');
+      err.code = 'CATEGORY_NOT_FOUND';
+      throw err;
+    }
+    const catLabel = activeCat ? activeCat.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim() : '';
+    const catPath = activeCat ? `/categoria/${encodeURIComponent(String(activeCat.slug || activeCat.id).toLowerCase())}` : '';
+    const useCatUrl = !!activeCat && !searchQuery;
+
     const totalProducts = allProducts.length;
     const totalPages = Math.ceil(totalProducts / limit) || 1;
     const startIndex = (page - 1) * limit;
@@ -362,14 +380,18 @@ Sitemap: ${baseUrl}/sitemap.xml
             '@type': 'Offer',
             'priceCurrency': 'COP',
             'price': p.price,
-            'availability': 'https://schema.org/InStock'
+            'availability': (p.stock ?? 1) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock'
           }
         }
       }))
     };
 
-    const titleText = `Catálogo de Productos (Pág. ${page}) | Zavela Store Colombia - Pago Contra Entrega`;
-    const descText = `Explora el catálogo oficial de Zavela Store en Colombia. Perfumería, hogar, tecnología y herramientas con precios en COP y Pago Contra Entrega en efectivo al recibir en casa.`;
+    const titleText = useCatUrl
+      ? `${catLabel} con Pago Contra Entrega en Colombia${page > 1 ? ` (Pág. ${page})` : ''} | Zavela Store`
+      : `Catálogo de Productos (Pág. ${page}) | Zavela Store Colombia - Pago Contra Entrega`;
+    const descText = useCatUrl
+      ? `Compra ${catLabel.toLowerCase()} en Zavela Store: ${totalProducts} productos con envío a toda Colombia y Pago Contra Entrega. Pides en línea y pagas en efectivo al recibir en casa.`
+      : `Explora el catálogo oficial de Zavela Store en Colombia. Perfumería, hogar, tecnología y herramientas con precios en COP y Pago Contra Entrega en efectivo al recibir en casa.`;
 
     const productCardsHtml = pageProducts.map(p => {
       const productUrl = `/producto/${encodeURIComponent(p.slug || p.id)}`;
@@ -415,8 +437,11 @@ Sitemap: ${baseUrl}/sitemap.xml
     }).join('');
 
     // Pagination HTML
-    const prevPageUrl = page > 1 ? `/catalogo?page=${page - 1}&limit=${limit}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${categoryFilter ? `&categoria=${encodeURIComponent(categoryFilter)}` : ''}` : null;
-    const nextPageUrl = page < totalPages ? `/catalogo?page=${page + 1}&limit=${limit}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${categoryFilter ? `&categoria=${encodeURIComponent(categoryFilter)}` : ''}` : null;
+    const pageUrl = (n: number) => useCatUrl
+      ? `${catPath}?page=${n}&limit=${limit}`
+      : `/catalogo?page=${n}&limit=${limit}${searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : ''}${categoryFilter ? `&categoria=${encodeURIComponent(categoryFilter)}` : ''}`;
+    const prevPageUrl = page > 1 ? pageUrl(page - 1) : null;
+    const nextPageUrl = page < totalPages ? pageUrl(page + 1) : null;
 
     return `<!DOCTYPE html>
 <html lang="es">
@@ -425,13 +450,13 @@ Sitemap: ${baseUrl}/sitemap.xml
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(titleText)}</title>
   <meta name="description" content="${escapeHtml(descText)}">
-  <link rel="canonical" href="${baseUrl}/catalogo?page=${page}">
+  <link rel="canonical" href="${useCatUrl ? `${baseUrl}${catPath}${page > 1 ? `?page=${page}` : ''}` : `${baseUrl}/catalogo?page=${page}`}">
   
   <!-- OpenGraph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="${escapeHtml(titleText)}">
   <meta property="og:description" content="${escapeHtml(descText)}">
-  <meta property="og:url" content="${baseUrl}/catalogo">
+  <meta property="og:url" content="${useCatUrl ? `${baseUrl}${catPath}` : `${baseUrl}/catalogo`}">
   <meta property="og:image" content="${baseUrl}/images/logo-zavela.jpg">
   <meta property="og:site_name" content="Zavela Store Colombia">
   
@@ -996,7 +1021,7 @@ Sitemap: ${baseUrl}/sitemap.xml
   <main class="container">
     <div class="page-header">
       <div>
-        <h1 class="page-title">Catálogo Oficial de Productos</h1>
+        <h1 class="page-title">${useCatUrl ? escapeHtml(catLabel) + ' con Pago Contra Entrega' : 'Catálogo Oficial de Productos'}</h1>
         <p class="page-subtitle">Disponibles con despacho prioritario y Pago Contra Entrega en toda Colombia (${totalProducts} artículos)</p>
       </div>
       <div>
@@ -1139,7 +1164,7 @@ Sitemap: ${baseUrl}/sitemap.xml
         'price': product.price,
         'priceValidUntil': '2027-12-31',
         'itemCondition': 'https://schema.org/NewCondition',
-        'availability': (product.stock ?? 1) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/InStock',
+        'availability': (product.stock ?? 1) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
         'seller': {
           '@type': 'Organization',
           'name': 'Zavela Store Colombia'
