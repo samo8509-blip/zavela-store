@@ -1268,6 +1268,25 @@ Sitemap: ${baseUrl}/sitemap.xml
         'seller': {
           '@type': 'Organization',
           'name': 'Zavela Store Colombia'
+        },
+        // Envío gratis a toda Colombia (mismo criterio que Merchant Center: preparación 0-1 día, transporte 2-4 días)
+        'shippingDetails': {
+          '@type': 'OfferShippingDetails',
+          'shippingRate': { '@type': 'MonetaryAmount', 'value': 0, 'currency': 'COP' },
+          'shippingDestination': { '@type': 'DefinedRegion', 'addressCountry': 'CO' },
+          'deliveryTime': {
+            '@type': 'ShippingDeliveryTime',
+            'handlingTime': { '@type': 'QuantitativeValue', 'minValue': 0, 'maxValue': 1, 'unitCode': 'DAY' },
+            'transitTime': { '@type': 'QuantitativeValue', 'minValue': 2, 'maxValue': 4, 'unitCode': 'DAY' }
+          }
+        },
+        // Garantía de 10 días por defectos de fábrica o faltantes; el detalle está en la página enlazada
+        'hasMerchantReturnPolicy': {
+          '@type': 'MerchantReturnPolicy',
+          'applicableCountry': 'CO',
+          'returnPolicyCategory': 'https://schema.org/MerchantReturnFiniteReturnWindow',
+          'merchantReturnDays': 10,
+          'merchantReturnLink': `${baseUrl}/politica-de-devoluciones`
         }
       }
     };
