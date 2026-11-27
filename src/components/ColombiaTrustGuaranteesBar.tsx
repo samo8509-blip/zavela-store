@@ -87,10 +87,10 @@ export const ColombiaTrustGuaranteesBar: React.FC = () => {
           </div>
           <div className="space-y-1">
             <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
-              Calidad Comprobada
+              Despacho Revisado
             </h4>
             <p className="text-[11px] text-purple-900 leading-snug">
-              Cada unidad es inspeccionada y probada antes del empaque para asegurar su óptimo funcionamiento.
+              El proveedor revisa cada pedido antes de despacharlo y lo envía bien empacado para que llegue en buen estado.
             </p>
           </div>
         </div>
