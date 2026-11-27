@@ -35,6 +35,8 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
   const pausedRef = useRef(false);
   const inViewRef = useRef(true);
   const resumeTimer = useRef<number | undefined>(undefined);
+  const settleTimer = useRef<number | undefined>(undefined);
+  const touchingRef = useRef(false);
 
   const shown = section.products.slice(0, max);
   const total = section.products.length;
@@ -78,15 +80,27 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
     }, ms);
   }, []);
 
+  // Mouse/teclado: pausa el giro. El salto al inicio de la copia es seguro porque no hay un dedo arrastrando.
   const holdWhileInteracting = useCallback(() => {
     window.clearTimeout(resumeTimer.current);
     pausedRef.current = true;
-    // Si está pegado al inicio, lo pasamos a la copia para que se pueda deslizar hacia atrás sin topar.
     const el = trackRef.current;
-    if (el && needsLoop && el.scrollLeft < 2) el.scrollLeft = halfWidth();
+    if (el && needsLoop && !touchingRef.current && el.scrollLeft < 2) el.scrollLeft = halfWidth();
   }, [needsLoop, halfWidth]);
 
   const releaseAfterInteraction = useCallback(() => pauseFor(RESUME_DELAY_MS), [pauseFor]);
+
+  // Celular: mientras el dedo toca la fila NO se toca el scroll por código (hacerlo congela el deslizamiento y lo reinicia).
+  const onTouchStartRow = useCallback(() => {
+    touchingRef.current = true;
+    window.clearTimeout(resumeTimer.current);
+    window.clearTimeout(settleTimer.current);
+    pausedRef.current = true;
+  }, []);
+  const onTouchEndRow = useCallback(() => {
+    touchingRef.current = false;
+    pauseFor(RESUME_DELAY_MS);
+  }, [pauseFor]);
 
   // Giro automático de derecha a izquierda, lento y continuo.
   useEffect(() => {
@@ -109,11 +123,19 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
     };
     raf = requestAnimationFrame(step);
 
-    // Si el cliente desliza a mano, mantenemos el bucle sin saltos.
-    const onScroll = () => {
+    // Si el cliente desliza a mano, el ajuste del bucle se hace cuando el movimiento ya se detuvo (no durante el arrastre ni la inercia).
+    const settle = () => {
+      if (touchingRef.current) return;
       const half = halfWidth();
       if (!half) return;
       if (el.scrollLeft >= half) el.scrollLeft -= half;
+      else if (el.scrollLeft < 2) el.scrollLeft = half;
+      posRef.current = el.scrollLeft;
+    };
+    const onScroll = () => {
+      if (!pausedRef.current) return; // el giro automático ya cuida su propio bucle
+      window.clearTimeout(settleTimer.current);
+      settleTimer.current = window.setTimeout(settle, 180);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
 
@@ -121,6 +143,7 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
       cancelAnimationFrame(raf);
       el.removeEventListener('scroll', onScroll);
       window.clearTimeout(resumeTimer.current);
+      window.clearTimeout(settleTimer.current);
     };
   }, [needsLoop, reduceMotion, halfWidth]);
 
@@ -194,12 +217,12 @@ const Row: React.FC<{ section: CategoryRowSection; renderProduct: (p: Product) =
         ref={trackRef}
         onMouseEnter={holdWhileInteracting}
         onMouseLeave={releaseAfterInteraction}
-        onTouchStart={holdWhileInteracting}
-        onTouchEnd={releaseAfterInteraction}
-        onTouchCancel={releaseAfterInteraction}
+        onTouchStart={onTouchStartRow}
+        onTouchEnd={onTouchEndRow}
+        onTouchCancel={onTouchEndRow}
         onFocusCapture={holdWhileInteracting}
         onBlurCapture={releaseAfterInteraction}
-        className="grid grid-rows-1 grid-flow-col gap-3 sm:gap-4 overflow-x-auto scrollbar-none pb-1 auto-cols-[calc((100%_-_12px)_/_2)] sm:auto-cols-[calc((100%_-_16px)_/_2)] md:auto-cols-[calc((100%_-_32px)_/_3)] lg:auto-cols-[calc((100%_-_48px)_/_4)]"
+        className="grid grid-rows-1 grid-flow-col gap-3 sm:gap-4 overflow-x-auto overscroll-x-contain scrollbar-none pb-1 auto-cols-[calc((100%_-_12px)_/_2)] sm:auto-cols-[calc((100%_-_16px)_/_2)] md:auto-cols-[calc((100%_-_32px)_/_3)] lg:auto-cols-[calc((100%_-_48px)_/_4)]"
       >
         {items.map((p, i) => (
           <div
