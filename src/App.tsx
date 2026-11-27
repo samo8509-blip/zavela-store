@@ -439,15 +439,15 @@ export default function App() {
 
   const loadStoreData = async () => {
     try {
-     const [cpanelProds, catRes, setRes, firestoreSet, ordersRes] = await Promise.all([
+     // Solo se espera lo que la portada necesita: productos, categorías y configuración.
+     // (Antes también se descargaban TODOS los pedidos en cada visita; la portada no los usa y retrasaba la carga.)
+     const [cpanelProds, catRes, firestoreSet] = await Promise.all([
          getCpanelProducts(true).catch(() => null),
          fetch('/api/admin/categories')
            .then(r => r.json())
            .then(data => ({ success: true, data: Array.isArray(data) ? data : (data?.data || []) }))
            .catch(() => ({ success: false, data: [] })),
-         fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false })),
-         getFirestoreSettings().catch(() => null),
-         fetch('https://api.zavelastore.com.co/api.php?action=pedidos').then(r => r.json()).catch(() => ({ success: false }))
+         getFirestoreSettings().catch(() => null)
        ]);
 
         if (cpanelProds !== null && Array.isArray(cpanelProds) && cpanelProds.length > 0) {
@@ -460,13 +460,16 @@ export default function App() {
         }
 
       if (catRes.success) setCategories(catRes.data);
-      if (ordersRes.success && Array.isArray(ordersRes.data)) setOrders(ordersRes.data);
-      
+
       if (firestoreSet) {
         setSettings(firestoreSet);
-      } else if (setRes.success) {
-        const loaded = setRes.data?.settings || setRes.data;
-        setSettings(loaded);
+      } else {
+        // Respaldo: la configuración se pide al servidor PHP solo si la principal no respondió
+        const setRes: any = await fetch('https://api.zavelastore.com.co/api.php?action=settings').then(r => r.json()).catch(() => ({ success: false }));
+        if (setRes.success) {
+          const loaded = setRes.data?.settings || setRes.data;
+          setSettings(loaded);
+        }
       }
     } catch (err) {
       console.error('Error fetching initial data:', err);
