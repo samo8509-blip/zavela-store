@@ -65,17 +65,17 @@ export const ColombiaTrustGuaranteesBar: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Garantía Directa de 30 Días */}
+        {/* 3. Garantía de 10 Días */}
         <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 flex items-start gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
             <RotateCcw className="w-5 h-5" />
           </div>
           <div className="space-y-1">
             <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider">
-              Garantía de 30 Días
+              Garantía de 10 Días
             </h4>
             <p className="text-[11px] text-amber-900 leading-snug">
-              Cambio inmediato por defectos de fábrica o satisfacción garantizada con soporte directo por WhatsApp.
+              Si llega con daño de fábrica o le falta algo, te lo cambiamos. Lo pides por correo con fotos.
             </p>
           </div>
         </div>

@@ -67,8 +67,8 @@ export const Footer: React.FC<FooterProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Garantía 30 Días</h4>
-              <p className="text-slate-600 text-[11px] mt-0.5">Garantía oficial por cualquier defecto de fabricación.</p>
+              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Garantía 10 Días</h4>
+              <p className="text-slate-600 text-[11px] mt-0.5">Por defectos de fábrica o artículos faltantes.</p>
             </div>
           </div>
 

@@ -329,7 +329,7 @@ export const CustomSubpageView: React.FC<CustomSubpageViewProps> = ({
                   Despachos Asegurados con Pago Contra Entrega
                 </h4>
                 <p className="text-xs text-slate-600 max-w-md">
-                  Pagas únicamente cuando recibas tu pedido en tus manos. Garantía directa de 30 días con respaldo de bodega y soporte nacional.
+                  Pagas únicamente cuando recibas tu pedido en tus manos. Garantía de 10 días por defectos de fábrica o artículos faltantes.
                 </p>
               </div>
 

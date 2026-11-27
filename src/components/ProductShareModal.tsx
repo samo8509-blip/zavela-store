@@ -59,10 +59,10 @@ export const ProductShareModal: React.FC<ProductShareModalProps> = ({
 
   // Customized share messages depending on customer intent
   const messageVariants = {
-    recommend: `🔥 ¡Mira este producto que encontré en Zavela Store! 🇨🇴\n\n📦 *${product.title}*\n💰 *Precio:* ${priceFormatted} COP\n🚚 *¡Pagas al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ Garantía oficial de 30 días.\n\n👉 Míralo aquí: ${baseUrl}/producto/${slugOrId}`,
+    recommend: `🔥 ¡Mira este producto que encontré en Zavela Store! 🇨🇴\n\n📦 *${product.title}*\n💰 *Precio:* ${priceFormatted} COP\n🚚 *¡Pagas al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ Garantía de 10 días por defectos de fábrica.\n\n👉 Míralo aquí: ${baseUrl}/producto/${slugOrId}`,
     gift: `🎁 ¡Mira esta excelente idea de regalo en Zavela Store!\n\n✨ *${product.title}*\n💵 *Solo:* ${priceFormatted} COP\n🚚 Envío a toda Colombia con pago contra entrega.\n\n👇 Entra al enlace para ver fotos y detalles: ${baseUrl}/producto/${slugOrId}`,
     deal: `🚨 ¡OFERTA IMPERDIBLE EN COLOMBIA! 😱\n\n💥 *${product.title}* por solo *${priceFormatted}*\n📦 Recibes en la puerta de tu casa y pagas seguro al mensajero.\n\n🏃💨 Pídelo antes de que se agote: ${baseUrl}/producto/${slugOrId}`,
-    ruleta_closing: `🔥 ¡Hola! Te comparto tu enlace de compra exclusivo para *${product.title}* con Ruleta de Descuentos 🇨🇴📦\n\n💰 *Precio Catálogo:* ${priceFormatted} COP\n🚚 *¡Pagas seguro en efectivo al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ *Garantía oficial de 30 días.*\n🎁 *¡Gira la Ruleta en el enlace y desbloquea entre 5% y 15% OFF de regalo para tu pedido!*\n\n👉 Entra aquí, gira tu ruleta y pide contra entrega: ${baseUrl}/producto/${slugOrId}?ruleta=true`
+    ruleta_closing: `🔥 ¡Hola! Te comparto tu enlace de compra exclusivo para *${product.title}* con Ruleta de Descuentos 🇨🇴📦\n\n💰 *Precio Catálogo:* ${priceFormatted} COP\n🚚 *¡Pagas seguro en efectivo al recibir en tus manos con PAGO CONTRA ENTREGA!*\n🛡️ *Garantía de 10 días por defectos de fábrica.*\n🎁 *¡Gira la Ruleta en el enlace y desbloquea entre 5% y 15% OFF de regalo para tu pedido!*\n\n👉 Entra aquí, gira tu ruleta y pide contra entrega: ${baseUrl}/producto/${slugOrId}?ruleta=true`
   };
 
   const currentMessage = messageVariants[selectedCustomMessage];
@@ -493,7 +493,7 @@ export const ProductShareModal: React.FC<ProductShareModalProps> = ({
           <div className="p-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 flex items-center gap-2.5 text-xs text-emerald-900 dark:text-emerald-300">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>
-              Tus amigos recibirán el producto con <strong>Pago Contra Entrega en efectivo</strong> y 30 días de garantía oficial en toda Colombia.
+              Tus amigos recibirán el producto con <strong>Pago Contra Entrega en efectivo</strong> y 10 días de garantía por defectos de fábrica en toda Colombia.
             </span>
           </div>
 

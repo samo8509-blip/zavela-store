@@ -1588,7 +1588,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </div>
                       <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
                         <ShieldCheck className="w-4 h-4 text-slate-500" />
-                        <span className="font-semibold">Garantía Oficial 30 Días</span>
+                        <span className="font-semibold">Garantía 10 Días</span>
                       </div>
                       <div className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-50 border border-slate-100">
                         <CreditCard className="w-4 h-4 text-slate-500" />
@@ -1805,7 +1805,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </div>
                       <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                         <div className="text-xs font-mono font-bold text-slate-500 uppercase">Garantía de Fábrica</div>
-                        <div className="text-sm font-bold text-slate-900 mt-1">{product.warrantyInfo || '30 Días Oficial'}</div>
+                        <div className="text-sm font-bold text-slate-900 mt-1">{product.warrantyInfo || '10 Días por defectos de fábrica'}</div>
                       </div>
                     </div>
                   </div>
@@ -1875,7 +1875,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <div className="flex items-center gap-3 text-sky-800">
                         <ShieldCheck className="w-6 h-6 text-sky-600" />
                         <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                          {product.warrantyInfo || 'Garantía Oficial Zavela: 30 Días por Defectos de Fábrica'}
+                          {product.warrantyInfo || 'Garantía Zavela: 10 días por defectos de fábrica o artículos faltantes'}
                         </h3>
                       </div>
                       

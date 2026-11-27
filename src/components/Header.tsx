@@ -834,7 +834,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="text-xs text-slate-600 space-y-2.5 leading-relaxed">
-              <p>Todos nuestros productos cuentan con garantía oficial de 30 días contra defectos de fábrica.</p>
+              <p>Nuestros productos cuentan con garantía de 10 días por defectos de fábrica o artículos faltantes.</p>
               <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 space-y-1 text-amber-950 text-[11px]">
                 <p className="font-bold">✓ Cobertura 100% en caso de daño en transporte</p>
                 <p className="font-bold">✓ Pago Contra Entrega: pagas al recibir</p>

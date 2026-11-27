@@ -27,7 +27,7 @@ const THEMES: Theme[] = [
     eyebrow: 'CONOCE ZAVELA STORE', headline: 'Compra hoy. Paga cuando te llegue.', badge: 'PAGO CONTRA ENTREGA', cta: 'Visítanos en zavelastore.com.co' }
 ];
 
-const DEFAULT_CHIPS = ['Envío gratis', 'Pago contra entrega', 'Garantía 30 días'];
+const DEFAULT_CHIPS = ['Envío gratis', 'Pago contra entrega', 'Garantía 10 días'];
 
 type Format = 'square' | 'story';
 const SIZES: Record<Format, { w: number; h: number; label: string }> = {

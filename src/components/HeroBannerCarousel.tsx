@@ -102,7 +102,7 @@ export const HeroBannerCarousel: React.FC<HeroBannerCarouselProps> = ({
             ? '🎉 ¡Producto #1 en ventas de la tienda! Pago Contra Entrega en efectivo al recibir en tu puerta.'
             : (idx === 1 
                 ? '🚚 Envíos express a Bogotá, Medellín, Cali, Barranquilla y más de 1.100 municipios.'
-                : '💎 Fragancias y artículos virales con garantía directa de satisfacción de 30 días.')
+                : '💎 Fragancias y artículos virales con garantía de 10 días por defectos de fábrica.')
         )
       }));
     }

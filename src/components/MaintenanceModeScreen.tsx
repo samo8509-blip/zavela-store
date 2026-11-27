@@ -341,7 +341,7 @@ export const MaintenanceModeScreen: React.FC<MaintenanceModeScreenProps> = ({
             </div>
             <div>
               <h3 className="text-xs font-black text-white">Garantía Protegida</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">30 días de garantía total en todos nuestros productos certificados.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">10 días de garantía por defectos de fábrica o artículos faltantes.</p>
             </div>
           </div>
 
