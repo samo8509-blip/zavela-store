@@ -182,7 +182,7 @@ export const CategoryMosaic: React.FC<CategoryMosaicProps> = ({ sections, onSele
 
   return (
     <section id="home-category-mosaic" aria-label="Compra por categoría" className="zs-font space-y-6">
-      <h2 className="font-semibold text-black text-2xl sm:text-3xl" style={{ letterSpacing: '-0.05em' }}>
+      <h2 className="zs-display text-black text-2xl sm:text-3xl">
         Compra por categoría
       </h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-10 sm:gap-x-5">
