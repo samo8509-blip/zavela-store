@@ -1911,10 +1911,8 @@ Sitemap: ${baseUrl}/sitemap.xml
    */
   /** Política de devoluciones y garantía (página pública, requerida por Google Merchant Center). */
   public renderReturnPolicyPage(baseUrl: string): string {
-    const settings: StoreSettings = db.getSettings();
-    const rawPhone = settings.whatsappSettings?.phoneNumber || settings.whatsappNumber || '573008784427';
-    const whatsappNum = formatWhatsAppNumber(rawPhone);
-    const wa = `https://wa.me/${whatsappNum}?text=${encodeURIComponent('Hola Zavela Store, quiero gestionar una garantía de mi pedido.')}`;
+    const supportEmail = 'pedidos@zavelastore.com.co';
+    const mailto = `mailto:${supportEmail}?subject=${encodeURIComponent('Garantía de mi pedido')}`;
     const title = 'Política de Devoluciones y Garantía | Zavela Store Colombia';
     const desc = 'Garantía de 10 días calendario por defectos de fábrica o artículos faltantes. Cómo solicitarla y qué productos no aplican.';
     return `<!DOCTYPE html>
@@ -1964,7 +1962,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
     <h2>Cómo solicitarla</h2>
     <ol>
-      <li>Escríbenos por WhatsApp dentro del plazo, con tu nombre y el número de tu pedido.</li>
+      <li>Escríbenos por correo a <a href="${mailto}">${supportEmail}</a> dentro del plazo, con tu nombre y el número de tu pedido.</li>
       <li>Envía fotos o un video que muestren el problema, e incluye una imagen del paquete y de la guía de envío con la que llegó.</li>
       <li>Revisamos tu caso y te indicamos cómo devolver el producto: debe enviarse con su empaque original, usando la guía que te daremos.</li>
     </ol>
@@ -1975,11 +1973,11 @@ Sitemap: ${baseUrl}/sitemap.xml
     <h2>Revisión antes del despacho</h2>
     <p>Los productos son revisados por el proveedor antes de ser despachados y se empacan para protegerlos durante el transporte.</p>
 
-    <p><a class="btn" href="${wa}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p>
+    <p><a class="btn" href="${mailto}">Escribir por correo</a></p>
   </main>
   <footer>
     <a href="/">Inicio</a> · <a href="/catalogo">Catálogo</a> · <a href="/quienes-somos">Quiénes somos</a><br>
-    Atención: +${whatsappNum} · Lunes a sábado, 8:00 AM - 7:00 PM
+    Garantías: ${supportEmail}
   </footer>
 </body>
 </html>`;
