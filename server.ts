@@ -69,7 +69,7 @@ async function startServer() {
     const host = String(req.headers.host || '');
     const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
     // Forzar HTTPS: si alguien entra por http:// se le redirige a https:// (no aplica a pruebas locales ni al chequeo de salud)
-    if (proto === 'http' && !local && req.path !== '/api/health') {
+    if (proto === 'http' && !local && /(^|\.)zavelastore\.com\.co(:\d+)?$/i.test(host) && (req.method === 'GET' || req.method === 'HEAD') && req.path !== '/api/health') {
       return res.redirect(301, `https://${host}${req.originalUrl}`);
     }
     if (proto === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains'); // 6 meses
