@@ -164,13 +164,15 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
                   aria-hidden={i >= featured.length ? true : undefined}
                   tabIndex={i >= featured.length ? -1 : 0}
                 >
-                  <img
-                    src={firstImage(p)}
-                    alt={i >= featured.length ? '' : p.title}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    className="w-full aspect-square object-cover rounded-[20px]"
-                  />
+                  <span className="zs-window block w-full aspect-square">
+                    <img
+                      src={firstImage(p)}
+                      alt={i >= featured.length ? '' : p.title}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-contain p-1.5"
+                    />
+                  </span>
                   <span className="block px-2 pt-2 pb-1">
                     <span className="block font-semibold text-xs sm:text-sm leading-tight line-clamp-1 text-black">{p.title}</span>
                     <span className="block text-xs text-[color:var(--shop-muted)]">{formatCOP(p.price)}</span>
@@ -181,7 +183,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
           </div>
         )}
 
-        <h1 className="font-semibold text-black leading-[1.05] text-4xl max-md:text-2xl sm:text-6xl" style={{ letterSpacing: '-0.05em' }}>
+        <h1 className="zs-display text-black leading-[1.05] text-4xl max-md:text-[1.7rem] sm:text-6xl">
           Compra hoy. Paga cuando te llegue<span style={{ color: 'var(--shop-violet)' }}>.</span>
         </h1>
         <p className="max-md:hidden text-base sm:text-lg max-w-xl text-[color:var(--shop-muted)]" style={{ letterSpacing: '-0.031em' }}>
@@ -244,7 +246,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
           { t: '3. Paga', d: 'Pagas en efectivo al recibir. Sin adelantos.' }
         ].map(st => (
           <div key={st.t} className="zs-card p-5 sm:p-6" style={{ transform: 'none' }}>
-            <div className="font-semibold text-xl text-black" style={{ letterSpacing: '-0.05em' }}>{st.t}</div>
+            <div className="zs-display text-xl text-black">{st.t}</div>
             <div className="text-sm text-[color:var(--shop-muted)] mt-1">{st.d}</div>
           </div>
         ))}

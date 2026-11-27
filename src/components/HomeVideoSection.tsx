@@ -74,7 +74,7 @@ export const HomeVideoSection: React.FC<Props> = ({ onCta }) => {
     >
       {/* Celular: titular arriba. Computador: el titular pasa a la derecha */}
       {info.title && (
-        <h2 className="lg:hidden font-semibold text-black text-xl sm:text-3xl leading-tight" style={{ letterSpacing: '-0.04em' }}>{info.title}</h2>
+        <h2 className="lg:hidden zs-display text-black text-xl sm:text-3xl leading-tight">{info.title}</h2>
       )}
       <div ref={boxRef} className="relative w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[240px] lg:shrink-0 aspect-[9/16] rounded-[28px] overflow-hidden bg-black shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
         <video
@@ -110,7 +110,7 @@ export const HomeVideoSection: React.FC<Props> = ({ onCta }) => {
       </div>
       <div className="flex flex-col items-center lg:items-start gap-3 lg:gap-4 min-w-0">
         {info.title && (
-          <h2 className="max-lg:hidden font-semibold text-black text-3xl leading-tight" style={{ letterSpacing: '-0.04em' }}>{info.title}</h2>
+          <h2 className="max-lg:hidden zs-display text-black text-3xl leading-tight">{info.title}</h2>
         )}
         <ul className="max-lg:hidden space-y-2 text-base text-black">
           {['Pagas al recibir, sin tarjeta', 'Envío gratis a toda Colombia', 'Sigue tu pedido con número de guía'].map(t => (

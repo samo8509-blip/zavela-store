@@ -23,6 +23,7 @@ import {
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage, DEFAULT_HOME_PROMO } from './types/index.ts';
 import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
 import { HomeTrustStrip } from './components/HomeTrustStrip.tsx';
+import { HomeNumbersBand } from './components/HomeNumbersBand.tsx';
 import { HomeVideoSection } from './components/HomeVideoSection.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
@@ -1826,7 +1827,10 @@ export default function App() {
           )}
 
           {showCategoryRows ? (
-            <CategoryMosaic sections={categorySections} onSelectProduct={handleSelectProduct} />
+            <>
+              <CategoryMosaic sections={categorySections} onSelectProduct={handleSelectProduct} />
+              <HomeNumbersBand />
+            </>
           ) : (
             <CategoryTiles
               categories={effectiveCategories}
