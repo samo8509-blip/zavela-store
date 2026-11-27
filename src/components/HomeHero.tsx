@@ -51,12 +51,109 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
   };
   const pills = categories.slice(0, 8);
 
+  // Cinta arrastrable: gira sola muy despacio hacia la izquierda y el cliente la puede mover con el dedo o el mouse, rápido o despacio.
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const dragRef = React.useRef<{ x: number; t: number; moved: boolean; id: number } | null>(null);
+  const movedRef = React.useRef(false);
+  const offsetRef = React.useRef(0);
+  const velRef = React.useRef(0); // px por segundo (inercia)
+  const hoverRef = React.useRef(false);
+  const pauseUntil = React.useRef(0);
+  const inViewRef = React.useRef(true);
+  const [reduceMotion] = React.useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const jsMarquee = featured.length >= 5 && !reduceMotion;
+
+  React.useEffect(() => {
+    const track = trackRef.current;
+    const wrap = wrapRef.current;
+    if (!track || !wrap || !jsMarquee) return;
+    let raf = 0;
+    let last = 0;
+    const io = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(([e]) => { inViewRef.current = e.isIntersecting; }, { threshold: 0.01 })
+      : null;
+    io?.observe(wrap);
+    const apply = () => {
+      const half = track.offsetWidth / 2;
+      if (half > 0) {
+        while (offsetRef.current <= -half) offsetRef.current += half;
+        while (offsetRef.current > 0) offsetRef.current -= half;
+      }
+      track.style.transform = `translate3d(${offsetRef.current.toFixed(1)}px,0,0)`;
+    };
+    const step = (t: number) => {
+      const dt = last ? Math.min((t - last) / 1000, 0.1) : 0;
+      last = t;
+      if (inViewRef.current && dt > 0) {
+        const half = track.offsetWidth / 2;
+        if (!dragRef.current) {
+          if (Math.abs(velRef.current) > 4) {
+            offsetRef.current += velRef.current * dt;
+            velRef.current *= Math.pow(0.04, dt); // se frena en ~1 segundo
+          } else if (!hoverRef.current && performance.now() > pauseUntil.current && half > 0) {
+            offsetRef.current -= (half / 70) * dt; // una vuelta completa cada 70 s, igual que antes
+          }
+        }
+        apply();
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => { cancelAnimationFrame(raf); io?.disconnect(); };
+  }, [jsMarquee, featured.length]);
+
+  const onDown = (e: React.PointerEvent) => {
+    if (!jsMarquee || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    dragRef.current = { x: e.clientX, t: performance.now(), moved: false, id: e.pointerId };
+    movedRef.current = false;
+    velRef.current = 0;
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    if (!d.moved && Math.abs(dx) > 6) {
+      d.moved = true;
+      movedRef.current = true;
+      try { (e.currentTarget as HTMLElement).setPointerCapture(d.id); } catch {}
+    }
+    if (d.moved) {
+      const now = performance.now();
+      const dtMs = Math.max(1, now - d.t);
+      offsetRef.current += dx;
+      // velocidad suavizada: así un arrastre rápido sigue con inercia y uno lento se queda donde lo soltaste
+      velRef.current = velRef.current * 0.6 + ((dx / dtMs) * 1000) * 0.4;
+      d.x = e.clientX;
+      d.t = now;
+    }
+  };
+  const onUp = () => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (performance.now() - d.t > 90) velRef.current = 0; // si se detuvo antes de soltar, no hay inercia
+    dragRef.current = null;
+    pauseUntil.current = performance.now() + 2500;
+  };
+
   return (
     <section id="home-hero" aria-label="Bienvenida" className="zs-font overflow-x-clip space-y-12 sm:space-y-16 max-md:space-y-4 pt-2 sm:pt-6">
       <div className="flex flex-col items-center text-center gap-6 sm:gap-8 max-md:gap-3">
         {featured.length > 0 && (
-          <div className="zs-marquee-wrap w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4" aria-label="Productos de la tienda">
-            <div className={`zs-marquee flex items-end gap-4 sm:gap-5 w-max ${featured.length < 5 ? 'zs-marquee-still' : ''}`}>
+          <div
+            ref={wrapRef}
+            className="zs-marquee-wrap w-screen relative left-1/2 -translate-x-1/2 overflow-hidden py-4 select-none"
+            style={jsMarquee ? { touchAction: 'pan-y', cursor: 'grab' } : undefined}
+            aria-label="Productos de la tienda"
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerCancel={onUp}
+            onMouseEnter={() => { hoverRef.current = true; }}
+            onMouseLeave={() => { hoverRef.current = false; }}
+            onClickCapture={(e) => { if (movedRef.current) { e.stopPropagation(); e.preventDefault(); movedRef.current = false; } }}
+          >
+            <div ref={trackRef} className={`zs-marquee flex items-end gap-4 sm:gap-5 w-max ${featured.length < 5 ? 'zs-marquee-still' : ''} ${jsMarquee ? 'zs-marquee-js' : ''}`}>
               {[...featured, ...(featured.length >= 5 ? featured : [])].map((p, i) => (
                 <button
                   key={`${p.id}-${i}`}
