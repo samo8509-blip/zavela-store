@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, Play } from 'lucide-react';
+import { Volume2, VolumeX, Play, Check } from 'lucide-react';
 
 /**
  * Video de campaña en la portada. Solo aparece si el administrador puso uno.
@@ -68,11 +68,15 @@ export const HomeVideoSection: React.FC<Props> = ({ onCta }) => {
   };
 
   return (
-    <section aria-label="Video de ofertas" className="zs-font flex flex-col items-center text-center gap-3 sm:gap-4">
+    <section
+      aria-label="Video de ofertas"
+      className="zs-font flex flex-col items-center text-center gap-3 sm:gap-4 lg:flex-row lg:items-center lg:text-left lg:gap-10 lg:bg-white lg:rounded-[28px] lg:p-8 lg:border lg:border-black/5 lg:max-w-4xl lg:mx-auto lg:w-full"
+    >
+      {/* Celular: titular arriba. Computador: el titular pasa a la derecha */}
       {info.title && (
-        <h2 className="font-semibold text-black text-xl sm:text-3xl leading-tight" style={{ letterSpacing: '-0.04em' }}>{info.title}</h2>
+        <h2 className="lg:hidden font-semibold text-black text-xl sm:text-3xl leading-tight" style={{ letterSpacing: '-0.04em' }}>{info.title}</h2>
       )}
-      <div ref={boxRef} className="relative w-full max-w-[320px] sm:max-w-[360px] aspect-[9/16] rounded-[28px] overflow-hidden bg-black shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
+      <div ref={boxRef} className="relative w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[240px] lg:shrink-0 aspect-[9/16] rounded-[28px] overflow-hidden bg-black shadow-[0_10px_30px_rgba(0,0,0,0.18)]">
         <video
           ref={videoRef}
           src={`/api/home-video?v=${info.version}`}
@@ -104,14 +108,27 @@ export const HomeVideoSection: React.FC<Props> = ({ onCta }) => {
           {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
         </button>
       </div>
-      <button
-        type="button"
-        onClick={onCta}
-        className="font-semibold px-6 py-3 rounded-full text-sm sm:text-base cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95"
-        style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
-      >
-        Ver las ofertas
-      </button>
+      <div className="flex flex-col items-center lg:items-start gap-3 lg:gap-4 min-w-0">
+        {info.title && (
+          <h2 className="max-lg:hidden font-semibold text-black text-3xl leading-tight" style={{ letterSpacing: '-0.04em' }}>{info.title}</h2>
+        )}
+        <ul className="max-lg:hidden space-y-2 text-base text-black">
+          {['Pagas al recibir, sin tarjeta', 'Envío gratis a toda Colombia', 'Sigue tu pedido con número de guía'].map(t => (
+            <li key={t} className="flex items-center gap-2">
+              <Check className="w-5 h-5 shrink-0" style={{ color: 'var(--shop-violet)' }} />
+              <span>{t}</span>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={onCta}
+          className="font-semibold px-6 py-3 rounded-full text-sm sm:text-base cursor-pointer transition-transform hover:-translate-y-0.5 active:scale-95"
+          style={{ background: 'var(--zv-cta, #ff5a4f)', color: 'var(--zv-cta-ink, #fff)' }}
+        >
+          Ver las ofertas
+        </button>
+      </div>
     </section>
   );
 };
