@@ -278,6 +278,7 @@ export class SsrService {
       { loc: `${baseUrl}/catalogo`, priority: '0.9', changefreq: 'daily' },
       { loc: `${baseUrl}/rastreo`, priority: '0.6', changefreq: 'weekly' },
       { loc: `${baseUrl}/quienes-somos`, priority: '0.5', changefreq: 'monthly' },
+      { loc: `${baseUrl}/politica-de-devoluciones`, priority: '0.4', changefreq: 'monthly' },
       { loc: `${baseUrl}/zavelastoresex`, priority: '0.7', changefreq: 'weekly' }
     ];
 
@@ -1908,6 +1909,82 @@ Sitemap: ${baseUrl}/sitemap.xml
   /**
    * Renderiza una página 404 para productos no encontrados con sugerencias.
    */
+  /** Política de devoluciones y garantía (página pública, requerida por Google Merchant Center). */
+  public renderReturnPolicyPage(baseUrl: string): string {
+    const settings: StoreSettings = db.getSettings();
+    const rawPhone = settings.whatsappSettings?.phoneNumber || settings.whatsappNumber || '573008784427';
+    const whatsappNum = formatWhatsAppNumber(rawPhone);
+    const wa = `https://wa.me/${whatsappNum}?text=${encodeURIComponent('Hola Zavela Store, quiero gestionar una garantía de mi pedido.')}`;
+    const title = 'Política de Devoluciones y Garantía | Zavela Store Colombia';
+    const desc = 'Garantía de 10 días calendario por defectos de fábrica o artículos faltantes. Cómo solicitarla y qué productos no aplican.';
+    return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(desc)}">
+  <link rel="canonical" href="${baseUrl}/politica-de-devoluciones">
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #f8fafc; color: #0f172a; margin: 0; line-height: 1.65; }
+    header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 1rem; text-align: center; }
+    header a { color: #0f172a; font-weight: 800; text-decoration: none; font-size: 1.1rem; }
+    main { max-width: 760px; margin: 2rem auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.7rem; margin: 0 0 .5rem; }
+    h2 { font-size: 1.15rem; margin: 1.75rem 0 .5rem; }
+    p, li { color: #334155; font-size: .98rem; }
+    ul { padding-left: 1.2rem; }
+    .btn { display: inline-block; margin-top: .5rem; padding: .75rem 1.4rem; background: #16a34a; color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700; }
+    .note { background: #f1f5f9; border-radius: 10px; padding: .75rem 1rem; font-size: .9rem; }
+    footer { text-align: center; color: #64748b; font-size: .85rem; padding: 1.5rem 1rem 2.5rem; }
+    footer a { color: #4f46e5; }
+  </style>
+</head>
+<body>
+  <header><a href="/">Zavela Store Colombia</a></header>
+  <main>
+    <h1>Política de Devoluciones y Garantía</h1>
+    <p class="note">Aplica a todas las compras hechas en zavelastore.com.co, con envío a toda Colombia y Pago Contra Entrega.</p>
+
+    <h2>Plazo</h2>
+    <p>Tienes <strong>10 días calendario</strong>, contados desde el día en que recibes tu pedido, para reportar un problema.</p>
+
+    <h2>Cuándo aplica</h2>
+    <ul>
+      <li>El producto llegó con <strong>daño de fábrica</strong> o defectuoso.</li>
+      <li>Le <strong>faltan artículos o partes</strong> del contenido del pedido.</li>
+    </ul>
+
+    <h2>Cuándo no aplica</h2>
+    <ul>
+      <li>Artículos de contacto con la piel, el cabello o de consumo (por ejemplo, cosméticos, productos de aseo personal o alimentos), una vez abiertos o usados, por razones de higiene y seguridad.</li>
+      <li>Daños causados por mal uso, golpes o desgaste posterior a la entrega.</li>
+      <li>Reclamos hechos después de los 10 días calendario.</li>
+    </ul>
+
+    <h2>Cómo solicitarla</h2>
+    <ol>
+      <li>Escríbenos por WhatsApp dentro del plazo, con tu nombre y el número de tu pedido.</li>
+      <li>Envía fotos o un video que muestren el problema, e incluye una imagen del paquete y de la guía de envío con la que llegó.</li>
+      <li>Revisamos tu caso y te indicamos cómo devolver el producto: debe enviarse con su empaque original, usando la guía que te daremos.</li>
+    </ol>
+
+    <h2>Solución</h2>
+    <p>Según el caso, se hace el cambio por una unidad nueva o se repone la parte faltante. Los costos de envío de la devolución autorizada los asumimos nosotros.</p>
+
+    <h2>Revisión antes del despacho</h2>
+    <p>Los productos son revisados por el proveedor antes de ser despachados y se empacan para protegerlos durante el transporte.</p>
+
+    <p><a class="btn" href="${wa}" target="_blank" rel="noopener">Escribir por WhatsApp</a></p>
+  </main>
+  <footer>
+    <a href="/">Inicio</a> · <a href="/catalogo">Catálogo</a> · <a href="/quienes-somos">Quiénes somos</a><br>
+    Atención: +${whatsappNum} · Lunes a sábado, 8:00 AM - 7:00 PM
+  </footer>
+</body>
+</html>`;
+  }
+
   public renderProductNotFoundPage(identifier: string, baseUrl: string): string {
     return `<!DOCTYPE html>
 <html lang="es">
