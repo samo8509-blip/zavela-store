@@ -1760,7 +1760,7 @@ export default function App() {
           />
         </main>
       ) : (
-        <main id="main-content" tabIndex={-1} className="flex-1 p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full pb-24 md:pb-6 outline-hidden">
+        <main id="main-content" tabIndex={-1} className="flex-1 p-4 sm:p-6 space-y-8 sm:space-y-12 max-w-7xl mx-auto w-full pb-24 md:pb-6 outline-hidden">
 
           <MobileCategoryTabs
             categories={effectiveCategories}
@@ -1842,7 +1842,7 @@ export default function App() {
           )}
 
           <div id="catalogo" className="scroll-mt-24"></div>
-          <div id="catalog-products-section" className="space-y-5 pt-1 scroll-mt-24 zs-font">
+          <div id="catalog-products-section" className="space-y-6 sm:space-y-8 pt-1 scroll-mt-24 zs-font">
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 zs-bar px-3 sm:px-4 py-2.5">
               <div className={`${showCategoryRows ? 'hidden' : 'flex'} items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full sm:w-auto`}>

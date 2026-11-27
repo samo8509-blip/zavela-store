@@ -138,7 +138,7 @@ export const HomeHero: React.FC<HomeHeroProps> = ({ themeId, style, products, wh
 
   return (
     <section id="home-hero" aria-label="Bienvenida" className="zs-font overflow-x-clip space-y-12 sm:space-y-16 max-md:space-y-4 pt-2 sm:pt-6">
-      <div className="flex flex-col items-center text-center gap-6 sm:gap-8 max-md:gap-3">
+      <div className="flex flex-col items-center text-center gap-6 sm:gap-8 max-md:gap-5">
         {featured.length > 0 && (
           <div
             ref={wrapRef}
