@@ -36,6 +36,24 @@ export function cleanCatName(name: string = ''): string {
     .trim();
 }
 
+/**
+ * Quita de la descripción las frases de garantía/devolución copiadas del proveedor
+ * (esa información está en /politica-de-devoluciones). Si casi no queda texto, devuelve ''.
+ */
+export function cleanProductDescription(text: any): string {
+  const raw = String(text ?? '');
+  if (!raw.trim()) return '';
+  const bad = /garant[ií]a|devoluci[oó]n|devolver|reclam|evidencia fotogr|dropi|gu[ií]a (inicial|asignada)|empaque original|d[ií]as calendario|soporte de garant/i;
+  const kept: string[] = [];
+  for (const line of raw.split(/\r?\n+/)) {
+    const sentences = line.split(/(?<=[.!?])\s+/);
+    const good = sentences.filter(x => x.trim() && !bad.test(x));
+    if (good.length) kept.push(good.join(' ').trim());
+  }
+  const out = kept.join('\n').trim();
+  return out.length >= 40 ? out : '';
+}
+
 /** Slug legible para URLs de producto: "dinosaurio-rex-rc-camina-y-ruge-prod-123". */
 export function productSlug(p: { id: any; slug?: any; title?: any }): string {
   const id = String(p.id);
@@ -405,7 +423,7 @@ Sitemap: ${baseUrl}/sitemap.xml
           '@type': 'Product',
           'name': p.title,
           'image': p.image || `${baseUrl}/images/logo-zavela.jpg`,
-          'description': cleanMetaText(p.shortDescription || p.description, 150),
+          'description': cleanMetaText(cleanProductDescription(p.shortDescription || p.description), 150),
           'url': `${baseUrl}/producto/${encodeURIComponent(productSlug(p))}`,
           'offers': {
             '@type': 'Offer',
@@ -453,7 +471,7 @@ Sitemap: ${baseUrl}/sitemap.xml
             <h2 class="product-title">
               <a href="${productUrl}">${escapeHtml(p.title)}</a>
             </h2>
-            <p class="product-description">${escapeHtml(cleanMetaText(p.shortDescription || p.description, 110))}</p>
+            <p class="product-description">${escapeHtml(cleanMetaText(cleanProductDescription(p.shortDescription || p.description), 110))}</p>
             <div class="price-container">
               <span class="current-price">${formatCOP(p.price)}</span>
               ${hasDiscount ? `<del class="compare-price">${formatCOP(p.compareAtPrice!)}</del>` : ''}
@@ -1162,7 +1180,7 @@ Sitemap: ${baseUrl}/sitemap.xml
       })
       .map(p => {
         const img = p.image || (Array.isArray(p.images) ? p.images[0] : '') || '';
-        const desc = clean(p.description || p.shortDescription || p.title, 4500);
+        const desc = clean(cleanProductDescription(p.description) || cleanProductDescription(p.shortDescription) || `${p.title}${p.categoryName ? ' - ' + cleanCatName(p.categoryName) : ''}. Disponible en Zavela Store con envío a toda Colombia y Pago Contra Entrega.`, 4500);
         return [
           clean(p.id, 50),
           clean(p.title, 150),
@@ -1204,7 +1222,7 @@ Sitemap: ${baseUrl}/sitemap.xml
     }
 
     const titleText = `${product.title} | Zavela Store Colombia - Pago Contra Entrega`;
-    const cleanDesc = cleanMetaText(product.description || product.shortDescription || `${product.title} con despacho a toda Colombia y Pago Contra Entrega en efectivo al recibir en casa.`);
+    const cleanDesc = cleanMetaText(cleanProductDescription(product.description) || cleanProductDescription(product.shortDescription) || `${product.title} con despacho a toda Colombia y Pago Contra Entrega en efectivo al recibir en casa.`);
     const canonicalUrl = `${baseUrl}/producto/${encodeURIComponent(productSlug(product))}`;
     const imageUrl = product.image ? (product.image.startsWith('http') ? product.image : `${baseUrl}${product.image}`) : `${baseUrl}/images/logo-zavela.jpg`;
 
@@ -1849,7 +1867,7 @@ Sitemap: ${baseUrl}/sitemap.xml
 
       <div class="description-section">
         <h2>Descripción del Producto</h2>
-        <div class="description-body">${escapeHtml(product.description || product.shortDescription || 'Producto oficial disponible en Zavela Store Colombia con garantía de satisfacción.')}</div>
+        <div class="description-body">${escapeHtml(cleanProductDescription(product.description) || cleanProductDescription(product.shortDescription) || `${product.title} disponible en Zavela Store Colombia con envío a todo el país y Pago Contra Entrega.`)}</div>
       </div>
     </div>
   </main>
