@@ -457,10 +457,45 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
       };
       const blob = await recordVideo(cfg, { voice: voiceMode === 'none' ? null : voiceBuf, music, musicBuf, script }, setVideoPct);
       setVideoBlob(blob);
+      setVideoTitle(String(base.headline || '').replace(/\{n\}/g, ''));
       setVideoUrl(URL.createObjectURL(blob));
     } catch (e: any) {
       alert(e?.message || 'No se pudo crear el video.');
     } finally { setVideoBusy(false); }
+  };
+
+  const [videoTitle, setVideoTitle] = useState('');
+  const [homeBusy, setHomeBusy] = useState(false);
+  const [homeOn, setHomeOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/home-video/info').then(r => r.json()).then(j => setHomeOn(Boolean(j?.exists))).catch(() => setHomeOn(null));
+  }, []);
+
+  const putOnHome = async () => {
+    if (!videoBlob) return;
+    if (!confirm('Este video reemplaza al que esté ahora en la portada de la tienda. ¿Continuar?')) return;
+    setHomeBusy(true);
+    try {
+      const dataUrl: string = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = () => rej(new Error('No se pudo leer el video.')); fr.readAsDataURL(videoBlob); });
+      const r = await fetch('/api/admin/home-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaDataUrl: dataUrl, durationSec: (videoBlob as any).durationSec || 35, title: videoTitle }) });
+      const j = await r.json().catch(() => null);
+      if (!j?.success) throw new Error(j?.message || 'El servidor no respondió. Espera 1 minuto e intenta otra vez.');
+      setHomeOn(true);
+      alert(`Listo: el video (${j.sizeMB} MB) ya está en la portada de la tienda. Recarga la tienda para verlo.`);
+    } catch (e: any) { alert(e?.message || 'No se pudo poner el video en la portada.'); }
+    finally { setHomeBusy(false); }
+  };
+
+  const removeFromHome = async () => {
+    if (!confirm('¿Quitar el video de la portada de la tienda?')) return;
+    setHomeBusy(true);
+    try {
+      const r = await fetch('/api/admin/home-video', { method: 'DELETE' });
+      const j = await r.json().catch(() => null);
+      if (!j?.success) throw new Error(j?.message || 'No se pudo quitar el video.');
+      setHomeOn(false);
+    } catch (e: any) { alert(e?.message || 'No se pudo quitar el video.'); }
+    finally { setHomeBusy(false); }
   };
 
   const [waBusy, setWaBusy] = useState(false);
@@ -622,6 +657,15 @@ export const AdminStorePromo: React.FC<{ products: Product[]; onToast: (m: strin
             <div className="grid grid-cols-2 gap-2">
               <button onClick={downloadVideo} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black cursor-pointer"><Download className="w-4 h-4" /> Descargar video</button>
               <button onClick={() => sendToTikTok('video')} disabled={busy} className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-black text-cyan-300 border border-cyan-400/40 text-xs font-black disabled:opacity-60 cursor-pointer"><Send className="w-4 h-4" /> {busy ? 'Enviando…' : 'Publicar video en TikTok'}</button>
+            </div>
+          )}
+          {videoUrl && (
+            <button onClick={putOnHome} disabled={homeBusy} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-amber-500 text-black text-xs font-black disabled:opacity-60 cursor-pointer">{homeBusy ? 'Guardando en la portada…' : 'Poner este video en la portada de la tienda'}</button>
+          )}
+          {homeOn && (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-900">
+              <span>Hay un video activo en la portada de la tienda.</span>
+              <button onClick={removeFromHome} disabled={homeBusy} className="font-black underline cursor-pointer disabled:opacity-60">Quitar</button>
             </div>
           )}
           {videoUrl && (
