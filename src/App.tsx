@@ -23,6 +23,7 @@ import {
 import { Product, Category, CartItem, Order, ProductVariant, StoreSettings, Advisor, ActiveDiscountCoupon, CustomSubpage, DEFAULT_HOME_PROMO } from './types/index.ts';
 import { HomePromoBand, isPromoBandVisible } from './components/HomePromoBand.tsx';
 import { HomeTrustStrip } from './components/HomeTrustStrip.tsx';
+import { HomeVideoSection } from './components/HomeVideoSection.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { MobileCategoryTabs } from './components/MobileCategoryTabs.tsx';
 import { MobileCartBar, useWaiChatMobileStyle } from './components/MobileCartBar.tsx';
@@ -1782,6 +1783,10 @@ export default function App() {
           />
 
           {showCategoryRows && <HomeTrustStrip />}
+
+          {showCategoryRows && (
+            <HomeVideoSection onCta={() => document.getElementById('catalog-products-section')?.scrollIntoView({ behavior: 'smooth' })} />
+          )}
 
           {showPromoBand && (
             <HomePromoBand

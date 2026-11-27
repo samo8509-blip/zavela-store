@@ -1,4 +1,5 @@
 import { publishProductPhotos, publishPhotoUrls, publishVideoUrl, storeTmpMedia, normalizeVideo } from '../services/tiktokService.ts';
+import { saveHomeVideo, deleteHomeVideo } from './homeVideo.ts';
 import { Router } from 'express';
 import { signAdvisorToken, verifyAdvisorToken, signResetToken, verifyResetToken, signPayToken } from '../middleware/apiGuard.ts';
 import { publicAdvisor, setPresence, refreshAdvisorsIfStale, isSalesAdvisor, isAccountingRole } from '../services/advisorStore.ts';
@@ -3792,6 +3793,28 @@ router.post('/social/video-whatsapp', async (req, res) => {
   } catch (e: any) {
     res.status(500).json({ success: false, message: e?.message || 'No se pudo comprimir el video.' });
   }
+});
+
+/** Pone el video de la campaña en la portada de la tienda (se comprime a ~5 MB y se guarda en MySQL). */
+router.post('/home-video', async (req, res) => {
+  try {
+    const m = /^data:video\/(?:mp4|webm)(?:;codecs=[^;,]+)?;base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body?.mediaDataUrl || ''));
+    if (!m) return res.status(400).json({ success: false, message: 'El video no es válido.' });
+    const dur = Math.max(5, Math.min(90, Number(req.body?.durationSec) || 35));
+    const buf = Buffer.from(m[1], 'base64');
+    if (buf.length > 40 * 1024 * 1024) return res.status(413).json({ success: false, message: 'El archivo pesa más de 40 MB.' });
+    const out = await normalizeVideo(buf, { maxBytes: 5 * 1024 * 1024, durationSec: dur });
+    if (!out.converted) return res.status(500).json({ success: false, message: `No se pudo comprimir el video en el servidor. Motivo: ${out.error || 'desconocido'}` });
+    await saveHomeVideo(out.buf, String(req.body?.title || ''));
+    res.json({ success: true, sizeMB: Math.round(out.buf.length / 1048576 * 10) / 10 });
+  } catch (e: any) {
+    res.status(500).json({ success: false, message: e?.message || 'No se pudo guardar el video en la portada.' });
+  }
+});
+
+router.delete('/home-video', async (_req, res) => {
+  try { await deleteHomeVideo(); res.json({ success: true }); }
+  catch (e: any) { res.status(500).json({ success: false, message: e?.message || 'No se pudo quitar el video.' }); }
 });
 
 /** Campañas de la tienda en TikTok: una imagen (foto) o un video corto generado en el navegador. */
