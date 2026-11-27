@@ -60,6 +60,26 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // ── Seguridad de conexión ──────────────────────────────────────────────────
+  // Render termina el HTTPS delante del servidor y avisa con x-forwarded-proto.
+  app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+    const host = String(req.headers.host || '');
+    const local = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+    // Forzar HTTPS: si alguien entra por http:// se le redirige a https:// (no aplica a pruebas locales ni al chequeo de salud)
+    if (proto === 'http' && !local && req.path !== '/api/health') {
+      return res.redirect(301, `https://${host}${req.originalUrl}`);
+    }
+    if (proto === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains'); // 6 meses
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)'); // el micrófono se usa al grabar la voz de los videos
+    next();
+  });
+
   // Middlewares - Support large image uploads (base64)
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));

@@ -10,8 +10,10 @@
 // Headers CORS requeridos
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Api-Key');
 header('Content-Type: application/json; charset=utf-8');
+
+require_once __DIR__ . '/_guard.php';
 
 // Manejo de preflight OPTIONS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -58,6 +60,7 @@ switch ($method) {
         break;
 
     case 'DELETE':
+        zavela_require_key(); // solo el servidor de la tienda puede borrar pedidos
         // 1. Capturar el ID enviado por React (desde $_GET, o desde el JSON en php://input)
         $rawInput = file_get_contents('php://input');
         $jsonData = json_decode($rawInput, true) ?: [];
