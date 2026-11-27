@@ -33,15 +33,10 @@ import { DEFAULT_CATEGORIES } from './data/categories.ts';
 import { Header } from './components/Header.tsx';
 import { ProductCard } from './components/ProductCard.tsx';
 import { ProductDetailModal } from './components/ProductDetailModal.tsx';
-import { ProductDetailPage } from './pages/ProductDetailPage.tsx';
 import { CartDrawer } from './components/CartDrawer.tsx';
-import { CheckoutModal } from './components/CheckoutModal.tsx';
 import { OrderSuccessModal } from './components/OrderSuccessModal.tsx';
-import { OrderTrackingView } from './components/OrderTrackingView.tsx';
 import { OrderConfirmation } from './components/OrderConfirmation.tsx';
 import { PayLinkPage } from './components/PayLinkPage.tsx';
-import { AdminDashboard } from './components/AdminDashboard.tsx';
-import { AdvisorPortal } from './components/advisor/AdvisorPortal.tsx';
 import { AccountingPortal } from './components/accounting/AccountingPortal.tsx';
 import { isAccountingUser } from './components/accounting/accountingModules.ts';
 import { 
@@ -53,7 +48,6 @@ import {
 } from './components/AdminLoginModal.tsx';
 import { Footer } from './components/Footer.tsx';
 import { SergioMartinezSignature } from './components/SergioMartinezSignature.tsx';
-import { AuthorCertificateModal } from './components/AuthorCertificateModal.tsx';
 import { formatCOP } from './utils/formatters.ts';
 import { 
   TRUST_PALETTES, 
@@ -73,7 +67,6 @@ import { useLuckyWheelTrigger } from './hooks/useLuckyWheelTrigger.ts';
 import { useGamificationConfig } from './hooks/useGamificationConfig.ts';
 import { getCpanelProducts, normalizeCpanelProduct } from './services/cpanelProducts.ts';
 import { subscribeToFirestoreSettings, getFirestoreSettings, saveFirestoreSettings } from './services/firestoreSettings.ts';
-import { ExclusividadZavela } from './components/ExclusividadZavela.tsx';
 import { CustomSubpageView } from './components/CustomSubpageView.tsx';
 import { DEFAULT_CUSTOM_SUBPAGES } from './utils/exclusivityPresets.ts';
 import { registerProductObservation } from './services/commerceMindClient.ts';
@@ -85,7 +78,6 @@ import { CategoryTiles } from './components/CategoryTiles.tsx';
 import { CategoryRows, CategoryRowSection } from './components/CategoryRows.tsx';
 import { MaintenanceModeScreen } from './components/MaintenanceModeScreen.tsx';
 import { AdminMaintenanceBanner } from './components/AdminMaintenanceBanner.tsx';
-import { CustomerOrdersModal } from './components/CustomerOrdersModal.tsx';
 import { NewsletterSubscriptionBox } from './components/NewsletterSubscriptionBox.tsx';
 import { recordCustomerPurchase } from './utils/customerOrdersManager.ts';
 import { 
@@ -94,8 +86,6 @@ import {
   saveCurrentCustomer, 
   subscribeCustomerAuth 
 } from './utils/customerAuthManager.ts';
-import { CustomerAuthModal } from './components/CustomerAuthModal.tsx';
-import { CustomerProfileModal } from './components/CustomerProfileModal.tsx';
 import { 
   extractProductIdentifierFromUrl, 
   resolveProductMatch, 
@@ -104,9 +94,28 @@ import {
 import { ProductNotFoundModal } from './components/ProductNotFoundModal.tsx';
 import { AgeVerificationGate } from './components/AgeVerificationGate.tsx';
 import { trackTikTokAddToCart } from './utils/tiktokPixel.ts';
-import { AdultsOnlyPage } from './components/AdultsOnlyPage.tsx';
-import { QuienesSomosView } from './components/QuienesSomosView.tsx';
 import { useLocation, useNavigate } from 'react-router-dom';
+
+// ── Carga diferida: estas pantallas pesadas se descargan solo cuando se usan (el visitante de la portada no descarga el panel de administración) ──
+const lazyComp = (load: () => Promise<any>, name: string, showLoader: boolean): React.FC<any> => {
+  const L = React.lazy(() => load().then(m => ({ default: m[name] })));
+  const fallback = showLoader
+    ? <div style={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 14 }}>Cargando…</div>
+    : null;
+  return (props: any) => <React.Suspense fallback={fallback}><L {...props} /></React.Suspense>;
+};
+const AdminDashboard = lazyComp(() => import('./components/AdminDashboard.tsx'), 'AdminDashboard', true);
+const AdvisorPortal = lazyComp(() => import('./components/advisor/AdvisorPortal.tsx'), 'AdvisorPortal', true);
+const ExclusividadZavela = lazyComp(() => import('./components/ExclusividadZavela.tsx'), 'ExclusividadZavela', true);
+const OrderTrackingView = lazyComp(() => import('./components/OrderTrackingView.tsx'), 'OrderTrackingView', true);
+const QuienesSomosView = lazyComp(() => import('./components/QuienesSomosView.tsx'), 'QuienesSomosView', true);
+const AdultsOnlyPage = lazyComp(() => import('./components/AdultsOnlyPage.tsx'), 'AdultsOnlyPage', true);
+const ProductDetailPage = lazyComp(() => import('./pages/ProductDetailPage.tsx'), 'ProductDetailPage', true);
+const CheckoutModal = lazyComp(() => import('./components/CheckoutModal.tsx'), 'CheckoutModal', false);
+const CustomerAuthModal = lazyComp(() => import('./components/CustomerAuthModal.tsx'), 'CustomerAuthModal', false);
+const CustomerOrdersModal = lazyComp(() => import('./components/CustomerOrdersModal.tsx'), 'CustomerOrdersModal', false);
+const CustomerProfileModal = lazyComp(() => import('./components/CustomerProfileModal.tsx'), 'CustomerProfileModal', false);
+const AuthorCertificateModal = lazyComp(() => import('./components/AuthorCertificateModal.tsx'), 'AuthorCertificateModal', false);
 
 export function ScrollToTop() {
   const { pathname, search } = useLocation();

@@ -109,6 +109,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
             loading="lazy"
+            decoding="async"
           />
           {stock <= 0 ? (
             <span className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-medium px-2 py-0.5 rounded-full">Agotado</span>
@@ -164,6 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           referrerPolicy="no-referrer"
           className="w-full h-full object-cover rounded-[20px] group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
+            decoding="async"
         />
         {hasDiscount && product.discountPercentage > 0 && (
           <span className="absolute top-5 right-5 bg-white text-[color:var(--shop-violet)] text-xs font-semibold px-2.5 py-1 rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
