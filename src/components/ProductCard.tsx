@@ -72,7 +72,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // Extract up to 2 key highlights or tags
   const keyHighlights = (product.tags && product.tags.length > 0)
     ? product.tags.slice(0, 2)
-    : ['Alta Calidad', 'Garantía 30 Días'];
+    : ['Alta Calidad', 'Garantía 10 Días'];
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);

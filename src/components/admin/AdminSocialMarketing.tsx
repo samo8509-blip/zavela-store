@@ -185,7 +185,7 @@ export const AdminSocialMarketing: React.FC<AdminSocialMarketingProps> = ({
     }
 
     setFbCopy(
-      `${fbHook}\n\nLlega a Zavela Store: *${prod.title}*\n\n💰 *PRECIO ESPECIAL:* ${formattedPrice}\n🚚 *PAGO CONTRA ENTREGA:* Recibes en la puerta de tu casa y pagas en efectivo o transferencia.\n✅ *GARANTÍA OFICIAL:* 30 días de respaldo directo.\n\n👇 ¡Haz tu pedido ahora mismo antes de que se agote el lote!`
+      `${fbHook}\n\nLlega a Zavela Store: *${prod.title}*\n\n💰 *PRECIO ESPECIAL:* ${formattedPrice}\n🚚 *PAGO CONTRA ENTREGA:* Recibes en la puerta de tu casa y pagas en efectivo o transferencia.\n✅ *GARANTÍA OFICIAL:* 10 días por defectos de fábrica.\n\n👇 ¡Haz tu pedido ahora mismo antes de que se agote el lote!`
     );
 
     setIgCopy(

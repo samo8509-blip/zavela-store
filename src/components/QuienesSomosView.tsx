@@ -164,7 +164,7 @@ export const QuienesSomosView: React.FC<QuienesSomosViewProps> = ({
                     <p className="text-xs text-slate-400">Cobertura Nacional</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-2xl sm:text-3xl font-black text-amber-400 font-mono tabular-nums">30 Días</p>
+                    <p className="text-2xl sm:text-3xl font-black text-amber-400 font-mono tabular-nums">10 Días</p>
                     <p className="text-xs text-slate-400">Garantía Directa</p>
                   </div>
                 </div>
@@ -328,7 +328,7 @@ export const QuienesSomosView: React.FC<QuienesSomosViewProps> = ({
                 </div>
 
                 <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
-                  Cero riesgo para tu bolsillo. Implementamos una <strong>garantía de inspección física y pago 100% contra entrega al recibir</strong>. Pagas en efectivo en la puerta de tu hogar únicamente cuando el mensajero te entrega el paquete físico. Además, cuentas con 30 días de garantía oficial directa ante cualquier eventualidad.
+                  Cero riesgo para tu bolsillo. Implementamos una <strong>garantía de inspección física y pago 100% contra entrega al recibir</strong>. Pagas en efectivo en la puerta de tu hogar únicamente cuando el mensajero te entrega el paquete físico. Además, cuentas con 10 días de garantía por defectos de fábrica o artículos faltantes.
                 </p>
 
                 {/* Key Commitment Highlights */}
@@ -343,7 +343,7 @@ export const QuienesSomosView: React.FC<QuienesSomosViewProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Garantía de 30 días con reemplazo rápido sin trámites complicados</span>
+                    <span>Garantía de 10 días por defectos de fábrica o artículos faltantes</span>
                   </div>
                 </div>
               </div>

@@ -26,7 +26,7 @@ export const AdminTrustBadges: React.FC<AdminTrustBadgesProps> = ({
   const [badges, setBadges] = useState<TrustBadge[]>(
     settings.trustBadges || [
       { id: 'b1', icon: 'Truck', title: 'Pago Contra Entrega', description: 'Pagas en efectivo al recibir tu pedido en cualquier ciudad de Colombia.', active: true },
-      { id: 'b2', icon: 'Shield', title: 'Garantía Zavela Store', description: '30 días de garantía directa por defectos de fábrica en todos los productos.', active: true },
+      { id: 'b2', icon: 'Shield', title: 'Garantía Zavela Store', description: '10 días de garantía por defectos de fábrica o artículos faltantes.', active: true },
       { id: 'b3', icon: 'Clock', title: 'Despachos en 24H', description: 'Alistamos y enviamos tus compras el mismo día hábil con transportadoras líderes.', active: true },
       { id: 'b4', icon: 'Award', title: 'Productos 100% Verificados', description: 'Calidad certificada y empaque seguro para una entrega impecable.', active: true },
     ]

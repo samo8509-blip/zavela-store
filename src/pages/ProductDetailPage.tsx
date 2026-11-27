@@ -506,7 +506,7 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
                   <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 uppercase">Garantía 30 Días</h4>
+                  <h4 className="text-xs font-black text-slate-900 uppercase">Garantía 10 Días</h4>
                   <p className="text-[10px] text-slate-500">Inspección física al recibir</p>
                 </div>
               </div>
@@ -907,11 +907,11 @@ export const ProductDetailPage: React.FC<ProductDetailPageProps> = ({
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
                 <span className="font-bold text-slate-900 block mb-1">🛡️ ¿Qué garantía tengo?</span>
-                <p className="text-slate-600">Garantía oficial por defectos de fábrica. Reemplazo inmediato sin trámites engorrosos.</p>
+                <p className="text-slate-600">10 días desde la entrega por defectos de fábrica o artículos faltantes. Se pide por correo, con fotos del producto y del paquete.</p>
               </div>
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
                 <span className="font-bold text-slate-900 block mb-1">💬 Soporte y Asesoría</span>
-                <p className="text-slate-600">Atención personalizada vía WhatsApp para ayudarte con cualquier duda antes o después de la entrega.</p>
+                <p className="text-slate-600">Resolvemos tus dudas de compra por WhatsApp. Las garantías se gestionan por correo: pedidos@zavelastore.com.co.</p>
               </div>
             </div>
           </div>
